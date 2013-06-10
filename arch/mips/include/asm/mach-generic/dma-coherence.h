@@ -70,4 +70,16 @@ static inline int plat_device_is_coherent(struct device *dev)
 	}
 }
 
+#ifdef CONFIG_SWIOTLB
+static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+{
+	return paddr;
+}
+
+static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+{
+	return daddr;
+}
+#endif
+
 #endif /* __ASM_MACH_GENERIC_DMA_COHERENCE_H */
