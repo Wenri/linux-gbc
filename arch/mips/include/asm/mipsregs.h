@@ -703,6 +703,26 @@
 #define MIPS_PWCTL_PSN_SHIFT	0
 #define MIPS_PWCTL_PSN_MASK	0x0000003f
 
+/*
+ * Bits in the MIPS32 Memory Segmentation registers.
+ */
+#define MIPS_SEGCFG_PA_SHIFT	9
+#define MIPS_SEGCFG_PA		(_ULCAST_(127) << MIPS_SEGCFG_PA_SHIFT)
+#define MIPS_SEGCFG_AM_SHIFT	4
+#define MIPS_SEGCFG_AM		(_ULCAST_(7) << MIPS_SEGCFG_AM_SHIFT)
+#define MIPS_SEGCFG_EU_SHIFT	3
+#define MIPS_SEGCFG_EU		(_ULCAST_(1) << MIPS_SEGCFG_EU_SHIFT)
+#define MIPS_SEGCFG_C_SHIFT	0
+#define MIPS_SEGCFG_C		(_ULCAST_(7) << MIPS_SEGCFG_C_SHIFT)
+
+#define MIPS_SEGCFG_UUSK	_ULCAST_(7)
+#define MIPS_SEGCFG_USK		_ULCAST_(5)
+#define MIPS_SEGCFG_MUSUK	_ULCAST_(4)
+#define MIPS_SEGCFG_MUSK	_ULCAST_(3)
+#define MIPS_SEGCFG_MSK		_ULCAST_(2)
+#define MIPS_SEGCFG_MK		_ULCAST_(1)
+#define MIPS_SEGCFG_UK		_ULCAST_(0)
+
 #ifndef __ASSEMBLY__
 
 /*
@@ -1190,6 +1210,16 @@ do {									\
 #define read_c0_ebase()		__read_32bit_c0_register($15, 1)
 #define write_c0_ebase(val)	__write_32bit_c0_register($15, 1, val)
 
+/* MIPSR3 */
+#define read_c0_segctl0()	__read_32bit_c0_register($5, 2)
+#define write_c0_segctl0(val)	__write_32bit_c0_register($5, 2, val)
+
+#define read_c0_segctl1()	__read_32bit_c0_register($5, 3)
+#define write_c0_segctl1(val)	__write_32bit_c0_register($5, 3, val)
+
+#define read_c0_segctl2()	__read_32bit_c0_register($5, 4)
+#define write_c0_segctl2(val)	__write_32bit_c0_register($5, 4, val)
+
 /* Hardware Page Table Walker */
 #define read_c0_pwbase()	__read_ulong_c0_register($5, 5)
 #define write_c0_pwbase(val)	__write_ulong_c0_register($5, 5, val)
@@ -1413,7 +1443,6 @@ do {									\
 	: "=r" (mfhi3)); 						\
 	mfhi3;								\
 })
-
 
 #define mtlo0(x)							\
 ({									\

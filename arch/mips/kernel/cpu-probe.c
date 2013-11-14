@@ -328,6 +328,8 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 		c->options |= MIPS_CPU_MICROMIPS;
 	if (config3 & MIPS_CONF3_VZ)
 		c->ases |= MIPS_ASE_VZ;
+	if (config3 & MIPS_CONF3_SC)
+		c->options |= MIPS_CPU_SEGMENTS;
 	/* Only tested on 32-bit cores */
 	if ((config3 & MIPS_CONF3_PW) && config_enabled(CONFIG_32BIT))
 		c->options |= MIPS_CPU_HTW;
