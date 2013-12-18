@@ -14,3 +14,4 @@ generic-y += serial.h
 generic-y += trace_clock.h
 generic-y += ucontext.h
 generic-y += xor.h
+generic-y += hash.h
