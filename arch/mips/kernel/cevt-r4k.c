@@ -201,7 +201,8 @@ int r4k_clockevent_init(void)
 	cd = &per_cpu(mips_clockevent_device, cpu);
 
 	cd->name		= "MIPS";
-	cd->features		= CLOCK_EVT_FEAT_ONESHOT;
+	cd->features		= CLOCK_EVT_FEAT_ONESHOT |
+				  CLOCK_EVT_FEAT_C3STOP;
 
 	cd->rating		= 300;
 	cd->irq			= irq;
