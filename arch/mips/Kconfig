@@ -52,6 +52,7 @@ config MIPS
 	select ARCH_SUPPORTS_NUMA_BALANCING
 	select ARCH_WANTS_PROT_NUMA_PROT_NONE
 	select HAVE_CC_STACKPROTECTOR
+	select CPU_PM if CPU_IDLE
 
 menu "Machine selection"
 
