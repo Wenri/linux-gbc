@@ -74,9 +74,6 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 		/* Clear Count/Compare Interrupt */
 		write_c0_compare(read_c0_compare());
 		cd = &per_cpu(mips_clockevent_device, cpu);
-#ifdef CONFIG_CEVT_GIC
-		if (!gic_present)
-#endif
 		cd->event_handler(cd);
 	}
 
@@ -212,9 +209,6 @@ int r4k_clockevent_init(void)
 	cd->set_mode		= mips_set_clock_mode;
 	cd->event_handler	= mips_event_handler;
 
-#ifdef CONFIG_CEVT_GIC
-	if (!gic_present)
-#endif
 	clockevents_config_and_register(cd, mips_hpt_frequency, 0x300, 0x7fffffff);
 
 	if (cp0_timer_irq_installed)
