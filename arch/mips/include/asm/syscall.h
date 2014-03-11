@@ -130,7 +130,7 @@ extern const unsigned long sysn32_call_table[];
 static inline int syscall_get_arch(struct task_struct *task,
 				   struct pt_regs *regs)
 {
-	int arch = EM_MIPS;
+	int arch = AUDIT_ARCH_MIPS;
 #ifdef CONFIG_64BIT
 	if (!test_thread_flag(task, TIF_32BIT_REGS)) {
 		arch |= __AUDIT_ARCH_64BIT;
