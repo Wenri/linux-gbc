@@ -58,7 +58,7 @@ void __init early_init_dt_setup_initrd_arch(unsigned long start,
 }
 #endif
 
-void __init __dt_setup_arch(struct boot_param_header *bph)
+void __init __dt_setup_arch(void *bph)
 {
 	if (!early_init_dt_scan(bph))
 		return;
