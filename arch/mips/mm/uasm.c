@@ -55,7 +55,7 @@ enum opcode {
 	insn_ldx, insn_ll, insn_lld, insn_lui, insn_lw, insn_lwx, insn_mfc0,
 	insn_mfhi, insn_mtc0, insn_or, insn_ori, insn_pref, insn_rfe,
 	insn_rotr, insn_sc, insn_scd, insn_sd, insn_sll, insn_sllv, insn_sltiu,
-	insn_sra, insn_srl, insn_srlv, insn_subu, insn_sw, insn_sync,
+	insn_sltu, insn_sra, insn_srl, insn_srlv, insn_subu, insn_sw, insn_sync,
 	insn_syscall, insn_tlbp, insn_tlbr, insn_tlbwi, insn_tlbwr, insn_wait,
 	insn_xor, insn_xori, insn_yield, insn_lddir, insn_ldpte, insn_gssq,
 	insn_gslq,
@@ -297,6 +297,7 @@ I_u4u2u1s3(_gslq)
 I_u2u1u3(_sll)
 I_u3u2u1(_sllv)
 I_u2u1s3(_sltiu)
+I_u3u1u2(_sltu)
 I_u2u1u3(_sra)
 I_u2u1u3(_srl)
 I_u3u2u1(_srlv)
