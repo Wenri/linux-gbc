@@ -9,6 +9,10 @@ obj-$(CONFIG_CPU_IDLE_CALXEDA) += cpuidle-calxeda.o
 obj-$(CONFIG_ARCH_KIRKWOOD) += cpuidle-kirkwood.o
 
 ###############################################################################
+# MIPS drivers
+obj-$(CONFIG_MIPS_CPS_CPUIDLE)		+= cpuidle-cps.o
+
+###############################################################################
 # POWERPC drivers
 obj-$(CONFIG_PSERIES_CPUIDLE)		+= cpuidle-pseries.o
 obj-$(CONFIG_POWERNV_CPUIDLE)		+= cpuidle-powernv.o
