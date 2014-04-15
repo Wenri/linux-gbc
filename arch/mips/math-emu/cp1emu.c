@@ -1324,8 +1324,8 @@ static const unsigned char cmptab[8] = {
  */
 
 #define DEF3OP(name, p, f1, f2, f3) \
-static ieee754##p fpemu_##p##_##name(ieee754##p r, ieee754##p s, \
-    ieee754##p t) \
+static union ieee754##p fpemu_##p##_##name(union ieee754##p r, union ieee754##p s, \
+    union ieee754##p t) \
 { \
 	struct _ieee754_csr ieee754_csr_save; \
 	s = f1(s, t); \
@@ -1339,22 +1339,22 @@ static ieee754##p fpemu_##p##_##name(ieee754##p r, ieee754##p s, \
 	return s; \
 }
 
-static ieee754dp fpemu_dp_recip(ieee754dp d)
+static union ieee754dp fpemu_dp_recip(union ieee754dp d)
 {
 	return ieee754dp_div(ieee754dp_one(0), d);
 }
 
-static ieee754dp fpemu_dp_rsqrt(ieee754dp d)
+static union ieee754dp fpemu_dp_rsqrt(union ieee754dp d)
 {
 	return ieee754dp_div(ieee754dp_one(0), ieee754dp_sqrt(d));
 }
 
-static ieee754sp fpemu_sp_recip(ieee754sp s)
+static union ieee754sp fpemu_sp_recip(union ieee754sp s)
 {
 	return ieee754sp_div(ieee754sp_one(0), s);
 }
 
-static ieee754sp fpemu_sp_rsqrt(ieee754sp s)
+static union ieee754sp fpemu_sp_rsqrt(union ieee754sp s)
 {
 	return ieee754sp_div(ieee754sp_one(0), ieee754sp_sqrt(s));
 }
@@ -1378,8 +1378,8 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	switch (MIPSInst_FMA_FFMT(ir)) {
 	case s_fmt:{		/* 0 */
 
-		ieee754sp(*handler) (ieee754sp, ieee754sp, ieee754sp);
-		ieee754sp fd, fr, fs, ft;
+		union ieee754sp(*handler) (union ieee754sp, union ieee754sp, union ieee754sp);
+		union ieee754sp fd, fr, fs, ft;
 		u32 __user *va;
 		u32 val;
 
@@ -1467,8 +1467,8 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	}
 
 	case d_fmt:{		/* 1 */
-		ieee754dp(*handler) (ieee754dp, ieee754dp, ieee754dp);
-		ieee754dp fd, fr, fs, ft;
+		union ieee754dp(*handler) (union ieee754dp, union ieee754dp, union ieee754dp);
+		union ieee754dp fd, fr, fs, ft;
 		u64 __user *va;
 		u64 val;
 
@@ -1563,8 +1563,8 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	unsigned rcsr = 0;	/* resulting csr */
 	unsigned cond;
 	union {
-		ieee754dp d;
-		ieee754sp s;
+		union ieee754dp d;
+		union ieee754sp s;
 		int w;
 #ifdef __mips64
 		s64 l;
@@ -1575,8 +1575,8 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	switch (rfmt = (MIPSInst_FFMT(ir) & 0xf)) {
 	case s_fmt:{		/* 0 */
 		union {
-			ieee754sp(*b) (ieee754sp, ieee754sp);
-			ieee754sp(*u) (ieee754sp);
+			union ieee754sp(*b) (union ieee754sp, union ieee754sp);
+			union ieee754sp(*u) (union ieee754sp);
 		} handler;
 
 		switch (MIPSInst_FUNC(ir)) {
@@ -1641,7 +1641,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			/* binary op on handler */
 		      scopbop:
 			{
-				ieee754sp fs, ft;
+				union ieee754sp fs, ft;
 
 				SPFROMREG(fs, MIPSInst_FS(ir));
 				SPFROMREG(ft, MIPSInst_FT(ir));
@@ -1651,7 +1651,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			}
 		      scopuop:
 			{
-				ieee754sp fs;
+				union ieee754sp fs;
 
 				SPFROMREG(fs, MIPSInst_FS(ir));
 				rv.s = (*handler.u) (fs);
@@ -1674,7 +1674,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case fcvts_op:
 			return SIGILL;	/* not defined */
 		case fcvtd_op:{
-			ieee754sp fs;
+			union ieee754sp fs;
 
 			SPFROMREG(fs, MIPSInst_FS(ir));
 			rv.d = ieee754dp_fsp(fs);
@@ -1682,7 +1682,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			goto copcsr;
 		}
 		case fcvtw_op:{
-			ieee754sp fs;
+			union ieee754sp fs;
 
 			SPFROMREG(fs, MIPSInst_FS(ir));
 			rv.w = ieee754sp_tint(fs);
@@ -1696,7 +1696,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case fceil_op:
 		case ffloor_op:{
 			unsigned int oldrm = ieee754_csr.rm;
-			ieee754sp fs;
+			union ieee754sp fs;
 
 			SPFROMREG(fs, MIPSInst_FS(ir));
 			ieee754_csr.rm = ieee_rm[modeindex(MIPSInst_FUNC(ir))];
@@ -1709,7 +1709,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 
 #if defined(__mips64)
 		case fcvtl_op:{
-			ieee754sp fs;
+			union ieee754sp fs;
 
 			SPFROMREG(fs, MIPSInst_FS(ir));
 			rv.l = ieee754sp_tlong(fs);
@@ -1722,7 +1722,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case fceill_op:
 		case ffloorl_op:{
 			unsigned int oldrm = ieee754_csr.rm;
-			ieee754sp fs;
+			union ieee754sp fs;
 
 			SPFROMREG(fs, MIPSInst_FS(ir));
 			ieee754_csr.rm = ieee_rm[modeindex(MIPSInst_FUNC(ir))];
@@ -1736,7 +1736,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		default:
 			if (MIPSInst_FUNC(ir) >= fcmp_op) {
 				unsigned cmpop = MIPSInst_FUNC(ir) - fcmp_op;
-				ieee754sp fs, ft;
+				union ieee754sp fs, ft;
 
 				SPFROMREG(fs, MIPSInst_FS(ir));
 				SPFROMREG(ft, MIPSInst_FT(ir));
@@ -1760,8 +1760,8 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 
 	case d_fmt:{
 		union {
-			ieee754dp(*b) (ieee754dp, ieee754dp);
-			ieee754dp(*u) (ieee754dp);
+			union ieee754dp(*b) (union ieee754dp, union ieee754dp);
+			union ieee754dp(*u) (union ieee754dp);
 		} handler;
 
 		switch (MIPSInst_FUNC(ir)) {
@@ -1827,7 +1827,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 
 			/* binary op on handler */
 		      dcopbop:{
-				ieee754dp fs, ft;
+				union ieee754dp fs, ft;
 
 				DPFROMREG(fs, MIPSInst_FS(ir));
 				DPFROMREG(ft, MIPSInst_FT(ir));
@@ -1836,7 +1836,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 				goto copcsr;
 			}
 		      dcopuop:{
-				ieee754dp fs;
+				union ieee754dp fs;
 
 				DPFROMREG(fs, MIPSInst_FS(ir));
 				rv.d = (*handler.u) (fs);
@@ -1845,7 +1845,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 
 			/* unary conv ops */
 		case fcvts_op:{
-			ieee754dp fs;
+			union ieee754dp fs;
 
 			DPFROMREG(fs, MIPSInst_FS(ir));
 			rv.s = ieee754sp_fdp(fs);
@@ -1856,7 +1856,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			return SIGILL;	/* not defined */
 
 		case fcvtw_op:{
-			ieee754dp fs;
+			union ieee754dp fs;
 
 			DPFROMREG(fs, MIPSInst_FS(ir));
 			rv.w = ieee754dp_tint(fs);	/* wrong */
@@ -1870,7 +1870,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case fceil_op:
 		case ffloor_op:{
 			unsigned int oldrm = ieee754_csr.rm;
-			ieee754dp fs;
+			union ieee754dp fs;
 
 			DPFROMREG(fs, MIPSInst_FS(ir));
 			ieee754_csr.rm = ieee_rm[modeindex(MIPSInst_FUNC(ir))];
@@ -1883,7 +1883,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 
 #if defined(__mips64)
 		case fcvtl_op:{
-			ieee754dp fs;
+			union ieee754dp fs;
 
 			DPFROMREG(fs, MIPSInst_FS(ir));
 			rv.l = ieee754dp_tlong(fs);
@@ -1896,7 +1896,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case fceill_op:
 		case ffloorl_op:{
 			unsigned int oldrm = ieee754_csr.rm;
-			ieee754dp fs;
+			union ieee754dp fs;
 
 			DPFROMREG(fs, MIPSInst_FS(ir));
 			ieee754_csr.rm = ieee_rm[modeindex(MIPSInst_FUNC(ir))];
@@ -1910,7 +1910,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		default:
 			if (MIPSInst_FUNC(ir) >= fcmp_op) {
 				unsigned cmpop = MIPSInst_FUNC(ir) - fcmp_op;
-				ieee754dp fs, ft;
+				union ieee754dp fs, ft;
 
 				DPFROMREG(fs, MIPSInst_FS(ir));
 				DPFROMREG(ft, MIPSInst_FT(ir));
@@ -1935,7 +1935,7 @@ static int fpu_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	}
 
 	case w_fmt:{
-		ieee754sp fs;
+		union ieee754sp fs;
 
 		switch (MIPSInst_FUNC(ir)) {
 		case fcvts_op:
