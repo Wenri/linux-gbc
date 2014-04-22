@@ -134,6 +134,8 @@ static inline int syscall_get_arch(struct task_struct *task,
 #ifdef CONFIG_64BIT
 	if (!test_tsk_thread_flag(task, TIF_32BIT_REGS))
 		arch |= __AUDIT_ARCH_64BIT;
+	if (test_thread_flag(TIF_32BIT_ADDR))
+		arch |= __AUDIT_ARCH_CONVENTION_MIPS64_N32;
 #endif
 #if defined(__LITTLE_ENDIAN)
 	arch |=  __AUDIT_ARCH_LE;
