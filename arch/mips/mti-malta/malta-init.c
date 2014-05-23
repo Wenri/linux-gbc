@@ -274,8 +274,4 @@ mips_pci_controller:
 
 	if (!register_vsmp_smp_ops())
 		return;
-
-#ifdef CONFIG_MIPS_MT_SMTC
-	register_smp_ops(&msmtc_smp_ops);
-#endif
 }
