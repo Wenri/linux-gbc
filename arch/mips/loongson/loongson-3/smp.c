@@ -360,14 +360,6 @@ void __cpuinit loongson3_boot_secondary(int cpu, struct task_struct *idle)
 	loongson3_ipi_write64(startargs[0], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x0));
 }
 
-/*
- * Final cleanup after all secondaries booted
- */
-void __init loongson3_cpus_done(void)
-{
-	disable_unused_cpus();
-}
-
 #ifdef CONFIG_HOTPLUG_CPU
 
 extern void fixup_irqs(void);
@@ -719,7 +711,6 @@ struct plat_smp_ops loongson3_smp_ops = {
 	.send_ipi_mask = loongson3_send_ipi_mask,
 	.init_secondary = loongson3_init_secondary,
 	.smp_finish = loongson3_smp_finish,
-	.cpus_done = loongson3_cpus_done,
 	.boot_secondary = loongson3_boot_secondary,
 	.smp_setup = loongson3_smp_setup,
 	.prepare_cpus = loongson3_prepare_cpus,

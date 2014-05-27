@@ -230,13 +230,6 @@ static void bmips_smp_finish(void)
 	irq_enable_hazard();
 }
 
-/*
- * Runs on CPU0 after all CPUs have been booted
- */
-static void bmips_cpus_done(void)
-{
-}
-
 #if defined(CONFIG_CPU_BMIPS5000)
 
 /*
@@ -381,7 +374,6 @@ struct plat_smp_ops bmips_smp_ops = {
 	.boot_secondary		= bmips_boot_secondary,
 	.smp_finish		= bmips_smp_finish,
 	.init_secondary		= bmips_init_secondary,
-	.cpus_done		= bmips_cpus_done,
 	.send_ipi_single	= bmips_send_ipi_single,
 	.send_ipi_mask		= bmips_send_ipi_mask,
 #ifdef CONFIG_HOTPLUG_CPU
