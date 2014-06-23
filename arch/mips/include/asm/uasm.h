@@ -71,6 +71,9 @@ void ISAOPC(op)(u32 **buf, unsigned int a, signed int b, unsigned int c)
 void ISAOPC(op)(u32 **buf, unsigned int a, unsigned int b, signed int c,	\
 	   unsigned int d)
 
+#define Ip_s3s1s2(op)							\
+void ISAOPC(op)(u32 **buf, int a, int b, int c)
+
 #define Ip_u2u1s3(op)							\
 void ISAOPC(op)(u32 **buf, unsigned int a, unsigned int b, signed int c)
 
