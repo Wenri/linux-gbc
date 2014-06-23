@@ -156,6 +156,7 @@ Ip_u4u2u1s3(_gssq);
 Ip_u4u2u1s3(_gslq);
 Ip_u2u1u3(_sll);
 Ip_u3u2u1(_sllv);
+Ip_s3s1s2(_slt);
 Ip_u2u1s3(_sltiu);
 Ip_u3u1u2(_sltu);
 Ip_u2u1u3(_sra);
