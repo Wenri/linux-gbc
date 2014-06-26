@@ -21,8 +21,8 @@
 
 #include <linux/kvm_host.h>
 
-#include "kvm_mips_int.h"
-#include "kvm_mips_comm.h"
+#include "interrupt.h"
+#include "commpage.h"
 
 #define CREATE_TRACE_POINTS
 #include "trace.h"
@@ -77,12 +77,12 @@ int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
 	return 1;
 }
 
-int kvm_arch_hardware_enable(void)
+int kvm_arch_hardware_enable(void *garbage)
 {
 	return 0;
 }
 
-void kvm_arch_hardware_disable(void)
+void kvm_arch_hardware_disable(void *garbage)
 {
 }
 
@@ -205,7 +205,7 @@ int kvm_arch_create_memslot(struct kvm *kvm, struct kvm_memory_slot *slot,
 	return 0;
 }
 
-void kvm_arch_memslots_updated(struct kvm *kvm, struct kvm_memslots *slots)
+void kvm_arch_memslots_updated(struct kvm *kvm)
 {
 }
 
@@ -384,7 +384,6 @@ void kvm_arch_vcpu_free(struct kvm_vcpu *vcpu)
 
 	kfree(vcpu->arch.guest_ebase);
 	kfree(vcpu->arch.kseg0_commpage);
-	kfree(vcpu);
 }
 
 void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
@@ -886,7 +885,7 @@ int kvm_arch_vcpu_fault(struct kvm_vcpu *vcpu, struct vm_fault *vmf)
 	return VM_FAULT_SIGBUS;
 }
 
-int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
+int kvm_dev_ioctl_check_extension(long ext)
 {
 	int r;
 
@@ -1189,7 +1188,7 @@ int __init kvm_mips_init(void)
 	/*
 	 * On MIPS, kernel modules are executed from "mapped space", which
 	 * requires TLBs. The TLB handling code is statically linked with
-	 * the rest of the kernel (kvm_tlb.c) to avoid the possibility of
+	 * the rest of the kernel (tlb.c) to avoid the possibility of
 	 * double faulting. The issue is that the TLB code references
 	 * routines that are part of the the KVM module, which are only
 	 * available once the module is loaded.

@@ -29,9 +29,9 @@
 #include <asm/r4kcache.h>
 #define CONFIG_MIPS_MT
 
-#include "kvm_mips_opcode.h"
-#include "kvm_mips_int.h"
-#include "kvm_mips_comm.h"
+#include "opcode.h"
+#include "interrupt.h"
+#include "commpage.h"
 
 #include "trace.h"
 
@@ -1356,7 +1356,7 @@ int kvm_mips_sync_icache(unsigned long va, struct kvm_vcpu *vcpu)
 	struct kvm *kvm = vcpu->kvm;
 	unsigned long pa;
 	gfn_t gfn;
-	kvm_pfn_t pfn;
+	pfn_t pfn;
 
 	gfn = va >> PAGE_SHIFT;
 
