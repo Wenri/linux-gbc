@@ -35,6 +35,9 @@
 #ifndef cpu_has_rixiex
 #define cpu_has_rixiex		(cpu_data[0].options & MIPS_CPU_RIXIEX)
 #endif
+#ifndef cpu_has_maar
+#define cpu_has_maar		(cpu_data[0].options & MIPS_CPU_MAAR)
+#endif
 #ifndef cpu_has_segments
 #define cpu_has_segments	(cpu_data[0].options & MIPS_CPU_SEGMENTS)
 #endif
