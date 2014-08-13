@@ -32,6 +32,8 @@ struct irq_data;
 extern int plat_set_irq_affinity(struct irq_data *d,
 				 const struct cpumask *affinity, bool force);
 
+asmlinkage void plat_irq_dispatch(void);
+
 extern void do_IRQ(unsigned int irq);
 
 extern void arch_init_irq(void);
