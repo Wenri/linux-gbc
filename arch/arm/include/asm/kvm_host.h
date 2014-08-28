@@ -228,7 +228,7 @@ static inline int kvm_arch_dev_ioctl_check_extension(long ext)
 int kvm_perf_init(void);
 int kvm_perf_teardown(void);
 
-static inline void kvm_arch_hardware_disable(void *garbage) {}
+static inline void kvm_arch_hardware_disable(void) {}
 static inline void kvm_arch_hardware_unsetup(void) {}
 static inline void kvm_arch_sync_events(struct kvm *kvm) {}
 static inline void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu) {}
