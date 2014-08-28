@@ -463,10 +463,6 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 	module_put(kvm->arch.kvm_ops->owner);
 }
 
-void kvm_arch_sync_events(struct kvm *kvm)
-{
-}
-
 int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 {
 	int r;
@@ -627,10 +623,6 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 	kvmppc_core_commit_memory_region(kvm, mem, old, new);
 }
 
-void kvm_arch_flush_shadow_all(struct kvm *kvm)
-{
-}
-
 void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
 				   struct kvm_memory_slot *slot)
 {
@@ -710,10 +702,6 @@ void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu)
 {
 	kvmppc_mmu_destroy(vcpu);
 	kvmppc_subarch_vcpu_uninit(vcpu);
-}
-
-void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu)
-{
 }
 
 void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
@@ -1360,11 +1348,6 @@ EXPORT_SYMBOL_GPL(kvmppc_init_lpid);
 int kvm_arch_init(void *opaque)
 {
 	return 0;
-}
-
-void kvm_arch_exit(void)
-{
-
 }
 
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_ppc_instr);
