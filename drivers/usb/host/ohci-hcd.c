@@ -700,6 +700,7 @@ retry:
 	/* some OHCI implementations are finicky about how they init.
 	 * bogus values here mean not even enumeration could work.
 	 */
+	udelay(10);
 	if ((ohci_readl (ohci, &ohci->regs->fminterval) & 0x3fff0000) == 0
 			|| !ohci_readl (ohci, &ohci->regs->periodicstart)) {
 		if (!(ohci->flags & OHCI_QUIRK_INITRESET)) {
