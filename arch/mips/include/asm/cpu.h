@@ -366,6 +366,7 @@ enum cpu_type_enum {
 #define MIPS_CPU_FTLB		0x100000000ull /* CPU has Fixed-page-size TLB */
 #define MIPS_CPU_LDPTE		0x200000000ull /* CPU has ldpte/lddir instructions */
 #define MIPS_CPU_MAAR		0x400000000ull /* MAAR(I) registers are present */
+#define MIPS_CPU_FRE		0x800000000ull /* FRE & UFE bits implemented */
 
 /*
  * CPU ASE encodings
