@@ -36,6 +36,10 @@ u64 loongson_pciio_base;
 u64 vgabios_addr;
 u64 poweroff_addr, restart_addr;
 
+u64 loongson_chipcfg[MAX_PACKAGES];
+
+unsigned long long smp_group[4];
+
 enum loongson_cpu_type cputype;
 u32 nr_cpus_loongson = NR_CPUS;
 u32 nr_nodes_loongson = MAX_NUMNODES;
@@ -89,14 +93,33 @@ void __init prom_init_env(void)
 	if (cputype == Loongson_3A) {
 		cores_per_node = 4;
 		cores_per_package = 4;
+		smp_group[0] = 0x900000003ff01000;
+		smp_group[1] = 0x900010003ff01000;
+		smp_group[2] = 0x900020003ff01000;
+		smp_group[3] = 0x900030003ff01000;
+		ht_control_base = 0x90000EFDFB000000;
+		loongson_chipcfg[0] = 0x900000001fe00180;
+		loongson_chipcfg[1] = 0x900010001fe00180;
+		loongson_chipcfg[2] = 0x900020001fe00180;
+		loongson_chipcfg[3] = 0x900030001fe00180;
 	}
 	else if (cputype == Loongson_3B) {
 		cores_per_node = 4;
 		cores_per_package = 8;
+		smp_group[0] = 0x900000003ff01000;
+		smp_group[1] = 0x900010003ff05000;
+		smp_group[2] = 0x900020003ff09000;
+		smp_group[3] = 0x900030003ff0d000;
+		ht_control_base = 0x90001EFDFB000000;
+		loongson_chipcfg[0] = 0x900000001fe001d0;
+		loongson_chipcfg[1] = 0x900020001fe001d0;
+		loongson_chipcfg[2] = 0x900040001fe001d0;
+		loongson_chipcfg[3] = 0x900060001fe001d0;
 	}
 	else {
 		cores_per_node = 1;
 		cores_per_package = 1;
+		loongson_chipcfg[0] = 0x900000001fe00180;
 	}
 
 	nr_cpus_loongson = ecpu->nr_cpus;
@@ -113,7 +136,6 @@ void __init prom_init_env(void)
 	restart_addr = boot_p->reset_system.ResetWarm;
 	pr_info("Shutdown Addr: %llx Reset Addr: %llx\n", poweroff_addr, restart_addr);
 
-	ht_control_base = 0x90000EFDFB000000; /* has no interface now */
 	vgabios_addr = boot_p->efi.smbios.vga_bios;
 #endif
 	if (cpu_clock_freq == 0) {
@@ -127,6 +149,10 @@ void __init prom_init_env(void)
 			break;
 		case PRID_REV_LOONGSON3A:
 			cpu_clock_freq = 900000000;
+			break;
+		case PRID_REV_LOONGSON3B_R1:
+		case PRID_REV_LOONGSON3B_R2:
+			cpu_clock_freq = 1000000000;
 			break;
 		default:
 			cpu_clock_freq = 100000000;

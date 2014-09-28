@@ -248,7 +248,7 @@ static void loongson3_cpu_die(unsigned int cpu)
  * flush all L1 entries at first. Then, another core (usually Core 0) can
  * safely disable the clock of the target core. loongson3_play_dead() is
  * called via CKSEG1 (uncached and unmmaped) */
-void loongson3_play_dead(int *state_addr)
+void loongson3a_play_dead(int *state_addr)
 {
 	__asm__ __volatile__(
 		"      .set push                         \n"
@@ -298,6 +298,59 @@ void loongson3_play_dead(int *state_addr)
 		"      nop                               \n"
 		"      .set pop                          \n");
 }
+void loongson3b_play_dead(int *state_addr)
+
+{
+	__asm__ __volatile__(
+		"      .set push                         \n"
+		"      .set noreorder                    \n"
+		"      li $t0, 0x80000000                \n" /* KSEG0 */
+		"      li $t1, 512                       \n" /* num of L1 entries */
+		"1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */
+		"      cache 0, 1($t0)                   \n"
+		"      cache 0, 2($t0)                   \n"
+		"      cache 0, 3($t0)                   \n"
+		"      cache 1, 0($t0)                   \n" /* flush L1 DCache */
+		"      cache 1, 1($t0)                   \n"
+		"      cache 1, 2($t0)                   \n"
+		"      cache 1, 3($t0)                   \n"
+		"      addiu $t0, $t0, 0x20              \n"
+		"      bnez  $t1, 1b                     \n"
+		"      addiu $t1, $t1, -1                \n"
+		"      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
+		"      sw    $t0, 0($a0)                 \n"
+		"      sync                              \n"
+		"      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
+		"      .set pop                          \n");
+
+	__asm__ __volatile__(
+		"      .set push                         \n"
+		"      .set noreorder                    \n"
+		"      .set mips64                       \n"
+		"      mfc0  $t2, $15, 1                 \n"
+		"      andi  $t2, 0x3ff                  \n"
+		"      dli   $t0, 0x900000003ff01000     \n"
+		"      andi  $t3, $t2, 0x3               \n"
+		"      sll   $t3, 8                      \n"  /* get cpu id */
+		"      or    $t0, $t0, $t3               \n"
+		"      andi  $t1, $t2, 0xc               \n"
+		"      dsll  $t1, 42                     \n"  /* get node id */
+		"      or    $t0, $t0, $t1               \n"
+		"      dsrl  $t1, 30                     \n"  /* 15:14 */
+		"      or    $t0, $t0, $t1               \n"
+		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
+		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
+		"      addiu $a0, -1                     \n"
+		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
+		"      beqz  $v0, 1b                     \n"
+		"      nop                               \n"
+		"      ld    $sp, 0x28($t0)              \n"  /* get SP via mailbox */
+		"      ld    $gp, 0x30($t0)              \n"  /* get GP via mailbox */
+		"      ld    $a1, 0x38($t0)              \n"
+		"      jr  $v0                           \n"  /* jump to initial PC */
+		"      nop                               \n"
+		"      .set pop                          \n");
+}
 
 void play_dead(void)
 {
@@ -306,10 +359,58 @@ void play_dead(void)
 	void (*play_dead_at_ckseg1)(int *);
 
 	idle_task_exit();
-	play_dead_at_ckseg1 = (void *)CKSEG1ADDR((unsigned long)loongson3_play_dead);
+	switch (cputype) {
+	case Loongson_3A:
+	default:
+		play_dead_at_ckseg1 = (void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
+		break;
+	case Loongson_3B:
+		play_dead_at_ckseg1 = (void *)CKSEG1ADDR((unsigned long)loongson3b_play_dead);
+		break;
+	}
 	state_addr = &per_cpu(cpu_state, cpu);
 	mb();
 	play_dead_at_ckseg1(state_addr);
+}
+
+void loongson3_disable_clock(int cpu)
+{
+	uint64_t core_id = cpu_data[cpu].core;
+	uint64_t package_id = cpu_data[cpu].package;
+
+	if (cputype == Loongson_3A) {
+		LOONGSON_CHIPCFG(package_id) &= ~(1 << (12 + core_id));
+	}
+	else if (cputype == Loongson_3B) {
+		switch (read_c0_prid() & 0xf) {
+			case PRID_REV_LOONGSON3B_R1:
+			case PRID_REV_LOONGSON3B_R2:
+				break;
+			default:
+				LOONGSON_CHIPCFG(package_id) &= ~(1 << (core_id * 4 + 3));
+				break;
+		}
+	}
+}
+
+void loongson3_enable_clock(int cpu)
+{
+	uint64_t core_id = cpu_data[cpu].core;
+	uint64_t package_id = cpu_data[cpu].package;
+
+	if (cputype == Loongson_3A) {
+		LOONGSON_CHIPCFG(package_id) |= 1 << (12 + core_id);
+	}
+	else if (cputype == Loongson_3B) {
+		switch (read_c0_prid() & 0xf) {
+			case PRID_REV_LOONGSON3B_R1:
+			case PRID_REV_LOONGSON3B_R2:
+				break;
+			default:
+				LOONGSON_CHIPCFG(package_id) |= 1 << (cpu * 4 + 3);
+				break;
+		}
+	}
 }
 
 #define CPU_POST_DEAD_FROZEN	(CPU_POST_DEAD | CPU_TASKS_FROZEN)
@@ -317,38 +418,17 @@ static int loongson3_cpu_callback(struct notifier_block *nfb,
 	unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
-	unsigned int node = cpu / cores_per_node;
-	unsigned int core_id = cpu % cores_per_node;
 
 	switch (action) {
 	case CPU_POST_DEAD:
 	case CPU_POST_DEAD_FROZEN:
 		printk(KERN_INFO "Disable clock for CPU#%d\n", cpu);
-		if (node == 0)
-			LOONGSON_CHIPCFG0 &= ~(1 << (12 + core_id));
-#ifdef CONFIG_NUMA
-		else if (node == 1)
-			LOONGSON_CHIPCFG1 &= ~(1 << (12 + core_id));
-		else if (node == 2)
-			LOONGSON_CHIPCFG2 &= ~(1 << (12 + core_id));
-		else if (node == 3)
-			LOONGSON_CHIPCFG3 &= ~(1 << (12 + core_id));
-#endif
+		loongson3_disable_clock(cpu);
 		break;
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
 		printk(KERN_INFO "Enable clock for CPU#%d\n", cpu);
-		if (node == 0)
-			LOONGSON_CHIPCFG0 |= 1 << (12 + core_id);
-#ifdef CONFIG_NUMA
-		else if (node == 1)
-			LOONGSON_CHIPCFG1 |= 1 << (12 + core_id);
-		else if (node == 2)
-			LOONGSON_CHIPCFG2 |= 1 << (12 + core_id);
-		else if (node == 3)
-			LOONGSON_CHIPCFG3 |= 1 << (12 + core_id);
-#endif
-
+		loongson3_enable_clock(cpu);
 		break;
 	}
 	return NOTIFY_OK;
