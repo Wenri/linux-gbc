@@ -1233,6 +1233,8 @@ static void __init loongson3_sc_init(void)
 	scache_size = c->scache.sets *
 				  c->scache.ways *
 				  c->scache.linesz;
+
+	c->scache.waysize = scache_size / c->scache.ways;
 	/* Loongson-3 has 4 cores, 1MB scache for each. scaches are shared */
 	scache_size *= 4;
 	c->scache.waybit = 0;
