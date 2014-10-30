@@ -109,7 +109,6 @@ static void __init szmem(unsigned int node)
 {
 	u32 i, mem_type;
 	u64 node_id, node_psize, start_pfn, end_pfn, mem_start, mem_size;
-	static unsigned long num_physpages = 0;
 
 	/* Parse memory information and activate */
 	for (i = 0; i < emap->nr_map; i++) {
@@ -213,6 +212,7 @@ static __init void prom_meminit(void)
 
 	cpu_node_probe();
 	init_topology_matrix();
+	num_physpages = 0;
 
 	for (node = 0; node < nr_nodes_loongson; node++) {
 		if (node_online(node)) {
@@ -278,7 +278,7 @@ void __init mem_init(void)
 		printk("total ram pages are %ld\n",totalram_pages);
 	}
 
-	totalram_pages -= setup_zero_pages();	/* This comes from node 0 */
+	setup_zero_pages();	/* This comes from node 0 */
 
 	codesize = (unsigned long) &_etext - (unsigned long) &_text;
 	datasize = (unsigned long) &_edata - (unsigned long) &_etext;
