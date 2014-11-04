@@ -29,9 +29,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 #ifdef CONFIG_SMP
 	if (!cpu_online(n)) {
-		if ((nr_cpus_online <= n) && (n < nr_cpus_loongson))
-			increase_cores(n);
-		else
+		if (!((nr_cpus_online <= n) && (n < nr_cpus_loongson)))
 			return 0;
 	}
 #endif
@@ -121,9 +119,6 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, fmt, 'D', vced_count);
 	seq_printf(m, fmt, 'I', vcei_count);
 	seq_printf(m, "\n");
-
-	if ((nr_cpus_online <= n) && (n < nr_cpus_loongson))
-		decrease_cores(n);
 
 	return 0;
 }
