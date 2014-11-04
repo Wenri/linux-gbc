@@ -125,8 +125,6 @@ void loongson3_init_secondary(void)
 		loongson3_ipi_write32(0xffffffff,(void *)(base + IPI_OFF_ENABLE));
 	}
 
-	cpu_data[cpu].package = cpu / cores_per_package;
-	cpu_data[cpu].core = cpu % cores_per_package;
 	per_cpu(cpu_state, cpu) = CPU_ONLINE;
 
 	i = 0;
@@ -154,29 +152,17 @@ void loongson3_smp_finish(void)
 
 void __init loongson3_smp_setup(void)
 {
-	int i = 0, num = 0, tmp = nr_cpus_online; /* i: physical id, num: logical id */
+	int num = 0; /* num: logical id */
 
 	init_cpu_possible(cpu_none_mask);
 
 	/* For unified kernel, NR_CPUS is the maximum possible value,
 	 * nr_cpus_loongson is the really present value */
-	while (i < nr_cpus_loongson) {
-		if (reserved_cpus_mask & (1<<i)) {
-			/* Reserved physical CPU cores */
-			__cpu_number_map[i] = tmp;
-			__cpu_logical_map[tmp] = i;
-			set_cpu_possible(tmp, true);
-			tmp++;
-		} else {
-			__cpu_number_map[i] = num;
-			__cpu_logical_map[num] = i;
-			set_cpu_possible(num, true);
-			num++;
-		}
-		i++;
+	while (num < nr_cpus_loongson) {
+		set_cpu_possible(num, true);
+		num++;
 	}
 	pr_info("Detected %i available CPU(s)\n", num);
-
 }
 
 void __init loongson3_prepare_cpus(unsigned int max_cpus)

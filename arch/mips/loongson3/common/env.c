@@ -76,7 +76,7 @@ void __init prom_init_env(void)
 {
 	/* pmon passes arguments in 32bit pointers */
 	unsigned int processor_id;
-	int cpu;
+	int cpu, tmp, i = 0, num = 0;
 	char *bios_info;
 	char *board_info;
 
@@ -181,6 +181,40 @@ void __init prom_init_env(void)
 		nr_cpus_online++;
 	}
 	pr_info("nr_cpus_online = %d\n", nr_cpus_online);
+
+	/* For unified kernel, NR_CPUS is the maximum possible value,
+	 * nr_cpus_loongson is the really present value */
+	tmp = nr_cpus_online;
+	while (i < nr_cpus_loongson) {
+		if (reserved_cpus_mask & (1<<i)) {
+			/* Reserved physical CPU cores */
+			__cpu_number_map[i] = tmp;
+			__cpu_logical_map[tmp] = i;
+			cpu_data[tmp].core = i;
+			cpu_data[tmp].package = i / cores_per_package;
+			tmp++;
+		} else {
+			__cpu_number_map[i] = num;
+			__cpu_logical_map[num] = i;
+			cpu_data[num].core = i;
+			cpu_data[num].package = i / cores_per_package;
+			num++;
+		}
+		i++;
+	}
+
+	/*
+	 * 3B6C(3BITX) mainboard contains 2 nodes, and each node
+	 * owns 3 cores. 3BITX uses 3B1500(Prid 0x6307) processor.
+	 * 3BITX needs to disaply and use 6 cores.
+	 */
+	if ((ecpu->cputype == Loongson_3B) && ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3B_R2)) {
+		if ((nr_cpus_loongson == 8) && strstr(eboard->name, "3B6C")) {
+			nr_cpus_loongson = 6;
+			cores_per_node = 3;
+			cores_per_package = 6;
+		}
+	}
 
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
 	pci_mem_end_addr = eirq_source->pci_mem_end_addr;

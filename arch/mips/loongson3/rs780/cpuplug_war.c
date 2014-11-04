@@ -47,7 +47,7 @@ void decrease_cores(int cur_cpus)
 static int __init cpuplug_init_war(void)
 {
 	int i;
-	for (i = 0; i< nr_cpus_loongson; i++)
+	for (i = nr_cpus_online; i< nr_cpus_loongson; i++)
 		if (reserved_cpus_mask & (1<<cpu_logical_map(i)))
 			decrease_cores(i);
 	return i;
