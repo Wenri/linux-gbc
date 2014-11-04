@@ -55,6 +55,15 @@ EXPORT_SYMBOL(cores_per_node);
 u32 cpu_clock_freq;
 EXPORT_SYMBOL(cpu_clock_freq);
 
+struct interface_info *einter;
+struct board_devices *eboard;
+struct loongson_special_attribute *especial;
+extern char *bios_vendor;
+extern char *bios_release_date;
+extern char *board_manufacturer;
+extern char _bios_info[];
+extern char _board_info[];
+
 #define parse_even_earlier(res, option, p)				\
 do {									\
 	unsigned int tmp __maybe_unused;				\
@@ -68,6 +77,8 @@ void __init prom_init_env(void)
 	/* pmon passes arguments in 32bit pointers */
 	unsigned int processor_id;
 	int cpu;
+	char *bios_info;
+	char *board_info;
 
 #ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
 	int *_prom_envp;
@@ -95,6 +106,12 @@ void __init prom_init_env(void)
 	ecpu	= (struct efi_cpuinfo_loongson *)((u64)loongson_p + loongson_p->cpu_offset);
 	emap	= (struct efi_memory_map_loongson *)((u64)loongson_p + loongson_p->memory_offset);
 	eirq_source = (struct irq_source_routing_table *)((u64)loongson_p + loongson_p->irq_offset);
+	einter = (struct interface_info *)
+		((u64)loongson_p + loongson_p->interface_offset);
+	eboard = (struct board_devices *)
+		((u64)loongson_p + loongson_p->boarddev_table_offset);
+	especial = (struct loongson_special_attribute *)
+		((u64)loongson_p + loongson_p->special_offset);
 
 	cputype = ecpu->cputype;
 	if (cputype == Loongson_3A) {
@@ -172,6 +189,21 @@ void __init prom_init_env(void)
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;
 	pr_info("Shutdown Addr: %llx Reset Addr: %llx\n", poweroff_addr, restart_addr);
+
+	/* parse bios info */
+	strcpy(_bios_info, einter->description);
+	bios_info = _bios_info;
+	bios_vendor = strsep(&bios_info, "-");
+	strsep(&bios_info, "-");
+	strsep(&bios_info, "-");
+	bios_release_date = strsep(&bios_info, "-");
+	if (!bios_release_date)
+		bios_release_date = especial->special_name;
+
+	/* parse board info */
+	strcpy(_board_info, eboard->name);
+	board_info = _board_info;
+	board_manufacturer = strsep(&board_info, "-");
 
 	vgabios_addr = boot_p->efi.smbios.vga_bios;
 #endif

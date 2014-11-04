@@ -156,4 +156,6 @@ extern u64 pci_mem_start_addr, pci_mem_end_addr;
 extern u64 loongson_pciio_base;
 extern u64 vgabios_addr;
 extern u32 nr_cpus_online;
+extern struct interface_info *einter;
+extern struct board_devices *eboard;
 #endif
