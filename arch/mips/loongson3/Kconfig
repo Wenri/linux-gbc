@@ -26,6 +26,7 @@ config LOONGSON_MACH3X
 	select SYS_SUPPORTS_LITTLE_ENDIAN
 	select ZONE_DMA32
 	select UEFI_FIRMWARE_INTERFACE
+	select SYS_SUPPORTS_HOTPLUG_CPU
 	help
 		Generic Loongson 3 family machines utilize the 3A/3B revision of
 		Loongson processor and RS780/SBX00/2H chipset.
