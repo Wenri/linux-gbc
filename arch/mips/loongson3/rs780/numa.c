@@ -199,7 +199,7 @@ static void __init node_mem_init(unsigned int node)
 
 static __init void prom_meminit(void)
 {
-	unsigned int node, cpu;
+	unsigned int node, cpu, active_cpu = 0, tmp = nr_cpus_online;
 
 	cpu_node_probe();
 	init_topology_matrix();
@@ -215,8 +215,16 @@ static __init void prom_meminit(void)
 		node = cpu / cores_per_node;
 		if (node >= num_online_nodes())
 			node = 0;
-		printk("NUMA: set cpumask cpu %d on node %d\n", cpu, node);
-		cpu_set(cpu, __node_data[(node)]->cpumask);
+
+		if (reserved_cpus_mask & (1<<cpu)) {
+			cpu_set(tmp, __node_data[(node)]->cpumask);
+			pr_info("---NUMA: set cpumask cpu %d on node %d\n", tmp, node);
+			tmp++;
+		} else {
+			cpu_set(active_cpu, __node_data[(node)]->cpumask);
+			pr_info("NUMA: set cpumask cpu %d on node %d\n", active_cpu, node);
+			active_cpu++;
+		}
 	}
 }
 

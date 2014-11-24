@@ -35,16 +35,20 @@ u64 pci_mem_start_addr, pci_mem_end_addr;
 u64 loongson_pciio_base;
 u64 vgabios_addr;
 u64 poweroff_addr, restart_addr;
+u32 nr_cpus_online;
 
 u64 loongson_chipcfg[MAX_PACKAGES];
 
 unsigned long long smp_group[4];
 
+u16 boot_cpu_id;
+u16 reserved_cpus_mask;
 enum loongson_cpu_type cputype;
 u32 nr_cpus_loongson = NR_CPUS;
 u32 nr_nodes_loongson = MAX_NUMNODES;
 int cores_per_node;
 int cores_per_package;
+EXPORT_SYMBOL(cores_per_node);
 
 u32 cpu_clock_freq;
 EXPORT_SYMBOL(cpu_clock_freq);
@@ -61,6 +65,7 @@ void __init prom_init_env(void)
 {
 	/* pmon passes arguments in 32bit pointers */
 	unsigned int processor_id;
+	int cpu;
 
 #ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
 	int *_prom_envp;
@@ -124,9 +129,39 @@ void __init prom_init_env(void)
 
 	nr_cpus_loongson = ecpu->nr_cpus;
 	cpu_clock_freq = ecpu->cpu_clock_freq;
+	boot_cpu_id = ecpu->cpu_startup_core_id;
+	reserved_cpus_mask = ecpu->reserved_cores_mask;
+	/* fixup reserved cpus mask */
+	if (reserved_cpus_mask == 0 &&nr_cpus_loongson != 16) {
+		pr_info("WARNING: reserved_cpus_mask NOT set!\n");
+		switch (nr_cpus_loongson) {
+		case 4:
+			reserved_cpus_mask = 0xfff0;
+			break;
+		case 6:
+			reserved_cpus_mask = 0xff11;
+			break;
+		case 8:
+			reserved_cpus_mask = 0xff00;
+			break;
+		default:
+			reserved_cpus_mask = 0xfff0;
+			break;
+		}
+	}
+	pr_info("boot_cpu_id: %d, reserved_cpus_mask: %x\n",
+			boot_cpu_id, reserved_cpus_mask);
+
 	if (nr_cpus_loongson > NR_CPUS || nr_cpus_loongson == 0)
 		nr_cpus_loongson = NR_CPUS;
 	nr_nodes_loongson = (nr_cpus_loongson + cores_per_node - 1) / cores_per_node;
+
+	for (nr_cpus_online = 0, cpu = 0; cpu < nr_cpus_loongson; cpu++) {
+		if (reserved_cpus_mask & (1<<cpu))
+			continue;
+		nr_cpus_online++;
+	}
+	pr_info("nr_cpus_online = %d\n", nr_cpus_online);
 
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
 	pci_mem_end_addr = eirq_source->pci_mem_end_addr;

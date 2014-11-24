@@ -16,6 +16,8 @@
 #include <asm/prom.h>
 
 unsigned int vced_count, vcei_count;
+extern void increase_cores(int cur_cpus);
+extern void decrease_cores(int cur_cpus);
 
 static int show_cpuinfo(struct seq_file *m, void *v)
 {
@@ -26,8 +28,12 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	int i;
 
 #ifdef CONFIG_SMP
-	if (!cpu_online(n))
-		return 0;
+	if (!cpu_online(n)) {
+		if ((nr_cpus_online <= n) && (n < nr_cpus_loongson))
+			increase_cores(n);
+		else
+			return 0;
+	}
 #endif
 
 	/*
@@ -115,6 +121,9 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, fmt, 'D', vced_count);
 	seq_printf(m, fmt, 'I', vcei_count);
 	seq_printf(m, "\n");
+
+	if ((nr_cpus_online <= n) && (n < nr_cpus_loongson))
+		decrease_cores(n);
 
 	return 0;
 }

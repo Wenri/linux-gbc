@@ -154,22 +154,29 @@ void loongson3_smp_finish(void)
 
 void __init loongson3_smp_setup(void)
 {
-	int i, num;
+	int i = 0, num = 0, tmp = nr_cpus_online; /* i: physical id, num: logical id */
 
 	init_cpu_possible(cpu_none_mask);
-	set_cpu_possible(0, true);
-
-	__cpu_number_map[0] = 0;
-	__cpu_logical_map[0] = 0;
 
 	/* For unified kernel, NR_CPUS is the maximum possible value,
 	 * nr_cpus_loongson is the really present value */
-	for (i = 1, num = 0; i < nr_cpus_loongson; i++) {
-		set_cpu_possible(i, true);
-		__cpu_number_map[i] = ++num;
-		__cpu_logical_map[num] = i;
+	while (i < nr_cpus_loongson) {
+		if (reserved_cpus_mask & (1<<i)) {
+			/* Reserved physical CPU cores */
+			__cpu_number_map[i] = tmp;
+			__cpu_logical_map[tmp] = i;
+			set_cpu_possible(tmp, true);
+			tmp++;
+		} else {
+			__cpu_number_map[i] = num;
+			__cpu_logical_map[num] = i;
+			set_cpu_possible(num, true);
+			num++;
+		}
+		i++;
 	}
-	printk(KERN_INFO "Detected %i available secondary CPU(s)\n", num);
+	pr_info("Detected %i available CPU(s)\n", num);
+
 }
 
 void __init loongson3_prepare_cpus(unsigned int max_cpus)
