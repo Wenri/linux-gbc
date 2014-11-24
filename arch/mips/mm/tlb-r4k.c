@@ -51,9 +51,9 @@ extern void build_tlb_refill_handler(void);
 
 #endif /* CONFIG_MIPS_MT_SMTC */
 
-#if defined(CONFIG_CPU_LOONGSON2)
+#if defined(CONFIG_CPU_LOONGSON2) || defined(CONFIG_CPU_LOONGSON3)
 /*
- * LOONGSON2 has a 4 entry itlb which is a subset of dtlb,
+ * LOONGSON2/3 has a 4 entry itlb which is a subset of dtlb,
  * unfortrunately, itlb is not totally transparent to software.
  */
 #define FLUSH_ITLB write_c0_diag(4);

@@ -116,7 +116,9 @@
 #define K_CALG_UNCACHED		2
 #define K_CALG_NONCOHERENT	3
 #define K_CALG_COH_EXCL		4
+#ifndef K_CALG_COH_SHAREABLE
 #define K_CALG_COH_SHAREABLE	5
+#endif
 #define K_CALG_NOTUSED		6
 #define K_CALG_UNCACHED_ACCEL	7
 

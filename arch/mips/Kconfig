@@ -289,6 +289,17 @@ config MACH_LOONGSON1
 	  the ICT (Institute of Computing Technology) and the Chinese Academy
 	  of Sciences.
 
+config MACH_LOONGSON3
+	bool "Loongson 3 family of machines"
+	select SYS_SUPPORTS_ZBOOT
+	help
+	  This enables the support of Loongson 3 family of machines.
+
+	  Loongson 3 is a family of general-purpose MIPS64R2-compatible CPUs
+	  with multicore or SoC design developed at Institute of Computing
+	  Technology (ICT), Chinese Academy of Sciences (CAS) in the People's
+	  Republic of China. The chief architect is Professor Weiwu Hu.
+
 config MIPS_MALTA
 	bool "MIPS Malta board"
 	select ARCH_MAY_HAVE_PC_FDC
@@ -856,6 +867,7 @@ source "arch/mips/vr41xx/Kconfig"
 source "arch/mips/cavium-octeon/Kconfig"
 source "arch/mips/loongson/Kconfig"
 source "arch/mips/loongson1/Kconfig"
+source "arch/mips/loongson3/Kconfig"
 source "arch/mips/netlogic/Kconfig"
 
 endmenu
@@ -963,7 +975,7 @@ config SYS_HAS_EARLY_PRINTK
 
 config HOTPLUG_CPU
 	bool "Support for hot-pluggable CPUs"
-	depends on SMP && HOTPLUG && SYS_SUPPORTS_HOTPLUG_CPU
+	depends on SMP && SYS_SUPPORTS_HOTPLUG_CPU
 	help
 	  Say Y here to allow turning CPUs off and on. CPUs can be
 	  controlled through /sys/devices/system/cpu.
@@ -1540,6 +1552,19 @@ config CPU_LOONGSON2
 	select CPU_SUPPORTS_HIGHMEM
 	select CPU_SUPPORTS_HUGEPAGES
 
+config CPU_LOONGSON3
+	bool "Loongson 3 CPU"
+	depends on SYS_HAS_CPU_LOONGSON3
+	select CPU_SUPPORTS_32BIT_KERNEL
+	select CPU_SUPPORTS_64BIT_KERNEL
+	select CPU_SUPPORTS_HIGHMEM
+	select CPU_SUPPORTS_HUGEPAGES
+	select WEAK_ORDERING
+	select WEAK_REORDERING_BEYOND_LLSC
+	help
+		The Loongson 3 processor implements the MIPS III instruction set
+		with many extensions.
+
 config CPU_LOONGSON1
 	bool
 	select CPU_MIPS32
@@ -1565,6 +1590,9 @@ config SYS_HAS_CPU_LOONGSON2F
 	select CPU_SUPPORTS_CPUFREQ
 	select CPU_SUPPORTS_ADDRWINCFG if 64BIT
 	select CPU_SUPPORTS_UNCACHED_ACCELERATED
+
+config SYS_HAS_CPU_LOONGSON3
+	bool
 
 config SYS_HAS_CPU_LOONGSON1B
 	bool
@@ -2419,6 +2447,15 @@ config PCI
 	  bus system, i.e. the way the CPU talks to the other stuff inside
 	  your box. Other bus systems are ISA, EISA, or VESA. If you have PCI,
 	  say Y, otherwise N.
+
+config HT_PCI
+	bool "Support for HT-linked PCI"
+	select PCI_DOMAINS
+	help
+	  Loongson family machines use Hyper-Transport bus for inter-core
+	  connection and device connection. The PCI bus is a subordinate
+	  linked at HT. Choose Y unless you are using Loongson 2E/2F based
+	  machines.
 
 config PCI_DOMAINS
 	bool
