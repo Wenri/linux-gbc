@@ -40,6 +40,8 @@ u32 nr_cpus_online;
 u64 loongson_chipcfg[MAX_PACKAGES];
 
 unsigned long long smp_group[4];
+unsigned int has_systab = 0;
+unsigned long systab_addr;
 
 u16 boot_cpu_id;
 u16 reserved_cpus_mask;
