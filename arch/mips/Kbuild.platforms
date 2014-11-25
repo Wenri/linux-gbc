@@ -15,6 +15,7 @@ platforms += lantiq
 platforms += lasat
 platforms += loongson
 platforms += loongson1
+platforms += loongson3
 platforms += mti-malta
 platforms += mti-sead3
 platforms += netlogic
