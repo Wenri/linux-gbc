@@ -185,7 +185,7 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 		"2:	sc	$1, %2					\n"
 		"	beqz	$1, 1b					\n"
 		__WEAK_LLSC_MB
-		"3:							\n"
+		"3:	sync						\n"
 		"	.set	pop					\n"
 		"	.section .fixup,\"ax\"				\n"
 		"4:	li	%0, %6					\n"
@@ -193,6 +193,7 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 		"	.previous					\n"
 		"	.section __ex_table,\"a\"			\n"
 		"	"__UA_ADDR "\t1b, 4b				\n"
+		"	"__UA_ADDR "\t(1b + 4), 4b			\n"
 		"	"__UA_ADDR "\t2b, 4b				\n"
 		"	.previous					\n"
 		: "+r" (ret), "=&r" (val), "=R" (*uaddr)

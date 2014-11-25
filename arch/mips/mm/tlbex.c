@@ -43,6 +43,11 @@
  */
 extern void tlb_do_page_fault_0(void);
 extern void tlb_do_page_fault_1(void);
+static void uasm_i_sync_loongson3(u32 **buf)
+{
+	**buf = 0xf;
+	(*buf)++;
+}
 
 struct work_registers {
 	int r1;
@@ -67,6 +72,11 @@ static inline int r4k_250MHZhwbug(void)
 {
 	/* XXX: We should probe for the presence of this bug, but we don't. */
 	return 0;
+}
+
+static inline int __maybe_unused loongson3_llsc_war(void)
+{
+       return LOONGSON3_LLSC_WAR;
 }
 
 static inline int __maybe_unused bcm1250_m3_war(void)
@@ -926,6 +936,8 @@ build_get_pgd_vmalloc64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 		 * to mimic that here by taking a load/istream page
 		 * fault.
 		 */
+		if (loongson3_llsc_war())
+			uasm_i_sync_loongson3(p);
 		UASM_i_LA(p, ptr, (unsigned long)tlb_do_page_fault_0);
 		uasm_i_jr(p, ptr);
 
@@ -1513,6 +1525,8 @@ static void __cpuinit build_r4000_setup_pgd(void)
 static void __cpuinit
 iPTE_LW(u32 **p, unsigned int pte, unsigned int ptr)
 {
+	if (loongson3_llsc_war())
+		uasm_i_sync_loongson3(p);
 #ifdef CONFIG_SMP
 # ifdef CONFIG_64BIT_PHYS_ADDR
 	if (cpu_has_64bits)
@@ -2031,6 +2045,8 @@ static void __cpuinit build_r4000_tlb_load_handler(void)
 #endif
 
 	uasm_l_nopage_tlbl(&l, p);
+	if (loongson3_llsc_war())
+		uasm_i_sync_loongson3(&p);
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_0 & 1) {
@@ -2085,6 +2101,8 @@ static void __cpuinit build_r4000_tlb_store_handler(void)
 #endif
 
 	uasm_l_nopage_tlbs(&l, p);
+	if (loongson3_llsc_war())
+		uasm_i_sync_loongson3(&p);
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_1 & 1) {
@@ -2140,6 +2158,8 @@ static void __cpuinit build_r4000_tlb_modify_handler(void)
 #endif
 
 	uasm_l_nopage_tlbm(&l, p);
+	if (loongson3_llsc_war())
+		uasm_i_sync_loongson3(&p);
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_1 & 1) {
