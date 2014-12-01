@@ -566,7 +566,37 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 {
 	long result;
 
+#ifdef CONFIG_PHASE_LOCK
+	unsigned long flags;
+	u32 my_node_id, my_tmp, my_cpu;
+	static u32 phase_lock[32];
+#endif
+
 	smp_mb__before_llsc();
+
+#ifdef CONFIG_PHASE_LOCK
+	__asm__ __volatile__(
+		"	.set	mips32					\n"
+		"	mfc0	%0, $15, 1				\n"
+		"	.set	mips0					\n"
+		: "=r" (my_cpu));
+	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
+
+	local_irq_save(flags);
+
+	__asm__ __volatile__(
+                "       .set    noreorder       # lock for phase    	\n"
+                "1:	ll      %1, %2					\n"
+                "       bnez    %1, 1b					\n"
+                "       li	%1, 1					\n"
+                "       sc      %1, %0					\n"
+                "       beqz    %1, 1b					\n"
+                "       nop						\n"
+                "       .set	reorder					\n"
+                : "=m" (phase_lock[my_node_id]), "=&r" (my_tmp)
+                : "m" (phase_lock[my_node_id])
+                : "memory");
+#endif
 
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {
 		long temp;
@@ -609,6 +639,25 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 	}
 
 	smp_llsc_mb();
+
+#ifdef CONFIG_PHASE_LOCK
+	__asm__ __volatile__(
+		"	.set	mips32					\n"
+		"	mfc0	%0, $15, 1				\n"
+		"	.set	mips0					\n"
+		: "=r" (my_cpu));
+	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
+
+	__asm__ __volatile__(
+		"	.set	noreorder       # unlock for phase   	\n"
+		"	sw	$0, %0                                  \n"
+		"	.set\treorder                                 	\n"
+		: "=m" (phase_lock[my_node_id])
+		: "m" (phase_lock[my_node_id])
+		: "memory");
+
+	local_irq_restore(flags);
+#endif
 
 	return result;
 }

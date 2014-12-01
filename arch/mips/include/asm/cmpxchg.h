@@ -137,6 +137,8 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 
 #define __HAVE_ARCH_CMPXCHG 1
 
+#ifndef CONFIG_PHASE_LOCK
+
 #define __cmpxchg_asm(ld, st, m, old, new)				\
 ({									\
 	__typeof(*(m)) __ret;						\
@@ -191,6 +193,109 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 									\
 	__ret;								\
 })
+
+#else
+
+#define __cmpxchg_asm(ld, st, m, old, new)				\
+({									\
+	__typeof(*(m)) __ret;						\
+									\
+	unsigned long flags;						\
+	u32 my_node_id, my_tmp, my_cpu;					\
+	static u32 phase_lock[32];					\
+									\
+	smp_mb__before_llsc();						\
+									\
+	__asm__ __volatile__(						\
+		"	.set	mips32				\n"	\
+		"	mfc0	%0, $15, 1			\n"	\
+		"	.set	mips0				\n"	\
+		: "=r" (my_cpu));					\
+	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;			\
+									\
+	local_irq_save(flags);    					\
+									\
+	__asm__ __volatile__(     					\
+                "       .set    noreorder   # lock for phase	\n"	\
+                "1:     					\n"	\
+                "	ll      %1, %2				\n"	\
+                "       bnez    %1, 1b				\n"	\
+                "       li	%1, 1				\n"	\
+                "       sc      %1, %0				\n"	\
+                "       beqz    %1, 1b				\n"	\
+                "       nop					\n"	\
+                "       .set	reorder				\n"	\
+                : "=m" (phase_lock[my_node_id]), "=&r" (my_tmp)   	\
+                : "m" (phase_lock[my_node_id])     			\
+                : "memory");    					\
+									\
+	if (kernel_uses_llsc && R10000_LLSC_WAR) {			\
+		__asm__ __volatile__(					\
+		"	.set	push				\n"	\
+		"	.set	noat				\n"	\
+		"	.set	mips3				\n"	\
+		"1:	" ld "	%0, %2		# __cmpxchg_asm \n"	\
+		"	bne	%0, %z3, 2f			\n"	\
+		"	.set	mips0				\n"	\
+		"	move	$1, %z4				\n"	\
+		"	.set	mips3				\n"	\
+		"	" st "	$1, %1				\n"	\
+		"	beqzl	$1, 1b				\n"	\
+		"2:						\n"	\
+		"	.set	pop				\n"	\
+		: "=&r" (__ret), "=R" (*m)				\
+		: "R" (*m), "Jr" (old), "Jr" (new)			\
+		: "memory");						\
+	} else if (kernel_uses_llsc) {					\
+		__asm__ __volatile__(					\
+		"	.set	push				\n"	\
+		"	.set	noat				\n"	\
+		"	.set	mips3				\n"	\
+		"1:	" ld "	%0, %2		# __cmpxchg_asm \n"	\
+		"	bne	%0, %z3, 2f			\n"	\
+		"	.set	mips0				\n"	\
+		"	move	$1, %z4				\n"	\
+		"	.set	mips3				\n"	\
+		"	" st "	$1, %1				\n"	\
+		"	beqz	$1, 1b				\n"	\
+		"	.set	pop				\n"	\
+		"2:	sync					\n"	\
+		: "=&r" (__ret), "=R" (*m)				\
+		: "R" (*m), "Jr" (old), "Jr" (new)			\
+		: "memory");						\
+	} else {							\
+		unsigned long __flags;					\
+									\
+		raw_local_irq_save(__flags);				\
+		__ret = *m;						\
+		if (__ret == old)					\
+			*m = new;					\
+		raw_local_irq_restore(__flags);				\
+	}								\
+									\
+	smp_llsc_mb();							\
+									\
+	__asm__ __volatile__(						\
+		"	.set	mips32				\n"	\
+		"	mfc0	%0, $15, 1			\n"	\
+		"	.set	mips0				\n"	\
+		: "=r" (my_cpu));					\
+	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;			\
+									\
+	__asm__ __volatile__(						\
+		"       .set    noreorder  # unlock for phase	\n"	\
+		"       sw      $0, %0                          \n"	\
+		"       .set\treorder                           \n"	\
+		: "=m" (phase_lock[my_node_id])				\
+		: "m" (phase_lock[my_node_id])				\
+		: "memory");						\
+									\
+	local_irq_restore(flags);                                       \
+									\
+	__ret;								\
+})
+
+#endif
 
 /*
  * This function doesn't exist, so you'll get a linker error

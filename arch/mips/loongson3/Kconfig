@@ -85,4 +85,12 @@ config PHYS48_TO_HT40
 	bool
 	default y if CPU_LOONGSON3
 
+config PHASE_LOCK
+	bool "Loongson3 Hierarchical Lock Support"
+	default y
+	depends on CPU_LOONGSON3
+	help
+	  Say Y to compile the kernel to support hierarchical lock (PHASE_LOCK).
+	  This option improves performance on systems with more than two nodes.
+
 endif # MACH_LOONGSON3
