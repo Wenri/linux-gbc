@@ -141,6 +141,8 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 ({									\
 	__typeof(*(m)) __ret;						\
 									\
+	smp_mb__before_llsc();						\
+									\
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {			\
 		__asm__ __volatile__(					\
 		"	.set	push				\n"	\
@@ -184,6 +186,8 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 			*m = new;					\
 		raw_local_irq_restore(__flags);				\
 	}								\
+									\
+	smp_llsc_mb();							\
 									\
 	__ret;								\
 })

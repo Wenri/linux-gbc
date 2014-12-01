@@ -289,6 +289,7 @@ static inline void arch_read_unlock(arch_rwlock_t *rw)
 			: "memory");
 		} while (unlikely(!tmp));
 	}
+
 	nudge_writes();
 }
 
@@ -337,6 +338,7 @@ static inline void arch_write_unlock(arch_rwlock_t *rw)
 	: "=m" (rw->lock)
 	: "m" (rw->lock)
 	: "memory");
+
 	nudge_writes();
 }
 
@@ -384,6 +386,7 @@ static inline int arch_read_trylock(arch_rwlock_t *rw)
 	}
 
 	smp_llsc_mb();
+
 	return ret;
 }
 
@@ -428,7 +431,6 @@ static inline int arch_write_trylock(arch_rwlock_t *rw)
 
 		smp_llsc_mb();
 	}
-	smp_llsc_mb();
 
 	return ret;
 }

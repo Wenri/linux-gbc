@@ -29,6 +29,8 @@ static __inline__ long local_add_return(long i, local_t * l)
 {
 	unsigned long result;
 
+	smp_mb__before_llsc();
+
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {
 		unsigned long temp;
 
@@ -67,12 +69,16 @@ static __inline__ long local_add_return(long i, local_t * l)
 		local_irq_restore(flags);
 	}
 
+	smp_llsc_mb();
+
 	return result;
 }
 
 static __inline__ long local_sub_return(long i, local_t * l)
 {
 	unsigned long result;
+
+	smp_mb__before_llsc();
 
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {
 		unsigned long temp;
@@ -111,6 +117,8 @@ static __inline__ long local_sub_return(long i, local_t * l)
 		l->a.counter = result;
 		local_irq_restore(flags);
 	}
+
+	smp_llsc_mb();
 
 	return result;
 }

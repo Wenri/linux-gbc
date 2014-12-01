@@ -19,6 +19,7 @@
 #define __futex_atomic_op(insn, ret, oldval, uaddr, oparg)		\
 {									\
 	smp_mb__before_llsc();						\
+									\
 	if (cpu_has_llsc && R10000_LLSC_WAR) {				\
 		__asm__ __volatile__(					\
 		"	.set	push				\n"	\
@@ -73,6 +74,8 @@
 		: "memory");						\
 	} else								\
 		ret = -ENOSYS;						\
+									\
+	smp_llsc_mb();							\
 }
 
 static inline int
@@ -203,6 +206,7 @@ futex_atomic_cmpxchg_inatomic(u32 *uval, u32 __user *uaddr,
 		return -ENOSYS;
 
 	*uval = val;
+	smp_llsc_mb();
 	return ret;
 }
 
