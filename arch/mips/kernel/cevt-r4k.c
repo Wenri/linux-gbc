@@ -54,6 +54,10 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 	struct clock_event_device *cd;
 	int cpu = smp_processor_id();
 
+#if defined(CONFIG_CPU_LOONGSON3)
+	if(!(read_c0_cause() & (1<<30)))  return IRQ_NONE;
+#endif
+
 	/*
 	 * Suckage alert:
 	 * Before R2 of the architecture there was no way to see if a
@@ -90,7 +94,11 @@ out:
 
 struct irqaction c0_compare_irqaction = {
 	.handler = c0_compare_interrupt,
+#if defined(CONFIG_CPU_LOONGSON3)
+	.flags = IRQF_PERCPU | IRQF_SHARED,
+#else
 	.flags = IRQF_PERCPU | IRQF_TIMER,
+#endif
 	.name = "timer",
 };
 
