@@ -283,7 +283,7 @@ static __inline__ int atomic_sub_if_positive(int i, atomic_t * v)
 		"	beqz	%0, 1b					\n"
 		"	 subu	%0, %1, %3				\n"
 		"	.set	reorder					\n"
-		"1:							\n"
+		"1:	sync						\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
 		: "Ir" (i));
@@ -658,7 +658,7 @@ static __inline__ long atomic64_sub_if_positive(long i, atomic64_t * v)
 		"	beqz	%0, 1b					\n"
 		"	 dsubu	%0, %1, %3				\n"
 		"	.set	reorder					\n"
-		"1:							\n"
+		"1:	sync						\n"
 		"	.set	mips0					\n"
 		: "=&r" (result), "=&r" (temp), "+m" (v->counter)
 		: "Ir" (i));
