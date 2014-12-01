@@ -54,7 +54,7 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 	struct clock_event_device *cd;
 	int cpu = smp_processor_id();
 
-#if defined(CONFIG_CPU_LOONGSON3)
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_OPROFILE)
 	if(!(read_c0_cause() & (1<<30)))  return IRQ_NONE;
 #endif
 
