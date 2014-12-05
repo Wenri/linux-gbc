@@ -30,6 +30,7 @@ config LOONGSON_MACH3X
 	select SYS_SUPPORTS_NUMA
 	select PHYS48_TO_HT40
 	select SYNC_R4K
+	select LOONGSON_MC146818
 	help
 		Generic Loongson 3 family machines utilize the 3A/3B revision of
 		Loongson processor and RS780/SBX00/2H chipset.
