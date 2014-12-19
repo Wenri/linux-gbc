@@ -190,13 +190,13 @@ void __init prom_init_env(void)
 			/* Reserved physical CPU cores */
 			__cpu_number_map[i] = tmp;
 			__cpu_logical_map[tmp] = i;
-			cpu_data[tmp].core = i;
+			cpu_data[tmp].core = i % cores_per_package;
 			cpu_data[tmp].package = i / cores_per_package;
 			tmp++;
 		} else {
 			__cpu_number_map[i] = num;
 			__cpu_logical_map[num] = i;
-			cpu_data[num].core = i;
+			cpu_data[num].core = i % cores_per_package;
 			cpu_data[num].package = i / cores_per_package;
 			num++;
 		}
