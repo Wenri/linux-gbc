@@ -95,7 +95,7 @@ out:
 struct irqaction c0_compare_irqaction = {
 	.handler = c0_compare_interrupt,
 #if defined(CONFIG_CPU_LOONGSON3)
-	.flags = IRQF_PERCPU | IRQF_SHARED,
+	.flags = IRQF_PERCPU | IRQF_TIMER | IRQF_SHARED,
 #else
 	.flags = IRQF_PERCPU | IRQF_TIMER,
 #endif
