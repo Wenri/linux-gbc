@@ -209,7 +209,8 @@ void __init prom_init_env(void)
 	 * 3BITX needs to disaply and use 6 cores.
 	 */
 	if ((ecpu->cputype == Loongson_3B) && ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3B_R2)) {
-		if ((nr_cpus_loongson == 8) && strstr(eboard->name, "3B6C")) {
+		if ((strstr(eboard->name, "3B6C") || (nr_cpus_online == 6)) &&
+				(nr_cpus_loongson == 8)) {
 			nr_cpus_loongson = 6;
 			cores_per_node = 3;
 			cores_per_package = 6;
