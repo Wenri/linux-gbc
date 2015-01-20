@@ -29,6 +29,7 @@
 
 #include <linux/pci.h>
 #include <boot_param.h>
+#include <south-bridge.h>
 
 static void print_fixup_info(const struct pci_dev * pdev)
 {
@@ -38,8 +39,12 @@ static void print_fixup_info(const struct pci_dev * pdev)
 
 int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
-	print_fixup_info(dev);
-	return dev->irq;
+	if (ls_south_bridge->sb_pcibios_map_irq)
+		return ls_south_bridge->sb_pcibios_map_irq(dev, slot, pin);
+	else {
+		print_fixup_info(dev);
+		return dev->irq;
+	}
 }
 
 static void pci_fixup_radeon(struct pci_dev *pdev)
@@ -64,5 +69,8 @@ DECLARE_PCI_FIXUP_CLASS_FINAL(PCI_VENDOR_ID_ATI, PCI_ANY_ID,
 /* Do platform specific device initialization at pci_enable_device() time */
 int pcibios_plat_dev_init(struct pci_dev *dev)
 {
-	return 0;
+	if (ls_south_bridge->sb_pcibios_init)
+		return ls_south_bridge->sb_pcibios_init(dev);
+	else
+		return 0;
 }

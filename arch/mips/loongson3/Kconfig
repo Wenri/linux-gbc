@@ -13,6 +13,7 @@ config LOONGSON_MACH3X
 	select CEVT_R4K
 	select CPU_HAS_WB
 	select HW_HAS_PCI
+	select LS2H_SB
 	select ISA
 	select HT_PCI
 	select I8259
@@ -94,5 +95,8 @@ config PHASE_LOCK
 	help
 	  Say Y to compile the kernel to support hierarchical lock (PHASE_LOCK).
 	  This option improves performance on systems with more than two nodes.
+
+config LS2H_SB
+	bool
 
 endif # MACH_LOONGSON3

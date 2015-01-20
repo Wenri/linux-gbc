@@ -1137,6 +1137,11 @@ MODULE_LICENSE ("GPL");
 #define EP93XX_PLATFORM_DRIVER	ohci_hcd_ep93xx_driver
 #endif
 
+#ifdef CONFIG_USB_LS2H_OHCI
+#include "ohci-ls2h.c"
+#define PLATFORM_DRIVER		ohci_hcd_ls2h_driver
+#endif
+
 #ifdef CONFIG_ARCH_AT91
 #include "ohci-at91.c"
 #define AT91_PLATFORM_DRIVER	ohci_hcd_at91_driver

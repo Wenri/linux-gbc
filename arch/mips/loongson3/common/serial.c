@@ -74,4 +74,4 @@ static int __init serial_init(void)
 	return platform_device_register(&uart8250_device);
 }
 
-device_initcall(serial_init);
+arch_initcall(serial_init);

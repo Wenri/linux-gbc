@@ -256,8 +256,12 @@ static struct clocksource csrc_hpet = {
 
 int __init init_hpet_clocksource(void)
 {
-	csrc_hpet.mult = clocksource_hz2mult(HPET_FREQ, csrc_hpet.shift);
-	return clocksource_register_hz(&csrc_hpet, HPET_FREQ);
+	int ret = 0;
+	if (board_type == RS780E) {
+		csrc_hpet.mult = clocksource_hz2mult(HPET_FREQ, csrc_hpet.shift);
+		ret = clocksource_register_hz(&csrc_hpet, HPET_FREQ);
+	}
+	return ret;
 }
 
 arch_initcall(init_hpet_clocksource);

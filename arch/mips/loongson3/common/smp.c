@@ -146,7 +146,7 @@ void loongson3_smp_finish(void)
 	write_c0_compare(read_c0_count() + mips_hpt_frequency/HZ);
 	local_irq_enable();
 	loongson3_ipi_write64(0, (void *)(base + IPI_OFF_MAILBOX0));
-	printk(KERN_INFO "CPU#%d finished, CP0_ST=%x\n",
+	printk("CPU#%d finished, CP0_ST=%x\n",
 			smp_processor_id(), read_c0_status());
 }
 
@@ -162,7 +162,7 @@ void __init loongson3_smp_setup(void)
 		set_cpu_possible(num, true);
 		num++;
 	}
-	pr_info("Detected %i available CPU(s)\n", num);
+	printk("Detected %i available CPU(s)\n", num);
 }
 
 void __init loongson3_prepare_cpus(unsigned int max_cpus)
@@ -180,7 +180,7 @@ void loongson3_boot_secondary(int cpu, struct task_struct *idle)
 	unsigned long coreid = cpu_logical_map(cpu);
 	unsigned long base = LOONGSON3_TO_BASE(coreid);
 
-	printk(KERN_INFO "Booting CPU#%d...\n", cpu);
+	printk("Booting CPU#%d...\n", cpu);
 
 	/* startargs[] are initial PC, SP and GP for secondary CPU */
 	startargs[0] = (unsigned long)&smp_bootstrap;
@@ -188,7 +188,7 @@ void loongson3_boot_secondary(int cpu, struct task_struct *idle)
 	startargs[2] = (unsigned long)task_thread_info(idle);
 	startargs[3] = 0;
 
-	printk(KERN_DEBUG "CPU#%d, func_pc=%lx, sp=%lx, gp=%lx\n",
+	printk("CPU#%d, func_pc=%lx, sp=%lx, gp=%lx\n",
 			cpu, startargs[0], startargs[1], startargs[2]);
 
 	loongson3_ipi_write64(startargs[3], (void *)(base + IPI_OFF_MAILBOX3));
@@ -415,12 +415,12 @@ static int loongson3_cpu_callback(struct notifier_block *nfb,
 	switch (action) {
 	case CPU_POST_DEAD:
 	case CPU_POST_DEAD_FROZEN:
-		printk(KERN_INFO "Disable clock for CPU#%d\n", cpu);
+		printk("Disable clock for CPU#%d\n", cpu);
 		loongson3_disable_clock(cpu);
 		break;
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
-		printk(KERN_INFO "Enable clock for CPU#%d\n", cpu);
+		printk("Enable clock for CPU#%d\n", cpu);
 		loongson3_enable_clock(cpu);
 		break;
 	}

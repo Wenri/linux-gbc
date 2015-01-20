@@ -12,11 +12,36 @@
 
 #include <loongson.h>
 
+#include <south-bridge.h>
+
 extern struct plat_smp_ops loongson3_smp_ops;
 extern void __init prom_init_numa_memory(void);
 
 /* Loongson CPU address windows config space base address */
 unsigned long __maybe_unused _loongson_addrwincfg_base;
+
+struct south_bridge *ls_south_bridge;
+
+void south_bridge_register(struct south_bridge *sb)
+{
+	ls_south_bridge = sb;
+}
+
+static int __init prom_arch_initcall(void)
+{
+	if (ls_south_bridge->sb_arch_initcall)
+		ls_south_bridge->sb_arch_initcall();
+
+	return 0;
+}
+
+static int __init prom_device_initcall(void)
+{
+	if (ls_south_bridge->sb_device_initcall)
+		ls_south_bridge->sb_device_initcall();
+
+	return 0;
+}
 
 void __init prom_init(void)
 {
@@ -48,3 +73,6 @@ void __init prom_init(void)
 void __init prom_free_prom_memory(void)
 {
 }
+
+arch_initcall(prom_arch_initcall);
+device_initcall(prom_device_initcall);

@@ -145,6 +145,12 @@ static void __init szmem(unsigned int node)
 			add_memory_region((node_id << 44) + mem_start,(u64)mem_size << 20, BOOT_MEM_RAM);
 			memblock_add_node(PFN_PHYS(start_pfn), PFN_PHYS(end_pfn - start_pfn), node);
 			break;
+		case UMA_VIDEO_RAM:
+			uma_vram_addr = mem_start & 0x00000000ffffffff;
+			uma_vram_size = mem_size;
+			pr_info("Debug: uma_vram_addr:0x%lx, uma_vram_size:0x%lx\n",
+					uma_vram_addr, uma_vram_size);
+			break;
 		case MEM_RESERVED:
 			printk("Debug: node_id:%d, mem_type:%d, mem_start:0x%llx, mem_size:0x%llx MB\n",
 				(u32)node_id, mem_type, mem_start, mem_size);

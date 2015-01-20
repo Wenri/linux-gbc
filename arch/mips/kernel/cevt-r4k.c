@@ -76,7 +76,7 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 		/* Clear Count/Compare Interrupt */
 		write_c0_compare(read_c0_compare());
 #ifdef CONFIG_RS780_HPET
-		if (cpu == 0)
+		if ((cpu == 0) && (board_type == RS780E))
 			goto out;
 #endif
 		cd = &per_cpu(mips_clockevent_device, cpu);

@@ -843,8 +843,10 @@ static void rtl_unlock_work(struct rtl8169_private *tp)
 
 static void rtl_tx_performance_tweak(struct pci_dev *pdev, u16 force)
 {
+#ifndef CONFIG_LS2H_SB
 	pcie_capability_clear_and_set_word(pdev, PCI_EXP_DEVCTL,
 					   PCI_EXP_DEVCTL_READRQ, force);
+#endif
 }
 
 struct rtl_cond {

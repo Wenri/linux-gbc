@@ -20,7 +20,9 @@
 #include <linux/module.h>
 #include <asm/bootinfo.h>
 #include <loongson.h>
+#include <south-bridge.h>
 #include <boot_param.h>
+#include <ls2h/ls2h.h>
 
 struct boot_params *boot_p;
 struct loongson_params *loongson_p;
@@ -36,6 +38,7 @@ u64 loongson_pciio_base;
 u64 vgabios_addr;
 u64 poweroff_addr, restart_addr;
 u32 nr_cpus_online;
+u32 pcidev_max_func_num;
 
 u64 loongson_chipcfg[MAX_PACKAGES];
 
@@ -46,15 +49,19 @@ unsigned long systab_addr;
 u16 boot_cpu_id;
 u16 reserved_cpus_mask;
 enum loongson_cpu_type cputype;
+enum board_type board_type;
 u32 nr_cpus_loongson = NR_CPUS;
 u32 nr_nodes_loongson = MAX_NUMNODES;
 int cores_per_node;
 int cores_per_package;
+unsigned long uma_vram_addr;
+unsigned long uma_vram_size;
 EXPORT_SYMBOL(cores_per_node);
 
 u32 cpu_clock_freq;
 EXPORT_SYMBOL(cpu_clock_freq);
 
+unsigned long long lpc_reg_base;
 struct interface_info *einter;
 struct board_devices *eboard;
 struct loongson_special_attribute *especial;
@@ -63,6 +70,8 @@ extern char *bios_release_date;
 extern char *board_manufacturer;
 extern char _bios_info[];
 extern char _board_info[];
+extern struct south_bridge ls2h_south_bridge;
+extern struct south_bridge rs780_south_bridge;
 
 #define parse_even_earlier(res, option, p)				\
 do {									\
@@ -217,6 +226,17 @@ void __init prom_init_env(void)
 		}
 	}
 
+	if(strstr(eboard->name,"2H")){
+		south_bridge_register(&ls2h_south_bridge);
+		board_type = LS2H;
+		pcidev_max_func_num = 1;
+	}
+	else{
+		south_bridge_register(&rs780_south_bridge);
+		board_type = RS780E;
+		pcidev_max_func_num = 7;
+	}
+
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
 	pci_mem_end_addr = eirq_source->pci_mem_end_addr;
 	loongson_pciio_base = eirq_source->pci_io_start_addr;
@@ -224,6 +244,18 @@ void __init prom_init_env(void)
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;
 	pr_info("Shutdown Addr: %llx Reset Addr: %llx\n", poweroff_addr, restart_addr);
+
+	if (board_type == LS2H) {
+		tmp = ls2h_readl(LS2H_GPIO_IN_REG);
+		tmp = (tmp >> 8) & 0xf;
+		if (tmp == LS3A2H_BOARD_VER_2_2) {
+			loongson_pciio_base = 0x1bf00000;
+			lpc_reg_base = LS2H_LPC_REG_BASE;
+		} else {
+			loongson_pciio_base = 0x1ff00000;
+			lpc_reg_base = LS3_LPC_REG_BASE;
+		}
+	}
 
 	/* parse bios info */
 	strcpy(_bios_info, einter->description);

@@ -252,6 +252,7 @@ static int mips_dma_map_sg(struct device *dev, struct scatterlist *sg,
 				   direction);
 		sg->dma_address = plat_map_dma_mem_page(dev, sg_page(sg)) +
 				  sg->offset;
+		sg->dma_length = sg->length;
 	}
 
 	return nents;
@@ -347,23 +348,56 @@ void dma_cache_sync(struct device *dev, void *vaddr, size_t size,
 
 EXPORT_SYMBOL(dma_cache_sync);
 
-static struct dma_map_ops mips_default_dma_map_ops = {
-	.alloc = mips_dma_alloc_coherent,
-	.free = mips_dma_free_coherent,
-	.map_page = mips_dma_map_page,
-	.unmap_page = mips_dma_unmap_page,
-	.map_sg = mips_dma_map_sg,
-	.unmap_sg = mips_dma_unmap_sg,
-	.sync_single_for_cpu = mips_dma_sync_single_for_cpu,
-	.sync_single_for_device = mips_dma_sync_single_for_device,
-	.sync_sg_for_cpu = mips_dma_sync_sg_for_cpu,
-	.sync_sg_for_device = mips_dma_sync_sg_for_device,
-	.mapping_error = mips_dma_mapping_error,
-	.dma_supported = mips_dma_supported
+dma_addr_t mips_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
+{
+	long nid;
+	dma_addr_t daddr;
+
+	daddr = (paddr < 0x10000000) ?
+			(paddr | 0x0000000080000000) : paddr;
+#ifdef CONFIG_PHYS48_TO_HT40
+	 /* We extract 2bit node id (bit 44~47, only bit 44~45 used now) from
+	  * Loongson3's 48bit address space and embed it into 40bit */
+	nid = (paddr >> 44) & 0x3;
+	daddr = ((nid << 44 ) ^ daddr) | (nid << 37);
+#endif
+	return daddr;
+}
+
+phys_addr_t mips_unity_dma_to_phys(struct device *dev, dma_addr_t daddr)
+{
+	long nid;
+
+	daddr = (daddr < 0x90000000 && daddr >= 0x80000000) ?
+			(daddr & 0x0fffffff) : daddr;
+#ifdef CONFIG_PHYS48_TO_HT40
+	nid = (daddr >> 37) & 0x3;
+	daddr = ((nid << 37 ) ^ daddr) | (nid << 44);
+#endif
+	return daddr;
+}
+
+struct mips_dma_map_ops mips_default_dma_map_ops = {
+	.dma_map_ops = {
+		.alloc = mips_dma_alloc_coherent,
+		.free = mips_dma_free_coherent,
+		.map_page = mips_dma_map_page,
+		.unmap_page = mips_dma_unmap_page,
+		.map_sg = mips_dma_map_sg,
+		.unmap_sg = mips_dma_unmap_sg,
+		.sync_single_for_cpu = mips_dma_sync_single_for_cpu,
+		.sync_single_for_device = mips_dma_sync_single_for_device,
+		.sync_sg_for_cpu = mips_dma_sync_sg_for_cpu,
+		.sync_sg_for_device = mips_dma_sync_sg_for_device,
+		.mapping_error = mips_dma_mapping_error,
+		.dma_supported = mips_dma_supported
+	},
+	.phys_to_dma	= mips_unity_phys_to_dma,
+	.dma_to_phys	= mips_unity_dma_to_phys,
 };
 
-struct dma_map_ops *mips_dma_map_ops = &mips_default_dma_map_ops;
-EXPORT_SYMBOL(mips_dma_map_ops);
+struct mips_dma_map_ops *loongson_dma_map_ops = &mips_default_dma_map_ops;
+EXPORT_SYMBOL(loongson_dma_map_ops);
 
 #define PREALLOC_DMA_DEBUG_ENTRIES (1 << 16)
 

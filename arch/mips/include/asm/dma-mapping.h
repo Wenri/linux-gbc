@@ -6,18 +6,42 @@
 #include <asm/cache.h>
 #include <asm-generic/dma-coherent.h>
 
-#ifndef CONFIG_SGI_IP27 /* Kludge to fix 2.6.39 build for IP27 */
-#include <dma-coherence.h>
-#endif
+struct mips_dma_map_ops {
+	struct dma_map_ops dma_map_ops;
+	dma_addr_t (*phys_to_dma)(struct device *dev, phys_addr_t paddr);
+	phys_addr_t (*dma_to_phys)(struct device *dev, dma_addr_t daddr);
+};
 
-extern struct dma_map_ops *mips_dma_map_ops;
+extern struct mips_dma_map_ops *loongson_dma_map_ops;
 
 static inline struct dma_map_ops *get_dma_ops(struct device *dev)
 {
+	struct mips_dma_map_ops *ops;
+
 	if (dev && dev->archdata.dma_ops)
-		return dev->archdata.dma_ops;
+		ops = dev->archdata.dma_ops;
 	else
-		return mips_dma_map_ops;
+		ops = loongson_dma_map_ops;
+	
+	return &ops->dma_map_ops;
+}
+
+static inline dma_addr_t phys_to_dma(struct device *dev, phys_addr_t paddr)
+{
+	struct mips_dma_map_ops *ops = container_of(get_dma_ops(dev),
+						    struct mips_dma_map_ops,
+						    dma_map_ops);
+
+	return ops->phys_to_dma(dev, paddr);
+}
+
+static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
+{
+	struct mips_dma_map_ops *ops = container_of(get_dma_ops(dev),
+						    struct mips_dma_map_ops,
+						    dma_map_ops);
+
+	return ops->dma_to_phys(dev, daddr);
 }
 
 static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
@@ -101,4 +125,6 @@ void *dma_alloc_noncoherent(struct device *dev, size_t size,
 void dma_free_noncoherent(struct device *dev, size_t size,
 			 void *vaddr, dma_addr_t dma_handle);
 
+dma_addr_t mips_unity_phys_to_dma(struct device *dev, phys_addr_t paddr);
+phys_addr_t mips_unity_dma_to_phys(struct device *dev, dma_addr_t daddr);
 #endif /* _ASM_DMA_MAPPING_H */

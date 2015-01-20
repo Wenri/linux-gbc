@@ -7,18 +7,6 @@
 #include <asm/i8259.h>
 #include <asm/mipsregs.h>
 
-#define LOONGSON_INT_ROUTER_OFFSET	0x1400
-#define LOONGSON_INT_ROUTER_INTEN	LOONGSON3_REG32(LOONGSON3_REG_BASE, LOONGSON_INT_ROUTER_OFFSET + 0x24)
-#define LOONGSON_INT_ROUTER_INTENSET	LOONGSON3_REG32(LOONGSON3_REG_BASE, LOONGSON_INT_ROUTER_OFFSET + 0x28)
-#define LOONGSON_INT_ROUTER_INTENCLR	LOONGSON3_REG32(LOONGSON3_REG_BASE, LOONGSON_INT_ROUTER_OFFSET + 0x2c)
-#define LOONGSON_INT_ROUTER_ENTRY(n)	LOONGSON3_REG8(LOONGSON3_REG_BASE, LOONGSON_INT_ROUTER_OFFSET + n)
-#define LOONGSON_INT_ROUTER_LPC		LOONGSON_INT_ROUTER_ENTRY(0x0a)
-#define LOONGSON_INT_ROUTER_HT1(n)	LOONGSON_INT_ROUTER_ENTRY(n + 0x18)
-
-#define LOONGSON_INT_CORE0_INT0		0x11 /* route to int 0 of core 0 */
-#define LOONGSON_INT_CORE0_INT1		0x21 /* route to int 1 of core 0 */
-
-extern unsigned long long smp_group[4];
 extern void loongson3_ipi_interrupt(struct pt_regs *regs);
 
 static void ht_irqdispatch(void)
@@ -35,7 +23,7 @@ static void ht_irqdispatch(void)
 	}
 }
 
-void mach_irq_dispatch(unsigned int pending)
+void rs780_irq_dispatch(unsigned int pending)
 {
 	if (pending & CAUSEF_IP7)
 		do_IRQ(LOONGSON_TIMER_IRQ);
@@ -53,63 +41,6 @@ void mach_irq_dispatch(unsigned int pending)
 	}
 }
 
-static struct irqaction cascade_irqaction = {
-	.handler = no_action,
-	.name = "cascade",
-};
-
-static inline void mask_loongson_irq(struct irq_data *d)
-{
-	clear_c0_status(0x100 << (d->irq - MIPS_CPU_IRQ_BASE));
-	irq_disable_hazard();
-
-	/* Workaround: UART IRQ may deliver to any core */
-	if (d->irq == LOONGSON_UART_IRQ) {
-		int cpu = smp_processor_id();
-
-		int node_id = cpu / cores_per_node;
-		int core_id = cpu % cores_per_node;
-		u64 intenclr_addr = smp_group[node_id] |
-			(u64)(&LOONGSON_INT_ROUTER_INTENCLR);
-		u64 introuter_lpc_addr = smp_group[node_id] |
-			(u64)(&LOONGSON_INT_ROUTER_LPC);
-
-		*(volatile u32 *)intenclr_addr = 1 << 10;
-		*(volatile u8 *)introuter_lpc_addr = 0x10 + (1<<core_id);
-	}
-}
-
-static inline void unmask_loongson_irq(struct irq_data *d)
-{
-	/* Workaround: UART IRQ may deliver to any core */
-	if (d->irq == LOONGSON_UART_IRQ) {
-		int cpu = smp_processor_id();
-
-		int node_id = cpu / cores_per_node;
-		int core_id = cpu % cores_per_node;
-		u64 intenset_addr = smp_group[node_id] |
-			(u64)(&LOONGSON_INT_ROUTER_INTENSET);
-		u64 introuter_lpc_addr = smp_group[node_id] |
-			(u64)(&LOONGSON_INT_ROUTER_LPC);
-
-		*(volatile u32 *)intenset_addr = 1 << 10;
-		*(volatile u8 *)introuter_lpc_addr = 0x10 + (1<<core_id);
-	}
-
-	set_c0_status(0x100 << (d->irq - MIPS_CPU_IRQ_BASE));
-	irq_enable_hazard();
-}
-
- /* For MIPS IRQs which shared by all cores */
-static struct irq_chip loongson_irq_chip = {
-	.name		= "Loongson",
-	.irq_ack	= mask_loongson_irq,
-	.irq_mask	= mask_loongson_irq,
-	.irq_mask_ack	= mask_loongson_irq,
-	.irq_unmask	= unmask_loongson_irq,
-	.irq_eoi	= unmask_loongson_irq,
-};
-
 void irq_router_init(void)
 {
 	int i;
@@ -125,20 +56,13 @@ void irq_router_init(void)
 	LOONGSON_INT_ROUTER_INTENSET = LOONGSON_INT_ROUTER_INTEN | (0xffff << 16) | 0x1 << 10;
 }
 
-void __init mach_init_irq(void)
+void __init rs780_init_irq(void)
 {
 	clear_c0_status(ST0_IM | ST0_BEV);
 
 	irq_router_init();
-	mips_cpu_irq_init();
 	init_i8259_irqs();
-	irq_set_chip_and_handler(LOONGSON_UART_IRQ,
-			&loongson_irq_chip, handle_level_irq);
 
-	/* setup i8259 irq */
-	setup_irq(LOONGSON_I8259_IRQ, &cascade_irqaction);
-
-	set_c0_status(STATUSF_IP2 | STATUSF_IP6);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU

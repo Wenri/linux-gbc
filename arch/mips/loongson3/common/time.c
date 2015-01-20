@@ -14,6 +14,7 @@
 #include <asm/time.h>
 
 #include <loongson.h>
+#include <boot_param.h>
 #include <hpet.h>
 
 void __init plat_time_init(void)
@@ -22,7 +23,8 @@ void __init plat_time_init(void)
 	mips_hpt_frequency = cpu_clock_freq / 2;
 
 #ifdef CONFIG_RS780_HPET
-	setup_hpet_timer();
+	if (board_type == RS780E)
+		setup_hpet_timer();
 #endif
 }
 

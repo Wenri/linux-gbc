@@ -2460,6 +2460,12 @@ config HT_PCI
 config PCI_DOMAINS
 	bool
 
+config LS2H_PCIE
+	bool "Loongson2H PCI-Express Controller"
+	depends on PCI && LS2H_SB
+	help
+	  Make use of the Loongson2H PCI-Express Controller.
+
 source "drivers/pci/Kconfig"
 
 source "drivers/pci/pcie/Kconfig"

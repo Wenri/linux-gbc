@@ -74,6 +74,8 @@ source "sound/drivers/Kconfig"
 
 source "sound/isa/Kconfig"
 
+source "sound/loongson/Kconfig"
+
 source "sound/pci/Kconfig"
 
 source "sound/ppc/Kconfig"

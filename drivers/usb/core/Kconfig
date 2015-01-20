@@ -52,6 +52,7 @@ config USB_DYNAMIC_MINORS
 config USB_OTG
 	bool "OTG support"
 	depends on PM_RUNTIME
+	select USB_SUSPEND
 	default n
 	help
 	  The most notable feature of USB OTG is support for a

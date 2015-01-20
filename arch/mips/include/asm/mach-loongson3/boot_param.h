@@ -11,7 +11,8 @@
 #define ADAPTER_ROM		8
 #define ACPI_TABLE		9
 #define SMBIOS_TABLE		10
-#define MAX_MEMORY_TYPE		11
+#define UMA_VIDEO_RAM 		11
+#define MAX_MEMORY_TYPE 	12
 
 #define LOONGSON3_BOOT_MEM_MAP_MAX 128
 struct efi_memory_map_loongson{
@@ -34,6 +35,10 @@ enum loongson_cpu_type
 	Loongson_3B,
 	Loongson_1A,
 	Loongson_1B
+};
+
+enum board_type {
+	RS780E, LS2H
 };
 
 /*
@@ -147,10 +152,13 @@ extern u32 nr_cpus_loongson;
 extern u32 nr_nodes_loongson;
 extern int cores_per_node;
 extern int cores_per_package;
+extern unsigned long uma_vram_addr;
+extern unsigned long uma_vram_size;
 extern u16 boot_cpu_id;
 extern u16 reserved_cpus_mask;
 extern enum loongson_cpu_type cputype;
 extern struct efi_memory_map_loongson *emap;
+extern enum board_type board_type;
 extern u64 ht_control_base;
 extern u64 pci_mem_start_addr, pci_mem_end_addr;
 extern u64 loongson_pciio_base;

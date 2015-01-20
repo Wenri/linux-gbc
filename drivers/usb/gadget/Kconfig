@@ -256,6 +256,15 @@ config USB_RENESAS_USBHS_UDC
 	   dynamically linked module called "renesas_usbhs" and force all
 	   gadget drivers to also be dynamically linked.
 
+config USB_GADGET_SNPS_DWC_OTG
+	boolean "Synopsys DWC_otg Controller"
+	depends on USB
+	select USB_OTG
+	select USB_GADGET_DUALSPEED
+	select USB_GADGET_SELECTED
+	help
+	  Selects the Synopsys Driver for the DWC_otg Controller.
+
 config USB_PXA27X
 	tristate "PXA 27x"
 	help
@@ -485,6 +494,22 @@ config USB_DUMMY_HCD
 
 # NOTE:  Please keep dummy_hcd LAST so that "real hardware" appears
 # first and will be selected by default.
+
+config USB_DWC_OTG_LPM
+	boolean "Enable LPM support"
+	depends on USB
+	help
+	  Enables LPM support.
+
+config DWC_HOST_MODE
+	boolean "Enable DWC in host mode"
+	depends on USB_DWC_OTG_LPM
+	help
+	  If set Y, DWC works in host mode, else in device mode.
+
+config DWC_DEBUG_VERBOSE
+	boolean "Enable DWC debug message"
+	depends on USB_DWC_OTG_LPM
 
 endmenu
 

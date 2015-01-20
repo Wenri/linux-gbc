@@ -78,7 +78,7 @@ static void __init setup_pcimap(void)
 #endif
 }
 
-static int __init pcibios_init(void)
+int __init rs780_pcibios_init(void)
 {
 	setup_pcimap();
 
@@ -91,5 +91,3 @@ static int __init pcibios_init(void)
 
 	return 0;
 }
-
-arch_initcall(pcibios_init);
