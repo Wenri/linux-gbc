@@ -463,8 +463,41 @@ static struct platform_device ls2h_i2c1_device = {
 /*
  * GPU
  */
-static struct generic_plat_data ls2h_gpu_data = {
+static struct ls2h_gpu_plat_data ls2h_gpu_data = {
 	.chip_ver = LS2H_VER3,
+	.vram_kind = LS2H_VRAM_2H_DDR,
+	.board_kind = LS3A_2H_GPU,
+};
+
+static struct resource ls2h_gpu_resources[] = {
+	[0] = {
+		.name	= "gpu_base",
+		.start	= LS2H_GPU_REG_BASE,
+		.end	= LS2H_GPU_REG_BASE + 0x7ff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.name	= "gpu_irq",
+		.start	= LS2H_GPU_IRQ,
+		.end	= LS2H_GPU_IRQ,
+		.flags	= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.name	= "gpu_mem",
+		.start	= 0xe0004000000,
+		.end	= 0xe000bffffff,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device ls2h_gpu_device = {
+	.name           = "galcore",
+	.id             = 0,
+	.num_resources  = ARRAY_SIZE(ls2h_gpu_resources),
+	.resource       = ls2h_gpu_resources,
+	.dev		= {
+		.platform_data = &ls2h_gpu_data,
+	}
 };
 
 static struct platform_device *ls2h_platform_devices[] = {
@@ -481,6 +514,7 @@ static struct platform_device *ls2h_platform_devices[] = {
 	&ls2h_audio_device,
 	&ls2h_otg_device,
 	&ls2h_rtc_device,
+	&ls2h_gpu_device,
 };
 
 const struct i2c_board_info __initdata ls2h_gmac_eep_info = {
@@ -525,6 +559,15 @@ int ls2h_platform_init(void)
 		ls2h_nand_parts.chip_ver = LS2H_VER2;
 	}
 	pr_info("South-Bridge 2H Chipe Version: %s\n", tmp? "VER2" : "VER3");
+
+	tmp = uma_vram_size;
+	if(tmp) {
+		ls2h_gpu_data.vram_kind = LS2H_VRAM_3A_DDR;	
+		ls2h_gpu_resources[2].start = uma_vram_addr;
+		ls2h_gpu_resources[2].end = uma_vram_addr + (uma_vram_size << 20) - 1;
+	}	
+	pr_info("GPU USE : %s DDR as VRAM\n", tmp? "3A " : "2H");
+	pr_info("VRAM size is :0x%lx \n", uma_vram_size << 20);
 
 	return platform_add_devices(ls2h_platform_devices,
 			ARRAY_SIZE(ls2h_platform_devices));

@@ -309,6 +309,13 @@ enum {
 #define LS2H_VER2 2
 #define LS2H_VER3 3
 
+#define LS2H_VRAM_2H_DDR 0x01
+#define LS2H_VRAM_3A_DDR 0x02
+        
+#define LS2H_SOC_GPU    0x01
+#define LS3A_2H_GPU     0x02
+
+
 struct ls2h_usbh_data {
 	u8      ports;      /* number of ports on root hub */
 	u8      vbus_pin[]; /* port power-control pin */
@@ -325,4 +332,9 @@ struct ls2h_nand_plat_data {
 	struct mtd_partition *parts;
 };
 
+struct ls2h_gpu_plat_data {
+        u32     chip_ver;
+        u32     vram_kind; /*gpu vram kind, 0x01: vram in 2H DDR; 0x02: vram in 3A DDR */
+        u32     board_kind; /*gpu board kind, 0x01: 2HSOC; 0x02: 3A2H */
+};
 #endif /* _LS2H_H */

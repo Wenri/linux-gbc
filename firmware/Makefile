@@ -61,6 +61,53 @@ fw-shipped-$(CONFIG_DRM_RADEON) += radeon/R100_cp.bin radeon/R200_cp.bin \
 				   radeon/RV770_pfp.bin radeon/RV770_me.bin \
 				   radeon/RV730_pfp.bin radeon/RV730_me.bin \
 				   radeon/RV710_pfp.bin radeon/RV710_me.bin
+
+ldflags-$(CONFIG_LS2H_GPU_SOC) += firmware/ls2h-soc/gc_hal_kernel.bin \
+        firmware/ls2h-soc/gc_hal_kernel_command.bin \
+        firmware/ls2h-soc/gc_hal_kernel_command_vg.bin \
+        firmware/ls2h-soc/gc_hal_kernel_context.bin \
+        firmware/ls2h-soc/gc_hal_kernel_db.bin \
+        firmware/ls2h-soc/gc_hal_kernel_debug.bin \
+        firmware/ls2h-soc/gc_hal_kernel_debugfs.bin \
+        firmware/ls2h-soc/gc_hal_kernel_device.bin \
+        firmware/ls2h-soc/gc_hal_kernel_driver.bin \
+        firmware/ls2h-soc/gc_hal_kernel_event.bin \
+        firmware/ls2h-soc/gc_hal_kernel_hardware.bin \
+        firmware/ls2h-soc/gc_hal_kernel_hardware_command_vg.bin \
+        firmware/ls2h-soc/gc_hal_kernel_hardware_vg.bin \
+        firmware/ls2h-soc/gc_hal_kernel_heap.bin \
+        firmware/ls2h-soc/gc_hal_kernel_interrupt_vg.bin \
+        firmware/ls2h-soc/gc_hal_kernel_linux.bin \
+        firmware/ls2h-soc/gc_hal_kernel_math.bin \
+        firmware/ls2h-soc/gc_hal_kernel_mmu.bin \
+        firmware/ls2h-soc/gc_hal_kernel_mmu_vg.bin \
+        firmware/ls2h-soc/gc_hal_kernel_os.bin \
+        firmware/ls2h-soc/gc_hal_kernel_vg.bin \
+        firmware/ls2h-soc/gc_hal_kernel_video_memory.bin
+
+ldflags-$(CONFIG_LS2H_GPU_SB) += firmware/ls2h-sb/gc_hal_kernel.bin \
+        firmware/ls2h-sb/gc_hal_kernel_command.bin \
+        firmware/ls2h-sb/gc_hal_kernel_command_vg.bin \
+        firmware/ls2h-sb/gc_hal_kernel_context.bin \
+        firmware/ls2h-sb/gc_hal_kernel_db.bin \
+        firmware/ls2h-sb/gc_hal_kernel_debug.bin \
+        firmware/ls2h-sb/gc_hal_kernel_debugfs.bin \
+        firmware/ls2h-sb/gc_hal_kernel_device.bin \
+        firmware/ls2h-sb/gc_hal_kernel_driver.bin \
+        firmware/ls2h-sb/gc_hal_kernel_event.bin \
+        firmware/ls2h-sb/gc_hal_kernel_hardware.bin \
+        firmware/ls2h-sb/gc_hal_kernel_hardware_command_vg.bin \
+        firmware/ls2h-sb/gc_hal_kernel_hardware_vg.bin \
+        firmware/ls2h-sb/gc_hal_kernel_heap.bin \
+        firmware/ls2h-sb/gc_hal_kernel_interrupt_vg.bin \
+        firmware/ls2h-sb/gc_hal_kernel_linux.bin \
+        firmware/ls2h-sb/gc_hal_kernel_math.bin \
+        firmware/ls2h-sb/gc_hal_kernel_mmu.bin \
+        firmware/ls2h-sb/gc_hal_kernel_mmu_vg.bin \
+        firmware/ls2h-sb/gc_hal_kernel_os.bin \
+        firmware/ls2h-sb/gc_hal_kernel_vg.bin \
+        firmware/ls2h-sb/gc_hal_kernel_video_memory.bin
+
 fw-shipped-$(CONFIG_DVB_AV7110) += av7110/bootcode.bin
 fw-shipped-$(CONFIG_DVB_TTUSB_BUDGET) += ttusb-budget/dspbootcode.bin
 fw-shipped-$(CONFIG_E100) += e100/d101m_ucode.bin e100/d101s_ucode.bin \
