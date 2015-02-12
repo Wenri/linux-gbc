@@ -3,7 +3,8 @@
 #
 
 obj-y += setup.o init.o cmdline.o env.o time.o reset.o irq.o \
-    bonito-irq.o mem.o machtype.o platform.o efi.o boardinfo.o cpu.o
+    bonito-irq.o mem.o machtype.o platform.o efi.o boardinfo.o cpu.o \
+    temperature.o cputemp.o
 obj-$(CONFIG_GPIOLIB) += gpio.o
 
 #
