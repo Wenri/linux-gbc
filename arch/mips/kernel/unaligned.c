@@ -107,10 +107,10 @@ static u32 unaligned_action;
 extern void show_registers(struct pt_regs *regs);
 
 #ifdef __BIG_ENDIAN
-#define     LoadHW(addr, value, res)  \
+#define     _LoadHW(addr, value, res, type)  \
 		__asm__ __volatile__ (".set\tnoat\n"        \
-			"1:\t"user_lb("%0", "0(%2)")"\n"    \
-			"2:\t"user_lbu("$1", "1(%2)")"\n\t" \
+			"1:\t"type##_lb("%0", "0(%2)")"\n"  \
+			"2:\t"type##_lbu("$1", "1(%2)")"\n\t"\
 			"sll\t%0, 0x8\n\t"                  \
 			"or\t%0, $1\n\t"                    \
 			"li\t%1, 0\n"                       \
@@ -127,10 +127,10 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadW(addr, value, res)   \
+#define     _LoadW(addr, value, res, type)   \
 		__asm__ __volatile__ (                      \
-			"1:\t"user_lwl("%0", "(%2)")"\n"    \
-			"2:\t"user_lwr("%0", "3(%2)")"\n\t" \
+			"1:\t"type##_lwl("%0", "(%2)")"\n"    \
+			"2:\t"type##_lwr("%0", "3(%2)")"\n\t" \
 			"li\t%1, 0\n"                       \
 			"3:\n\t"                            \
 			".insn\n\t"                         \
@@ -145,11 +145,11 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadHWU(addr, value, res) \
+#define     _LoadHWU(addr, value, res, type) \
 		__asm__ __volatile__ (                      \
 			".set\tnoat\n"                      \
-			"1:\t"user_lbu("%0", "0(%2)")"\n"   \
-			"2:\t"user_lbu("$1", "1(%2)")"\n\t" \
+			"1:\t"type##_lbu("%0", "0(%2)")"\n"   \
+			"2:\t"type##_lbu("$1", "1(%2)")"\n\t" \
 			"sll\t%0, 0x8\n\t"                  \
 			"or\t%0, $1\n\t"                    \
 			"li\t%1, 0\n"                       \
@@ -167,10 +167,10 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadWU(addr, value, res)  \
+#define     _LoadWU(addr, value, res, type)  \
 		__asm__ __volatile__ (                      \
-			"1:\t"user_lwl("%0", "(%2)")"\n"    \
-			"2:\t"user_lwr("%0", "3(%2)")"\n\t" \
+			"1:\t"type##_lwl("%0", "(%2)")"\n"    \
+			"2:\t"type##_lwr("%0", "3(%2)")"\n\t" \
 			"dsll\t%0, %0, 32\n\t"              \
 			"dsrl\t%0, %0, 32\n\t"              \
 			"li\t%1, 0\n"                       \
@@ -187,7 +187,7 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadDW(addr, value, res)  \
+#define     _LoadDW(addr, value, res)  \
 		__asm__ __volatile__ (                      \
 			"1:\tldl\t%0, (%2)\n"               \
 			"2:\tldr\t%0, 7(%2)\n\t"            \
@@ -205,12 +205,12 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     StoreHW(addr, value, res) \
+#define     _StoreHW(addr, value, res, type) \
 		__asm__ __volatile__ (                      \
 			".set\tnoat\n"                      \
-			"1:\t"user_sb("%1", "1(%2)")"\n"    \
+			"1:\t"type##_sb("%1", "1(%2)")"\n"    \
 			"srl\t$1, %1, 0x8\n"                \
-			"2:\t"user_sb("$1", "0(%2)")"\n"    \
+			"2:\t"type##_sb("$1", "0(%2)")"\n"    \
 			".set\tat\n\t"                      \
 			"li\t%0, 0\n"                       \
 			"3:\n\t"                            \
@@ -226,10 +226,10 @@ extern void show_registers(struct pt_regs *regs);
 			: "=r" (res)                        \
 			: "r" (value), "r" (addr), "i" (-EFAULT));
 
-#define     StoreW(addr, value, res)  \
+#define     _StoreW(addr, value, res, type)  \
 		__asm__ __volatile__ (                      \
-			"1:\t"user_swl("%1", "(%2)")"\n"    \
-			"2:\t"user_swr("%1", "3(%2)")"\n\t" \
+			"1:\t"type##_swl("%1", "(%2)")"\n"    \
+			"2:\t"type##_swr("%1", "3(%2)")"\n\t" \
 			"li\t%0, 0\n"                       \
 			"3:\n\t"                            \
 			".insn\n\t"                         \
@@ -244,7 +244,7 @@ extern void show_registers(struct pt_regs *regs);
 		: "=r" (res)                                \
 		: "r" (value), "r" (addr), "i" (-EFAULT));
 
-#define     StoreDW(addr, value, res) \
+#define     _StoreDW(addr, value, res) \
 		__asm__ __volatile__ (                      \
 			"1:\tsdl\t%1,(%2)\n"                \
 			"2:\tsdr\t%1, 7(%2)\n\t"            \
@@ -264,10 +264,10 @@ extern void show_registers(struct pt_regs *regs);
 #endif
 
 #ifdef __LITTLE_ENDIAN
-#define     LoadHW(addr, value, res)  \
+#define     _LoadHW(addr, value, res, type)  \
 		__asm__ __volatile__ (".set\tnoat\n"        \
-			"1:\t"user_lb("%0", "1(%2)")"\n"    \
-			"2:\t"user_lbu("$1", "0(%2)")"\n\t" \
+			"1:\t"type##_lb("%0", "1(%2)")"\n"    \
+			"2:\t"type##_lbu("$1", "0(%2)")"\n\t" \
 			"sll\t%0, 0x8\n\t"                  \
 			"or\t%0, $1\n\t"                    \
 			"li\t%1, 0\n"                       \
@@ -284,10 +284,10 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadW(addr, value, res)   \
+#define     _LoadW(addr, value, res, type)   \
 		__asm__ __volatile__ (                      \
-			"1:\t"user_lwl("%0", "3(%2)")"\n"   \
-			"2:\t"user_lwr("%0", "(%2)")"\n\t"  \
+			"1:\t"type##_lwl("%0", "3(%2)")"\n"   \
+			"2:\t"type##_lwr("%0", "(%2)")"\n\t"  \
 			"li\t%1, 0\n"                       \
 			"3:\n\t"                            \
 			".insn\n\t"                         \
@@ -302,11 +302,11 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadHWU(addr, value, res) \
+#define     _LoadHWU(addr, value, res, type) \
 		__asm__ __volatile__ (                      \
 			".set\tnoat\n"                      \
-			"1:\t"user_lbu("%0", "1(%2)")"\n"   \
-			"2:\t"user_lbu("$1", "0(%2)")"\n\t" \
+			"1:\t"type##_lbu("%0", "1(%2)")"\n"   \
+			"2:\t"type##_lbu("$1", "0(%2)")"\n\t" \
 			"sll\t%0, 0x8\n\t"                  \
 			"or\t%0, $1\n\t"                    \
 			"li\t%1, 0\n"                       \
@@ -324,10 +324,10 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadWU(addr, value, res)  \
+#define     _LoadWU(addr, value, res, type)  \
 		__asm__ __volatile__ (                      \
-			"1:\t"user_lwl("%0", "3(%2)")"\n"   \
-			"2:\t"user_lwr("%0", "(%2)")"\n\t"  \
+			"1:\t"type##_lwl("%0", "3(%2)")"\n"   \
+			"2:\t"type##_lwr("%0", "(%2)")"\n\t"  \
 			"dsll\t%0, %0, 32\n\t"              \
 			"dsrl\t%0, %0, 32\n\t"              \
 			"li\t%1, 0\n"                       \
@@ -344,7 +344,7 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     LoadDW(addr, value, res)  \
+#define     _LoadDW(addr, value, res)  \
 		__asm__ __volatile__ (                      \
 			"1:\tldl\t%0, 7(%2)\n"              \
 			"2:\tldr\t%0, (%2)\n\t"             \
@@ -362,12 +362,12 @@ extern void show_registers(struct pt_regs *regs);
 			: "=&r" (value), "=r" (res)         \
 			: "r" (addr), "i" (-EFAULT));
 
-#define     StoreHW(addr, value, res) \
+#define     _StoreHW(addr, value, res, type) \
 		__asm__ __volatile__ (                      \
 			".set\tnoat\n"                      \
-			"1:\t"user_sb("%1", "0(%2)")"\n"    \
+			"1:\t"type##_sb("%1", "0(%2)")"\n"    \
 			"srl\t$1,%1, 0x8\n"                 \
-			"2:\t"user_sb("$1", "1(%2)")"\n"    \
+			"2:\t"type##_sb("$1", "1(%2)")"\n"    \
 			".set\tat\n\t"                      \
 			"li\t%0, 0\n"                       \
 			"3:\n\t"                            \
@@ -383,10 +383,10 @@ extern void show_registers(struct pt_regs *regs);
 			: "=r" (res)                        \
 			: "r" (value), "r" (addr), "i" (-EFAULT));
 
-#define     StoreW(addr, value, res)  \
+#define     _StoreW(addr, value, res, type)  \
 		__asm__ __volatile__ (                      \
-			"1:\t"user_swl("%1", "3(%2)")"\n"   \
-			"2:\t"user_swr("%1", "(%2)")"\n\t"  \
+			"1:\t"type##_swl("%1", "3(%2)")"\n"   \
+			"2:\t"type##_swr("%1", "(%2)")"\n\t"  \
 			"li\t%0, 0\n"                       \
 			"3:\n\t"                            \
 			".insn\n\t"                         \
@@ -401,7 +401,7 @@ extern void show_registers(struct pt_regs *regs);
 		: "=r" (res)                                \
 		: "r" (value), "r" (addr), "i" (-EFAULT));
 
-#define     StoreDW(addr, value, res) \
+#define     _StoreDW(addr, value, res) \
 		__asm__ __volatile__ (                      \
 			"1:\tsdl\t%1, 7(%2)\n"              \
 			"2:\tsdr\t%1, (%2)\n\t"             \
@@ -419,6 +419,22 @@ extern void show_registers(struct pt_regs *regs);
 		: "=r" (res)                                \
 		: "r" (value), "r" (addr), "i" (-EFAULT));
 #endif
+
+#define LoadHWU(addr, value, res)	_LoadHWU(addr, value, res, kernel)
+#define LoadHWUE(addr, value, res)	_LoadHWU(addr, value, res, user)
+#define LoadWU(addr, value, res)	_LoadWU(addr, value, res, kernel)
+#define LoadWUE(addr, value, res)	_LoadWU(addr, value, res, user)
+#define LoadHW(addr, value, res)	_LoadHW(addr, value, res, kernel)
+#define LoadHWE(addr, value, res)	_LoadHW(addr, value, res, user)
+#define LoadW(addr, value, res)		_LoadW(addr, value, res, kernel)
+#define LoadWE(addr, value, res)	_LoadW(addr, value, res, user)
+#define LoadDW(addr, value, res)	_LoadDW(addr, value, res)
+
+#define StoreHW(addr, value, res)	_StoreHW(addr, value, res, kernel)
+#define StoreHWE(addr, value, res)	_StoreHW(addr, value, res, user)
+#define StoreW(addr, value, res)	_StoreW(addr, value, res, kernel)
+#define StoreWE(addr, value, res)	_StoreW(addr, value, res, user)
+#define StoreDW(addr, value, res)	_StoreDW(addr, value, res)
 
 static void emulate_load_store_insn(struct pt_regs *regs,
 	void __user *addr, unsigned int __user *pc)
@@ -491,7 +507,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				set_fs(seg);
 				goto sigbus;
 			}
-			LoadHW(addr, value, res);
+			LoadHWE(addr, value, res);
 			if (res) {
 				set_fs(seg);
 				goto fault;
@@ -504,7 +520,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				set_fs(seg);
 				goto sigbus;
 			}
-				LoadW(addr, value, res);
+				LoadWE(addr, value, res);
 			if (res) {
 				set_fs(seg);
 				goto fault;
@@ -517,7 +533,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				set_fs(seg);
 				goto sigbus;
 			}
-			LoadHWU(addr, value, res);
+			LoadHWUE(addr, value, res);
 			if (res) {
 				set_fs(seg);
 				goto fault;
@@ -532,7 +548,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			}
 			compute_return_epc(regs);
 			value = regs->regs[insn.spec3_format.rt];
-			StoreHW(addr, value, res);
+			StoreHWE(addr, value, res);
 			if (res) {
 				set_fs(seg);
 				goto fault;
@@ -545,7 +561,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			}
 			compute_return_epc(regs);
 			value = regs->regs[insn.spec3_format.rt];
-			StoreW(addr, value, res);
+			StoreWE(addr, value, res);
 			if (res) {
 				set_fs(seg);
 				goto fault;
