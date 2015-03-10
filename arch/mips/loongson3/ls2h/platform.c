@@ -192,25 +192,22 @@ static struct platform_device ls2h_ehci_device = {
 /*
  * GMAC0
  */
-static struct stmmac_dma_cfg gmac0_dma_cfg[] = {
-	[0] = {
-		.pbl =32,
-	},
+static struct stmmac_dma_cfg gmac0_dma_cfg = {
+	.pbl =32,
 };
 
-static struct stmmac_mdio_bus_data phy0_bus_data[] = {
-	[0] = {
-		.phy_mask = 0,
-	},
+static struct stmmac_mdio_bus_data phy0_bus_data = {
+	.phy_mask = 0,
 };
 
 static struct plat_stmmacenet_data gmac0_plat_dat = {
 	.bus_id		= 0,
-	.dma_cfg        = gmac0_dma_cfg,
+	.dma_cfg        = &gmac0_dma_cfg,
 	.has_gmac	= 1,
+	.tx_coe		= 1,
 	.enh_desc	= 1,
-	.phy_addr	= 1,
-	.mdio_bus_data	= phy0_bus_data ,
+	.phy_addr	= -1,
+	.mdio_bus_data	= &phy0_bus_data,
 };
 
 static struct resource ls2h_gmac0_resources[] = {
@@ -242,25 +239,22 @@ static struct platform_device ls2h_gmac0_device = {
  * GMAC1
  */
 
-static struct stmmac_dma_cfg gmac1_dma_cfg[] = {
-	[0] = {
-		.pbl =32,
-	},
+static struct stmmac_dma_cfg gmac1_dma_cfg = {
+	.pbl =32,
 };
 
-static struct stmmac_mdio_bus_data phy1_bus_data[] = {
-	[0] = {
-		.phy_mask = 0,
-	},
+static struct stmmac_mdio_bus_data phy1_bus_data = {
+	.phy_mask = 0,
 };
 
 static struct plat_stmmacenet_data gmac1_plat_dat = {
 	.bus_id		= 1,
-	.dma_cfg	= gmac1_dma_cfg,
+	.dma_cfg	= &gmac1_dma_cfg,
 	.has_gmac	= 1,
+	.tx_coe		= 1,
 	.enh_desc	= 1,
-	.mdio_bus_data  = phy1_bus_data ,
-	.phy_addr	= 1,
+	.mdio_bus_data  = &phy1_bus_data ,
+	.phy_addr	= -1,
 };
 
 static struct resource ls2h_gmac1_resources[] = {

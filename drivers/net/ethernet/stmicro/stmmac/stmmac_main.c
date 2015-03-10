@@ -49,6 +49,11 @@
 #endif /* CONFIG_STMMAC_DEBUG_FS */
 #include <linux/net_tstamp.h>
 #include "stmmac_ptp.h"
+
+#if defined(CONFIG_LS2H_SB)
+#include <linux/i2c.h>
+#endif
+
 #include "stmmac.h"
 
 #undef STMMAC_DEBUG
@@ -121,6 +126,13 @@ MODULE_PARM_DESC(tc, "DMA threshold control value");
 static int buf_sz = DMA_BUFFER_SIZE;
 module_param(buf_sz, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(buf_sz, "DMA buffer size");
+
+#if defined(CONFIG_LS2H_SB)
+static struct eep_info {
+	struct i2c_adapter *adapter;
+	unsigned short addr;
+} eeprom_info;
+#endif
 
 static const u32 default_msg_level = (NETIF_MSG_DRV | NETIF_MSG_PROBE |
 				      NETIF_MSG_LINK | NETIF_MSG_IFUP |
@@ -1354,6 +1366,69 @@ static void stmmac_dma_interrupt(struct stmmac_priv *priv)
 		stmmac_tx_err(priv);
 }
 
+#if defined(CONFIG_LS2H_SB)
+static int stmmac_eep_get_mac_addr(struct stmmac_priv *priv, unsigned char *buf)
+{
+	struct platform_device *pdev = to_platform_device(priv->device);
+	unsigned int data_addr = 6 * pdev->id;
+	unsigned char start[2];
+	struct i2c_msg msgs[] = {
+		{
+			.addr	= eeprom_info.addr,
+			.flags	= 0,
+			.len	= 2,
+			.buf	= start,
+		}, {
+			.addr	= eeprom_info.addr,
+			.flags	= I2C_M_RD,
+			.len	= 6,
+			.buf	= buf,
+		}
+	};
+
+	start[0] = (data_addr >> 8) & 0x1f;
+	start[1] = data_addr & 0xff;
+
+	if (eeprom_info.adapter == NULL) {
+		pr_err("%s: eeprom_info is not initalized\n", __func__);
+		return 0;
+	}
+
+	if (i2c_transfer(eeprom_info.adapter, msgs, 2) == 2)
+		return 1;
+	else
+		return 0;
+
+}
+
+static int stmmac_eep_set_mac_addr(struct stmmac_priv *priv, unsigned char *buf)
+{
+	struct platform_device *pdev = to_platform_device(priv->device);
+	unsigned int data_addr = 6 * pdev->id;
+	unsigned char start[8];
+	struct i2c_msg msgs = {
+		.addr	= eeprom_info.addr,
+		.flags	= 0,
+		.len	= 8,
+		.buf	= start,
+	};
+
+	start[0] = (data_addr >> 8) & 0x1f;
+	start[1] = data_addr & 0xff;
+	memcpy(&start[2], buf, 6);
+
+	if (eeprom_info.adapter == NULL) {
+		pr_err("%s: eeprom_info is not initalized\n", __func__);
+		return 0;
+	}
+
+	if (i2c_transfer(eeprom_info.adapter, &msgs, 1) == 1)
+		return 1;
+	else
+		return 0;
+}
+#endif
+
 /**
  * stmmac_mmc_setup: setup the Mac Management Counters (MMC)
  * @priv: driver private structure
@@ -1484,9 +1559,13 @@ static int stmmac_get_hw_features(struct stmmac_priv *priv)
 static void stmmac_check_ether_addr(struct stmmac_priv *priv)
 {
 	if (!is_valid_ether_addr(priv->dev->dev_addr)) {
+#if defined(CONFIG_LS2H_SB)
+	stmmac_eep_get_mac_addr(priv, priv->dev->dev_addr);
+#else
 		priv->hw->mac->get_umac_addr((void __iomem *)
 					     priv->dev->base_addr,
 					     priv->dev->dev_addr, 0);
+#endif
 		if (!is_valid_ether_addr(priv->dev->dev_addr))
 			eth_hw_addr_random(priv->dev);
 	}
@@ -2517,6 +2596,23 @@ static void stmmac_exit_fs(void)
 }
 #endif /* CONFIG_STMMAC_DEBUG_FS */
 
+#if defined(CONFIG_LS2H_SB)
+int stmmac_set_mac_address(struct net_device *dev, void *p)
+{
+	struct stmmac_priv *priv = netdev_priv(dev);
+	struct sockaddr *addr = p;
+
+	if (!is_valid_ether_addr(addr->sa_data))
+		return -EADDRNOTAVAIL;
+
+	stmmac_eep_set_mac_addr(priv, addr->sa_data);
+	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+	priv->hw->mac->set_umac_addr((void *) dev->base_addr, dev->dev_addr, 0);
+
+	return 0;
+}
+#endif
+
 static const struct net_device_ops stmmac_netdev_ops = {
 	.ndo_open = stmmac_open,
 	.ndo_start_xmit = stmmac_xmit,
@@ -2530,7 +2626,11 @@ static const struct net_device_ops stmmac_netdev_ops = {
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = stmmac_poll_controller,
 #endif
+#if defined(CONFIG_LS2H_SOC) || defined(CONFIG_LS2H_SB)
+	.ndo_set_mac_address = stmmac_set_mac_address,
+#else
 	.ndo_set_mac_address = eth_mac_addr,
+#endif
 };
 
 /**
@@ -2618,6 +2718,39 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
 
 	return 0;
 }
+
+#if defined(CONFIG_LS2H_SB)
+static const struct i2c_device_id eep_ids[] = {
+	{ "eeprom-mac", 0 },
+	{ /* END OF LIST */ }
+};
+
+MODULE_DEVICE_TABLE(i2c, eep_ids);
+
+static int eep_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	eeprom_info.adapter = client->adapter;
+	eeprom_info.addr = client->addr;
+	return 0;
+}
+
+static int eep_remove(struct i2c_client *client)
+{
+
+	i2c_unregister_device(client);
+	return 0;
+}
+
+static struct i2c_driver eep_driver = {
+	.driver = {
+		.name = "eep-mac",
+		.owner = THIS_MODULE,
+	},
+	.probe = eep_probe,
+	.remove = eep_remove,
+	.id_table = eep_ids,
+};
+#endif
 
 /**
  * stmmac_dvr_probe
@@ -2875,6 +3008,12 @@ static int __init stmmac_init(void)
 {
 	int ret;
 
+#if defined(CONFIG_LS2H_SB)
+	if (i2c_add_driver(&eep_driver)) {
+		pr_err("No eeprom device register!");
+		return -ENODEV;
+	}
+#endif
 	ret = stmmac_register_platform();
 	if (ret)
 		goto err;
@@ -2893,6 +3032,10 @@ static void __exit stmmac_exit(void)
 {
 	stmmac_unregister_platform();
 	stmmac_unregister_pci();
+
+#if defined(CONFIG_LS2H_SB)
+	i2c_del_driver(&eep_driver);
+#endif
 }
 
 module_init(stmmac_init);
