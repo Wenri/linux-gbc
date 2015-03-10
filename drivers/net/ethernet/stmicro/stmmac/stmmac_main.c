@@ -55,6 +55,7 @@
 #endif
 
 #include "stmmac.h"
+#include "dwmac_dma.h"
 
 #undef STMMAC_DEBUG
 /*#define STMMAC_DEBUG*/
@@ -1213,6 +1214,22 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 		priv->hw->dma->dma_mode(priv->ioaddr, tc, SF_DMA_MODE);
 }
 
+static int stmmac_get_dma_cur(struct stmmac_priv *priv)
+{
+	unsigned int base, cur;
+	unsigned long flags;
+	void *ioaddr = (void *) priv->dev->base_addr;
+
+	spin_lock_irqsave(&priv->lock, flags);
+
+	base = readl(ioaddr + DMA_TX_BASE_ADDR);
+	cur = readl(ioaddr + DMA_CUR_TX_DESC);
+
+	spin_unlock_irqrestore(&priv->lock, flags);
+
+	return (cur - base) / sizeof(struct dma_desc);
+}
+
 /**
  * stmmac_tx_clean:
  * @priv: driver private structure
@@ -1231,6 +1248,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
 		unsigned int entry = priv->dirty_tx % txsize;
 		struct sk_buff *skb = priv->tx_skbuff[entry];
 		struct dma_desc *p;
+		unsigned int dma_cur = stmmac_get_dma_cur(priv);
+		unsigned int dif = (dma_cur + txsize - entry) % txsize;
 
 		if (priv->extend_desc)
 			p = (struct dma_desc *)(priv->dma_etx + entry);
@@ -1239,6 +1258,8 @@ static void stmmac_tx_clean(struct stmmac_priv *priv)
 
 		/* Check if the descriptor is owned by the DMA. */
 		if (priv->hw->desc->get_tx_owner(p))
+			break;
+		if (dif < 2)
 			break;
 
 		/* Verify tx error by looking at the last segment. */

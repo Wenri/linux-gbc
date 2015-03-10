@@ -35,6 +35,8 @@
 #define DMA_CONTROL		0x00001018	/* Ctrl (Operational Mode) */
 #define DMA_INTR_ENA		0x0000101c	/* Interrupt Enable */
 #define DMA_MISSED_FRAME_CTR	0x00001020	/* Missed Frame Counter */
+#define DMA_CUR_TX_DESC		0x00001048	/* Current Host Tx Descriptor */
+#define DMA_CUR_RX_DESC		0x0000104c	/* Current Host Rx Descriptor */
 /* Rx watchdog register */
 #define DMA_RX_WATCHDOG		0x00001024
 /* AXI Bus Mode */
