@@ -89,7 +89,7 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 {
 	int i, cpu = smp_processor_id();
 	unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(cpu));
-	unsigned int action, c0count, irqs;
+	unsigned int action, c0count, irqs, irq;
 
 	/* Load the ipi register to figure out what we're supposed to do */
 	action = loongson3_ipi_read32((void *)(base + IPI_OFF_STATUS));
@@ -114,10 +114,18 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 
 	irqs = action >> IPI_IRQ_OFFSET;
 	if (irqs) {
-		int irq;
-		while ((irq = ffs(irqs))) {
-			do_IRQ(irq-1);
-			irqs &= ~(1<<(irq-1));
+		switch (board_type) {
+			case RS780E:
+				while ((irq = ffs(irqs))) {
+					do_IRQ(irq-1);
+					irqs &= ~(1<<(irq-1));
+				}
+				break;
+			case LS2H:
+				do_IRQ(irqs);
+				break;
+			default:
+				break;
 		}
 	}
 }

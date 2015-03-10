@@ -19,6 +19,7 @@
 #include <ls2h/ls2h.h>
 #include <ls2h/ls2h_int.h>
 
+extern int loongson3_send_irq_by_ipi(int cpu,int irqs);
 extern unsigned long long lpc_reg_base;
 static struct ls2h_int_ctrl_regs volatile *int_ctrl_regs
 	= (struct ls2h_int_ctrl_regs volatile *)
@@ -83,13 +84,19 @@ static struct irq_chip ls2h_board_irq_chip = {
 static void __ls2h_irq_dispatch(int n, int intstatus)
 {
 	int irq;
+	static unsigned int core_num = 0;
 
 	irq = ffs(intstatus);
 	if (!irq) {
 		pr_info("Unknow n: %d intstatus %x \n", n, intstatus);
 		spurious_interrupt();
-	} else
-		do_IRQ(n * 32 + LS2H_IRQ_BASE + irq - 1);
+	} else {
+		core_num = (core_num + 1) % cores_per_package;
+		if (core_num == 0 || !cpu_online(core_num))
+			do_IRQ(n * 32 + LS2H_IRQ_BASE + irq - 1);
+		else
+			loongson3_send_irq_by_ipi(core_num, (n * 32 + LS2H_IRQ_BASE + irq - 1));
+	}
 }
 
 void _ls2h_irq_dispatch(void)
