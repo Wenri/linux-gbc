@@ -1014,22 +1014,31 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	case VIDIOC_ENUM_FMT:
 	case VIDIOC_G_FMT32:
 	case VIDIOC_S_FMT32:
+	case VIDIOC_G_FMT:
+	case VIDIOC_S_FMT:
 	case VIDIOC_REQBUFS:
 	case VIDIOC_QUERYBUF32:
 	case VIDIOC_G_FBUF32:
 	case VIDIOC_S_FBUF32:
 	case VIDIOC_OVERLAY32:
 	case VIDIOC_QBUF32:
+	case VIDIOC_QUERYBUF:
+	case VIDIOC_G_FBUF:
+	case VIDIOC_S_FBUF:
+	case VIDIOC_QBUF:
 	case VIDIOC_EXPBUF:
 	case VIDIOC_DQBUF32:
 	case VIDIOC_STREAMON32:
 	case VIDIOC_STREAMOFF32:
+	case VIDIOC_DQBUF:
 	case VIDIOC_G_PARM:
 	case VIDIOC_S_PARM:
 	case VIDIOC_G_STD:
 	case VIDIOC_S_STD:
 	case VIDIOC_ENUMSTD32:
 	case VIDIOC_ENUMINPUT32:
+	case VIDIOC_ENUMSTD:
+	case VIDIOC_ENUMINPUT:
 	case VIDIOC_G_CTRL:
 	case VIDIOC_S_CTRL:
 	case VIDIOC_G_TUNER:
@@ -1058,6 +1067,7 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	case VIDIOC_S_JPEGCOMP:
 	case VIDIOC_QUERYSTD:
 	case VIDIOC_TRY_FMT32:
+	case VIDIOC_TRY_FMT:
 	case VIDIOC_ENUMAUDIO:
 	case VIDIOC_ENUMAUDOUT:
 	case VIDIOC_G_PRIORITY:
@@ -1067,6 +1077,9 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	case VIDIOC_G_EXT_CTRLS32:
 	case VIDIOC_S_EXT_CTRLS32:
 	case VIDIOC_TRY_EXT_CTRLS32:
+	case VIDIOC_G_EXT_CTRLS:
+	case VIDIOC_S_EXT_CTRLS:
+	case VIDIOC_TRY_EXT_CTRLS:
 	case VIDIOC_ENUM_FRAMESIZES:
 	case VIDIOC_ENUM_FRAMEINTERVALS:
 	case VIDIOC_G_ENC_INDEX:
@@ -1086,12 +1099,16 @@ long v4l2_compat_ioctl32(struct file *file, unsigned int cmd, unsigned long arg)
 	case VIDIOC_UNSUBSCRIBE_EVENT:
 	case VIDIOC_CREATE_BUFS32:
 	case VIDIOC_PREPARE_BUF32:
+	case VIDIOC_CREATE_BUFS:
+	case VIDIOC_PREPARE_BUF:
 	case VIDIOC_ENUM_DV_TIMINGS:
 	case VIDIOC_QUERY_DV_TIMINGS:
 	case VIDIOC_DV_TIMINGS_CAP:
 	case VIDIOC_ENUM_FREQ_BANDS:
 	case VIDIOC_SUBDEV_G_EDID32:
 	case VIDIOC_SUBDEV_S_EDID32:
+	case VIDIOC_SUBDEV_G_EDID:
+	case VIDIOC_SUBDEV_S_EDID:
 		ret = do_video_ioctl(file, cmd, arg);
 		break;
 
