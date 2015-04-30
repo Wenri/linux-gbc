@@ -1,6 +1,8 @@
 #ifndef __ASM_MACH_LOONGSON3_BOOT_PARAM_H_
 #define __ASM_MACH_LOONGSON3_BOOT_PARAM_H_
 
+#define DMA64_SUPPORTED		0x2
+
 #define SYSTEM_RAM_LOW		1
 #define SYSTEM_RAM_HIGH		2
 #define MEM_RESERVED		3
@@ -77,6 +79,7 @@ struct irq_source_routing_table {
 	u64 pci_io_start_addr;
 	u64 pci_io_end_addr;
 	u64 pci_config_addr;
+	u32 dma_mask_bits;
 }__attribute__((packed));
 
 struct interface_info{
@@ -166,4 +169,5 @@ extern u64 vgabios_addr;
 extern u32 nr_cpus_online;
 extern struct interface_info *einter;
 extern struct board_devices *eboard;
+extern uint32_t dma64_supported;
 #endif

@@ -51,6 +51,7 @@ unsigned long systab_addr;
 
 u16 boot_cpu_id;
 u16 reserved_cpus_mask;
+u32 dma64_supported;
 enum loongson_cpu_type cputype;
 enum board_type board_type;
 u32 nr_cpus_loongson = NR_CPUS;
@@ -221,6 +222,21 @@ void __init prom_init_env(void)
 		i++;
 	}
 
+	if (strstr(eboard->name,"2H")) {
+		board_type = LS2H;
+	} else {
+		board_type = RS780E;
+	}
+
+	dma64_supported = 0;
+	if (((especial->resource[0].flags & DMA64_SUPPORTED) || (eirq_source->dma_mask_bits == 64))
+			&& (board_type == RS780E)) {
+		dma64_supported = 1;
+		pr_info("BIOS dma flags:0x%x\n", especial->resource[0].flags);
+		pr_info("BIOS dma_mask_bits:%d\n", eirq_source->dma_mask_bits);
+		pr_info("BIOS enable 64bit dma configuration\n");
+	}
+
 	/*
 	 * 3B6C(3BITX) mainboard contains 2 nodes, and each node
 	 * owns 3 cores. 3BITX uses 3B1500(Prid 0x6307) processor.
@@ -249,6 +265,15 @@ void __init prom_init_env(void)
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
 	pci_mem_end_addr = eirq_source->pci_mem_end_addr;
 	loongson_pciio_base = eirq_source->pci_io_start_addr;
+	if (!loongson_pciio_base) {
+		if (cputype == Loongson_3A)
+			loongson_pciio_base = 0xefdfc000000;
+		else if (cputype == Loongson_3B)
+			loongson_pciio_base = 0x1efdfc000000;
+		else
+			loongson_pciio_base = 0x1ff00000;
+	}
+	pr_info("BIOS loongson_pci_io_base:0x%llx\n", loongson_pciio_base);
 
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;

@@ -92,15 +92,32 @@ static void loongson_dma_sync_sg_for_device(struct device *dev,
 
 static int loongson_dma_set_mask(struct device *dev, u64 mask)
 {
-	/* Loongson doesn't support DMA above 32-bit */
-	if (mask > DMA_BIT_MASK(32)) {
-		*dev->dma_mask = DMA_BIT_MASK(32);
-		return -EIO;
+	if (!dma64_supported) {
+		if (mask > DMA_BIT_MASK(32)) {
+			*dev->dma_mask = DMA_BIT_MASK(32);
+			return -EIO;
+		}
 	}
 
 	*dev->dma_mask = mask;
 
 	return 0;
+}
+
+static dma_addr_t loongson_unity_phys_to_dma32(struct device *dev, phys_addr_t paddr)
+{
+	paddr = paddr < 0x10000000 ?
+		(paddr | 0x0000000080000000) : paddr;
+
+	return paddr;
+}
+
+static phys_addr_t loongson_unity_dma_to_phys32(struct device *dev, dma_addr_t daddr)
+{
+	daddr = (daddr < 0x90000000 && daddr >= 0x80000000) ?
+		daddr & 0x0fffffff : daddr;
+
+	return daddr;
 }
 
 static struct mips_dma_map_ops loongson_linear_dma_map_ops = {
@@ -125,6 +142,11 @@ static struct mips_dma_map_ops loongson_linear_dma_map_ops = {
 
 void __init rs780_plat_swiotlb_setup(void)
 {
+	if(!dma64_supported) {
+		loongson_linear_dma_map_ops.phys_to_dma = loongson_unity_phys_to_dma32;
+		loongson_linear_dma_map_ops.dma_to_phys = loongson_unity_dma_to_phys32;
+		pr_info("swiotlb:restricted 32bit dma!\n");
+	} 
 	swiotlb_init(1);
 	loongson_dma_map_ops = &loongson_linear_dma_map_ops;
 }

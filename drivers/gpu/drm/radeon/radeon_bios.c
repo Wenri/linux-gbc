@@ -33,6 +33,12 @@
 #include <linux/vga_switcheroo.h>
 #include <linux/slab.h>
 #include <linux/acpi.h>
+
+#ifdef CONFIG_CPU_LOONGSON3
+extern void prom_printf(char *fmt, ...);
+static unsigned long sharevram =0, vramsize = 128;
+#endif
+
 /*
  * BIOS.
  */
@@ -650,6 +656,59 @@ static inline bool radeon_acpi_vfct_bios(struct radeon_device *rdev)
 }
 #endif
 
+#ifdef CONFIG_CPU_LOONGSON3
+static bool loongson3_read_bios(struct radeon_device *rdev)
+{
+	u8 *bios;
+	unsigned long start;
+	resource_size_t vram_base;
+	resource_size_t size = 512 * 1024; /* ??? */
+
+	rdev->bios = NULL;
+	if (!vgabios_addr) {
+		return false;
+	} else {
+		bios = (u8 *)((vgabios_addr & 0xfffffff) | 0x9000000000000000);
+	}
+	if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa) {
+		if (sharevram) {
+			vram_base = 0x90000000 + (vramsize<<20) - 0x100000;
+			printk("uma vram_base = 0x%llx\n", vram_base);
+		} else {
+			/*vram_base = 0x40000000 + (vramsize << 20) - 0x100000;*/
+			/*in some case, start != 0x40000000*/
+			start = pci_resource_start(rdev->pdev, 0);
+			vram_base = start + (vramsize << 20) - 0x100000;
+			printk("sp vram_base = 0x%llx\n", vram_base);
+		}
+		bios = ioremap(vram_base, size);
+		if (!bios) {
+			return false;
+		}
+		if (size == 0 || bios[0] != 0x55 || bios[1] != 0xaa) {
+			iounmap(bios);
+			return false;
+		}
+		rdev->bios = kmalloc(size, GFP_KERNEL);
+		if (rdev->bios == NULL) {
+			iounmap(bios);
+			return false;
+		}
+		memcpy_fromio(rdev->bios, bios, size);
+		iounmap(bios);
+		return true;
+	} else {
+		rdev->bios = kmalloc(size, GFP_KERNEL);
+		if (rdev->bios == NULL) {
+			return false;
+
+		}
+		memcpy(rdev->bios, bios, size);
+		return true;
+	}
+}
+#endif
+
 bool radeon_get_bios(struct radeon_device *rdev)
 {
 	bool r;
@@ -660,6 +719,10 @@ bool radeon_get_bios(struct radeon_device *rdev)
 		r = radeon_acpi_vfct_bios(rdev);
 	if (r == false)
 		r = igp_read_bios_from_vram(rdev);
+#ifdef CONFIG_CPU_LOONGSON3
+	if ((r == false) && (rdev->flags & RADEON_IS_IGP)) 
+		r = loongson3_read_bios(rdev);
+#endif
 	if (r == false)
 		r = radeon_read_bios(rdev);
 	if (r == false) {
