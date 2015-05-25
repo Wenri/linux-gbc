@@ -17,7 +17,6 @@
 #include <linux/init.h>
 #include <ls2h/ls2h.h>
 #include <ls2h/ls2h_int.h>
-
 extern struct pci_ops ls2h_pcie_ops_port0;
 extern struct pci_ops ls2h_pcie_ops_port1;
 extern struct pci_ops ls2h_pcie_ops_port2;
@@ -229,5 +228,34 @@ static int __init disablepci_setup(char *options)
 		disablepci = simple_strtoul(options, 0, 0);
 	return 1;
 }
+
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+void ls2h_early_config(void)
+{
+	u32 val;
+
+	/*  
+	 *           * Loongson-2H chip_config0: 0x1fd00200
+	 *           * bit[5]:      Loongson-2H bridge mode,0: disable      1: enable
+	 *           * bit[4]:      ac97/hda select,        0: ac97         1: hda
+	 *           * bit[14]:     host/otg select,        0: host         1: otg
+	 *           * bit[26]:     usb reset,              0: enable       1: disable
+	 **/
+
+	val = ls2h_readl(LS2H_CHIP_CFG0_REG);
+	ls2h_writel(val | (1 << 5) | (1 << 4) | (1 << 14) | (1 << 26), LS2H_CHIP_CFG0_REG);
+
+	en_ref_clock();
+
+	if (is_rc_mode()) {
+		ls2h_pcie_port_init(0);
+		if (!is_x4_mode()) {
+			ls2h_pcie_port_init(1);
+			ls2h_pcie_port_init(2);
+			ls2h_pcie_port_init(3);
+		}   
+	}
+}
+#endif
 
 __setup("disablepci=", disablepci_setup);

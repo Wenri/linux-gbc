@@ -116,6 +116,27 @@ void _ls2h_irq_dispatch(void)
 		}
 }
 
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+void ls2h_resume_irq_init(void)
+{
+
+	/* uart, keyboard, and mouse are active high */
+	(int_ctrl_regs + 0)->int_edge	= 0x00000000;
+	(int_ctrl_regs + 0)->int_pol	= 0xff7fffff;
+	(int_ctrl_regs + 0)->int_clr	= 0x00000000;
+	(int_ctrl_regs + 0)->int_en	= 0x00ffffff;
+
+	(int_ctrl_regs + 1)->int_edge	= 0x00000000;
+	(int_ctrl_regs + 1)->int_pol	= 0xfeffffff;
+	(int_ctrl_regs + 1)->int_clr	= 0x00000000;
+	(int_ctrl_regs + 1)->int_en	= 0x03ffffff;
+
+	(int_ctrl_regs + 2)->int_edge	= 0x00000000;
+	(int_ctrl_regs + 2)->int_pol	= 0xffffffff;
+	(int_ctrl_regs + 2)->int_clr	= 0x00000000;
+	(int_ctrl_regs + 2)->int_en	= 0x00000000;
+}
+#endif
 void _ls2h_init_irq(u32 irq_base)
 {
 	u32 i;

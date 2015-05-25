@@ -98,6 +98,30 @@ void __init ls2h_init_irq(void)
 	ls3_lpc_irq_init();
 }
 
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+extern void ls2h_resume_irq_init(void);
+void ls2h_irq_router_init(void)
+{
+	/* Route INTn0 to IP3 */
+	LOONGSON_INT_ROUTER_ENTRY(0) = LOONGSON_INT_CORE0_INT1;
+
+	/* Route the LPC interrupt to Core0 IP2 */
+	LOONGSON_INT_ROUTER_LPC = LOONGSON_INT_CORE0_INT0;
+
+	/* Enable UART and INT0 interrupts */
+	LOONGSON_INT_ROUTER_INTENSET = (1 << 10) | (1 << 0);
+
+	ls2h_resume_irq_init();
+
+	/* Enable the LPC interrupt */
+	ls2h_readl(lpc_reg_base + 0x0) = 0x80000000;
+	/* set the 18-bit interrpt enable bit for keyboard and mouse */
+	ls2h_readl(lpc_reg_base + 0x4) = (1 << 1) | (1 << 12);
+	/* clear all 18-bit interrpt bit */
+	ls2h_readl(lpc_reg_base + 0xc) = 0x3ffff;
+
+}
+#endif
 asmlinkage void ls2h_irq_dispatch(unsigned int pending)
 {
 	/*

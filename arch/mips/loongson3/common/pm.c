@@ -1,9 +1,6 @@
 /*
  * loongson-specific suspend support
  *
- *  Copyright (C) 2009 Lemote Inc.
- *  Author: Wu Zhangjin <wuzhangjin@gmail.com>
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -12,49 +9,41 @@
 #include <linux/suspend.h>
 #include <linux/interrupt.h>
 #include <linux/pm.h>
-
-#include <asm/i8259.h>
 #include <asm/mipsregs.h>
+#include <asm/bootinfo.h>
 
-#include <loongson.h>
+static u64 loongson_chipcfg[1] = {0xffffffffbfc00180};
+#define LOONGSON_CHIPCFG(id) (*(volatile u32 *)(loongson_chipcfg[id]))
 
-static unsigned int __maybe_unused cached_master_mask;	/* i8259A */
-static unsigned int __maybe_unused cached_slave_mask;
-static unsigned int __maybe_unused cached_bonito_irq_mask; /* bonito */
+#define RTC_PORT(x)     (0x70 + (x))
 
-void arch_suspend_disable_irqs(void)
+static inline unsigned char CMOS_READ(unsigned long addr)
 {
-	/* disable all mips events */
-	local_irq_disable();
-
-#ifdef CONFIG_I8259
-	/* disable all events of i8259A */
-	cached_slave_mask = inb(PIC_SLAVE_IMR);
-	cached_master_mask = inb(PIC_MASTER_IMR);
-
-	outb(0xff, PIC_SLAVE_IMR);
-	inb(PIC_SLAVE_IMR);
-	outb(0xff, PIC_MASTER_IMR);
-	inb(PIC_MASTER_IMR);
-#endif
-	/* disable all events of bonito */
-	cached_bonito_irq_mask = LOONGSON_INTEN;
-	LOONGSON_INTENCLR = 0xffff;
-	(void)LOONGSON_INTENCLR;
+	outb_p(addr, RTC_PORT(0));
+	return inb_p(RTC_PORT(1));
 }
 
-void arch_suspend_enable_irqs(void)
+static inline void CMOS_WRITE(unsigned char data, unsigned long addr)
 {
-	/* enable all mips events */
-	local_irq_enable();
-#ifdef CONFIG_I8259
-	/* only enable the cached events of i8259A */
-	outb(cached_slave_mask, PIC_SLAVE_IMR);
-	outb(cached_master_mask, PIC_MASTER_IMR);
-#endif
-	/* enable all cached events of bonito */
-	LOONGSON_INTENSET = cached_bonito_irq_mask;
-	(void)LOONGSON_INTENSET;
+	outb_p(addr, RTC_PORT(0));
+	outb_p(data, RTC_PORT(1));
+}
+
+#define HT_uncache_enable_reg0	*(volatile unsigned int *)(ht_control_base + 0xF0)
+#define HT_uncache_base_reg0	*(volatile unsigned int *)(ht_control_base + 0xF4)
+#define HT_uncache_enable_reg1	*(volatile unsigned int *)(ht_control_base + 0xF8)
+#define HT_uncache_base_reg1	*(volatile unsigned int *)(ht_control_base + 0xFC)
+
+extern enum loongson_cpu_type cputype;
+static unsigned int __maybe_unused cached_autoplug_enabled;
+
+void cmos_write64(uint64_t data, unsigned long addr)
+{
+	int i;
+	unsigned char * bytes = (unsigned char *)&data;
+
+	for (i=0; i<8; i++)
+		CMOS_WRITE(bytes[i], addr + i);
 }
 
 /*
@@ -79,7 +68,12 @@ int __weak wakeup_loongson(void)
 static void wait_for_wakeup_events(void)
 {
 	while (!wakeup_loongson())
-		LOONGSON_CHIPCFG0 &= ~0x7;
+		switch(cputype) {
+		case Loongson_3A:
+		default:
+			LOONGSON_CHIPCFG(0) &= ~0x7;
+			break;
+		}
 }
 
 /*
@@ -89,7 +83,8 @@ static void wait_for_wakeup_events(void)
  */
 static inline void stop_perf_counters(void)
 {
-	__write_64bit_c0_register($24, 0, 0);
+	__write_64bit_c0_register($25, 0, 0xc0000000);
+	__write_64bit_c0_register($25, 2, 0x40000000);
 }
 
 
@@ -102,34 +97,40 @@ static void loongson_suspend_enter(void)
 
 	stop_perf_counters();
 
-	cached_cpu_freq = LOONGSON_CHIPCFG0;
-
-	/* Put CPU into wait mode */
-	LOONGSON_CHIPCFG0 &= ~0x7;
-
-	/* wait for the given events to wakeup cpu from wait mode */
-	wait_for_wakeup_events();
-
-	LOONGSON_CHIPCFG0 = cached_cpu_freq;
+	switch(cputype) {
+	case Loongson_3A:
+	default:
+		cached_cpu_freq = LOONGSON_CHIPCFG(0);
+		/* Put CPU into wait mode */
+		LOONGSON_CHIPCFG(0) &= ~0x7;
+		/* wait for the given events to wakeup cpu from wait mode */
+		wait_for_wakeup_events();
+		LOONGSON_CHIPCFG(0) = cached_cpu_freq;
+		break;
+	}
 	mmiowb();
 }
+void mach_suspend(suspend_state_t state);
+void mach_resume(suspend_state_t state);
 
-void __weak mach_suspend(void)
-{
-}
-
-void __weak mach_resume(void)
-{
-}
-
+void loongson_suspend_lowlevel(void);
 static int loongson_pm_enter(suspend_state_t state)
 {
-	mach_suspend();
+	mach_suspend(state);
 
 	/* processor specific suspend */
-	loongson_suspend_enter();
-
-	mach_resume();
+	switch(state){
+		case PM_SUSPEND_STANDBY:
+			loongson_suspend_enter();
+			break;
+		case PM_SUSPEND_MEM:
+			loongson_suspend_lowlevel();
+			HT_uncache_enable_reg0	= 0x0;
+			HT_uncache_enable_reg1	= 0x0;
+			printk("SET HT_DMA CACHED\n");
+			break;
+	}
+	mach_resume(state);
 
 	return 0;
 }
@@ -137,19 +138,48 @@ static int loongson_pm_enter(suspend_state_t state)
 static int loongson_pm_valid_state(suspend_state_t state)
 {
 	switch (state) {
-	case PM_SUSPEND_ON:
-	case PM_SUSPEND_STANDBY:
-	case PM_SUSPEND_MEM:
-		return 1;
+		case PM_SUSPEND_ON:
+			return 1;
 
-	default:
-		return 0;
+		case PM_SUSPEND_STANDBY:
+		case PM_SUSPEND_MEM:
+			return 1;
+		default:
+			return 0;
 	}
+}
+
+static int loongson_pm_begin(suspend_state_t state)
+{
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+	extern int autoplug_enabled;
+	cached_autoplug_enabled = autoplug_enabled;
+	autoplug_enabled = 0;
+#endif
+	return 0;
+}
+void __cpuinit disable_unused_cpus(void);
+static void loongson_pm_wake(void)
+{
+#ifdef CONFIG_CPU_LOONGSON3
+	disable_unused_cpus();
+#endif
+}
+
+static void loongson_pm_end(void)
+{
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+	extern int autoplug_enabled;
+	autoplug_enabled = cached_autoplug_enabled;
+#endif
 }
 
 static const struct platform_suspend_ops loongson_pm_ops = {
 	.valid	= loongson_pm_valid_state,
+	.begin	= loongson_pm_begin,
 	.enter	= loongson_pm_enter,
+	.wake	= loongson_pm_wake,
+	.end	= loongson_pm_end,
 };
 
 static int __init loongson_pm_init(void)

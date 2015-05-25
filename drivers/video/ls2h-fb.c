@@ -988,9 +988,59 @@ static int ls2h_fb_remove(struct platform_device *dev)
 	return 0;
 }
 
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+/**
+ **      ls2h_fb_suspend - Suspend the device.
+ **      @dev: platform device
+ **      @msg: the suspend event code.
+ **
+ **      See Documentation/power/devices.txt for more information
+ **/
+static u32 output_mode;
+void console_lock(void);
+void console_unlock(void);
+
+static int ls2h_fb_suspend(struct platform_device *dev, pm_message_t msg)
+{
+	struct fb_info *info = platform_get_drvdata(dev);
+
+	console_lock();
+	fb_set_suspend(info, 1);
+	console_unlock();
+
+	output_mode = ls2h_readl(LS2H_FB_DVO_OUTPUT_REG);
+
+	return 0;
+}
+
+/**
+ **      ls2h_fb_resume - Resume the device.
+ **      @dev: platform device
+ **
+ **      See Documentation/power/devices.txt for more information
+ **/
+static int ls2h_fb_resume(struct platform_device *dev)
+{
+	struct fb_info *info = platform_get_drvdata(dev);
+
+	ls2h_fb_set_par(info);
+	ls2h_writel(output_mode, LS2H_FB_DVO_OUTPUT_REG);
+
+	console_lock();
+	fb_set_suspend(info, 0);
+	console_unlock();
+
+	return 0;
+}
+#endif
+
 static struct platform_driver ls2h_fb_driver = {
 	.probe	= ls2h_fb_probe,
 	.remove = ls2h_fb_remove,
+#ifdef	CONFIG_SUSPEND
+	.suspend = ls2h_fb_suspend,
+	.resume	 = ls2h_fb_resume,
+#endif
 	.driver = {
 		.name	= "ls2h-fb",
 	},

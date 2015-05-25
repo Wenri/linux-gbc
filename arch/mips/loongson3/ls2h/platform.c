@@ -311,6 +311,7 @@ static struct platform_device ls2h_ahci_device = {
 /*
  * OTG
  */
+#if     !defined(CONFIG_CPU_LOONGSON3) || !defined(CONFIG_SUSPEND)
 static struct resource ls2h_otg_resources[] = {
 	[0] = {
 		.start = LS2H_OTG_REG_BASE,
@@ -333,7 +334,7 @@ static struct platform_device ls2h_otg_device = {
 	.num_resources  = ARRAY_SIZE(ls2h_otg_resources),
 	.resource       = ls2h_otg_resources,
 };
-
+#endif
 /*
  * RTC
  */
@@ -506,7 +507,9 @@ static struct platform_device *ls2h_platform_devices[] = {
 	&ls2h_ahci_device,
 	&ls2h_dc_device,
 	&ls2h_audio_device,
+#if     !defined(CONFIG_CPU_LOONGSON3) || !defined(CONFIG_SUSPEND)
 	&ls2h_otg_device,
+#endif
 	&ls2h_rtc_device,
 	&ls2h_gpu_device,
 };
@@ -531,6 +534,7 @@ int ls2h_platform_init(void)
 	 * bit[4]:	ac97/hda select,	0: ac97		1: hda
 	 *
 	 */
+
 	tmp = ls2h_readl(LS2H_CHIP_CFG0_REG);
 	ls2h_writel(tmp | (1 << 26) | (1 << 14) | (1 << 4), LS2H_CHIP_CFG0_REG);
 
@@ -559,7 +563,7 @@ int ls2h_platform_init(void)
 		ls2h_gpu_data.vram_kind = LS2H_VRAM_3A_DDR;	
 		ls2h_gpu_resources[2].start = uma_vram_addr;
 		ls2h_gpu_resources[2].end = uma_vram_addr + (uma_vram_size << 20) - 1;
-	}	
+	}
 	pr_info("GPU USE : %s DDR as VRAM\n", tmp? "3A " : "2H");
 	pr_info("VRAM size is :0x%lx \n", uma_vram_size << 20);
 

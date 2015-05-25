@@ -2941,6 +2941,14 @@ int stmmac_suspend(struct net_device *ndev)
 
 	spin_lock_irqsave(&priv->lock, flags);
 
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+	priv->shutdown = 1;
+	/* Although this can appear slightly redundant it actually
+	 * makes fast the standby operation and guarantees the driver
+	 * working if hibernation is on media. */
+	stmmac_release(ndev);
+#else
+
 	netif_device_detach(ndev);
 	netif_stop_queue(ndev);
 
@@ -2960,6 +2968,8 @@ int stmmac_suspend(struct net_device *ndev)
 		/* Disable clock in case of PWM is off */
 		clk_disable_unprepare(priv->stmmac_clk);
 	}
+	
+#endif
 	spin_unlock_irqrestore(&priv->lock, flags);
 	return 0;
 }
@@ -2971,7 +2981,15 @@ int stmmac_resume(struct net_device *ndev)
 
 	if (!netif_running(ndev))
 		return 0;
-
+	
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+	if (priv->shutdown) {
+		/* Re-open the interface and re-init the MAC/DMA
+		   and the rings (i.e. on hibernation stage) */
+		stmmac_open(ndev);
+		return 0;
+	}
+#else
 	spin_lock_irqsave(&priv->lock, flags);
 
 	/* Power Down bit, into the PM register, is cleared
@@ -3001,7 +3019,7 @@ int stmmac_resume(struct net_device *ndev)
 
 	if (priv->phydev)
 		phy_start(priv->phydev);
-
+#endif
 	return 0;
 }
 

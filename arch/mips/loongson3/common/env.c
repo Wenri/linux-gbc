@@ -36,6 +36,9 @@ u64 ht_control_base;
 u64 pci_mem_start_addr, pci_mem_end_addr;
 u64 loongson_pciio_base;
 u64 vgabios_addr;
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+u64 suspend_addr;
+#endif
 u64 poweroff_addr, restart_addr;
 u32 nr_cpus_online;
 u32 pcidev_max_func_num;
@@ -243,8 +246,12 @@ void __init prom_init_env(void)
 
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+	suspend_addr = boot_p->reset_system.ResetCold;
+	pr_info("Shutdown Addr: %llx Reset Addr: %llx Suspend Addr: %llx\n", poweroff_addr, restart_addr,suspend_addr);
+#else
 	pr_info("Shutdown Addr: %llx Reset Addr: %llx\n", poweroff_addr, restart_addr);
-
+#endif
 	if (board_type == LS2H) {
 		tmp = ls2h_readl(LS2H_GPIO_IN_REG);
 		tmp = (tmp >> 8) & 0xf;

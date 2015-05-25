@@ -107,6 +107,9 @@ struct stmmac_priv {
 	u32 adv_ts;
 	int use_riwt;
 	spinlock_t ptp_lock;
+#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+	int shutdown;
+#endif
 };
 
 extern int phyaddr;

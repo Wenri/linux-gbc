@@ -9,3 +9,4 @@ obj-$(CONFIG_LS2H_PCIE) += ls2h-pci.o
 ifdef CONFIG_LS2H_PCIE
 obj-$(CONFIG_SWIOTLB) 	+= swiotlb.o
 endif
+obj-$(CONFIG_SUSPEND) += pm.o
