@@ -370,6 +370,78 @@ void loongson3b_play_dead(int *state_addr)
 		"      .set pop                          \n");
 }
 
+void loongson3a2000_play_dead(int *state_addr)
+{
+	__asm__ __volatile__(
+		"      .set push                         \n"
+		"      .set noreorder                    \n"
+		"      li $t0, 0x80000000                \n" /* KSEG0 */
+		"      li $t1, 256                       \n" /* num of L1 entries */
+		"1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */
+		"      cache 0, 1($t0)                   \n"
+		"      cache 0, 2($t0)                   \n"
+		"      cache 0, 3($t0)                   \n"
+		"      cache 1, 0($t0)                   \n" /* flush L1 DCache */
+		"      cache 1, 1($t0)                   \n"
+		"      cache 1, 2($t0)                   \n"
+		"      cache 1, 3($t0)                   \n"
+		"      addiu $t0, $t0, 0x40              \n"
+		"      bnez  $t1, 1b                     \n"
+		"      addiu $t1, $t1, -1                \n"
+		"      li $t0, 0x80000000                \n" /* KSEG0 */
+		"      li $t1, 256                       \n" /* num of L2 entries */
+		"2:    cache 2, 0($t0)                   \n" /* flush L2 VCache */
+		"      cache 2, 1($t0)                   \n"
+		"      cache 2, 2($t0)                   \n"
+		"      cache 2, 3($t0)                   \n"
+		"      cache 2, 4($t0)                   \n"
+		"      cache 2, 5($t0)                   \n"
+		"      cache 2, 6($t0)                   \n"
+		"      cache 2, 7($t0)                   \n"
+		"      cache 2, 8($t0)                   \n"
+		"      cache 2, 9($t0)                   \n"
+		"      cache 2, 10($t0)                   \n"
+		"      cache 2, 11($t0)                   \n"
+		"      cache 2, 12($t0)                   \n"
+		"      cache 2, 13($t0)                   \n"
+		"      cache 2, 14($t0)                   \n"
+		"      cache 2, 15($t0)                   \n"
+		"      addiu $t0, $t0, 0x40              \n"
+		"      bnez  $t1, 2b                     \n"
+		"      addiu $t1, $t1, -1                \n"
+		"      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
+		"      sw    $t0, 0($a0)                 \n"
+		"      sync                              \n"
+		"      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
+		"      .set pop                          \n");
+
+	__asm__ __volatile__(
+		"      .set push                         \n"
+		"      .set noreorder                    \n"
+		"      .set mips64                       \n"
+		"      mfc0  $t2, $15, 1                 \n"
+		"      andi  $t2, 0x3ff                  \n"
+		"      dli   $t0, 0x900000003ff01000     \n"
+		"      andi  $t3, $t2, 0x3               \n"
+		"      sll   $t3, 8                      \n"  /* get cpu id */
+		"      or    $t0, $t0, $t3               \n"
+		"      andi  $t1, $t2, 0xc               \n"
+		"      dsll  $t1, 42                     \n"  /* get node id */
+		"      or    $t0, $t0, $t1               \n"
+		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
+		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
+		"      addiu $a0, -1                     \n"
+		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
+		"      beqz  $v0, 1b                     \n"
+		"      nop                               \n"
+		"      ld    $sp, 0x28($t0)              \n"  /* get SP via mailbox */
+		"      ld    $gp, 0x30($t0)              \n"  /* get GP via mailbox */
+		"      ld    $a1, 0x38($t0)              \n"
+		"      jr  $v0                           \n"  /* jump to initial PC */
+		"      nop                               \n"
+		"      .set pop                          \n");
+}
+
 void play_dead(void)
 {
 	int *state_addr;
@@ -379,11 +451,19 @@ void play_dead(void)
 	idle_task_exit();
 	switch (cputype) {
 	case Loongson_3A:
-	default:
-		play_dead_at_ckseg1 = (void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
+		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+			play_dead_at_ckseg1 =
+				(void *)CKSEG1ADDR((unsigned long)loongson3a2000_play_dead);
+		else
+			play_dead_at_ckseg1 =
+				(void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
 		break;
 	case Loongson_3B:
 		play_dead_at_ckseg1 = (void *)CKSEG1ADDR((unsigned long)loongson3b_play_dead);
+		break;
+	default:
+		play_dead_at_ckseg1 =
+			(void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
 		break;
 	}
 	state_addr = &per_cpu(cpu_state, cpu);
@@ -397,7 +477,14 @@ void loongson3_disable_clock(int cpu)
 	uint64_t package_id = cpu_data[cpu].package;
 
 	if (cputype == Loongson_3A) {
-		LOONGSON_CHIPCFG(package_id) &= ~(1 << (12 + core_id));
+		switch (read_c0_prid() & 0xf) {
+			case PRID_REV_LOONGSON3A:
+				LOONGSON_CHIPCFG(package_id) &= ~(1 << (12 + core_id));
+				break;
+			case PRID_REV_LOONGSON3A2000:
+				LOONGSON_CHIPCFG(package_id) &= ~(1 << (core_id * 4 + 3));
+				break;
+		}
 	}
 	else if (cputype == Loongson_3B) {
 		switch (read_c0_prid() & 0xf) {
@@ -417,7 +504,14 @@ void loongson3_enable_clock(int cpu)
 	uint64_t package_id = cpu_data[cpu].package;
 
 	if (cputype == Loongson_3A) {
-		LOONGSON_CHIPCFG(package_id) |= 1 << (12 + core_id);
+		switch (read_c0_prid() & 0xf) {
+			case PRID_REV_LOONGSON3A:
+				LOONGSON_CHIPCFG(package_id) |= 1 << (12 + core_id);
+				break;
+			case PRID_REV_LOONGSON3A2000:
+				LOONGSON_CHIPCFG(package_id) |= 1 << (core_id * 4 + 3);
+				break;
+		}
 	}
 	else if (cputype == Loongson_3B) {
 		switch (read_c0_prid() & 0xf) {
