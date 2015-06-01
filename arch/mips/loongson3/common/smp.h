@@ -7,9 +7,10 @@
 	0x900000003ff00000 | (((long)(cpu) & 0x0c) << 42) | \
 	(((cpu) & 0x0c) << 12)| (((long)(cpu) & 0x03) << 8)
 
-#define LOONGSON3_TO_BASE(cpu) ((read_c0_prid() & 0x0000ffff) == 0x6305) ? \
-					LOONGSON3A_TO_BASE(cpu) : \
-					LOONGSON3B_TO_BASE(cpu)
+#define LOONGSON3_TO_BASE(cpu) \
+	(((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A) || \
+	 ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)) ? \
+	LOONGSON3A_TO_BASE(cpu) : LOONGSON3B_TO_BASE(cpu)
 
 #define IPI_OFF_STATUS 		0x1000
 #define IPI_OFF_ENABLE 		0x1004

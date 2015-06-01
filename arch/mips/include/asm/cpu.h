@@ -36,6 +36,7 @@
 #define PRID_COMP_NETLOGIC	0x0c0000
 #define PRID_COMP_CAVIUM	0x0d0000
 #define PRID_COMP_INGENIC	0xd00000
+#define PRID_COMP_LOONGSON	0x140000
 
 /*
  * Assigned values for the product ID register.	 In order to detect a
@@ -205,6 +206,7 @@
 #define PRID_REV_LOONGSON3A	0x0005
 #define PRID_REV_LOONGSON3B_R1	0x0006
 #define PRID_REV_LOONGSON3B_R2	0x0007
+#define PRID_REV_LOONGSON3A2000	0x0008
 
 /*
  * Older processors used to encode processor version and revision in two

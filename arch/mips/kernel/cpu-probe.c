@@ -326,6 +326,26 @@ static void __cpuinit decode_configs(struct cpuinfo_mips *c)
 #define R4K_OPTS (MIPS_CPU_TLB | MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE \
 		| MIPS_CPU_COUNTER)
 
+static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
+{
+	switch (c->processor_id & 0xff00) {
+	case PRID_IMP_LOONGSON2: /* Loongson-2/3 have the same PRID_IMP field */
+		switch (c->processor_id & PRID_REV_MASK) {
+		case PRID_REV_LOONGSON3A2000:
+			c->cputype = CPU_LOONGSON3;
+			__cpu_name[cpu] = "ICT Loongson-3A2000";
+			break;
+		}
+
+		c->isa_level = MIPS_CPU_ISA_III;
+		c->options = R4K_OPTS |
+			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
+			     MIPS_CPU_32FPR;
+		c->tlbsize = 64;
+		break;
+	}
+}
+
 static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 {
 	switch (c->processor_id & 0xff00) {
@@ -993,6 +1013,9 @@ __cpuinit void cpu_probe(void)
 
 	c->processor_id = read_c0_prid();
 	switch (c->processor_id & 0xff0000) {
+	case PRID_COMP_LOONGSON:
+		cpu_probe_loongson(c, cpu);
+		break;
 	case PRID_COMP_LEGACY:
 		cpu_probe_legacy(c, cpu);
 		break;

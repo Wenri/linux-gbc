@@ -1565,6 +1565,13 @@ config CPU_LOONGSON3
 		The Loongson 3 processor implements the MIPS III instruction set
 		with many extensions.
 
+config CPU_LOONGSON3_GS464E
+	bool "Loongson 3 CPU based on GS464E"
+	depends on CPU_LOONGSON3
+	help
+	  The GS464E processor core implements the MIPS64R2 instruction set
+	  with Multicore design.
+
 config CPU_LOONGSON1
 	bool
 	select CPU_MIPS32

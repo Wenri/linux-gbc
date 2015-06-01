@@ -109,6 +109,8 @@ static void temp_handler(int node_num)
 		case Loongson_3A:
 			for(i = 0; i < node_num; i++) {
 				temp[i] = *((volatile unsigned char *)temp_device.resource[i].end);
+				if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+					temp[i] -= 100;
 				if (temp[i] >= WARNING_TEMP)
 					printk(KERN_INFO "Warning!! High CPU temperature! %d C\n", temp[i]);
 #if MODULE_ACTION
