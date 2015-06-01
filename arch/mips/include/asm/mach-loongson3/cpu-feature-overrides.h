@@ -16,11 +16,6 @@
 #ifndef __ASM_MACH_LOONGSON3_CPU_FEATURE_OVERRIDES_H
 #define __ASM_MACH_LOONGSON3_CPU_FEATURE_OVERRIDES_H
 
-#define cpu_dcache_line_size()	32
-#define cpu_icache_line_size()	32
-#define cpu_scache_line_size()	32
-
-
 #define cpu_has_32fpr		1
 #define cpu_has_3k_cache	0
 #define cpu_has_4k_cache	1

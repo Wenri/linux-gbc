@@ -55,6 +55,7 @@ struct cpuinfo_mips {
 	struct cache_desc	icache; /* Primary I-cache */
 	struct cache_desc	dcache; /* Primary D or combined I/D cache */
 	struct cache_desc	scache; /* Secondary cache */
+	struct cache_desc	vcache;	/* Secondary vcache */
 	struct cache_desc	tcache; /* Tertiary/split secondary cache */
 	int			srsets; /* Shadow register sets */
 	int			package;/* physical package number */

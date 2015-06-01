@@ -66,6 +66,7 @@ static inline void r4k_on_each_cpu(void (*func) (void *info), void *info)
  */
 static unsigned long icache_size __read_mostly;
 static unsigned long dcache_size __read_mostly;
+static unsigned long vcache_size __read_mostly;
 static unsigned long scache_size __read_mostly;
 
 /*
@@ -1140,6 +1141,29 @@ static void __cpuinit probe_pcache(void)
 	       c->dcache.linesz);
 }
 
+static void __cpuinit probe_vcache(void)
+{
+	struct cpuinfo_mips *c = &current_cpu_data;
+	unsigned int config2, lsize;
+
+	config2 = read_c0_config2();
+	printk("c0_config2 = %x\n", config2);
+	if ((lsize = ((config2 >> 20) & 15)))
+		c->vcache.linesz = 2 << lsize;
+	else
+		c->vcache.linesz = lsize;
+
+	c->vcache.sets = 64 << ((config2 >> 24) & 15);
+	c->vcache.ways = 1 + ((config2 >> 16) & 15);
+
+	vcache_size = c->vcache.sets * c->vcache.ways * c->vcache.linesz;
+
+	c->vcache.waybit = 0;
+
+	printk("Secondary vcache %ldkB %s, linesize %d bytes, waybit=%d.\n",
+			vcache_size >> 10, way_string[c->vcache.ways], c->vcache.linesz, c->vcache.waybit);
+}
+
 /*
  * If you even _breathe_ on this function, look at the gcc output and make sure
  * it does not pop things on and off the stack for the cache sizing loop that
@@ -1464,6 +1488,8 @@ void __cpuinit r4k_cache_init(void)
 	struct cpuinfo_mips *c = &current_cpu_data;
 
 	probe_pcache();
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		probe_vcache();
 	setup_scache();
 
 	r4k_blast_dcache_page_setup();
