@@ -45,6 +45,18 @@
 	di
 	irq_disable_hazard
 	.endm
+#elif defined(CONFIG_CPU_LOONGSON3_GS464E)
+	.macro	local_irq_enable reg=t0
+	.set	mips64r2
+	ei
+	irq_enable_hazard
+	.endm
+
+	.macro	local_irq_disable reg=t0
+	.set	mips64r2
+	di
+	irq_disable_hazard
+	.endm
 #else
 	.macro	local_irq_enable reg=t0
 	mfc0	\reg, CP0_STATUS
