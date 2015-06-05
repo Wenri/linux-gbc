@@ -17,6 +17,10 @@
 #ifdef CONFIG_NUMA
 	.set	push
 	.set	mips64
+	/* enable stfill buffer */
+	mfc0	t0, $16, 6
+	or	t0, 0x100
+	mtc0	t0, $16, 6
 	/* Set LPA on LOONGSON3 config3 */
 	mfc0	t0, $16, 3
 	or	t0, (0x1 << 7)
@@ -37,6 +41,10 @@
 #ifdef CONFIG_NUMA
 	.set	push
 	.set	mips64
+	/* enable stfill buffer */
+	mfc0	t0, $16, 6
+	or	t0, 0x100
+	mtc0	t0, $16, 6
 	/* Set LPA on LOONGSON3 config3 */
 	mfc0	t0, $16, 3
 	or	t0, (0x1 << 7)
