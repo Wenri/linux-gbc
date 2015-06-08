@@ -170,6 +170,8 @@ enum label_id {
 	label_large_segbits_fault,
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 	label_tlb_huge_update,
+	label_tail_huge_miss,
+	label_tail_huge_done,
 #endif
 	label_tail_miss,
 };
@@ -190,6 +192,8 @@ UASM_L_LA(_r3000_write_probe_fail)
 UASM_L_LA(_large_segbits_fault)
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 UASM_L_LA(_tlb_huge_update)
+UASM_L_LA(_tail_huge_miss)
+UASM_L_LA(_tail_huge_done)
 #endif
 UASM_L_LA(_tail_miss)
 
@@ -292,6 +296,11 @@ static inline void dump_handler(const char *symbol, const u32 *handler, int coun
 #define C0_ENTRYHI	10, 0
 #define C0_EPC		14, 0
 #define C0_XCONTEXT	20, 0
+#define C0_TRUEPGD	9, 7
+#define C0_PWBASE	5, 5
+#define C0_PWFIELD	5, 6
+#define C0_PWSIZE	5, 7
+#define C0_PWCTL	6, 6
 
 #ifdef CONFIG_64BIT
 # define GET_CONTEXT(buf, reg) UASM_i_MFC0(buf, reg, C0_XCONTEXT)
@@ -725,6 +734,32 @@ static __cpuinit void build_huge_tlb_write_entry(u32 **p,
 	build_restore_pagemask(p, r, tmp, label_leave, restore_scratch);
 }
 
+static __cpuinit void build_huge_tlb_write_entry_ftlb(u32 **p,
+						 struct uasm_label **l,
+						 struct uasm_reloc **r,
+						 unsigned int tmp,
+						 enum tlb_write_entry wmode,
+						 int restore_scratch)
+{
+	/* Set huge page tlb entry size */
+	uasm_i_lui(p, tmp, PM_HUGE_MASK >> 16);
+	uasm_i_ori(p, tmp, tmp, PM_HUGE_MASK & 0xffff);
+	uasm_i_mtc0(p, tmp, C0_PAGEMASK);
+
+	uasm_i_mfc0(p, tmp, C0_INDEX);
+	uasm_il_bltz(p, r, tmp, label_tail_huge_miss);
+	uasm_i_nop(p);
+	build_tlb_write_entry(p, l, r, tlb_indexed);
+	uasm_il_b(p, r, label_tail_huge_done);
+	uasm_i_nop(p);
+
+	uasm_l_tail_huge_miss(l, *p);
+	build_tlb_write_entry(p, l, r, tlb_random);
+
+	uasm_l_tail_huge_done(l, *p);
+	build_restore_pagemask(p, r, tmp, label_leave, restore_scratch);
+}
+
 /*
  * Check if Huge PTE is present, if so then jump to LABEL.
  */
@@ -787,7 +822,7 @@ static __cpuinit void build_huge_handler_tail(u32 **p,
 	UASM_i_SW(p, pte, 0, ptr);
 #endif
 	build_huge_update_entries(p, pte, ptr);
-	build_huge_tlb_write_entry(p, l, r, pte, tlb_indexed, 0);
+	build_huge_tlb_write_entry_ftlb(p, l, r, pte, tlb_indexed, 0);
 }
 #endif /* CONFIG_MIPS_HUGE_TLB_SUPPORT */
 
@@ -830,7 +865,11 @@ build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 #ifdef CONFIG_MIPS_PGD_C0_CONTEXT
 	if (pgd_reg != -1) {
 		/* pgd is in pgd_reg */
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+		UASM_i_MFC0(p, ptr, 5, 5);
+#else
 		UASM_i_MFC0(p, ptr, 31, pgd_reg);
+#endif
 	} else {
 		/*
 		 * &pgd << 11 stored in CONTEXT [23..63].
@@ -1510,7 +1549,11 @@ static void __cpuinit build_r4000_setup_pgd(void)
 	} else {
 		/* PGD in c0_KScratch */
 		uasm_i_jr(&p, 31);
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+		UASM_i_MTC0(&p, a0, 5, 5);
+#else
 		UASM_i_MTC0(&p, a0, 31, pgd_reg);
+#endif
 	}
 	if (p - tlbmiss_handler_setup_pgd_array > ARRAY_SIZE(tlbmiss_handler_setup_pgd_array))
 		panic("tlbmiss_handler_setup_pgd_array space exceeded");
@@ -2190,6 +2233,85 @@ static void __cpuinit build_r4000_tlb_modify_handler(void)
 	dump_handler("r4000_tlb_modify", handle_tlbm, ARRAY_SIZE(handle_tlbm));
 }
 
+static void __cpuinit setup_pw(void)
+{
+	unsigned long pgd_i, pgd_w;
+#ifndef __PAGETABLE_PMD_FOLDED
+	unsigned long pmd_i, pmd_w;
+#endif
+	unsigned long pte_i, pte_w;
+	unsigned long ptei, ptew;
+#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
+	unsigned long psn;
+
+	psn = ilog2(_PAGE_HUGE);     /* bit used to indicate huge page */
+#endif
+	pgd_i = PGDIR_SHIFT;  /* first level  PGD*/
+#ifndef __PAGETABLE_PMD_FOLDED
+	pgd_w = PGDIR_SHIFT - PMD_SHIFT + PGD_ORDER;
+
+	pmd_i = PMD_SHIFT; /* second level PMD*/
+	pmd_w = PMD_SHIFT - PAGE_SHIFT;
+#else
+	pgd_w = PGDIR_SHIFT - PAGE_SHIFT + PGD_ORDER;
+#endif
+
+	pte_i = PAGE_SHIFT; /* last level PTE*/
+	pte_w = PAGE_SHIFT - 3;
+
+	ptei = ilog2(_PAGE_GLOBAL);
+	ptew = 0;
+
+#ifndef __PAGETABLE_PMD_FOLDED
+	write_c0_pwfield(pgd_i << 24 | pmd_i << 12 | pte_i << 6 | ptei);
+	write_c0_pwsize(1 << 30 | pgd_w << 24 | pmd_w << 12 | pte_w << 6 | ptew);
+#else
+	write_c0_pwfield(pgd_i << 24 | pte_i << 6 | ptei);
+	write_c0_pwsize(1 << 30 | pgd_w << 24 | pte_w << 6 | ptew);
+#endif
+
+#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
+	write_c0_pwctl(1 << 6 | psn );
+#endif
+	write_c0_kpgd(swapper_pg_dir);
+}
+
+static void  __cpuinit build_loongson3x_tlb_refill_handler(void)
+{
+
+	u32 *p = tlb_handler;
+
+	memset(tlb_handler, 0, sizeof(tlb_handler));
+
+	uasm_i_dmfc0(&p, K1, C0_TRUEPGD);
+
+	uasm_i_lddir(&p, K0, K1, 3);  /* global page dir */
+#ifndef __PAGETABLE_PMD_FOLDED
+	uasm_i_lddir(&p, K1, K0, 1);  /* middle page dir */
+#endif
+	uasm_i_ldpte(&p, K1, 0);      /* even */
+	uasm_i_ldpte(&p, K1, 1);
+	uasm_i_tlbwr(&p);
+
+	/* restore page mask */
+	if (PM_DEFAULT_MASK >> 16) {
+		uasm_i_lui(&p, K0, PM_DEFAULT_MASK >> 16);
+		uasm_i_ori(&p, K0, K0, PM_DEFAULT_MASK & 0xffff);
+		uasm_i_mtc0(&p, K0, C0_PAGEMASK);
+	} else if (PM_DEFAULT_MASK) {
+		uasm_i_ori(&p, K0, 0, PM_DEFAULT_MASK);
+		uasm_i_mtc0(&p, K0, C0_PAGEMASK);
+	} else {
+		uasm_i_mtc0(&p, 0, C0_PAGEMASK);
+	}
+
+	uasm_i_eret(&p);
+
+	memcpy((void *)( ((char *)(ebase)) + 0x80) , tlb_handler, 0x80);
+	memcpy((void *)( ((char *)(ebase))) , (void *)( ((char*)(tlb_handler)+ 0x80) ) , 0x80);
+	dump_handler("loongson3x_fast_tlb_refill", (u32 *)(ebase), 64);
+}
+
 void __cpuinit build_tlb_refill_handler(void)
 {
 	/*
@@ -2198,7 +2320,12 @@ void __cpuinit build_tlb_refill_handler(void)
 	 * needed once.
 	 */
 	static int run_once = 0;
-
+	bool cpu_has_fasttlb;
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+	cpu_has_fasttlb = 1;
+#else
+	cpu_has_fasttlb = 0;
+#endif
 	output_pgtable_bits_defines();
 
 #ifdef CONFIG_64BIT
@@ -2248,11 +2375,17 @@ void __cpuinit build_tlb_refill_handler(void)
 			build_r4000_tlb_store_handler();
 			build_r4000_tlb_modify_handler();
 			if (!cpu_has_local_ebase)
-				build_r4000_tlb_refill_handler();
+				if(!cpu_has_fasttlb)
+					build_r4000_tlb_refill_handler();
 			run_once++;
 		}
 		if (cpu_has_local_ebase)
-			build_r4000_tlb_refill_handler();
+			if(!cpu_has_fasttlb)
+				build_r4000_tlb_refill_handler();
+		if(cpu_has_fasttlb){
+			setup_pw();
+			build_loongson3x_tlb_refill_handler();
+		}
 	}
 }
 

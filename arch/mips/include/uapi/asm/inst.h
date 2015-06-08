@@ -193,6 +193,13 @@ enum lx_func {
 	lbx_op	= 0x16,
 };
 
+enum ls_func {
+	lwdir_op = 0x00,
+	lwpte_op = 0x01,
+	lddir_op = 0x02,
+	ldpte_op = 0x03,
+};
+
 /*
  * (microMIPS) Major opcodes.
  */

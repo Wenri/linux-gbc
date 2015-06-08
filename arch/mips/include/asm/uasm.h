@@ -155,6 +155,8 @@ Ip_0(_tlbwi);
 Ip_0(_tlbwr);
 Ip_u3u1u2(_xor);
 Ip_u2u1u3(_xori);
+Ip_u2u1u3(_lddir);
+Ip_u1u2(_ldpte);
 
 
 /* Handle labels. */

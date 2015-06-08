@@ -48,7 +48,11 @@
 #define CP0_CONF $3
 #define CP0_CONTEXT $4
 #define CP0_PAGEMASK $5
+#define	CP0_PWBASE $5, 5
+#define	CP0_PWFIELD $5, 6
+#define	CP0_PWSIZE $5, 7
 #define CP0_WIRED $6
+#define	CP0_PWCTL $6, 6
 #define CP0_INFO $7
 #define CP0_BADVADDR $8
 #define CP0_COUNT $9
@@ -891,8 +895,20 @@ do {									\
 #define read_c0_pagegrain()	__read_32bit_c0_register($5, 1)
 #define write_c0_pagegrain(val) __write_32bit_c0_register($5, 1, val)
 
+#define read_c0_pwbase()	__read_64bit_c0_register($5, 5)
+#define write_c0_pwbase(val)	__write_64bit_c0_register($5, 5, val)
+
+#define read_c0_pwfield()	__read_64bit_c0_register($5, 6)
+#define write_c0_pwfield(val)	__write_64bit_c0_register($5, 6, val)
+
+#define read_c0_pwsize()	__read_64bit_c0_register($5, 7)
+#define write_c0_pwsize(val)	__write_64bit_c0_register($5, 7, val)
+
 #define read_c0_wired()		__read_32bit_c0_register($6, 0)
 #define write_c0_wired(val)	__write_32bit_c0_register($6, 0, val)
+
+#define read_c0_pwctl()		__read_64bit_c0_register($6, 6)
+#define write_c0_pwctl(val)	__write_64bit_c0_register($6, 6, val)
 
 #define read_c0_info()		__read_32bit_c0_register($7, 0)
 
@@ -1093,6 +1109,9 @@ do {									\
 
 #define read_c0_errorepc()	__read_ulong_c0_register($30, 0)
 #define write_c0_errorepc(val)	__write_ulong_c0_register($30, 0, val)
+
+#define read_c0_kpgd()		__read_64bit_c0_register($31, 7)
+#define write_c0_kpgd(val)	__write_64bit_c0_register($31, 7, val)
 
 /* MIPSR2 */
 #define read_c0_hwrena()	__read_32bit_c0_register($7, 0)

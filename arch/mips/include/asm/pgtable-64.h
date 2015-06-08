@@ -90,7 +90,11 @@
 #define PTE_ORDER		0
 #endif
 #ifdef CONFIG_PAGE_SIZE_16KB
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#define PGD_ORDER		1
+#else
 #define PGD_ORDER		0
+#endif
 #define PUD_ORDER		aieeee_attempt_to_allocate_pud
 #define PMD_ORDER		0
 #define PTE_ORDER		0
