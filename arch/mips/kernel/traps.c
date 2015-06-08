@@ -1699,6 +1699,9 @@ void __cpuinit per_cpu_trap_init(bool is_boot_cpu)
 	if (hwrena)
 		write_c0_hwrena(hwrena);
 
+	if (cpu_has_userlocal)
+		write_c0_hwrena(0xe000000f);
+
 #ifdef CONFIG_MIPS_MT_SMTC
 	if (!secondaryTC) {
 #endif /* CONFIG_MIPS_MT_SMTC */

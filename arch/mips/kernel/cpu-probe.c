@@ -340,7 +340,7 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		c->isa_level = MIPS_CPU_ISA_III;
 		c->options = R4K_OPTS |
 			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
-			     MIPS_CPU_32FPR;
+			     MIPS_CPU_32FPR | MIPS_CPU_ULRI;
 		c->tlbsize = 64;
 		break;
 	}

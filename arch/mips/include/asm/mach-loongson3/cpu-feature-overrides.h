@@ -46,7 +46,6 @@
 #define cpu_has_smartmips	0
 #define cpu_has_tlb		1
 #define cpu_has_tx39_cache	0
-#define cpu_has_userlocal	0
 #define cpu_has_vce		0
 #define cpu_has_veic		0
 #define cpu_has_vint		0
