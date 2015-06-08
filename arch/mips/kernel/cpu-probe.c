@@ -165,6 +165,25 @@ static void __cpuinit set_isa(struct cpuinfo_mips *c, unsigned int isa)
 static char unknown_isa[] __cpuinitdata = KERN_ERR \
 	"Unsupported ISA type, c0.config0: %d.";
 
+static void set_ftlb_enable(struct cpuinfo_mips *c, int enable)
+{
+	unsigned int config6;
+	/*
+	 * Config6 is implementation dependent and it's currently only
+	 * used by 3a2000
+	 */
+	if (c->cputype == CPU_LOONGSON3) {
+		config6 = read_c0_config6();
+		if (enable)
+			/* Enable FTLB */
+			write_c0_config6(config6 & ~MIPS_CONF6_FTLBOFF);
+		else
+			/* Disable FTLB */
+			write_c0_config6(config6 | MIPS_CONF6_FTLBOFF);
+		back_to_back_c0_hazard();
+	}
+}
+
 static inline unsigned int decode_config0(struct cpuinfo_mips *c)
 {
 	unsigned int config0;
@@ -172,7 +191,11 @@ static inline unsigned int decode_config0(struct cpuinfo_mips *c)
 
 	config0 = read_c0_config();
 
-	if (((config0 & MIPS_CONF_MT) >> 7) == 1)
+	/*
+	 * Look for Standard TLB or Dual VTLB and FTLB
+	 */
+	if ((((config0 & MIPS_CONF_MT) >> 7) == 1) ||
+	    (((config0 & MIPS_CONF_MT) >> 7) == 4))
 		c->options |= MIPS_CPU_TLB;
 	isa = (config0 & MIPS_CONF_AT) >> 13;
 	switch (isa) {
@@ -228,8 +251,11 @@ static inline unsigned int decode_config1(struct cpuinfo_mips *c)
 		c->options |= MIPS_CPU_FPU;
 		c->options |= MIPS_CPU_32FPR;
 	}
-	if (cpu_has_tlb)
+	if (cpu_has_tlb) {
 		c->tlbsize = ((config1 & MIPS_CONF1_TLBS) >> 25) + 1;
+		c->tlbsizevtlb = c->tlbsize;
+		c->tlbsizeftlbsets = 0;
+	}
 
 	return config1 & MIPS_CONF_M;
 }
@@ -283,13 +309,54 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 
 static inline unsigned int decode_config4(struct cpuinfo_mips *c)
 {
-	unsigned int config4;
+	unsigned int config4,config6;
+	unsigned int newcf4;
+	unsigned int mmuextdef;
+	unsigned int ftlb_page = MIPS_CONF4_FTLBPAGESIZE;
+	bool ftlbdis;
 
 	config4 = read_c0_config4();
+	config6 = read_c0_config6();
 
-	if ((config4 & MIPS_CONF4_MMUEXTDEF) == MIPS_CONF4_MMUEXTDEF_MMUSIZEEXT
-	    && cpu_has_tlb)
-		c->tlbsize += (config4 & MIPS_CONF4_MMUSIZEEXT) * 0x40;
+	ftlbdis = config6 & 0x00400000;
+	if (cpu_has_tlb) {
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+		c->options |= MIPS_CPU_TLBINV;
+#endif
+		mmuextdef = config4 & MIPS_CONF4_MMUEXTDEF;
+		switch (mmuextdef) {
+		case MIPS_CONF4_MMUEXTDEF_MMUSIZEEXT:
+			c->tlbsize += (config4 & MIPS_CONF4_MMUSIZEEXT) * 0x40;
+			c->tlbsizevtlb = c->tlbsize;
+			break;
+		case MIPS_CONF4_MMUEXTDEF:
+			 if(!ftlbdis){
+				c->tlbsizevtlb += ((config4 & MIPS_CONF4_VTLBSIZEEXT) >> MIPS_CONF4_VTLBSIZEEXT_SHIFT) * 0x40;
+				c->tlbsize = c->tlbsizevtlb;
+
+				write_c0_diag(0x1 << 13);
+				newcf4 = (config4 & ~ftlb_page) | (((PAGE_SHIFT-10)/2) << MIPS_CONF4_FTLBPAGESIZE_SHIFT);
+				write_c0_config4(newcf4);
+				back_to_back_c0_hazard();
+				config4 = read_c0_config4();
+				if ((config4 != newcf4)|| ((PAGE_SHIFT-10)%2)==1) {
+					pr_err("PAGE_SIZE 0x%lx is not supported by FTLB (config4=0x%x)\n",PAGE_SIZE, config4);
+					write_c0_diag(0x3000);
+					/* Switch FTLB off */
+					set_ftlb_enable(c, 0);
+					break;
+				}
+				c->tlbsizeftlbsets = 1 <<((config4 & MIPS_CONF4_FTLBSETS) >> MIPS_CONF4_FTLBSETS_SHIFT);
+				c->tlbsizeftlbways = ((config4 & MIPS_CONF4_FTLBWAYS) >> MIPS_CONF4_FTLBWAYS_SHIFT) + 2;
+				c->tlbsize += c->tlbsizeftlbways * c->tlbsizeftlbsets;
+				break;
+			} else {
+				c->tlbsize += (config4 & MIPS_CONF4_MMUSIZEEXT) * 0x40;
+				c->tlbsizevtlb = c->tlbsize;
+				break;
+			}
+		}
+	}
 
 	c->kscratch_mask = (config4 >> 16) & 0xff;
 
@@ -305,6 +372,11 @@ static void __cpuinit decode_configs(struct cpuinfo_mips *c)
 		     MIPS_CPU_DIVEC | MIPS_CPU_LLSC | MIPS_CPU_MCHECK;
 
 	c->scache.flags = MIPS_CACHE_NOT_PRESENT;
+
+#ifdef CONFIG_CPU_HAS_FTLB
+	write_c0_diag(0x3000); /* before enable or disable the FTLB, We should flush all TLB */
+	set_ftlb_enable(c, 1); /* Enable FTLB if present */
+#endif
 
 	ok = decode_config0(c);			/* Read Config registers.  */
 	BUG_ON(!ok);				/* Arch spec violation!	 */
@@ -334,14 +406,14 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		case PRID_REV_LOONGSON3A2000:
 			c->cputype = CPU_LOONGSON3;
 			__cpu_name[cpu] = "ICT Loongson-3A2000";
+			decode_configs(c);
 			break;
 		}
 
 		c->isa_level = MIPS_CPU_ISA_III;
 		c->options = R4K_OPTS |
 			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
-			     MIPS_CPU_32FPR | MIPS_CPU_ULRI;
-		c->tlbsize = 64;
+			     MIPS_CPU_32FPR | MIPS_CPU_ULRI | MIPS_CPU_RIXI;
 		break;
 	}
 }
@@ -661,7 +733,6 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 		c->options = R4K_OPTS |
 			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
 			     MIPS_CPU_32FPR;
-		c->tlbsize = 64;
 		break;
 	case PRID_IMP_LOONGSON1:
 		decode_configs(c);

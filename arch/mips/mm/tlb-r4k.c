@@ -27,7 +27,9 @@ extern void build_tlb_refill_handler(void);
  * Make sure all entries differ.  If they're not different
  * MIPS32 will take revenge ...
  */
-#define UNIQUE_ENTRYHI(idx) (CKSEG0 + ((idx) << (PAGE_SHIFT + 1)))
+#define UNIQUE_ENTRYHI(idx)						\
+		((CKSEG0 + ((idx) << (PAGE_SHIFT + 1))) |		\
+		 (cpu_has_tlbinv ? MIPS_ENTRYHI_EHINV : 0))
 
 /* Atomicity and interruptability */
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -71,7 +73,7 @@ void local_flush_tlb_all(void)
 {
 	unsigned long flags;
 	unsigned long old_ctx;
-	int entry;
+	int entry, loongson_tmp;
 
 	ENTER_CRITICAL(flags);
 	/* Save old context and create impossible VPN2 value */
@@ -82,7 +84,13 @@ void local_flush_tlb_all(void)
 	entry = read_c0_wired();
 
 	/* Blast 'em all away. */
-	while (entry < current_cpu_data.tlbsize) {
+#ifdef CONFIG_CPU_HAS_FTLB
+	loongson_tmp = current_cpu_data.tlbsizevtlb;
+#else
+	loongson_tmp = current_cpu_data.tlbsize;
+#endif
+
+	while (entry < loongson_tmp) {
 		/* Make sure all entries differ. */
 		write_c0_entryhi(UNIQUE_ENTRYHI(entry));
 		write_c0_index(entry);
@@ -90,6 +98,9 @@ void local_flush_tlb_all(void)
 		tlb_write_indexed();
 		entry++;
 	}
+#ifdef CONFIG_CPU_HAS_FTLB
+	write_c0_diag(0x1 << 13); /* flush the FTLB */
+#endif
 	tlbw_use_hazard();
 	write_c0_entryhi(old_ctx);
 	FLUSH_ITLB;
@@ -127,7 +138,9 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 		start = round_down(start, PAGE_SIZE << 1);
 		end = round_up(end, PAGE_SIZE << 1);
 		size = (end - start) >> (PAGE_SHIFT + 1);
-		if (size <= current_cpu_data.tlbsize/2) {
+		if (size <= (current_cpu_data.tlbsizeftlbsets ?
+			     current_cpu_data.tlbsize / 16 :
+			     current_cpu_data.tlbsize / 2)) {
 			int oldpid = read_c0_entryhi();
 			int newpid = cpu_asid(cpu, mm);
 
@@ -166,7 +179,9 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 	ENTER_CRITICAL(flags);
 	size = (end - start + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 	size = (size + 1) >> 1;
-	if (size <= current_cpu_data.tlbsize / 2) {
+	if (size <= (current_cpu_data.tlbsizeftlbsets ?
+		     current_cpu_data.tlbsize / 16 :
+		     current_cpu_data.tlbsize / 2)) {
 		int pid = read_c0_entryhi();
 
 		start &= (PAGE_MASK << 1);

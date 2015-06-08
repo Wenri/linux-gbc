@@ -1568,6 +1568,7 @@ config CPU_LOONGSON3
 config CPU_LOONGSON3_GS464E
 	bool "Loongson 3 CPU based on GS464E"
 	depends on CPU_LOONGSON3
+	select CPU_HAS_FTLB
 	help
 	  The GS464E processor core implements the MIPS64R2 instruction set
 	  with Multicore design.
@@ -1694,6 +1695,11 @@ config WEAK_ORDERING
 # CPU may reorder R->LL, R->LL, W->LL, W->LL, R->SC, R->SC, W->SC, W->SC
 #
 config WEAK_REORDERING_BEYOND_LLSC
+	bool
+#
+# CPU has ftlb support, only used by loongson 3a2000 now
+#
+config CPU_HAS_FTLB
 	bool
 endmenu
 

@@ -171,6 +171,7 @@ enum label_id {
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 	label_tlb_huge_update,
 #endif
+	label_tail_miss,
 };
 
 UASM_L_LA(_second_part)
@@ -190,6 +191,7 @@ UASM_L_LA(_large_segbits_fault)
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 UASM_L_LA(_tlb_huge_update)
 #endif
+UASM_L_LA(_tail_miss)
 
 static int __cpuinitdata hazard_instance;
 
@@ -1900,7 +1902,14 @@ build_r4000_tlbchange_handler_tail(u32 **p, struct uasm_label **l,
 	uasm_i_ori(p, ptr, ptr, sizeof(pte_t));
 	uasm_i_xori(p, ptr, ptr, sizeof(pte_t));
 	build_update_entries(p, tmp, ptr);
+	uasm_i_mfc0(p, ptr, C0_INDEX);
+	uasm_il_bltz(p, r, ptr, label_tail_miss);
+	uasm_i_nop(p);
 	build_tlb_write_entry(p, l, r, tlb_indexed);
+	uasm_il_b(p, r, label_leave);
+	uasm_i_nop(p);
+	uasm_l_tail_miss(l, *p);
+	build_tlb_write_entry(p, l, r, tlb_random);
 	uasm_l_leave(l, *p);
 	build_restore_work_registers(p);
 	uasm_i_eret(p); /* return from trap */

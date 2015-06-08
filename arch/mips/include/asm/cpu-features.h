@@ -271,6 +271,10 @@
 #define cpu_scache_line_size()	cpu_data[0].scache.linesz
 #endif
 
+#ifndef cpu_has_tlbinv
+#define cpu_has_tlbinv		(cpu_data[0].options & MIPS_CPU_TLBINV)
+#endif
+
 #ifndef cpu_hwrena_impl_bits
 #define cpu_hwrena_impl_bits		0
 #endif
