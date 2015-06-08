@@ -1569,6 +1569,7 @@ config CPU_LOONGSON3_GS464E
 	bool "Loongson 3 CPU based on GS464E"
 	depends on CPU_LOONGSON3
 	select CPU_HAS_FTLB
+	select CPU_HAS_PREFETCH
 	help
 	  The GS464E processor core implements the MIPS64R2 instruction set
 	  with Multicore design.

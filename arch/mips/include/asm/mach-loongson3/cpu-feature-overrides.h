@@ -42,7 +42,6 @@
 #define cpu_has_mips64r1	0
 #define cpu_has_mips64r2	0
 #define cpu_has_mipsmt		0
-#define cpu_has_prefetch	0
 #define cpu_has_smartmips	0
 #define cpu_has_tlb		1
 #define cpu_has_tx39_cache	0
@@ -52,5 +51,7 @@
 #define cpu_has_vtag_icache	0
 #define cpu_has_watch		1
 #define cpu_has_local_ebase	0
+#define cpu_has_64bit_gp_regs	1
+#define cpu_has_64bit_zero_reg	1
 
 #endif /* __ASM_MACH_LOONGSON3_CPU_FEATURE_OVERRIDES_H */
