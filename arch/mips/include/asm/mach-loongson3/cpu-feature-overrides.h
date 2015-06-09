@@ -26,8 +26,6 @@
 #define cpu_has_counter		1
 #define cpu_has_dc_aliases	(PAGE_SIZE < 0x4000)
 #define cpu_has_divec		0
-#define cpu_has_dsp		0
-#define cpu_has_dsp2		0
 #define cpu_has_ejtag		0
 #define cpu_has_fpu		1
 #define cpu_has_ic_fills_f_dc	0
@@ -40,7 +38,6 @@
 #define cpu_has_mips32r2	0
 #define cpu_has_mips3d		0
 #define cpu_has_mips64r1	0
-#define cpu_has_mips64r2	0
 #define cpu_has_mipsmt		0
 #define cpu_has_smartmips	0
 #define cpu_has_tlb		1
