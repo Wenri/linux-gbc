@@ -101,6 +101,9 @@
 #ifndef cpu_has_mmips
 #define cpu_has_mmips		(cpu_data[0].options & MIPS_CPU_MICROMIPS)
 #endif
+#ifndef cpu_has_rixiex
+#define cpu_has_rixiex		(cpu_data[0].options & MIPS_CPU_RIXIEX)
+#endif
 #ifndef cpu_has_vtag_icache
 #define cpu_has_vtag_icache	(cpu_data[0].icache.flags & MIPS_CACHE_VTAG)
 #endif
@@ -116,7 +119,6 @@
 #ifndef cpu_has_local_ebase
 #define cpu_has_local_ebase	1
 #endif
-
 /*
  * I-Cache snoops remote store.	 This only matters on SMP.  Some multiprocessors
  * such as the R10000 have I-Caches that snoop local stores; the embedded ones
