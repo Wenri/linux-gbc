@@ -157,6 +157,7 @@ enum label_id {
 	label_second_part = 1,
 	label_leave,
 	label_vmalloc,
+	label_vmalloc1,
 	label_vmalloc_done,
 	label_tlbw_hazard_0,
 	label_split = label_tlbw_hazard_0 + 8,
@@ -168,6 +169,7 @@ enum label_id {
 	label_smp_pgtable_change,
 	label_r3000_write_probe_fail,
 	label_large_segbits_fault,
+	label_large_segbits_fault1,
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 	label_tlb_huge_update,
 	label_tail_huge_miss,
@@ -179,6 +181,7 @@ enum label_id {
 UASM_L_LA(_second_part)
 UASM_L_LA(_leave)
 UASM_L_LA(_vmalloc)
+UASM_L_LA(_vmalloc1)
 UASM_L_LA(_vmalloc_done)
 /* _tlbw_hazard_x is handled differently.  */
 UASM_L_LA(_split)
@@ -190,6 +193,7 @@ UASM_L_LA(_nopage_tlbm)
 UASM_L_LA(_smp_pgtable_change)
 UASM_L_LA(_r3000_write_probe_fail)
 UASM_L_LA(_large_segbits_fault)
+UASM_L_LA(_large_segbits_fault1)
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 UASM_L_LA(_tlb_huge_update)
 UASM_L_LA(_tail_huge_miss)
@@ -2278,10 +2282,22 @@ static void __cpuinit setup_pw(void)
 
 static void  __cpuinit build_loongson3x_tlb_refill_handler(void)
 {
-
 	u32 *p = tlb_handler;
+	struct uasm_label *l = labels;
+	struct uasm_reloc *r = relocs;
 
 	memset(tlb_handler, 0, sizeof(tlb_handler));
+
+	if(check_for_high_segbits){
+		uasm_i_dmfc0(&p, K0, C0_BADVADDR);
+		uasm_i_dsrl_safe(&p, K1, K0, PGDIR_SHIFT + PGD_ORDER + PAGE_SHIFT - 3);
+		uasm_il_beqz(&p, &r, K1, label_vmalloc1);
+		uasm_i_nop(&p);
+
+		uasm_il_bgez(&p, &r, K0, label_large_segbits_fault1);
+		uasm_i_nop(&p);
+		uasm_l_vmalloc1(&l, p);
+	}
 
 	uasm_i_dmfc0(&p, K1, C0_TRUEPGD);
 
@@ -2310,6 +2326,15 @@ static void  __cpuinit build_loongson3x_tlb_refill_handler(void)
 	memcpy((void *)( ((char *)(ebase)) + 0x80) , tlb_handler, 0x80);
 	memcpy((void *)( ((char *)(ebase))) , (void *)( ((char*)(tlb_handler)+ 0x80) ) , 0x80);
 	dump_handler("loongson3x_fast_tlb_refill", (u32 *)(ebase), 64);
+
+	if(check_for_high_segbits){
+		uasm_l_large_segbits_fault1(&l, p);
+		if (loongson3_llsc_war())
+			uasm_i_sync_loongson3(&p);
+		UASM_i_LA(&p, K1, (unsigned long)tlb_do_page_fault_0);
+		uasm_i_jr(&p, K1);
+		uasm_i_nop(&p);
+	}
 }
 
 void __cpuinit build_tlb_refill_handler(void)
