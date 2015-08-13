@@ -111,9 +111,9 @@ static void temp_handler(int node_num)
 				temp[i] = *((volatile unsigned char *)temp_device.resource[i].end);
 				if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
 					temp[i] -= 100;
-				if (temp[i] >= WARNING_TEMP)
-					printk(KERN_INFO "Warning!! High CPU temperature! %d C\n", temp[i]);
-#if MODULE_ACTION
+				//if (temp[i] >= WARNING_TEMP)
+				//	printk(KERN_INFO "Warning!! High CPU temperature! %d C\n", temp[i]);
+#if 0 //MODULE_ACTION
 				if (temp[i] >= POWEROFF_TEMP)
 					goto poweroff;
 #endif
