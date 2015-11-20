@@ -319,55 +319,62 @@ void loongson3a_play_dead(int *state_addr)
 void loongson3b_play_dead(int *state_addr)
 
 {
-	__asm__ __volatile__(
-		"      .set push                         \n"
-		"      .set noreorder                    \n"
-		"      li $t0, 0x80000000                \n" /* KSEG0 */
-		"      li $t1, 512                       \n" /* num of L1 entries */
-		"1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */
-		"      cache 0, 1($t0)                   \n"
-		"      cache 0, 2($t0)                   \n"
-		"      cache 0, 3($t0)                   \n"
-		"      cache 1, 0($t0)                   \n" /* flush L1 DCache */
-		"      cache 1, 1($t0)                   \n"
-		"      cache 1, 2($t0)                   \n"
-		"      cache 1, 3($t0)                   \n"
-		"      addiu $t0, $t0, 0x20              \n"
-		"      bnez  $t1, 1b                     \n"
-		"      addiu $t1, $t1, -1                \n"
-		"      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
-		"      sw    $t0, 0($a0)                 \n"
-		"      sync                              \n"
-		"      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
-		"      .set pop                          \n");
+	register int val;
+	register long cpuid, core, node, count;
+	register void *addr, *base, *initfunc;
 
 	__asm__ __volatile__(
-		"      .set push                         \n"
-		"      .set noreorder                    \n"
-		"      .set mips64                       \n"
-		"      mfc0  $t2, $15, 1                 \n"
-		"      andi  $t2, 0x3ff                  \n"
-		"      dli   $t0, 0x900000003ff01000     \n"
-		"      andi  $t3, $t2, 0x3               \n"
-		"      sll   $t3, 8                      \n"  /* get cpu id */
-		"      or    $t0, $t0, $t3               \n"
-		"      andi  $t1, $t2, 0xc               \n"
-		"      dsll  $t1, 42                     \n"  /* get node id */
-		"      or    $t0, $t0, $t1               \n"
-		"      dsrl  $t1, 30                     \n"  /* 15:14 */
-		"      or    $t0, $t0, $t1               \n"
-		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
-		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
-		"      addiu $a0, -1                     \n"
-		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
-		"      beqz  $v0, 1b                     \n"
-		"      nop                               \n"
-		"      ld    $sp, 0x28($t0)              \n"  /* get SP via mailbox */
-		"      ld    $gp, 0x30($t0)              \n"  /* get GP via mailbox */
-		"      ld    $a1, 0x38($t0)              \n"
-		"      jr  $v0                           \n"  /* jump to initial PC */
-		"      nop                               \n"
-		"      .set pop                          \n");
+		"   .set push                     \n"
+		"   .set noreorder                \n"
+		"   li %[addr], 0x80000000        \n" /* KSEG0 */
+		"1: cache 3, 0(%[addr])           \n" /* flush L2 Cache */
+		"   cache 3, 1(%[addr])           \n"
+		"   cache 3, 2(%[addr])           \n"
+		"   cache 3, 3(%[addr])           \n"
+		"   addiu %[sets], %[sets], -1    \n"
+		"   bnez  %[sets], 1b             \n"
+		"   addiu %[addr], %[addr], 0x20  \n"
+		"   li    %[val], 0x7             \n" /* *state_addr = CPU_DEAD; */
+		"   sw    %[val], 0(%[state_addr]) \n"
+		"   sync                          \n"
+		"   cache 21, 0(%[state_addr])    \n" /* flush entry of *state_addr */
+		"   .set pop                      \n"
+		: [addr] "=&r" (addr), [val] "=&r" (val)
+		: [state_addr] "r" (state_addr),
+		  [sets] "r" (cpu_data[smp_processor_id()].scache.sets));
+
+	__asm__ __volatile__(
+		"   .set push                         \n"
+		"   .set noreorder                    \n"
+		"   .set mips64                       \n"
+		"   mfc0  %[cpuid], $15, 1            \n"
+		"   andi  %[cpuid], 0x3ff             \n"
+		"   dli   %[base], 0x900000003ff01000 \n"
+		"   andi  %[core], %[cpuid], 0x3      \n"
+		"   sll   %[core], 8                  \n" /* get core id */
+		"   or    %[base], %[base], %[core]   \n"
+		"   andi  %[node], %[cpuid], 0xc      \n"
+		"   dsll  %[node], 42                 \n" /* get node id */
+		"   or    %[base], %[base], %[node]   \n"
+		"   dsrl  %[node], 30                 \n" /* 15:14 */
+		"   or    %[base], %[base], %[node]   \n"
+		"1: li    %[count], 0x100             \n" /* wait for init loop */
+		"2: bnez  %[count], 2b                \n" /* limit mailbox access */
+		"   addiu %[count], -1                \n"
+		"   ld    %[initfunc], 0x20(%[base])  \n" /* get PC via mailbox */
+		"   beqz  %[initfunc], 1b             \n"
+		"   nop                               \n"
+		"   ld    $sp, 0x28(%[base])          \n" /* get SP via mailbox */
+		"   ld    $gp, 0x30(%[base])          \n" /* get GP via mailbox */
+		"   ld    $a1, 0x38(%[base])          \n"
+		"   jr    %[initfunc]                 \n" /* jump to initial PC */
+		"   nop                               \n"
+		"   .set pop                          \n"
+		: [core] "=&r" (core), [node] "=&r" (node),
+		  [base] "=&r" (base), [cpuid] "=&r" (cpuid),
+		  [count] "=&r" (count), [initfunc] "=&r" (initfunc)
+		: /* No Input */
+		: "a1");
 }
 
 void loongson3a2000_play_dead(int *state_addr)
