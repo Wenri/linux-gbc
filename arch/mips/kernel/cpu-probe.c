@@ -734,6 +734,7 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 		c->options = R4K_OPTS |
 			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
 			     MIPS_CPU_32FPR;
+		c->tlbsize = 64;
 		break;
 	case PRID_IMP_LOONGSON1:
 		decode_configs(c);
