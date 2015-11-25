@@ -18,6 +18,7 @@ enum hdmi_infoframe_type {
 	HDMI_INFOFRAME_TYPE_AUDIO = 0x84,
 };
 
+#define HDMI_IEEE_OUI 0x000c03
 #define HDMI_INFOFRAME_HEADER_SIZE  4
 #define HDMI_AVI_INFOFRAME_SIZE    13
 #define HDMI_SPD_INFOFRAME_SIZE    25
@@ -218,13 +219,30 @@ int hdmi_audio_infoframe_init(struct hdmi_audio_infoframe *frame);
 ssize_t hdmi_audio_infoframe_pack(struct hdmi_audio_infoframe *frame,
 				  void *buffer, size_t size);
 
+enum hdmi_3d_structure {
+	HDMI_3D_STRUCTURE_INVALID = -1,
+	HDMI_3D_STRUCTURE_FRAME_PACKING = 0,
+	HDMI_3D_STRUCTURE_FIELD_ALTERNATIVE,
+	HDMI_3D_STRUCTURE_LINE_ALTERNATIVE,
+	HDMI_3D_STRUCTURE_SIDE_BY_SIDE_FULL,
+	HDMI_3D_STRUCTURE_L_DEPTH,
+	HDMI_3D_STRUCTURE_L_DEPTH_GFX_GFX_DEPTH,
+	HDMI_3D_STRUCTURE_TOP_AND_BOTTOM,
+	HDMI_3D_STRUCTURE_SIDE_BY_SIDE_HALF = 8,
+};
+
+
 struct hdmi_vendor_infoframe {
 	enum hdmi_infoframe_type type;
 	unsigned char version;
 	unsigned char length;
-	u8 data[27];
+	unsigned int oui;
+	u8 vic;
+	enum hdmi_3d_structure s3d_struct;
+	unsigned int s3d_ext_data;
 };
 
+int hdmi_vendor_infoframe_init(struct hdmi_vendor_infoframe *frame);
 ssize_t hdmi_vendor_infoframe_pack(struct hdmi_vendor_infoframe *frame,
 				   void *buffer, size_t size);
 
