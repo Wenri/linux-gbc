@@ -98,9 +98,6 @@
 #define KVM_INVALID_INST            0xdeadbeef
 #define KVM_INVALID_ADDR            0xdeadbeef
 
-#define CAUSEB_DC       27
-#define CAUSEF_DC       (_ULCAST_(1)   << 27)
-
 extern atomic_t kvm_mips_instance;
 extern kvm_pfn_t(*kvm_mips_gfn_to_pfn)(struct kvm *kvm, gfn_t gfn);
 extern void (*kvm_mips_release_pfn_clean)(kvm_pfn_t pfn);
