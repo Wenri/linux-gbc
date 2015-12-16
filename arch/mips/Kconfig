@@ -1812,7 +1812,8 @@ endchoice
 config KVM_GUEST
 	bool "KVM Guest Kernel"
 	help
-	  Select this option if building a guest kernel for KVM (Trap & Emulate) mode
+	  Select this option if building a guest kernel for KVM (Trap & Emulate)
+	  mode.
 
 config KVM_HOST_FREQ
 	int "KVM Host Processor Frequency (MHz)"
