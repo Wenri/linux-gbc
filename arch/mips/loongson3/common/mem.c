@@ -83,7 +83,7 @@ void __init prom_init_memory(void)
 					BOOT_MEM_RAM);
 				break;
 			case UMA_VIDEO_RAM:
-				uma_vram_addr = emap->map[i].mem_start & 0x00000000ffffffff;
+				uma_vram_addr = emap->map[i].mem_start;
 				uma_vram_size = emap->map[i].mem_size;
 				pr_info("Debug: uma_vram_addr:0x%lx, uma_vram_size:0x%lx\n",
 					uma_vram_addr, uma_vram_size);

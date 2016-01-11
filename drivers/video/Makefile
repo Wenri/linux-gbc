@@ -174,6 +174,8 @@ obj-$(CONFIG_FB_VIRTUAL)          += vfb.o
 
 #ls2h gpu
 obj-$(CONFIG_LS2H_GPU)             += ls2h-gpu.o
+# vivante gpu
+obj-$(CONFIG_VIVANTE)             += vivante/
 
 #video output switch sysfs driver
 obj-$(CONFIG_VIDEO_OUTPUT_CONTROL) += output.o

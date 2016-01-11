@@ -2002,7 +2002,7 @@ config FB_LS2H
 
 config LS2H_GPU
        tristate "Loongson 2H GPU Driver Support"
-       depends on (LS2H_SB || CPU_LOONGSON2H)
+       depends on CPU_LOONGSON2H
        help
          GPU driver for the Loongson2H SoC and Southbridge.
 
@@ -2012,9 +2012,9 @@ config LS2H_GPU_SOC
        default y
 
 config LS2H_GPU_SB
-       tristate
-       depends on LS2H_SB
-       default y
+	tristate
+	depends on (LS2H_SB && LS2H_GPU)
+	default y
 
 config FB_SH_MOBILE_LCDC
 	tristate "SuperH Mobile LCDC framebuffer support"
@@ -2500,6 +2500,10 @@ source "drivers/video/omap2/Kconfig"
 source "drivers/video/exynos/Kconfig"
 source "drivers/video/mmp/Kconfig"
 source "drivers/video/backlight/Kconfig"
+
+if LS2H_SB
+source "drivers/video/vivante/Kconfig"
+endif
 
 if VT
 	source "drivers/video/console/Kconfig"
