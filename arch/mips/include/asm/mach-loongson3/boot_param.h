@@ -170,4 +170,5 @@ extern u32 nr_cpus_online;
 extern struct interface_info *einter;
 extern struct board_devices *eboard;
 extern uint32_t dma64_supported;
+extern struct interface_info *einter;
 #endif

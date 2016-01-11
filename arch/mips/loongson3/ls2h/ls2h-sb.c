@@ -34,12 +34,18 @@ extern int ls2h_init_pcie_bios(struct pci_dev *pdev);
 
 static dma_addr_t ls2h_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
 {
-	return paddr & 0xffffffff;
+	if (strstr(einter->description, "V3.3.1"))
+		return (paddr < 0x10000000) ? paddr : (paddr - 0x80000000);
+	else
+		return paddr & 0xffffffff;
 }
 
 static phys_addr_t ls2h_unity_dma_to_phys(struct device *dev, dma_addr_t daddr)
 {
-	return (daddr < 0x10000000) ? daddr : (daddr | 0x100000000);
+	if (strstr(einter->description, "V3.3.1"))
+		return (daddr < 0x10000000) ? daddr : (daddr + 0x80000000);
+	else
+		return (daddr < 0x10000000) ? daddr : (daddr | 0x100000000);
 }
 
 static void ls2h_dma_ops_init(void)
