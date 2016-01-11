@@ -30,18 +30,21 @@
 #include "dwmac1000.h"
 #include "dwmac_dma.h"
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 			      int burst_len, u32 dma_tx, u32 dma_rx, int atds)
 {
-	u32 value = readl(ioaddr + DMA_BUS_MODE);
+	u32 value = stmmac_readl(ioaddr + DMA_BUS_MODE);
 	int limit;
 
 	/* DMA SW reset */
 	value |= DMA_BUS_MODE_SFT_RESET;
-	writel(value, ioaddr + DMA_BUS_MODE);
+	stmmac_writel(value, ioaddr + DMA_BUS_MODE);
 	limit = 10;
 	while (limit--) {
-		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+		if (!(stmmac_readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
 			break;
 		mdelay(10);
 	}
@@ -77,7 +80,7 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 	if (atds)
 		value |= DMA_BUS_MODE_ATDS;
 
-	writel(value, ioaddr + DMA_BUS_MODE);
+	stmmac_writel(value, ioaddr + DMA_BUS_MODE);
 
 	/* In case of GMAC AXI configuration, program the DMA_AXI_BUS_MODE
 	 * for supported bursts.
@@ -96,16 +99,16 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 	 *  burst length. Any burst equal or below the provided burst
 	 *  length would be allowed to perform.
 	 */
-	writel(burst_len, ioaddr + DMA_AXI_BUS_MODE);
+	stmmac_writel(burst_len, ioaddr + DMA_AXI_BUS_MODE);
 
 	/* Mask interrupts by writing to CSR7 */
-	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+	stmmac_writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
 
 	/* RX/TX descriptor base address lists must be written into
 	 * DMA CSR3 and CSR4, respectively
 	 */
-	writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
-	writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
+	stmmac_writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
+	stmmac_writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
 
 	return 0;
 }
@@ -113,7 +116,7 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 static void dwmac1000_dma_operation_mode(void __iomem *ioaddr, int txmode,
 					 int rxmode)
 {
-	u32 csr6 = readl(ioaddr + DMA_CONTROL);
+	u32 csr6 = stmmac_readl(ioaddr + DMA_CONTROL);
 
 	if (txmode == SF_DMA_MODE) {
 		CHIP_DBG(KERN_DEBUG "GMAC: enable TX store and forward mode\n");
@@ -159,7 +162,7 @@ static void dwmac1000_dma_operation_mode(void __iomem *ioaddr, int txmode,
 			csr6 |= DMA_CONTROL_RTC_128;
 	}
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	stmmac_writel(csr6, ioaddr + DMA_CONTROL);
 }
 
 static void dwmac1000_dump_dma_regs(void __iomem *ioaddr)
@@ -171,19 +174,19 @@ static void dwmac1000_dump_dma_regs(void __iomem *ioaddr)
 			int offset = i * 4;
 			pr_err("\t Reg No. %d (offset 0x%x): 0x%08x\n", i,
 			       (DMA_BUS_MODE + offset),
-			       readl(ioaddr + DMA_BUS_MODE + offset));
+			       stmmac_readl(ioaddr + DMA_BUS_MODE + offset));
 		}
 	}
 }
 
 static unsigned int dwmac1000_get_hw_feature(void __iomem *ioaddr)
 {
-	return readl(ioaddr + DMA_HW_FEATURE);
+	return stmmac_readl(ioaddr + DMA_HW_FEATURE);
 }
 
 static void dwmac1000_rx_watchdog(void __iomem *ioaddr, u32 riwt)
 {
-	writel(riwt, ioaddr + DMA_RX_WATCHDOG);
+	stmmac_writel(riwt, ioaddr + DMA_RX_WATCHDOG);
 }
 
 const struct stmmac_dma_ops dwmac1000_dma_ops = {

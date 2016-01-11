@@ -41,7 +41,7 @@ static int stmmac_mdio_busy_wait(void __iomem *ioaddr, unsigned int mii_addr)
 
 	do {
 		curr = jiffies;
-		if (readl(ioaddr + mii_addr) & MII_BUSY)
+		if (stmmac_readl(ioaddr + mii_addr) & MII_BUSY)
 			cpu_relax();
 		else
 			return 0;
@@ -75,13 +75,13 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 		return -EBUSY;
 
-	writel(regValue, priv->ioaddr + mii_address);
+	stmmac_writel(regValue, priv->ioaddr + mii_address);
 
 	if (stmmac_mdio_busy_wait(priv->ioaddr, mii_address))
 		return -EBUSY;
 
 	/* Read the data from the MII data register */
-	data = (int)readl(priv->ioaddr + mii_data);
+	data = (int)stmmac_readl(priv->ioaddr + mii_data);
 
 	return data;
 }
@@ -113,8 +113,8 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 		return -EBUSY;
 
 	/* Set the MII address register to write */
-	writel(phydata, priv->ioaddr + mii_data);
-	writel(value, priv->ioaddr + mii_address);
+	stmmac_writel(phydata, priv->ioaddr + mii_data);
+	stmmac_writel(value, priv->ioaddr + mii_address);
 
 	/* Wait until any existing MII operation is complete */
 	return stmmac_mdio_busy_wait(priv->ioaddr, mii_address);
@@ -141,7 +141,7 @@ static int stmmac_mdio_reset(struct mii_bus *bus)
 	 * It doesn't complete its reset until at least one clock cycle
 	 * on MDC, so perform a dummy mdio read.
 	 */
-	writel(0, priv->ioaddr + mii_address);
+	stmmac_writel(0, priv->ioaddr + mii_address);
 #endif
 	return 0;
 }

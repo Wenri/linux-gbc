@@ -33,48 +33,51 @@
 
 #define GMAC_HI_REG_AE		0x80000000
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 /* CSR1 enables the transmit DMA to check for new descriptor */
 void dwmac_enable_dma_transmission(void __iomem *ioaddr)
 {
-	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
+	stmmac_writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
 }
 
 void dwmac_enable_dma_irq(void __iomem *ioaddr)
 {
-	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+	stmmac_writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
 }
 
 void dwmac_disable_dma_irq(void __iomem *ioaddr)
 {
-	writel(0, ioaddr + DMA_INTR_ENA);
+	stmmac_writel(0, ioaddr + DMA_INTR_ENA);
 }
 
 void dwmac_dma_start_tx(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	u32 value = stmmac_readl(ioaddr + DMA_CONTROL);
 	value |= DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CONTROL);
+	stmmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 void dwmac_dma_stop_tx(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	u32 value = stmmac_readl(ioaddr + DMA_CONTROL);
 	value &= ~DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CONTROL);
+	stmmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 void dwmac_dma_start_rx(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	u32 value = stmmac_readl(ioaddr + DMA_CONTROL);
 	value |= DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CONTROL);
+	stmmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 void dwmac_dma_stop_rx(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + DMA_CONTROL);
+	u32 value = stmmac_readl(ioaddr + DMA_CONTROL);
 	value &= ~DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CONTROL);
+	stmmac_writel(value, ioaddr + DMA_CONTROL);
 }
 
 #ifdef DWMAC_DMA_DEBUG
@@ -152,7 +155,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 {
 	int ret = 0;
 	/* read the status register (CSR5) */
-	u32 intr_status = readl(ioaddr + DMA_STATUS);
+	u32 intr_status = stmmac_readl(ioaddr + DMA_STATUS);
 
 	DWMAC_LIB_DBG(KERN_INFO "%s: [CSR5: 0x%08x]\n", __func__, intr_status);
 #ifdef DWMAC_DMA_DEBUG
@@ -207,7 +210,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 	if (likely(intr_status & DMA_STATUS_NIS)) {
 		x->normal_irq_n++;
 		if (likely(intr_status & DMA_STATUS_RI)) {
-			u32 value = readl(ioaddr + DMA_INTR_ENA);
+			u32 value = stmmac_readl(ioaddr + DMA_INTR_ENA);
 			/* to schedule NAPI on real RIE event. */
 			if (likely(value & DMA_INTR_ENA_RIE)) {
 				x->rx_normal_irq_n++;
@@ -227,7 +230,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 		pr_info("%s: unexpected status %08x\n", __func__, intr_status);
 
 	/* Clear the interrupt by writing a logic 1 to the CSR5[15-0] */
-	writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
+	stmmac_writel((intr_status & 0x1ffff), ioaddr + DMA_STATUS);
 
 	DWMAC_LIB_DBG(KERN_INFO "\n\n");
 	return ret;
@@ -235,10 +238,10 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 
 void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr)
 {
-	u32 csr6 = readl(ioaddr + DMA_CONTROL);
-	writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
+	u32 csr6 = stmmac_readl(ioaddr + DMA_CONTROL);
+	stmmac_writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
 
-	do {} while ((readl(ioaddr + DMA_CONTROL) & DMA_CONTROL_FTF));
+	do {} while ((stmmac_readl(ioaddr + DMA_CONTROL) & DMA_CONTROL_FTF));
 }
 
 void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
@@ -251,22 +254,22 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, u8 addr[6],
 	 * bit that has no effect on the High Reg 0 where the bit 31 (MO)
 	 * is RO.
 	 */
-	writel(data | GMAC_HI_REG_AE, ioaddr + high);
+	stmmac_writel(data | GMAC_HI_REG_AE, ioaddr + high);
 	data = (addr[3] << 24) | (addr[2] << 16) | (addr[1] << 8) | addr[0];
-	writel(data, ioaddr + low);
+	stmmac_writel(data, ioaddr + low);
 }
 
 /* Enable disable MAC RX/TX */
 void stmmac_set_mac(void __iomem *ioaddr, bool enable)
 {
-	u32 value = readl(ioaddr + MAC_CTRL_REG);
+	u32 value = stmmac_readl(ioaddr + MAC_CTRL_REG);
 
 	if (enable)
 		value |= MAC_RNABLE_RX | MAC_ENABLE_TX;
 	else
 		value &= ~(MAC_ENABLE_TX | MAC_RNABLE_RX);
 
-	writel(value, ioaddr + MAC_CTRL_REG);
+	stmmac_writel(value, ioaddr + MAC_CTRL_REG);
 }
 
 void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
@@ -275,8 +278,8 @@ void stmmac_get_mac_addr(void __iomem *ioaddr, unsigned char *addr,
 	unsigned int hi_addr, lo_addr;
 
 	/* Read the MAC address from the hardware */
-	hi_addr = readl(ioaddr + high);
-	lo_addr = readl(ioaddr + low);
+	hi_addr = stmmac_readl(ioaddr + high);
+	lo_addr = stmmac_readl(ioaddr + low);
 
 	/* Extract the MAC address from the high and low words */
 	addr[0] = lo_addr & 0xff;

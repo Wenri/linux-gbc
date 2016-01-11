@@ -132,6 +132,8 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
 				     void __iomem *addr);
 void stmmac_disable_eee_mode(struct stmmac_priv *priv);
 bool stmmac_eee_init(struct stmmac_priv *priv);
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
 
 #ifdef CONFIG_STMMAC_PLATFORM
 extern struct platform_driver stmmac_pltfr_driver;

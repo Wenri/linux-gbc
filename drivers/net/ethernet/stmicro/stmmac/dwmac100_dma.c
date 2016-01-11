@@ -32,18 +32,21 @@
 #include "dwmac100.h"
 #include "dwmac_dma.h"
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 			     int burst_len, u32 dma_tx, u32 dma_rx, int atds)
 {
-	u32 value = readl(ioaddr + DMA_BUS_MODE);
+	u32 value = stmmac_readl(ioaddr + DMA_BUS_MODE);
 	int limit;
 
 	/* DMA SW reset */
 	value |= DMA_BUS_MODE_SFT_RESET;
-	writel(value, ioaddr + DMA_BUS_MODE);
+	stmmac_writel(value, ioaddr + DMA_BUS_MODE);
 	limit = 10;
 	while (limit--) {
-		if (!(readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
+		if (!(stmmac_readl(ioaddr + DMA_BUS_MODE) & DMA_BUS_MODE_SFT_RESET))
 			break;
 		mdelay(10);
 	}
@@ -51,17 +54,17 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 		return -EBUSY;
 
 	/* Enable Application Access by writing to DMA CSR0 */
-	writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
+	stmmac_writel(DMA_BUS_MODE_DEFAULT | (pbl << DMA_BUS_MODE_PBL_SHIFT),
 	       ioaddr + DMA_BUS_MODE);
 
 	/* Mask interrupts by writing to CSR7 */
-	writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
+	stmmac_writel(DMA_INTR_DEFAULT_MASK, ioaddr + DMA_INTR_ENA);
 
 	/* RX/TX descriptor base addr lists must be written into
 	 * DMA CSR3 and CSR4, respectively
 	 */
-	writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
-	writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
+	stmmac_writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
+	stmmac_writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
 
 	return 0;
 }
@@ -74,7 +77,7 @@ static int dwmac100_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 static void dwmac100_dma_operation_mode(void __iomem *ioaddr, int txmode,
 					int rxmode)
 {
-	u32 csr6 = readl(ioaddr + DMA_CONTROL);
+	u32 csr6 = stmmac_readl(ioaddr + DMA_CONTROL);
 
 	if (txmode <= 32)
 		csr6 |= DMA_CONTROL_TTC_32;
@@ -83,7 +86,7 @@ static void dwmac100_dma_operation_mode(void __iomem *ioaddr, int txmode,
 	else
 		csr6 |= DMA_CONTROL_TTC_128;
 
-	writel(csr6, ioaddr + DMA_CONTROL);
+	stmmac_writel(csr6, ioaddr + DMA_CONTROL);
 }
 
 static void dwmac100_dump_dma_regs(void __iomem *ioaddr)
@@ -94,11 +97,11 @@ static void dwmac100_dump_dma_regs(void __iomem *ioaddr)
 	for (i = 0; i < 9; i++)
 		pr_debug("\t CSR%d (offset 0x%x): 0x%08x\n", i,
 			 (DMA_BUS_MODE + i * 4),
-			 readl(ioaddr + DMA_BUS_MODE + i * 4));
+			 stmmac_readl(ioaddr + DMA_BUS_MODE + i * 4));
 	CHIP_DBG(KERN_DEBUG "\t CSR20 (offset 0x%x): 0x%08x\n",
-		 DMA_CUR_TX_BUF_ADDR, readl(ioaddr + DMA_CUR_TX_BUF_ADDR));
+		 DMA_CUR_TX_BUF_ADDR, stmmac_readl(ioaddr + DMA_CUR_TX_BUF_ADDR));
 	CHIP_DBG(KERN_DEBUG "\t CSR21 (offset 0x%x): 0x%08x\n",
-		 DMA_CUR_RX_BUF_ADDR, readl(ioaddr + DMA_CUR_RX_BUF_ADDR));
+		 DMA_CUR_RX_BUF_ADDR, stmmac_readl(ioaddr + DMA_CUR_RX_BUF_ADDR));
 }
 
 /* DMA controller has two counters to track the number of the missed frames. */
@@ -106,7 +109,7 @@ static void dwmac100_dma_diagnostic_fr(void *data, struct stmmac_extra_stats *x,
 				       void __iomem *ioaddr)
 {
 	struct net_device_stats *stats = (struct net_device_stats *)data;
-	u32 csr8 = readl(ioaddr + DMA_MISSED_FRAME_CTR);
+	u32 csr8 = stmmac_readl(ioaddr + DMA_MISSED_FRAME_CTR);
 
 	if (unlikely(csr8)) {
 		if (csr8 & DMA_MISSED_FRAME_OVE) {

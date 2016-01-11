@@ -405,21 +405,21 @@ static void stmmac_ethtool_gregs(struct net_device *dev,
 	if (!priv->plat->has_gmac) {
 		/* MAC registers */
 		for (i = 0; i < 12; i++)
-			reg_space[i] = readl(priv->ioaddr + (i * 4));
+			reg_space[i] = stmmac_readl(priv->ioaddr + (i * 4));
 		/* DMA registers */
 		for (i = 0; i < 9; i++)
 			reg_space[i + 12] =
-			    readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
-		reg_space[22] = readl(priv->ioaddr + DMA_CUR_TX_BUF_ADDR);
-		reg_space[23] = readl(priv->ioaddr + DMA_CUR_RX_BUF_ADDR);
+			    stmmac_readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
+		reg_space[22] = stmmac_readl(priv->ioaddr + DMA_CUR_TX_BUF_ADDR);
+		reg_space[23] = stmmac_readl(priv->ioaddr + DMA_CUR_RX_BUF_ADDR);
 	} else {
 		/* MAC registers */
 		for (i = 0; i < 55; i++)
-			reg_space[i] = readl(priv->ioaddr + (i * 4));
+			reg_space[i] = stmmac_readl(priv->ioaddr + (i * 4));
 		/* DMA registers */
 		for (i = 0; i < 22; i++)
 			reg_space[i + 55] =
-			    readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
+			    stmmac_readl(priv->ioaddr + (DMA_BUS_MODE + (i * 4)));
 	}
 }
 

@@ -32,14 +32,17 @@
 #include <asm/io.h>
 #include "dwmac100.h"
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 static void dwmac100_core_init(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + MAC_CONTROL);
+	u32 value = stmmac_readl(ioaddr + MAC_CONTROL);
 
-	writel((value | MAC_CORE_INIT), ioaddr + MAC_CONTROL);
+	stmmac_writel((value | MAC_CORE_INIT), ioaddr + MAC_CONTROL);
 
 #ifdef STMMAC_VLAN_TAG_USED
-	writel(ETH_P_8021Q, ioaddr + MAC_VLAN1);
+	stmmac_writel(ETH_P_8021Q, ioaddr + MAC_VLAN1);
 #endif
 }
 
@@ -49,21 +52,21 @@ static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
 		"\t  DWMAC 100 CSR (base addr = 0x%p)\n"
 		"\t----------------------------------------------\n", ioaddr);
 	pr_info("\tcontrol reg (offset 0x%x): 0x%08x\n", MAC_CONTROL,
-		readl(ioaddr + MAC_CONTROL));
+		stmmac_readl(ioaddr + MAC_CONTROL));
 	pr_info("\taddr HI (offset 0x%x): 0x%08x\n ", MAC_ADDR_HIGH,
-		readl(ioaddr + MAC_ADDR_HIGH));
+		stmmac_readl(ioaddr + MAC_ADDR_HIGH));
 	pr_info("\taddr LO (offset 0x%x): 0x%08x\n", MAC_ADDR_LOW,
-		readl(ioaddr + MAC_ADDR_LOW));
+		stmmac_readl(ioaddr + MAC_ADDR_LOW));
 	pr_info("\tmulticast hash HI (offset 0x%x): 0x%08x\n",
-		MAC_HASH_HIGH, readl(ioaddr + MAC_HASH_HIGH));
+		MAC_HASH_HIGH, stmmac_readl(ioaddr + MAC_HASH_HIGH));
 	pr_info("\tmulticast hash LO (offset 0x%x): 0x%08x\n",
-		MAC_HASH_LOW, readl(ioaddr + MAC_HASH_LOW));
+		MAC_HASH_LOW, stmmac_readl(ioaddr + MAC_HASH_LOW));
 	pr_info("\tflow control (offset 0x%x): 0x%08x\n",
-		MAC_FLOW_CTRL, readl(ioaddr + MAC_FLOW_CTRL));
+		MAC_FLOW_CTRL, stmmac_readl(ioaddr + MAC_FLOW_CTRL));
 	pr_info("\tVLAN1 tag (offset 0x%x): 0x%08x\n", MAC_VLAN1,
-		readl(ioaddr + MAC_VLAN1));
+		stmmac_readl(ioaddr + MAC_VLAN1));
 	pr_info("\tVLAN2 tag (offset 0x%x): 0x%08x\n", MAC_VLAN2,
-		readl(ioaddr + MAC_VLAN2));
+		stmmac_readl(ioaddr + MAC_VLAN2));
 }
 
 static int dwmac100_rx_ipc_enable(void __iomem *ioaddr)
@@ -92,7 +95,7 @@ static void dwmac100_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
 static void dwmac100_set_filter(struct net_device *dev, int id)
 {
 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
-	u32 value = readl(ioaddr + MAC_CONTROL);
+	u32 value = stmmac_readl(ioaddr + MAC_CONTROL);
 
 	if (dev->flags & IFF_PROMISC) {
 		value |= MAC_CONTROL_PR;
@@ -102,8 +105,8 @@ static void dwmac100_set_filter(struct net_device *dev, int id)
 		   || (dev->flags & IFF_ALLMULTI)) {
 		value |= MAC_CONTROL_PM;
 		value &= ~(MAC_CONTROL_PR | MAC_CONTROL_IF | MAC_CONTROL_HO);
-		writel(0xffffffff, ioaddr + MAC_HASH_HIGH);
-		writel(0xffffffff, ioaddr + MAC_HASH_LOW);
+		stmmac_writel(0xffffffff, ioaddr + MAC_HASH_HIGH);
+		stmmac_writel(0xffffffff, ioaddr + MAC_HASH_LOW);
 	} else if (netdev_mc_empty(dev)) {	/* no multicast */
 		value &= ~(MAC_CONTROL_PM | MAC_CONTROL_PR | MAC_CONTROL_IF |
 			   MAC_CONTROL_HO | MAC_CONTROL_HP);
@@ -130,15 +133,15 @@ static void dwmac100_set_filter(struct net_device *dev, int id)
 			 */
 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 		}
-		writel(mc_filter[0], ioaddr + MAC_HASH_LOW);
-		writel(mc_filter[1], ioaddr + MAC_HASH_HIGH);
+		stmmac_writel(mc_filter[0], ioaddr + MAC_HASH_LOW);
+		stmmac_writel(mc_filter[1], ioaddr + MAC_HASH_HIGH);
 	}
 
-	writel(value, ioaddr + MAC_CONTROL);
+	stmmac_writel(value, ioaddr + MAC_CONTROL);
 
 	CHIP_DBG(KERN_INFO "%s: Filter: 0x%08x Hash: HI 0x%08x, LO 0x%08x\n",
-		 __func__, readl(ioaddr + MAC_CONTROL),
-		 readl(ioaddr + MAC_HASH_HIGH), readl(ioaddr + MAC_HASH_LOW));
+		 __func__, stmmac_readl(ioaddr + MAC_CONTROL),
+		 stmmac_readl(ioaddr + MAC_HASH_HIGH), stmmac_readl(ioaddr + MAC_HASH_LOW));
 }
 
 static void dwmac100_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
@@ -148,7 +151,7 @@ static void dwmac100_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
 
 	if (duplex)
 		flow |= (pause_time << MAC_FLOW_CTRL_PT_SHIFT);
-	writel(flow, ioaddr + MAC_FLOW_CTRL);
+	stmmac_writel(flow, ioaddr + MAC_FLOW_CTRL);
 }
 
 /* No PMT module supported on ST boards with this Eth chip. */

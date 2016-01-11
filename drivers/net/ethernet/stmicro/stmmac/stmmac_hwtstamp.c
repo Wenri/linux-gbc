@@ -28,14 +28,17 @@
 #include "common.h"
 #include "stmmac_ptp.h"
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 static void stmmac_config_hw_tstamping(void __iomem *ioaddr, u32 data)
 {
-	writel(data, ioaddr + PTP_TCR);
+	stmmac_writel(data, ioaddr + PTP_TCR);
 }
 
 static void stmmac_config_sub_second_increment(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + PTP_TCR);
+	u32 value = stmmac_readl(ioaddr + PTP_TCR);
 	unsigned long data;
 
 	/* Convert the ptp_clock to nano second
@@ -48,7 +51,7 @@ static void stmmac_config_sub_second_increment(void __iomem *ioaddr)
 	if (value & PTP_TCR_TSCTRLSSR)
 		data = (data * 100) / 465;
 
-	writel(data, ioaddr + PTP_SSIR);
+	stmmac_writel(data, ioaddr + PTP_SSIR);
 }
 
 static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
@@ -56,17 +59,17 @@ static int stmmac_init_systime(void __iomem *ioaddr, u32 sec, u32 nsec)
 	int limit;
 	u32 value;
 
-	writel(sec, ioaddr + PTP_STSUR);
-	writel(nsec, ioaddr + PTP_STNSUR);
+	stmmac_writel(sec, ioaddr + PTP_STSUR);
+	stmmac_writel(nsec, ioaddr + PTP_STNSUR);
 	/* issue command to initialize the system time value */
-	value = readl(ioaddr + PTP_TCR);
+	value = stmmac_readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSINIT;
-	writel(value, ioaddr + PTP_TCR);
+	stmmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present system time initialize to complete */
 	limit = 10;
 	while (limit--) {
-		if (!(readl(ioaddr + PTP_TCR) & PTP_TCR_TSINIT))
+		if (!(stmmac_readl(ioaddr + PTP_TCR) & PTP_TCR_TSINIT))
 			break;
 		mdelay(10);
 	}
@@ -81,16 +84,16 @@ static int stmmac_config_addend(void __iomem *ioaddr, u32 addend)
 	u32 value;
 	int limit;
 
-	writel(addend, ioaddr + PTP_TAR);
+	stmmac_writel(addend, ioaddr + PTP_TAR);
 	/* issue command to update the addend value */
-	value = readl(ioaddr + PTP_TCR);
+	value = stmmac_readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSADDREG;
-	writel(value, ioaddr + PTP_TCR);
+	stmmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present addend update to complete */
 	limit = 10;
 	while (limit--) {
-		if (!(readl(ioaddr + PTP_TCR) & PTP_TCR_TSADDREG))
+		if (!(stmmac_readl(ioaddr + PTP_TCR) & PTP_TCR_TSADDREG))
 			break;
 		mdelay(10);
 	}
@@ -106,18 +109,18 @@ static int stmmac_adjust_systime(void __iomem *ioaddr, u32 sec, u32 nsec,
 	u32 value;
 	int limit;
 
-	writel(sec, ioaddr + PTP_STSUR);
-	writel(((add_sub << PTP_STNSUR_ADDSUB_SHIFT) | nsec),
+	stmmac_writel(sec, ioaddr + PTP_STSUR);
+	stmmac_writel(((add_sub << PTP_STNSUR_ADDSUB_SHIFT) | nsec),
 		ioaddr + PTP_STNSUR);
 	/* issue command to initialize the system time value */
-	value = readl(ioaddr + PTP_TCR);
+	value = stmmac_readl(ioaddr + PTP_TCR);
 	value |= PTP_TCR_TSUPDT;
-	writel(value, ioaddr + PTP_TCR);
+	stmmac_writel(value, ioaddr + PTP_TCR);
 
 	/* wait for present system time adjust/update to complete */
 	limit = 10;
 	while (limit--) {
-		if (!(readl(ioaddr + PTP_TCR) & PTP_TCR_TSUPDT))
+		if (!(stmmac_readl(ioaddr + PTP_TCR) & PTP_TCR_TSUPDT))
 			break;
 		mdelay(10);
 	}
@@ -131,9 +134,9 @@ static u64 stmmac_get_systime(void __iomem *ioaddr)
 {
 	u64 ns;
 
-	ns = readl(ioaddr + PTP_STNSR);
+	ns = stmmac_readl(ioaddr + PTP_STNSR);
 	/* convert sec time value to nanosecond */
-	ns += readl(ioaddr + PTP_STSR) * 1000000000ULL;
+	ns += stmmac_readl(ioaddr + PTP_STSR) * 1000000000ULL;
 
 	return ns;
 }

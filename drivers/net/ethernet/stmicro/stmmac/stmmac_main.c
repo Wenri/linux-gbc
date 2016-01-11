@@ -54,6 +54,11 @@
 #include <linux/i2c.h>
 #endif
 
+#ifdef	CONFIG_CPU_LOONGSON3
+rwlock_t stmmac0_rwlock;
+rwlock_t stmmac1_rwlock;
+#endif
+
 #include "stmmac.h"
 #include "dwmac_dma.h"
 
@@ -160,6 +165,48 @@ static void stmmac_exit_fs(void);
 #endif
 
 #define STMMAC_COAL_TIMER(x) (jiffies + usecs_to_jiffies(x))
+
+u32 stmmac_readl(const volatile void __iomem *addr)
+{
+	u32 ret;
+#ifdef	CONFIG_CPU_LOONGSON3
+	unsigned long flags;
+	rwlock_t *stmmac_rwlock;
+
+	if((((unsigned long)addr)&0x8000) == 0){
+		stmmac_rwlock = &stmmac0_rwlock;
+	}else{
+		stmmac_rwlock = &stmmac1_rwlock;
+	}
+
+	read_lock_irqsave(stmmac_rwlock,flags);
+#endif
+	ret = readl(addr);
+#ifdef	CONFIG_CPU_LOONGSON3
+	read_unlock_irqrestore(stmmac_rwlock,flags);
+#endif
+	return ret;
+}
+
+void stmmac_writel(u32 value, volatile void __iomem *addr)
+{
+#ifdef	CONFIG_CPU_LOONGSON3
+	unsigned long flags;
+	rwlock_t *stmmac_rwlock;
+
+	if((((unsigned long)addr)&0x8000) == 0){
+		stmmac_rwlock = &stmmac0_rwlock;
+	}else{
+		stmmac_rwlock = &stmmac1_rwlock;
+	}
+
+	write_lock_irqsave(stmmac_rwlock,flags);
+#endif
+	writel(value,addr);
+#ifdef	CONFIG_CPU_LOONGSON3
+	write_unlock_irqrestore(stmmac_rwlock,flags);
+#endif
+}
 
 /**
  * stmmac_verify_args - verify the driver parameters.
@@ -715,7 +762,7 @@ static void stmmac_adjust_link(struct net_device *dev)
 	spin_lock_irqsave(&priv->lock, flags);
 
 	if (phydev->link) {
-		u32 ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
+		u32 ctrl = stmmac_readl(priv->ioaddr + MAC_CTRL_REG);
 
 		/* Now we make sure that we can be in full duplex mode.
 		 * If not, we operate in half-duplex mode. */
@@ -764,7 +811,7 @@ static void stmmac_adjust_link(struct net_device *dev)
 			priv->speed = phydev->speed;
 		}
 
-		writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
+		stmmac_writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
 
 		if (!priv->oldlink) {
 			new_state = 1;
@@ -1217,15 +1264,10 @@ static void stmmac_dma_operation_mode(struct stmmac_priv *priv)
 static int stmmac_get_dma_cur(struct stmmac_priv *priv)
 {
 	unsigned int base, cur;
-	unsigned long flags;
 	void *ioaddr = (void *) priv->dev->base_addr;
 
-	spin_lock_irqsave(&priv->lock, flags);
-
-	base = readl(ioaddr + DMA_TX_BASE_ADDR);
-	cur = readl(ioaddr + DMA_CUR_TX_DESC);
-
-	spin_unlock_irqrestore(&priv->lock, flags);
+	base = stmmac_readl(ioaddr + DMA_TX_BASE_ADDR);
+	cur = stmmac_readl(ioaddr + DMA_CUR_TX_DESC);
 
 	return (cur - base) / sizeof(struct dma_desc);
 }

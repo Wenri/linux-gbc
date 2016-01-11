@@ -32,29 +32,32 @@
 #include <asm/io.h>
 #include "dwmac1000.h"
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 static void dwmac1000_core_init(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + GMAC_CONTROL);
+	u32 value = stmmac_readl(ioaddr + GMAC_CONTROL);
 	value |= GMAC_CORE_INIT;
-	writel(value, ioaddr + GMAC_CONTROL);
+	stmmac_writel(value, ioaddr + GMAC_CONTROL);
 
 	/* Mask GMAC interrupts */
-	writel(0x207, ioaddr + GMAC_INT_MASK);
+	stmmac_writel(0x207, ioaddr + GMAC_INT_MASK);
 
 #ifdef STMMAC_VLAN_TAG_USED
 	/* Tag detection without filtering */
-	writel(0x0, ioaddr + GMAC_VLAN_TAG);
+	stmmac_writel(0x0, ioaddr + GMAC_VLAN_TAG);
 #endif
 }
 
 static int dwmac1000_rx_ipc_enable(void __iomem *ioaddr)
 {
-	u32 value = readl(ioaddr + GMAC_CONTROL);
+	u32 value = stmmac_readl(ioaddr + GMAC_CONTROL);
 
 	value |= GMAC_CONTROL_IPC;
-	writel(value, ioaddr + GMAC_CONTROL);
+	stmmac_writel(value, ioaddr + GMAC_CONTROL);
 
-	value = readl(ioaddr + GMAC_CONTROL);
+	value = stmmac_readl(ioaddr + GMAC_CONTROL);
 
 	return !!(value & GMAC_CONTROL_IPC);
 }
@@ -67,7 +70,7 @@ static void dwmac1000_dump_regs(void __iomem *ioaddr)
 	for (i = 0; i < 55; i++) {
 		int offset = i * 4;
 		pr_info("\tReg No. %d (offset 0x%x): 0x%08x\n", i,
-			offset, readl(ioaddr + offset));
+			offset, stmmac_readl(ioaddr + offset));
 	}
 }
 
@@ -99,8 +102,8 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
 	else if ((netdev_mc_count(dev) > HASH_TABLE_SIZE)
 		 || (dev->flags & IFF_ALLMULTI)) {
 		value = GMAC_FRAME_FILTER_PM;	/* pass all multi */
-		writel(0xffffffff, ioaddr + GMAC_HASH_HIGH);
-		writel(0xffffffff, ioaddr + GMAC_HASH_LOW);
+		stmmac_writel(0xffffffff, ioaddr + GMAC_HASH_HIGH);
+		stmmac_writel(0xffffffff, ioaddr + GMAC_HASH_LOW);
 	} else if (!netdev_mc_empty(dev)) {
 		u32 mc_filter[2];
 		struct netdev_hw_addr *ha;
@@ -120,8 +123,8 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
 			 */
 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
 		}
-		writel(mc_filter[0], ioaddr + GMAC_HASH_LOW);
-		writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
+		stmmac_writel(mc_filter[0], ioaddr + GMAC_HASH_LOW);
+		stmmac_writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
 	}
 
 	/* Extra 16 regs are available in cores newer than the 3.40. */
@@ -150,11 +153,11 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
 	/* Enable Receive all mode (to debug filtering_fail errors) */
 	value |= GMAC_FRAME_FILTER_RA;
 #endif
-	writel(value, ioaddr + GMAC_FRAME_FILTER);
+	stmmac_writel(value, ioaddr + GMAC_FRAME_FILTER);
 
 	CHIP_DBG(KERN_INFO "\tFilter: 0x%08x\n\tHash: HI 0x%08x, LO 0x%08x\n",
-		 readl(ioaddr + GMAC_FRAME_FILTER),
-		 readl(ioaddr + GMAC_HASH_HIGH), readl(ioaddr + GMAC_HASH_LOW));
+		 stmmac_readl(ioaddr + GMAC_FRAME_FILTER),
+		 stmmac_readl(ioaddr + GMAC_HASH_HIGH), stmmac_readl(ioaddr + GMAC_HASH_LOW));
 }
 
 static void dwmac1000_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
@@ -177,7 +180,7 @@ static void dwmac1000_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
 		flow |= (pause_time << GMAC_FLOW_CTRL_PT_SHIFT);
 	}
 
-	writel(flow, ioaddr + GMAC_FLOW_CTRL);
+	stmmac_writel(flow, ioaddr + GMAC_FLOW_CTRL);
 }
 
 static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
@@ -193,41 +196,41 @@ static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
 		pmt |= global_unicast;
 	}
 
-	writel(pmt, ioaddr + GMAC_PMT);
+	stmmac_writel(pmt, ioaddr + GMAC_PMT);
 }
 
 static int dwmac1000_irq_status(void __iomem *ioaddr,
 				struct stmmac_extra_stats *x)
 {
-	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
+	u32 intr_status = stmmac_readl(ioaddr + GMAC_INT_STATUS);
 	int ret = 0;
 
 	/* Not used events (e.g. MMC interrupts) are not handled. */
 	if ((intr_status & mmc_tx_irq)) {
 		CHIP_DBG(KERN_INFO "GMAC: MMC tx interrupt: 0x%08x\n",
-			 readl(ioaddr + GMAC_MMC_TX_INTR));
+			 stmmac_readl(ioaddr + GMAC_MMC_TX_INTR));
 		x->mmc_tx_irq_n++;
 	}
 	if (unlikely(intr_status & mmc_rx_irq)) {
 		CHIP_DBG(KERN_INFO "GMAC: MMC rx interrupt: 0x%08x\n",
-			 readl(ioaddr + GMAC_MMC_RX_INTR));
+			 stmmac_readl(ioaddr + GMAC_MMC_RX_INTR));
 		x->mmc_rx_irq_n++;
 	}
 	if (unlikely(intr_status & mmc_rx_csum_offload_irq)) {
 		CHIP_DBG(KERN_INFO "GMAC: MMC rx csum offload: 0x%08x\n",
-			 readl(ioaddr + GMAC_MMC_RX_CSUM_OFFLOAD));
+			 stmmac_readl(ioaddr + GMAC_MMC_RX_CSUM_OFFLOAD));
 		x->mmc_rx_csum_offload_irq_n++;
 	}
 	if (unlikely(intr_status & pmt_irq)) {
 		CHIP_DBG(KERN_INFO "GMAC: received Magic frame\n");
 		/* clear the PMT bits 5 and 6 by reading the PMT status reg */
-		readl(ioaddr + GMAC_PMT);
+		stmmac_readl(ioaddr + GMAC_PMT);
 		x->irq_receive_pmt_irq_n++;
 	}
 	/* MAC trx/rx EEE LPI entry/exit interrupts */
 	if (intr_status & lpiis_irq) {
 		/* Clean LPI interrupt by reading the Reg 12 */
-		ret = readl(ioaddr + LPI_CTRL_STATUS);
+		ret = stmmac_readl(ioaddr + LPI_CTRL_STATUS);
 
 		if (ret & LPI_CTRL_STATUS_TLPIEN) {
 			CHIP_DBG(KERN_INFO "GMAC TX entered in LPI\n");
@@ -249,11 +252,11 @@ static int dwmac1000_irq_status(void __iomem *ioaddr,
 
 	if ((intr_status & pcs_ane_irq) || (intr_status & pcs_link_irq)) {
 		CHIP_DBG(KERN_INFO "GMAC PCS ANE IRQ\n");
-		readl(ioaddr + GMAC_AN_STATUS);
+		stmmac_readl(ioaddr + GMAC_AN_STATUS);
 		x->irq_pcs_ane_n++;
 	}
 	if (intr_status & rgmii_irq) {
-		u32 status = readl(ioaddr + GMAC_S_R_GMII);
+		u32 status = stmmac_readl(ioaddr + GMAC_S_R_GMII);
 		CHIP_DBG(KERN_INFO "GMAC RGMII/SGMII interrupt\n");
 		x->irq_rgmii_n++;
 
@@ -290,32 +293,32 @@ static void dwmac1000_set_eee_mode(void __iomem *ioaddr)
 	 * receive path and instruct the transmit to enter in LPI
 	 * state.
 	 */
-	value = readl(ioaddr + LPI_CTRL_STATUS);
+	value = stmmac_readl(ioaddr + LPI_CTRL_STATUS);
 	value |= LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA;
-	writel(value, ioaddr + LPI_CTRL_STATUS);
+	stmmac_writel(value, ioaddr + LPI_CTRL_STATUS);
 }
 
 static void dwmac1000_reset_eee_mode(void __iomem *ioaddr)
 {
 	u32 value;
 
-	value = readl(ioaddr + LPI_CTRL_STATUS);
+	value = stmmac_readl(ioaddr + LPI_CTRL_STATUS);
 	value &= ~(LPI_CTRL_STATUS_LPIEN | LPI_CTRL_STATUS_LPITXA);
-	writel(value, ioaddr + LPI_CTRL_STATUS);
+	stmmac_writel(value, ioaddr + LPI_CTRL_STATUS);
 }
 
 static void dwmac1000_set_eee_pls(void __iomem *ioaddr, int link)
 {
 	u32 value;
 
-	value = readl(ioaddr + LPI_CTRL_STATUS);
+	value = stmmac_readl(ioaddr + LPI_CTRL_STATUS);
 
 	if (link)
 		value |= LPI_CTRL_STATUS_PLS;
 	else
 		value &= ~LPI_CTRL_STATUS_PLS;
 
-	writel(value, ioaddr + LPI_CTRL_STATUS);
+	stmmac_writel(value, ioaddr + LPI_CTRL_STATUS);
 }
 
 static void dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
@@ -329,26 +332,26 @@ static void dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
 	 * TW: minimum time (us) for which the core waits
 	 *  after it has stopped transmitting the LPI pattern.
 	 */
-	writel(value, ioaddr + LPI_TIMER_CTRL);
+	stmmac_writel(value, ioaddr + LPI_TIMER_CTRL);
 }
 
 static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart)
 {
 	u32 value;
 
-	value = readl(ioaddr + GMAC_AN_CTRL);
+	value = stmmac_readl(ioaddr + GMAC_AN_CTRL);
 	/* auto negotiation enable and External Loopback enable */
 	value = GMAC_AN_CTRL_ANE | GMAC_AN_CTRL_ELE;
 
 	if (restart)
 		value |= GMAC_AN_CTRL_RAN;
 
-	writel(value, ioaddr + GMAC_AN_CTRL);
+	stmmac_writel(value, ioaddr + GMAC_AN_CTRL);
 }
 
 static void dwmac1000_get_adv(void __iomem *ioaddr, struct rgmii_adv *adv)
 {
-	u32 value = readl(ioaddr + GMAC_ANE_ADV);
+	u32 value = stmmac_readl(ioaddr + GMAC_ANE_ADV);
 
 	if (value & GMAC_ANE_FD)
 		adv->duplex = DUPLEX_FULL;
@@ -357,7 +360,7 @@ static void dwmac1000_get_adv(void __iomem *ioaddr, struct rgmii_adv *adv)
 
 	adv->pause = (value & GMAC_ANE_PSE) >> GMAC_ANE_PSE_SHIFT;
 
-	value = readl(ioaddr + GMAC_ANE_LPA);
+	value = stmmac_readl(ioaddr + GMAC_ANE_LPA);
 
 	if (value & GMAC_ANE_FD)
 		adv->lp_duplex = DUPLEX_FULL;
@@ -388,7 +391,7 @@ static const struct stmmac_ops dwmac1000_ops = {
 struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
 {
 	struct mac_device_info *mac;
-	u32 hwid = readl(ioaddr + GMAC_VERSION);
+	u32 hwid = stmmac_readl(ioaddr + GMAC_VERSION);
 
 	mac = kzalloc(sizeof(const struct mac_device_info), GFP_KERNEL);
 	if (!mac)
