@@ -135,9 +135,27 @@ static inline void arch_spin_lock(arch_spinlock_t *lock)
 
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+        /* for 3A2000A and 3A2000B */
+	int tmp, tmp2;
+	wmb();
+	__asm__ __volatile__(
+	"	.set	mips64r2			\n"
+	"1:	ll	%1, %3				\n"
+	"	addiu	%2, %1, 1			\n"
+	"	ins	%1, %2, 0, 16			\n"
+	"	sc	%1, %0				\n"
+	"	beqz	%1, 1b				\n"
+	"	nop					\n"
+	"	.set	mips0				\n"
+	: "=m" (lock->lock), "=&r" (tmp), "=&r" (tmp2)
+	: "m" (lock->lock)
+	: "memory");
+#else
 	unsigned int serving_now = lock->h.serving_now + 1;
 	wmb();
 	lock->h.serving_now = (u16)serving_now;
+#endif
 	nudge_writes();
 }
 

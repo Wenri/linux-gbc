@@ -174,7 +174,10 @@ typedef unsigned long irq_hw_number_t;
 
 typedef struct {
 	int counter;
-} atomic_t;
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+	int padding;
+#endif
+} __attribute__((aligned(8))) atomic_t;
 
 #ifdef CONFIG_64BIT
 typedef struct {

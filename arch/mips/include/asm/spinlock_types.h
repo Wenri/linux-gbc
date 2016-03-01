@@ -24,13 +24,19 @@ typedef union {
 		u16 ticket;
 #endif
 	} h;
-} arch_spinlock_t;
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+	u32 padding;
+#endif
+} __attribute__((aligned(8))) arch_spinlock_t;
 
 #define __ARCH_SPIN_LOCK_UNLOCKED	{ .lock = 0 }
 
 typedef struct {
 	volatile unsigned int lock;
-} arch_rwlock_t;
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+	volatile unsigned int padding;
+#endif
+} __attribute__((aligned(8))) arch_rwlock_t;
 
 #define __ARCH_RW_LOCK_UNLOCKED		{ 0 }
 
