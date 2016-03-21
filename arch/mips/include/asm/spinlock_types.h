@@ -23,10 +23,10 @@ typedef union {
 		u16 serving_now;
 		u16 ticket;
 #endif
-	} h;
 #ifdef CONFIG_CPU_LOONGSON3_GS464E
-	u32 padding;
+		u32 padding;
 #endif
+	} h;
 } __attribute__((aligned(8))) arch_spinlock_t;
 
 #define __ARCH_SPIN_LOCK_UNLOCKED	{ .lock = 0 }
