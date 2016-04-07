@@ -62,9 +62,12 @@ static int __init serial_init(void)
 
 	iotype = uart8250_data[mips_machtype][0].iotype;
 
-	if (UPIO_MEM == iotype)
+	if (UPIO_MEM == iotype) {
+		uart8250_data[mips_machtype][0].mapbase =
+			loongson_uart_base;
 		uart8250_data[mips_machtype][0].membase =
 			(void __iomem *)_loongson_uart_base;
+	}
 	else if (UPIO_PORT == iotype)
 		uart8250_data[mips_machtype][0].iobase =
 		    loongson_uart_base - LOONGSON_PCIIO_BASE;
