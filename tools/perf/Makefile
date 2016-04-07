@@ -5,6 +5,23 @@ all:
 
 include config/utilities.mak
 
+CPU_MODEL :=
+
+info_1 := $(shell cat /proc/cpuinfo | grep 'Loongson-3A')
+ifneq ($(info_1),)
+#   CFLAGS += -D CONFIG_CPU_LOONGSON3
+#   BASIC_CFLAGS += -D CONFIG_CPU_LOONGSON3
+    CPU_MODEL := -D CONFIG_CPU_LOONGSON3
+endif
+
+
+info_2 := $(shell cat /proc/cpuinfo | grep 'Loongson-3A2000')
+ifneq ($(info_2),)
+#   CFLAGS += -D CONFIG_CPU_LOONGSON3_GS464E
+#   BASIC_CFLAGS += -D CONFIG_CPU_LOONGSON3_GS464E
+    CPU_MODEL += -D CONFIG_CPU_LOONGSON3_GS464E
+endif
+
 # Define V to have a more verbose compile.
 #
 # Define O to save output files in a separate directory.
@@ -110,9 +127,9 @@ ifdef NO_NEWT
 	NO_SLANG=1
 endif
 
-CFLAGS = -fno-omit-frame-pointer -ggdb3 -funwind-tables -Wall -Wextra -std=gnu99 $(CFLAGS_WERROR) $(CFLAGS_OPTIMIZE) $(EXTRA_WARNINGS) $(EXTRA_CFLAGS) $(PARSER_DEBUG_CFLAGS)
+CFLAGS = $(CPU_MODEL) -fno-omit-frame-pointer -ggdb3 -funwind-tables -Wall -Wextra -std=gnu99 $(CFLAGS_WERROR) $(CFLAGS_OPTIMIZE) $(EXTRA_WARNINGS) $(EXTRA_CFLAGS) $(PARSER_DEBUG_CFLAGS)
 EXTLIBS = -lpthread -lrt -lelf -lm
-ALL_CFLAGS = $(CFLAGS) -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+ALL_CFLAGS = $(CPU_MODEL) $(CFLAGS) -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -fno-strict-aliasing
 ALL_LDFLAGS = $(LDFLAGS)
 STRIP ?= strip
 
@@ -208,7 +225,7 @@ ifneq ($(OUTPUT),)
 #$(info Determined 'OUTPUT' to be $(OUTPUT))
 endif
 
-BASIC_CFLAGS = \
+BASIC_CFLAGS = $(CPU_MODEL) \
 	-Iutil/include \
 	-Iarch/$(ARCH)/include \
 	$(if $(objtree),-I$(objtree)/arch/$(ARCH)/include/generated/uapi) \

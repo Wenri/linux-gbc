@@ -65,10 +65,1471 @@ static struct event_symbol event_symbols_hw[PERF_COUNT_HW_MAX] = {
 		.symbol = "stalled-cycles-backend",
 		.alias  = "idle-cycles-backend",
 	},
-	[PERF_COUNT_HW_REF_CPU_CYCLES] = {
+/*	[PERF_COUNT_HW_REF_CPU_CYCLES] = {
 		.symbol = "ref-cycles",
 		.alias  = "",
 	},
+*/
+
+/*loongson3A2000 hardware events*/
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+    /*fetch*/
+		[PERF_COUNT_HW_INSTQ_EMPTY] = {
+	      	 	 .symbol = "Inst-queue-empty",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_INSTRUCTIONS] = {
+	      	 	 .symbol = "Inst-queue-instructions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_1] = {
+	      	 	 .symbol = "Inst-queue-1",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_2] = {
+	      	 	 .symbol = "Inst-queue-2",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_3] = {
+	      	 	 .symbol = "Inst-queue-3",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_4] = {
+	      	 	 .symbol = "Inst-queue-4",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_5] = {
+	      	 	 .symbol = "Inst-queue-5",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_6] = {
+	      	 	 .symbol = "Inst-queue-6",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_7] = {
+	      	 	 .symbol = "Inst-queue-7",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_8] = {
+	      	 	 .symbol = "Inst-queue-8",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_LESSTHAN_8] = {
+	      	 	 .symbol = "Inst-queue-less-than-8",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INSTQ_FULL] = {
+	      	 	 .symbol = "Inst-queue-full",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DECODE_INST] = {
+	      	 	 .symbol = "decode-instructions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOOP_BUFFER_INST] = {
+	      	 	 .symbol = "Loop-buffer-instructions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOOP_FIND] = {
+	      	 	 .symbol = "Loop-find",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOOP_TRIGGER] = {
+	      	 	 .symbol = "Loop-trigger",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DECODE_BRANCH_0] = {
+	      	 	 .symbol = "Decode-branch-0",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DECODE_BRANCH_1] = {
+	      	 	 .symbol = "Decode-branch-1",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DECODE_BRANCH_2] = {
+	      	 	 .symbol = "Decode-branch-2",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ICACHE_MISSES_BLOCK] = {
+	      	 	 .symbol = "Icache-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BRBTB_TAKEN_BRANCH_MISSES] = {
+	      	 	 .symbol = "BrBTB-taken-branch-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ICACHE_REPLACE] = {
+	      	 	 .symbol = "Icache-replace/refill",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ITLB_MISS_TLB_HIT] = {
+	      	 	 .symbol = "Itlb-miss-tlb-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ITLB_FLUSHED] = {
+	      	 	 .symbol = "Itlb-flushed",
+	       	 	 .alias  = "",
+		},
+    /*rmap*/
+		[PERF_COUNT_HW_RESOURCE_ALLOC_BLOCKED] = {
+    	  	 	 .symbol = "Resource-alloc-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_GR_BLOCKED] = {
+    	  	 	 .symbol = "GR-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_GR_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "GR-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FR_BLOCKED] = {
+    	  	 	 .symbol = "FR-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FR_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "FR-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FCR_BLOCKED] = {
+    	  	 	 .symbol = "FCR-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FCR_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "FCR-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ACC_BLOCKED] = {
+    	  	 	 .symbol = "ACC-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ACC_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "ACC-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DSPCTRL_BLOCKED] = {
+    	  	 	 .symbol = "DSPCTRL-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DSPCTRL_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "DSPCTRL-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BRQ_BLOCKED] = {
+    	  	 	 .symbol = "BRQ-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BRQ_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "BRQ-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FXQ_BLOCKED] = {
+    	  	 	 .symbol = "FXQ-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FXQ_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "FXQ-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FTQ_BLOCKED] = {
+    	  	 	 .symbol = "FTQ-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FTQ_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "FTQ-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MMQ_BLOCKED] = {
+    	  	 	 .symbol = "MMQ-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MMQ_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "MMQ-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_CP0Q_BLOCKED] = {
+    	  	 	 .symbol = "CP0Q-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_CP0Q_PSEUDO_BLOCKED] = {
+    	  	 	 .symbol = "CP0Q-pseudo-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ROQ_BLOCKED] = {
+    	  	 	 .symbol = "ROQ-blocked",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_NOP_INST] = {
+    	  	 	 .symbol = "Nop-inst",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REGMAP_ISSUED] = {
+    	  	 	 .symbol = "Regmap-issued",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_EXCEPTIONS] = {
+    	  	 	 .symbol = "Exceptions",
+    	   	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BRANCH_MISSES_OVERHEAD] = {
+    	  	 	 .symbol = "Branch-misses-overhead",
+    	   	 	 .alias  = "",
+		},
+    /*roq*/
+		[PERF_COUNT_HW_ALU_COMMITTED] = {
+	      	 	 .symbol = "Alu-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FALU_COMMITTED] = {
+	      	 	 .symbol = "Falu-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MEMORY_SWAP_COMMITTED] = {
+	      	 	 .symbol = "Memory-swap-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_COMMITTED] = {
+	      	 	 .symbol = "Load-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_COMMITTED] = {
+	      	 	 .symbol = "Store-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LL_COMMITTED] = {
+	      	 	 .symbol = "LL-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SC_COMMITTED] = {
+	      	 	 .symbol = "SC-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_UNALIGNED_LOAD_COMMITTED] = {
+	      	 	 .symbol = "Unaligned-load-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_UNALIGNED_STORE_COMMITTED] = {
+	      	 	 .symbol = "Unaligned-store-committed",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_EXCEPTIONS_AND_INTERRUPTS] = {
+	      	 	 .symbol = "Exceptions-and-interrupts",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INTERRUPTS] = {
+	      	 	 .symbol = "Interrupts",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ROQ_INTERRUPT] = {
+	      	 	 .symbol = "ROQ-interrupt",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ROQ_INTERRUPT_INST] = {
+	      	 	 .symbol = "ROQ-interrupt-inst",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VM_EXCEPTIONS] = {
+	      	 	 .symbol = "Vm-exceptions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ADDRESS_FAULT_EXCEPTIONS] = {
+	      	 	 .symbol = "Address-fault-exceptions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TLB_EXCEPTIONS] = {
+	      	 	 .symbol = "Tlb-exceptions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TLB_REFILL_EXCEPTIONS] = {
+	      	 	 .symbol = "Tlb-refill-exceptions",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TLB_REFILL_HANDLE_TIME] = {
+	      	 	 .symbol = "Tlb-refill-handle-time",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_JUMP_REGISTER] = {
+	      	 	 .symbol = "Jump-register",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_JUMP_AND_LINK] = {
+	      	 	 .symbol = "Jump-and-link",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BRANCH_AND_LINK] = {
+	      	 	 .symbol = "Branch-and-link",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BHT_BRANCH] = {
+	      	 	 .symbol = "Bht-branch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LIKELY_BRANCH] = {
+	      	 	 .symbol = "Likely-branch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_NOT_TAKEN_BRANCH] = {
+	      	 	 .symbol = "Not-taken-branch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAKEN_BRANCH] = {
+	      	 	 .symbol = "Taken-branch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_JUMP_REGISTER_MISSES] = {
+	      	 	 .symbol = "Jump-register-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_JUMP_AND_LINK_MISSES] = {
+	      	 	 .symbol = "Jump-and-link-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BRANCH_AND_LINK_MISSES] = {
+	      	 	 .symbol = "Branch-and-link-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_BHT_BRANCH_MISSES] = {
+	      	 	 .symbol = "Bht-branch-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LIKELY_BRANCH_MISSES] = {
+	      	 	 .symbol = "Likely-branch-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_NOT_TAKEN_MISSES] = {
+	      	 	 .symbol = "Not-taken-misses",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAKEN_MISSES] = {
+	      	 	 .symbol = "Taken-misses",
+	       	 	 .alias  = "",
+		},
+    /*fix*/
+		[PERF_COUNT_HW_FXQ_NO_ISSUE] = {
+	      	 	 .symbol = "Fxq-no-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FXQ_ISSUE_OPERAND] = {
+	      	 	 .symbol = "Fxq-issue-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FXQ_FU0_OPERAND] = {
+	      	 	 .symbol = "Fxq-fu0-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FXQ_FU1_OPERAND] = {
+	      	 	 .symbol = "Fxq-fu1-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU0_FIXED_MUL] = {
+	      	 	 .symbol = "Fu0-fixed-mul",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU0_FIXED_DIV] = {
+	      	 	 .symbol = "Fu0-fixed-div",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU1_FIXED_MUL] = {
+	      	 	 .symbol = "Fu1-fixed-mul",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU1_FIXED_DIV] = {
+	      	 	 .symbol = "Fu1-fixed-div",
+	       	 	 .alias  = "",
+		},
+    /*float*/
+		[PERF_COUNT_HW_FTQ_NO_ISSUE] = {
+	      	 	 .symbol = "Ftq-no-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FTQ_ISSUE_OPERAND] = {
+	      	 	 .symbol = "Ftq-issue-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FTQ_FU3_OPERAND] = {
+	      	 	 .symbol = "Ftq-fu3-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FTQ_FU4_OPERAND] = {
+	      	 	 .symbol = "Ftq-fu4-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU3_EMPTY_FU4_FULL] = {
+	      	 	 .symbol = "Fu3-empty-fu4-full",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU4_EMPTY_FU3_FULL] = {
+	      	 	 .symbol = "Fu4-empty-fu3-full",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCALAR_FLOAT_OPERAND] = {
+	      	 	 .symbol = "Scalar-float-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_GS_ALU_INST] = {
+	      	 	 .symbol = "Gs-alu-inst",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FIXED_VECTOR_ISSUE_64] = {
+	      	 	 .symbol = "Fixed-vector-issue-64",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VECTOR_ISSUE_128] = {
+	      	 	 .symbol = "Vector-issue-128",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FIXED_VECTOR_ISSUE_128] = {
+	      	 	 .symbol = "Fixed-vector-issue-128",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FLOAT_VECTOR_ISSUE_128] = {
+	      	 	 .symbol = "Float-vector-issue-128",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VECTOR_ISSUE_256] = {
+	      	 	 .symbol = "Vector-issue-256",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FIXED_VECTOR_ISSUE_256] = {
+	      	 	 .symbol = "Fixed-vector-issue-256",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FLOAT_VECTOR_ISSUE_256] = {
+	      	 	 .symbol = "Float-vector-issue-256",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU3_VECTOR_FIXED_DIV] = {
+	      	 	 .symbol = "Fu3-vector-fixed-div",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU3_FLOAT_DIV_SQRT] = {
+	      	 	 .symbol = "Fu3-float-div-sqrt",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU4_VECTOR_FIXED_DIV] = {
+	      	 	 .symbol = "Fu4-vector-fixed-div",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FU4_FLOAT_DIV_SQRT] = {
+	      	 	 .symbol = "Fu4-float-div-sqrt",
+	       	 	 .alias  = "",
+		},
+    /*memory*/
+		[PERF_COUNT_HW_MMQ_NO_ISSUE] = {
+	      	 	 .symbol = "Mmq-no-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MMQ_ISSUE_OPERAND] = {
+	      	 	 .symbol = "Mmq-issue-operand",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MMQ_FU2_INST] = {
+	      	 	 .symbol = "Mmq-fu2-inst",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MMQ_FU5_INST] = {
+	      	 	 .symbol = "Mmq-fu5-inst",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_ISSUE] = {
+	      	 	 .symbol = "Load-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_ISSUE] = {
+	      	 	 .symbol = "Store-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SRC_FLOAT_MEM_INST] = {
+	      	 	 .symbol = "Src-float-mem-inst",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VECTOR_MEM_ISSUE] = {
+	      	 	 .symbol = "Vector-mem-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FIX_FLOAT_SHIFT_ISSUE] = {
+	      	 	 .symbol = "Fix-float-shift-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_WAIT_FIRST_BLOCK_CYCLES] = {
+	      	 	 .symbol = "Wait-first-block-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SYNC_BLOCK_CYCLES] = {
+	      	 	 .symbol = "Sync-block-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STALL_ISSUE_BLOCK_CYCLES] = {
+	      	 	 .symbol = "Stall-issue-block-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SOFTWARE_PREFETCH_TOTAL] = {
+	      	 	 .symbol = "Software-prefetch-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DMEMREF_BLOCK_DCACHEWRITE] = {
+	      	 	 .symbol = "Dmemref-block-dcachewrite",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DMEMREF_BANK_CLASH] = {
+	      	 	 .symbol = "Dmemref-bank-clash",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_BLOCK_DMEMREF] = {
+	      	 	 .symbol = "Refill-block-dmemref",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHEWRITE_NO_CANCEL] = {
+	      	 	 .symbol = "Dcachewrite-no-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHEWRITE0_AND_1_VALID] = {
+	      	 	 .symbol = "Dcachewrite0-and-1-valid",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SC_WRITE_DCACHE] = {
+	      	 	 .symbol = "Sc-write-dcache",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_DCACHE_MISS] = {
+	      	 	 .symbol = "Store-dcache-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_DCACHE_SHARED_MISS] = {
+	      	 	 .symbol = "Store-dcache-shared-miss",
+	       	 	 .alias  = "",
+		},
+    /*cache2mem*/
+		[PERF_COUNT_HW_STORE_DCACHE_HIT] = {
+	      	 	 .symbol = "Store-dcache-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_HIT] = {
+	      	 	 .symbol = "Load-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FWDBUS2] = {
+	      	 	 .symbol = "Fwdbus2",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FWDBUS5] = {
+	      	 	 .symbol = "Fwdbus5",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FWDBUS_TOTAL] = {
+	      	 	 .symbol = "Fwdbus-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DWAITSTORE] = {
+	      	 	 .symbol = "Dwaitstore",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISPEC] = {
+	      	 	 .symbol = "Mispec",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHEWRITE_CANCEL] = {
+	      	 	 .symbol = "Dcachewrite-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_CP0Q_DMEMREAD] = {
+	      	 	 .symbol = "Cp0q-dmemread",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_CP0Q_DUNCACHE] = {
+	      	 	 .symbol = "Cp0q-duncache",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_RESBUS2_OCCUPY_RESBUS5] = {
+	      	 	 .symbol = "Resbus2-occupy-resbus5",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SW_PREFETCH_L1DCACHE_HIT] = {
+	      	 	 .symbol = "Sw-prefetch-l1dcache-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_SW_PREFETCH_L1DCACHE_HIT] = {
+	      	 	 .symbol = "Store-sw-prefetch-l1dcache-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_SW_PREFETCH_L1DCACHE_MISS] = {
+	      	 	 .symbol = "Store-sw-prefetch-l1dcache-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_SW_PREFETCH_L1DCACHE_HIT] = {
+	      	 	 .symbol = "Load-sw-prefetch-l1dcache-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_SW_PREFETCH_L1DCACHE_MISS] = {
+	      	 	 .symbol = "Load-sw-prefetch-l1dcache-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_L1DCACHE_MISS_SHARE_STATE] = {
+	      	 	 .symbol = "Store-l1dcache-miss-share-state",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SPECFWDBUS2] = {
+	      	 	 .symbol = "Specfwdbus2",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SPECFWDBUS5] = {
+	      	 	 .symbol = "Specfwdbus5",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SPECFWDBUS2_TOTAL] = {
+	      	 	 .symbol = "Specfwdbus-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_LOAD_VCACHE_ACCESS_REQ] = {
+	      	 	 .symbol = "Data-load-vcache-access-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_STORE_VCACHE_ACCESS_REQ] = {
+	      	 	 .symbol = "Data-store-vcache-access-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_VCACHE_ACCESS_REQ] = {
+	      	 	 .symbol = "Data-vcache-access-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INST_VCACHE_ACCESS_REQ] = {
+	      	 	 .symbol = "Inst-vcache-access-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_ACCESS] = {
+	      	 	 .symbol = "Vcache-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SW_PREFETCH_ACCESS_VCACHE] = {
+	      	 	 .symbol = "Sw-prefetch-access-vcache",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_LOAD_HIT] = {
+	      	 	 .symbol = "Vcache-load-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_STORE_HIT] = {
+	      	 	 .symbol = "Vcache-store-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_DATA_HIT] = {
+	      	 	 .symbol = "Vcache-data-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_INST_HIT] = {
+	      	 	 .symbol = "Vcache-inst-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_HIT] = {
+	      	 	 .symbol = "Vcache-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_SW_PREFETCH_HIT] = {
+	      	 	 .symbol = "Vcache-sw-prefetch-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_LOAD_MISS] = {
+	      	 	 .symbol = "Vcache-load-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_STORE_MISS] = {
+	      	 	 .symbol = "Vcache-store-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_DATA_MISS] = {
+	      	 	 .symbol = "Vcache-data-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_INST_MISS] = {
+	      	 	 .symbol = "Vcache-inst-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_MISS] = {
+	      	 	 .symbol = "Vcache-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_SW_PREFETCH_MISS] = {
+	      	 	 .symbol = "Vcache-sw-prefetch-miss",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_EXTREQ_INVALID] = {
+	      	 	 .symbol = "Vcache-extreq-invalid",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_WTBK_DEGRADE] = {
+	      	 	 .symbol = "Vcache-wtbk-degrade",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_INV_INVALID] = {
+	      	 	 .symbol = "Vcache-inv-invalid",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_INVWTBK_INVALID] = {
+	      	 	 .symbol = "Vcache-invwtbk-invalid",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_AR_REQUEST_ISSUE] = {
+	      	 	 .symbol = "Ar-request-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_AW_REQUEST_ISSUE] = {
+	      	 	 .symbol = "Aw-request-issue",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_AW_DATA_REQUEST] = {
+	      	 	 .symbol = "Aw-data-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_AR_BLOCKED_AW_UNDONE] = {
+	      	 	 .symbol = "Ar-blocked-aw-undone",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_WTBK_REQUEST] = {
+	      	 	 .symbol = "Missq-wtbk-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_INVWTBK_REQUEST] = {
+	      	 	 .symbol = "Missq-invwtbk-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_INV_REQUEST] = {
+	      	 	 .symbol = "Missq-inv-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_INV_CLASS_REQUEST] = {
+	      	 	 .symbol = "Missq-inv-class-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_TOTAL] = {
+	      	 	 .symbol = "Refill-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_ICACHE] = {
+	      	 	 .symbol = "Refill-icache",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_DCACHE] = {
+	      	 	 .symbol = "Refill-dcache",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REPLACE_REFILL] = {
+	      	 	 .symbol = "Replace-refill",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_DCACHE_SHARED] = {
+	      	 	 .symbol = "Refill-dcache-shared",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_DCACHE_EXC] = {
+	      	 	 .symbol = "Refill-dcache-exc",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_DATA_TOTAL] = {
+	      	 	 .symbol = "Refill-data-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_REFILL_INST_TOTAL] = {
+	      	 	 .symbol = "Refill-inst-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHE_REPLACE_VALID_BLOCK] = {
+	      	 	 .symbol = "Dcache-replace-valid-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHE_REPLACE_SHARED_BLOCK] = {
+	      	 	 .symbol = "Dcache-replace-shared-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHE_REPLACE_EXC_BLOCK] = {
+	      	 	 .symbol = "Dcache-replace-exc-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DCACHE_REPLACE_DIRTY_BLOCK] = {
+	      	 	 .symbol = "Dcache-replace-dirty-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ICACHE_REPLACE_VALID_DATA] = {
+	      	 	 .symbol = "Icache-replace-valid-data",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE] = {
+	      	 	 .symbol = "Vcache-replace",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE_VALID_BLOCK] = {
+	      	 	 .symbol = "Vcache-replace-valid-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE_SHARED_BLOCK] = {
+	      	 	 .symbol = "Vcache-replace-shared-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE_EXC_BLOCK] = {
+	      	 	 .symbol = "Vcache-replace-exc-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE_DIRTY_BLOCK] = {
+	      	 	 .symbol = "Vcache-replace-dirty-block",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE_VALID_DCBLOCK] = {
+	      	 	 .symbol = "Vcache-replace-valid-dcblock",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_VCACHE_REPLACE_VALID_ICBLOCK] = {
+	      	 	 .symbol = "Vcache-replace-valid-icblock",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_LOAD_NOT_RETURN] = {
+	      	 	 .symbol = "Scache-load-not-return",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_STORE_NOT_RETURN] = {
+	      	 	 .symbol = "Scache-store-not-return",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_ICACHEREQ_NOT_RETURN] = {
+	      	 	 .symbol = "Scache-icachereq-not-return",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_TOTAL] = {
+	      	 	 .symbol = "Scread-total",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_LOAD] = {
+	      	 	 .symbol = "Scread-load",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_STORE] = {
+	      	 	 .symbol = "Scread-store",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_DATA_ACCESS] = {
+	      	 	 .symbol = "Scread-data-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_INST_ACCESS] = {
+	      	 	 .symbol = "Scread-inst-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_NPREFETCH] = {
+	      	 	 .symbol = "Scread-nprefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_NPREFETCH_DATA_LOAD] = {
+	      	 	 .symbol = "Scread-nprefetch-data-load",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_NPREFETCH_STORE] = {
+	      	 	 .symbol = "Scread-nprefetch-store",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_NPREFETCH_DATA_ACCESS] = {
+	      	 	 .symbol = "Scread-nprefetch-data-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_NPREFETCH_INST_ACCESS] = {
+	      	 	 .symbol = "Scread-nprefetch-inst-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_PREFETCH] = {
+	      	 	 .symbol = "Scread-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Scread-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_STORE_PREFETCH] = {
+	      	 	 .symbol = "Scread-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_PREFETCH_DATA_ACCESS] = {
+	      	 	 .symbol = "Scread-prefetch-data-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCREAD_PREFETCH_INST_ACCESS] = {
+	      	 	 .symbol = "Scread-prefetch-inst-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_SW_PREFETCH_REQUEST] = {
+	      	 	 .symbol = "Missq-sw-prefetch-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_SCWRITE] = {
+	      	 	 .symbol = "Missq-scwrite",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_REPLACE_SCWRITE] = {
+	      	 	 .symbol = "Missq-replace-scwrite",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_INVALID_SCWRITE] = {
+	      	 	 .symbol = "Missq-invalid-scwrite",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_REPLACE_VALID_SCWRITE] = {
+	      	 	 .symbol = "Missq-replace-valid-scwrite",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_ACCEPT_REQ] = {
+	      	 	 .symbol = "Missq-accept-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_ACCEPT_LOAD] = {
+	      	 	 .symbol = "Missq-accept-load",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_ACCEPT_SIORE] = {
+	      	 	 .symbol = "Missq-accept-store",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_DATA_ACCESS] = {
+	      	 	 .symbol = "Missq-data-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_INST_ACCESS] = {
+	      	 	 .symbol = "Missq-inst-access",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_NON_EMPTY] = {
+	      	 	 .symbol = "Missq-non-empty",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_COMMON_ACCESS_OCCUPY] = {
+	      	 	 .symbol = "Missq-common-access-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_FETCH_ACCESS_OCCUPY] = {
+	      	 	 .symbol = "Missq-fetch-access-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_EXTERNAL_REQ_OCCUPY] = {
+	      	 	 .symbol = "Missq-external-req-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_PREFETCH_REQ_OCCUPY] = {
+	      	 	 .symbol = "Missq-prefetch-req-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_OCCUPY_CYCLES] = {
+	      	 	 .symbol = "Missq-occupy-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_COMMON_ACCESS_CYCLES] = {
+	      	 	 .symbol = "Missq-common-access-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_FETCH_ACCESS_CYCLES] = {
+	      	 	 .symbol = "Missq-fetch-access-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_EXTERNAL_REQ_CYCLES] = {
+	      	 	 .symbol = "Missq-external-req-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_PREFETCH_REQ_CYCLES] = {
+	      	 	 .symbol = "Missq-prefetch-req-cycles",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_FULL_COUNT] = {
+	      	 	 .symbol = "Missq-full-count",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_MISSQ_PREFETCH] = {
+	      	 	 .symbol = "Load-missq-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_MISSQ_PRE_SCREF] = {
+	      	 	 .symbol = "Load-missq-pre-scref",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_MISSQ_PRE_RDY] = {
+	      	 	 .symbol = "Load-missq-pre-rdy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_MISSQ_PRE_WAIT] = {
+	      	 	 .symbol = "Load-missq-pre-wait",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PRE_SCREF_LOAD] = {
+	      	 	 .symbol = "Store-missq-pre-scref-load",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PRE_RDY_SHARD] = {
+	      	 	 .symbol = "Store-missq-pre-rdy-shard",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PRE_WAIT_LOAD] = {
+	      	 	 .symbol = "Store-missq-pre-wait-load",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PRE_SCREF_STORE] = {
+	      	 	 .symbol = "Store-missq-pre-scref-store",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PRE_RDY_EXC] = {
+	      	 	 .symbol = "Store-missq-pre-rdy-exc",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PRE_WAIT_STORE] = {
+	      	 	 .symbol = "Store-missq-pre-wait-store",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_PREFETCH] = {
+	      	 	 .symbol = "Store-missq-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_MISSQ_VALID_PREFETCH] = {
+	      	 	 .symbol = "Store-missq-valid-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ALL_REQ_MISSQ_PREFETCH] = {
+	      	 	 .symbol = "All-req-missq-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ALL_REQ_MISSQ_PRE_SCREF] = {
+	      	 	 .symbol = "All-req-missq-pre-scref",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ALL_REQ_MISSQ_PRE_RDY] = {
+	      	 	 .symbol = "All-req-missq-pre-rdy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_ALL_REQ_MISSQ_PRE_WAIT] = {
+	      	 	 .symbol = "All-req-missq-pre-wait",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FETCH_MISSQ_PREFETCH] = {
+	      	 	 .symbol = "Fetch-missq-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FETCH_PRE_SCREF] = {
+	      	 	 .symbol = "Fetch-pre-scref",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FETCH_PRE_RDY] = {
+	      	 	 .symbol = "Fetch-pre-rdy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_FETCH_PRE_WAIT] = {
+	      	 	 .symbol = "Fetch-pre-wait",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_FETCH_PRE_RDY] = {
+	      	 	 .symbol = "Data-fetch-pre-rdy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_FETCH_PRE_WAIT] = {
+	      	 	 .symbol = "Data-fetch-pre-wait",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_LOAD_PRE_SCACHE_CANCEL] = {
+	      	 	 .symbol = "Hw-load-pre-scache-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_STORE_PRE_SCACHE_CANCEL] = {
+	      	 	 .symbol = "Hw-store-pre-scache-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_DATA_PRE_SCACHE_CANCEL] = {
+	      	 	 .symbol = "Hw-data-pre-scache-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_FETCH_PRE_SCACHE_CANCEL] = {
+	      	 	 .symbol = "Hw-fetch-pre-scache-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_PREFETCH_SCACHE_CANCEL] = {
+	      	 	 .symbol = "Hw-prefetch-scache-cancel",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Hw-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_STORE_PREFETCH] = {
+	      	 	 .symbol = "Hw-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_DATA_PREFETCH] = {
+	      	 	 .symbol = "Hw-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_INST_PREFETCH] = {
+	      	 	 .symbol = "Hw-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_HW_PREFETCH] = {
+	      	 	 .symbol = "Hw-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAGGED_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Tagged-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISS_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Miss-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAGGED_STORE_PREFETCH] = {
+	      	 	 .symbol = "Tagged-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISS_STORE_PREFETCH] = {
+	      	 	 .symbol = "Miss-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAGGED_DATA_PREFETCH] = {
+	      	 	 .symbol = "Tagged-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISS_DATA_PREFETCH] = {
+	      	 	 .symbol = "Miss-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAGGED_INST_PREFETCH] = {
+	      	 	 .symbol = "Tagged-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISS_INST_PREFETCH] = {
+	      	 	 .symbol = "Miss-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_TAGGED_PREFETCH] = {
+	      	 	 .symbol = "Tagged-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISS_PREFETCH] = {
+	      	 	 .symbol = "Miss-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_AC_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Missq-ac-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_AC_STORE_PREFETCH] = {
+	      	 	 .symbol = "Missq-ac-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_AC_DATA_PREFETCH] = {
+	      	 	 .symbol = "Missq-ac-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_AC_INST_PREFETCH] = {
+	      	 	 .symbol = "Missq-ac-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_AC_PREFETCH] = {
+	      	 	 .symbol = "Missq-ac-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Scache-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_STORE_PREFETCH] = {
+	      	 	 .symbol = "Scache-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_DATA_PREFETCH] = {
+	      	 	 .symbol = "Scache-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_INST_PREFETCH] = {
+	      	 	 .symbol = "Scache-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_SCACHE_VALID_PREFETCH] = {
+	      	 	 .symbol = "Scache-valid-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Pre-rdy-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_STORE_PREFETCH] = {
+	      	 	 .symbol = "Pre-rdy-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_DATA_PREFETCH] = {
+	      	 	 .symbol = "Pre-rdy-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_INST_PREFETCH] = {
+	      	 	 .symbol = "Pre-rdy-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_PREFETCH] = {
+	      	 	 .symbol = "Pre-rdy-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_LOAD_REQUEST] = {
+	      	 	 .symbol = "Pre-rdy-load-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_STORE_REQUEST] = {
+	      	 	 .symbol = "Pre-rdy-store-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_DATA_REQUEST] = {
+	      	 	 .symbol = "Pre-rdy-data-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_INST_REQUEST] = {
+	      	 	 .symbol = "Pre-rdy-inst-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_RDY_REQUEST] = {
+	      	 	 .symbol = "Pre-rdy-request",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_LOAD_REQ] = {
+	      	 	 .symbol = "Pre-scref-hit-load-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_STORE_REQ] = {
+	      	 	 .symbol = "Pre-scref-hit-store-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_DATA_REQ] = {
+	      	 	 .symbol = "Pre-scref-hit-data-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_INST_REQ] = {
+	      	 	 .symbol = "Pre-scref-hit-inst-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_PREFETCH_REQ] = {
+	      	 	 .symbol = "Pre-scref-hit-prefetch-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Pre-scref-hit-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_HIT_STORE_PREFETCH] = {
+	      	 	 .symbol = "Pre-scref-hit-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_RDY_DATA_REQ] = {
+	      	 	 .symbol = "Pre-scref-rdy-data-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_RDY_INST_REQ] = {
+	      	 	 .symbol = "Pre-scref-rdy-inst-req",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_RDY_PREFETCH] = {
+	      	 	 .symbol = "Pre-scref-rdy-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_SCREF_MISS_LOAD] = {
+	      	 	 .symbol = "Pre-scref-miss-load",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_WAIT_HIT_LOAD_PREFETCH] = {
+	      	 	 .symbol = "Pre-wait-hit-load-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_WAIT_HIT_STORE_PREFETCH] = {
+	      	 	 .symbol = "Pre-wait-hit-store-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_WAIT_HIT_DATA_PREFETCH] = {
+	      	 	 .symbol = "Pre-wait-hit-data-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_WAIT_HIT_INST_PREFETCH] = {
+	      	 	 .symbol = "Pre-wait-hit-inst-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PRE_WAIT_HIT_PREFETCH] = {
+	      	 	 .symbol = "Pre-wait-hit-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_REPLACE_PRE_WAIT_PREFEETCH] = {
+	      	 	 .symbol = "Missq-replace-pre-wait-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_MISSQ_REPLACE_PRE_RDY_PREFEETCH] = {
+	      	 	 .symbol = "Missq-replace-pre-rdy-prefetch",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PREFETCH_INV] = {
+	      	 	 .symbol = "Prefetch-inv",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_PREFETCH_OCCUPY] = {
+	      	 	 .symbol = "Load-prefetch-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_PREFETCH_ISOCCUPY] = {
+	      	 	 .symbol = "Load-prefetch-isoccupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_PREFETCH_OCCUPY] = {
+	      	 	 .symbol = "Store-prefetch-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_PREFETCH_ISOCCUPY] = {
+	      	 	 .symbol = "Store-prefetch-isoccupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_PREFETCH_OCCUPY] = {
+	      	 	 .symbol = "data-prefetch-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_PREFETCH_ISOCCUPY] = {
+	      	 	 .symbol = "data-prefetch-isoccupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INST_PREFETCH_OCCUPY] = {
+	      	 	 .symbol = "inst-prefetch-occupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INST_PREFETCH_ISOCCUPY] = {
+	      	 	 .symbol = "inst-prefetch-isoccupy",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_LOAD_PRE_SCREF_PRE_RDY_HIT] = {
+	      	 	 .symbol = "Load-pre-scref-pre-rdy-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_STORE_PRE_SCREF_PRE_RDY_HIT] = {
+	      	 	 .symbol = "Store-pre-scref-pre-rdy-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_DATA_PRE_SCREF_PRE_RDY_HIT] = {
+	      	 	 .symbol = "Data-pre-scref-pre-rdy-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_INST_PRE_SCREF_PRE_RDY_HIT] = {
+	      	 	 .symbol = "Inst-pre-scref-pre-rdy-hit",
+	       	 	 .alias  = "",
+		},
+		[PERF_COUNT_HW_PREFETCH_PRE_SCREF_PRE_RDY_HIT] = {
+	      	 	 .symbol = "Prefetch-pre-scref-pre-rdy-hit",
+	       	 	 .alias  = "",
+		},
+
+/*loongson3A1000 hardware events*/
+#elif defined(CONFIG_CPU_LOONGSON3)
+        [PERF_COUNT_HW_JUMP_INSTRUCTIONS] = {
+                .symbol = "JR-instructions",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_JR31_INSTRUCTIONS] = {
+                .symbol = "JR(RS=31)-instructions",
+                .alias  = "JR31-instructions",
+        },
+        [PERF_COUNT_HW_ICACHE_MISSES] = {
+                .symbol = "instruction-cache-misses",
+                .alias  = "icache-misses",
+        },
+        [PERF_COUNT_HW_ALU1_ISSUED] = {
+                .symbol = "ALU1-issued",
+                .alias  = "ALU1-operation-issued",
+        },
+        [PERF_COUNT_HW_MEM_ISSUED] = {
+                .symbol = "memory-read/write-issued",
+                .alias  = "memory-issued",
+        },
+        [PERF_COUNT_HW_FALU1_ISSUED] = {
+                .symbol = "float-ALU1-operation-issued",
+                .alias  = "FALU1-issued",
+        },
+        [PERF_COUNT_HW_BHT_BRANCH_INSTRUCTIONS] = {
+                .symbol = "BHT-branch-instructions",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_MEM_READ] = {
+                .symbol = "memory-read",
+                .alias  = "read-from-primary-memory",
+        },
+        [PERF_COUNT_HW_FQUEUE_FULL] = {
+                .symbol = "fix-queue-full",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_ROQ_FULL] = {
+                .symbol = "reorder-queue-full",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_CP0_QUEUE_FULL] = {
+                .symbol = "CP0-queue-full",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_TLB_REFILL] = {
+                .symbol = "TLB-refill-exception",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_EXCEPTION] = {
+                .symbol = "exceptions",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_INTERNAL_EXCEPTION] = {
+                .symbol = "internal-exceptions",
+                .alias  = "",
+        },
+
+        [PERF_COUNT_HW_JR_MISPREDICTED] = {
+                .symbol = "JR-mispredicted",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_JR31_MISPREDICTED] = {
+                .symbol = "JR31-mispredicted",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_DCACHE_MISSES] = {
+                .symbol = "data-cache-misses",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_ALU2_ISSUED] = {
+                .symbol = "ALU2-operation-issued",
+                .alias  = "ALU2-issued",
+        },
+        [PERF_COUNT_HW_FALU2_ISSUED] = {
+                .symbol = "FALU2-operation-issued",
+                .alias  = "FALU2-issued",
+        },
+        [PERF_COUNT_HW_UNCACHED_ACCESS] = {
+                .symbol = "uncached-accesses",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_BHT_MISPREDICTED] = {
+                .symbol = "BHT-mispredicted",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_MEM_WRITE] = {
+                .symbol = "write-to-memory",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_FTQ_FULL] = {
+                .symbol = "float-queue-full",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_BRANCH_QUEUE_FULL] = {
+                .symbol = "branch-queue-full",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_ITLB_MISSES] = {
+                .symbol = "instruction-TLB-misses",
+                .alias  = "ITLB-misses",
+        },
+        [PERF_COUNT_HW_TOTAL_EXCEPTIONS] = {
+                .symbol = "total-exceptions",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_LOAD_SPECULATION_MISSES] = {
+                .symbol = "load-speculation-misses",
+                .alias  = "",
+        },
+        [PERF_COUNT_HW_CP0Q_FORWARD_VALID] = {
+                .symbol = "CP0-queue-forward-valid",
+                .alias  = "",
+        },
+#else
+#endif
 };
 
 static struct event_symbol event_symbols_sw[PERF_COUNT_SW_MAX] = {

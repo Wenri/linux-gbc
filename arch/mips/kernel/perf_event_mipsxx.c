@@ -28,8 +28,6 @@
 #include <asm/time.h> /* For perf_irq */
 
 #define MIPS_MAX_HWEVENTS 4
-#define MIPS_TCS_PER_COUNTER 2
-#define MIPS_CPUID_TO_COUNTER_MASK (MIPS_TCS_PER_COUNTER - 1)
 
 struct cpu_hw_events {
 	/* Array of events on this cpu. */
@@ -105,26 +103,19 @@ static struct mips_pmu mipspmu;
 #define M_CONFIG1_PC	(1 << 4)
 
 #define M_PERFCTL_EXL			(1	<<  0)
-#define M_PERFCTL_KERNEL		(1	<<  1)
-#define M_PERFCTL_SUPERVISOR		(1	<<  2)
-#define M_PERFCTL_USER			(1	<<  3)
+#define M_PERFCTL_KERNEL		(1 	<<  1)
+#define M_PERFCTL_SUPERVISOR		(1 	<<  2)
+#define M_PERFCTL_USER			(1 	<<  3)
 #define M_PERFCTL_INTERRUPT_ENABLE	(1	<<  4)
 #define M_PERFCTL_EVENT(event)		(((event) & 0x3ff)  << 5)
-#define M_PERFCTL_VPEID(vpe)		((vpe)	  << 16)
-
-#ifdef CONFIG_CPU_BMIPS5000
-#define M_PERFCTL_MT_EN(filter)		0
-#else /* !CONFIG_CPU_BMIPS5000 */
+#define M_PERFCTL_VPEID(vpe)		((vpe)		<< 16)
 #define M_PERFCTL_MT_EN(filter)		((filter) << 20)
-#endif /* CONFIG_CPU_BMIPS5000 */
-
-#define	   M_TC_EN_ALL			M_PERFCTL_MT_EN(0)
-#define	   M_TC_EN_VPE			M_PERFCTL_MT_EN(1)
-#define	   M_TC_EN_TC			M_PERFCTL_MT_EN(2)
-#define M_PERFCTL_TCID(tcid)		((tcid)	  << 22)
+#define    M_TC_EN_ALL			M_PERFCTL_MT_EN(0)
+#define    M_TC_EN_VPE			M_PERFCTL_MT_EN(1)
+#define    M_TC_EN_TC			M_PERFCTL_MT_EN(2)
+#define M_PERFCTL_TCID(tcid)		((tcid)	<< 22)
 #define M_PERFCTL_WIDE			(1	<< 30)
 #define M_PERFCTL_MORE			(1	<< 31)
-#define M_PERFCTL_TC			(1	<< 30)
 
 #define M_PERFCTL_COUNT_EVENT_WHENEVER	(M_PERFCTL_EXL |		\
 					M_PERFCTL_KERNEL |		\
@@ -137,24 +128,24 @@ static struct mips_pmu mipspmu;
 #else
 #define M_PERFCTL_CONFIG_MASK		0x1f
 #endif
-#define M_PERFCTL_EVENT_MASK		0xfe0
+#define M_PERFCTL_EVENT_MASK		0x7fe0
 
 
-#ifdef CONFIG_MIPS_PERF_SHARED_TC_COUNTERS
+#ifdef CONFIG_MIPS_MT_SMP
 static int cpu_has_mipsmt_pertccounters;
 
 static DEFINE_RWLOCK(pmuint_rwlock);
 
-#if defined(CONFIG_CPU_BMIPS5000)
-#define vpe_id()	(cpu_has_mipsmt_pertccounters ? \
-			 0 : (smp_processor_id() & MIPS_CPUID_TO_COUNTER_MASK))
-#else
 /*
  * FIXME: For VSMP, vpe_id() is redefined for Perf-events, because
  * cpu_data[cpuid].vpe_id reports 0 for _both_ CPUs.
  */
+#if defined(CONFIG_HW_PERF_EVENTS)
 #define vpe_id()	(cpu_has_mipsmt_pertccounters ? \
-			 0 : smp_processor_id())
+			0 : smp_processor_id())
+#else
+#define vpe_id()	(cpu_has_mipsmt_pertccounters ? \
+			0 : cpu_data[smp_processor_id()].vpe_id)
 #endif
 
 /* Copied from op_model_mipsxx.c */
@@ -171,10 +162,10 @@ static unsigned int counters_total_to_per_cpu(unsigned int counters)
 	return counters >> vpe_shift();
 }
 
-#else /* !CONFIG_MIPS_PERF_SHARED_TC_COUNTERS */
+#else /* !CONFIG_MIPS_MT_SMP */
 #define vpe_id()	0
 
-#endif /* CONFIG_MIPS_PERF_SHARED_TC_COUNTERS */
+#endif /* CONFIG_MIPS_MT_SMP */
 
 static void resume_local_counters(void);
 static void pause_local_counters(void);
@@ -230,6 +221,24 @@ static u64 mipsxx_pmu_read_counter_64(unsigned int idx)
 	}
 }
 
+static u64 mipsxx_pmu_read_counter_48(unsigned int idx)
+{
+	idx = mipsxx_pmu_swizzle_perf_idx(idx);
+
+	switch (idx) {
+	case 0:
+		return read_c0_perfcntr0_64() & 0x0000ffffffffffff;
+	case 1:
+		return read_c0_perfcntr1_64() & 0x0000ffffffffffff;
+	case 2:
+		return read_c0_perfcntr2_64() & 0x0000ffffffffffff;
+	case 3:
+		return read_c0_perfcntr3_64() & 0x0000ffffffffffff;
+	default:
+		WARN_ONCE(1, "Invalid performance counter number (%d)\n", idx);
+		return 0;
+	}
+}
 static void mipsxx_pmu_write_counter(unsigned int idx, u64 val)
 {
 	idx = mipsxx_pmu_swizzle_perf_idx(idx);
@@ -270,6 +279,25 @@ static void mipsxx_pmu_write_counter_64(unsigned int idx, u64 val)
 	}
 }
 
+static void mipsxx_pmu_write_counter_48(unsigned int idx, u64 val)
+{
+	idx = mipsxx_pmu_swizzle_perf_idx(idx);
+
+	switch (idx) {
+	case 0:
+		write_c0_perfcntr0_64(val & 0x0000ffffffffffff);
+		return;
+	case 1:
+		write_c0_perfcntr1_64(val & 0x0000ffffffffffff);
+		return;
+	case 2:
+		write_c0_perfcntr2_64(val & 0x0000ffffffffffff);
+		return;
+	case 3:
+		write_c0_perfcntr3_64(val & 0x0000ffffffffffff);
+		return;
+	}
+}
 static unsigned int mipsxx_pmu_read_control(unsigned int idx)
 {
 	idx = mipsxx_pmu_swizzle_perf_idx(idx);
@@ -318,7 +346,11 @@ static int mipsxx_pmu_alloc_counter(struct cpu_hw_events *cpuc,
 	 * We only need to care the counter mask. The range has been
 	 * checked definitely.
 	 */
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+	unsigned long cntr_mask = (hwc->event_base >> 10) & 0xffff;
+#else
 	unsigned long cntr_mask = (hwc->event_base >> 8) & 0xffff;
+#endif
 
 	for (i = mipspmu.num_counters - 1; i >= 0; i--) {
 		/*
@@ -332,8 +364,9 @@ static int mipsxx_pmu_alloc_counter(struct cpu_hw_events *cpuc,
 		 * But here we leave this issue alone for now.
 		 */
 		if (test_bit(i, &cntr_mask) &&
-			!test_and_set_bit(i, cpuc->used_mask))
-			return i;
+			!test_and_set_bit(i, cpuc->used_mask)) { 
+                return i;
+		}
 	}
 
 	return -EAGAIN;
@@ -345,15 +378,14 @@ static void mipsxx_pmu_enable_event(struct hw_perf_event *evt, int idx)
 
 	WARN_ON(idx < 0 || idx >= mipspmu.num_counters);
 
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+	cpuc->saved_ctrl[idx] = M_PERFCTL_EVENT(evt->event_base & 0x3ff) |
+#else
 	cpuc->saved_ctrl[idx] = M_PERFCTL_EVENT(evt->event_base & 0xff) |
+#endif
 		(evt->config_base & M_PERFCTL_CONFIG_MASK) |
 		/* Make sure interrupt enabled. */
 		M_PERFCTL_INTERRUPT_ENABLE;
-	if (IS_ENABLED(CONFIG_CPU_BMIPS5000))
-		/* enable the counter for the calling thread */
-		cpuc->saved_ctrl[idx] |=
-			(1 << (12 + vpe_id())) | M_PERFCTL_TC;
-
 	/*
 	 * We do not actually let the counter run. Leave it until start().
 	 */
@@ -380,8 +412,11 @@ static int mipspmu_event_set_period(struct perf_event *event,
 	u64 left = local64_read(&hwc->period_left);
 	u64 period = hwc->sample_period;
 	int ret = 0;
-
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+	if (unlikely((left + period) & (1ULL << 47))) {
+#else
 	if (unlikely((left + period) & (1ULL << 63))) {
+#endif
 		/* left underflowed by more than period. */
 		left = period;
 		local64_set(&hwc->period_left, left);
@@ -402,6 +437,7 @@ static int mipspmu_event_set_period(struct perf_event *event,
 
 	local64_set(&hwc->prev_count, mipspmu.overflow - left);
 
+	mipsxx_pmu_write_control(idx, M_PERFCTL_EVENT(hwc->event_base & 0x3ff)); 
 	mipspmu.write_counter(idx, mipspmu.overflow - left);
 
 	perf_event_update_userpage(event);
@@ -501,6 +537,7 @@ static void mipspmu_del(struct perf_event *event, int flags)
 	struct hw_perf_event *hwc = &event->hw;
 	int idx = hwc->idx;
 
+
 	WARN_ON(idx < 0 || idx >= mipspmu.num_counters);
 
 	mipspmu_stop(event, PERF_EF_UPDATE);
@@ -523,7 +560,7 @@ static void mipspmu_read(struct perf_event *event)
 
 static void mipspmu_enable(struct pmu *pmu)
 {
-#ifdef CONFIG_MIPS_PERF_SHARED_TC_COUNTERS
+#ifdef CONFIG_MIPS_MT_SMP
 	write_unlock(&pmuint_rwlock);
 #endif
 	resume_local_counters();
@@ -543,7 +580,7 @@ static void mipspmu_enable(struct pmu *pmu)
 static void mipspmu_disable(struct pmu *pmu)
 {
 	pause_local_counters();
-#ifdef CONFIG_MIPS_PERF_SHARED_TC_COUNTERS
+#ifdef CONFIG_MIPS_MT_SMP
 	write_lock(&pmuint_rwlock);
 #endif
 }
@@ -666,10 +703,14 @@ static unsigned int mipspmu_perf_event_encode(const struct mips_perf_event *pev)
  * Top 8 bits for range, next 16 bits for cntr_mask, lowest 8 bits for
  * event_id.
  */
-#ifdef CONFIG_MIPS_MT_SMP
+#if defined(CONFIG_MIPS_MT_SMP)
 	return ((unsigned int)pev->range << 24) |
 		(pev->cntr_mask & 0xffff00) |
 		(pev->event_id & 0xff);
+#elif defined(CONFIG_CPU_LOONGSON3_GS464E)
+	
+	return (pev->cntr_mask & 0xfffc00) | 
+		(pev->event_id & 0x3ff);
 #else
 	return (pev->cntr_mask & 0xffff00) |
 		(pev->event_id & 0xff);
@@ -678,10 +719,13 @@ static unsigned int mipspmu_perf_event_encode(const struct mips_perf_event *pev)
 
 static const struct mips_perf_event *mipspmu_map_general_event(int idx)
 {
+	const struct mips_perf_event *pev;
 
-	if ((*mipspmu.general_event_map)[idx].cntr_mask == 0)
-		return ERR_PTR(-EOPNOTSUPP);
-	return &(*mipspmu.general_event_map)[idx];
+	pev = ((*mipspmu.general_event_map)[idx].event_id ==
+		UNSUPPORTED_PERF_EVENT_ID ? ERR_PTR(-EOPNOTSUPP) :
+		&(*mipspmu.general_event_map)[idx]);
+
+	return pev;
 }
 
 static const struct mips_perf_event *mipspmu_map_cache_event(u64 config)
@@ -706,7 +750,7 @@ static const struct mips_perf_event *mipspmu_map_cache_event(u64 config)
 					[cache_op]
 					[cache_result]);
 
-	if (pev->cntr_mask == 0)
+	if (pev->event_id == UNSUPPORTED_PERF_EVENT_ID)
 		return ERR_PTR(-EOPNOTSUPP);
 
 	return pev;
@@ -741,6 +785,7 @@ static void handle_associated_event(struct cpu_hw_events *cpuc,
 {
 	struct perf_event *event = cpuc->events[idx];
 	struct hw_perf_event *hwc = &event->hw;
+
 
 	mipspmu_event_update(event, hwc, idx);
 	data->period = event->hw.last_period;
@@ -784,26 +829,93 @@ static int n_counters(void)
 		counters = __n_counters();
 	}
 
+
 	return counters;
 }
 
 static void reset_counters(void *arg)
 {
 	int counters = (int)(long)arg;
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+    switch (counters) {
+    case 4:
+        mipsxx_pmu_write_control(3, 0);
+        mipspmu.write_counter(3, 0);
+        mipsxx_pmu_write_control(3, 127<<5);
+        mipspmu.write_counter(3, 0);
+        mipsxx_pmu_write_control(3, 191<<5);
+        mipspmu.write_counter(3, 0);
+        mipsxx_pmu_write_control(3, 255<<5);
+        mipspmu.write_counter(3, 0);
+        mipsxx_pmu_write_control(3, 319<<5);
+        mipspmu.write_counter(3, 0);
+        mipsxx_pmu_write_control(3, 383<<5);
+        mipspmu.write_counter(3, 0);
+        mipsxx_pmu_write_control(3, 575<<5);
+        mipspmu.write_counter(3, 0);
+    case 3:
+        mipsxx_pmu_write_control(2, 0);
+        mipspmu.write_counter(2, 0);
+        mipsxx_pmu_write_control(2, 127<<5);
+        mipspmu.write_counter(2, 0);
+        mipsxx_pmu_write_control(2, 191<<5);
+        mipspmu.write_counter(2, 0);
+        mipsxx_pmu_write_control(2, 255<<5);
+        mipspmu.write_counter(2, 0);
+        mipsxx_pmu_write_control(2, 319<<5);
+        mipspmu.write_counter(2, 0);
+        mipsxx_pmu_write_control(2, 383<<5);
+        mipspmu.write_counter(2, 0);
+        mipsxx_pmu_write_control(2, 575<<5);
+        mipspmu.write_counter(2, 0);
+    case 2:
+        mipsxx_pmu_write_control(1, 0);
+        mipspmu.write_counter(1, 0);
+        mipsxx_pmu_write_control(1, 127<<5);
+        mipspmu.write_counter(1, 0);
+        mipsxx_pmu_write_control(1, 191<<5);
+        mipspmu.write_counter(1, 0);
+        mipsxx_pmu_write_control(1, 255<<5);
+        mipspmu.write_counter(1, 0);
+        mipsxx_pmu_write_control(1, 319<<5);
+        mipspmu.write_counter(1, 0);
+        mipsxx_pmu_write_control(1, 383<<5);
+        mipspmu.write_counter(1, 0);
+        mipsxx_pmu_write_control(1, 575<<5);
+        mipspmu.write_counter(1, 0);
+    case 1:
+        mipsxx_pmu_write_control(0, 0);
+        mipspmu.write_counter(0, 0);
+        mipsxx_pmu_write_control(0, 127<<5);
+        mipspmu.write_counter(0, 0);
+        mipsxx_pmu_write_control(0, 191<<5);
+        mipspmu.write_counter(0, 0);
+        mipsxx_pmu_write_control(0, 255<<5);
+        mipspmu.write_counter(0, 0);
+        mipsxx_pmu_write_control(0, 319<<5);
+        mipspmu.write_counter(0, 0);
+        mipsxx_pmu_write_control(0, 383<<5);
+        mipspmu.write_counter(0, 0);
+        mipsxx_pmu_write_control(0, 575<<5);
+        mipspmu.write_counter(0, 0);
+    }
+#else
 	switch (counters) {
 	case 4:
-		mipsxx_pmu_write_control(3, 0);
 		mipspmu.write_counter(3, 0);
+		mipsxx_pmu_write_control(3, 0);
 	case 3:
-		mipsxx_pmu_write_control(2, 0);
 		mipspmu.write_counter(2, 0);
+		mipsxx_pmu_write_control(2, 0);
 	case 2:
-		mipsxx_pmu_write_control(1, 0);
 		mipspmu.write_counter(1, 0);
+		mipsxx_pmu_write_control(1, 0);
 	case 1:
-		mipsxx_pmu_write_control(0, 0);
 		mipspmu.write_counter(0, 0);
+		mipsxx_pmu_write_control(0, 0);
 	}
+#endif
+
 }
 
 /* 24K/34K/1004K cores can share the same event map. */
@@ -811,8 +923,11 @@ static const struct mips_perf_event mipsxxcore_event_map
 				[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN | CNTR_ODD, P },
 	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x01, CNTR_EVEN | CNTR_ODD, T },
+	[PERF_COUNT_HW_CACHE_REFERENCES] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_CACHE_MISSES] = { UNSUPPORTED_PERF_EVENT_ID },
 	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x02, CNTR_EVEN, T },
 	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x02, CNTR_ODD, T },
+	[PERF_COUNT_HW_BUS_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
 };
 
 /* 74K core has different branch event code. */
@@ -820,46 +935,423 @@ static const struct mips_perf_event mipsxx74Kcore_event_map
 				[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN | CNTR_ODD, P },
 	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x01, CNTR_EVEN | CNTR_ODD, T },
+	[PERF_COUNT_HW_CACHE_REFERENCES] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_CACHE_MISSES] = { UNSUPPORTED_PERF_EVENT_ID },
 	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x27, CNTR_EVEN, T },
 	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x27, CNTR_ODD, T },
+	[PERF_COUNT_HW_BUS_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
 };
 
 static const struct mips_perf_event octeon_event_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES] = { 0x01, CNTR_ALL },
 	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x03, CNTR_ALL },
 	[PERF_COUNT_HW_CACHE_REFERENCES] = { 0x2b, CNTR_ALL },
-	[PERF_COUNT_HW_CACHE_MISSES] = { 0x2e, CNTR_ALL	 },
+	[PERF_COUNT_HW_CACHE_MISSES] = { 0x2e, CNTR_ALL  },
 	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x08, CNTR_ALL },
 	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x09, CNTR_ALL },
 	[PERF_COUNT_HW_BUS_CYCLES] = { 0x25, CNTR_ALL },
 };
 
-static const struct mips_perf_event bmips5000_event_map
+static const struct mips_perf_event loongson3_event_map
 				[PERF_COUNT_HW_MAX] = {
-	[PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN | CNTR_ODD, T },
-	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x01, CNTR_EVEN | CNTR_ODD, T },
-	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x02, CNTR_ODD, T },
+	[PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN, P },
+	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x00, CNTR_ODD, T },
+	[PERF_COUNT_HW_CACHE_REFERENCES] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_CACHE_MISSES] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x01, CNTR_EVEN, T },
+	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x01, CNTR_ODD, T },
+	[PERF_COUNT_HW_BUS_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
+    [PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] = { UNSUPPORTED_PERF_EVENT_ID },
+    [PERF_COUNT_HW_STALLED_CYCLES_BACKEND] = { UNSUPPORTED_PERF_EVENT_ID },
+
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+#else
+    [PERF_COUNT_HW_JUMP_INSTRUCTIONS] = { 0x02, CNTR_EVEN, T },
+    [PERF_COUNT_HW_JR31_INSTRUCTIONS] = { 0x03, CNTR_EVEN, T },
+    [PERF_COUNT_HW_ICACHE_MISSES] = { 0x04, CNTR_EVEN, T },
+    [PERF_COUNT_HW_ALU1_ISSUED] = { 0x05, CNTR_EVEN, T },
+    [PERF_COUNT_HW_MEM_ISSUED] = { 0x06, CNTR_EVEN, T },
+    [PERF_COUNT_HW_FALU1_ISSUED] = { 0x07, CNTR_EVEN, T },
+    [PERF_COUNT_HW_BHT_BRANCH_INSTRUCTIONS] = { 0x08, CNTR_EVEN, T },
+    [PERF_COUNT_HW_MEM_READ] = { 0x09, CNTR_EVEN, T },
+    [PERF_COUNT_HW_FQUEUE_FULL] = { 0x0a, CNTR_EVEN, T },
+    [PERF_COUNT_HW_ROQ_FULL] = { 0x0b, CNTR_EVEN, T },
+    [PERF_COUNT_HW_CP0_QUEUE_FULL] = { 0x0c, CNTR_EVEN, T },
+    [PERF_COUNT_HW_TLB_REFILL] = { 0x0d, CNTR_EVEN, T },
+    [PERF_COUNT_HW_EXCEPTION] = { 0x0e, CNTR_EVEN, T },
+    [PERF_COUNT_HW_INTERNAL_EXCEPTION] = { 0x0f, CNTR_EVEN, T },
+
+	[PERF_COUNT_HW_JR_MISPREDICTED] = { 0x02, CNTR_ODD, T },
+	[PERF_COUNT_HW_JR31_MISPREDICTED] = { 0x03, CNTR_ODD, T },
+	[PERF_COUNT_HW_DCACHE_MISSES] = { 0x04, CNTR_ODD, T },
+	[PERF_COUNT_HW_ALU2_ISSUED] = { 0x05, CNTR_ODD, T },
+	[PERF_COUNT_HW_FALU2_ISSUED] = { 0x06, CNTR_ODD, T },
+	[PERF_COUNT_HW_UNCACHED_ACCESS] = { 0x07, CNTR_ODD, T },
+	[PERF_COUNT_HW_BHT_MISPREDICTED] = { 0x08, CNTR_ODD, T },
+	[PERF_COUNT_HW_MEM_WRITE] = { 0x09, CNTR_ODD, T },
+	[PERF_COUNT_HW_FTQ_FULL] = { 0x0a, CNTR_ODD, T },
+	[PERF_COUNT_HW_BRANCH_QUEUE_FULL] = { 0x0b, CNTR_ODD, T },
+	[PERF_COUNT_HW_ITLB_MISSES] = { 0x0c, CNTR_ODD, T },
+	[PERF_COUNT_HW_TOTAL_EXCEPTIONS] = { 0x0d, CNTR_ODD, T },
+	[PERF_COUNT_HW_LOAD_SPECULATION_MISSES] = { 0x0e, CNTR_ODD, T },
+	[PERF_COUNT_HW_CP0Q_FORWARD_VALID] = { 0x0f, CNTR_ODD, T },
+#endif
 };
 
-static const struct mips_perf_event xlp_event_map[PERF_COUNT_HW_MAX] = {
-	[PERF_COUNT_HW_CPU_CYCLES] = { 0x01, CNTR_ALL },
-	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x18, CNTR_ALL }, /* PAPI_TOT_INS */
-	[PERF_COUNT_HW_CACHE_REFERENCES] = { 0x04, CNTR_ALL }, /* PAPI_L1_ICA */
-	[PERF_COUNT_HW_CACHE_MISSES] = { 0x07, CNTR_ALL }, /* PAPI_L1_ICM */
-	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x1b, CNTR_ALL }, /* PAPI_BR_CN */
-	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x1c, CNTR_ALL }, /* PAPI_BR_MSP */
+static const struct mips_perf_event loongson3a2000_event_map
+				[PERF_COUNT_HW_MAX] = {
+	[PERF_COUNT_HW_CPU_CYCLES] = { 0x80, CNTR_ALL },
+	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x81, CNTR_ALL },
+	[PERF_COUNT_HW_CACHE_REFERENCES] = { 0x17, CNTR_ALL },
+	[PERF_COUNT_HW_CACHE_MISSES] = { 0x18, CNTR_ALL },
+	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x94, CNTR_ALL },
+	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x9c, CNTR_ALL },
+	[PERF_COUNT_HW_BUS_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] = { 0x3, CNTR_ALL },
+	[PERF_COUNT_HW_STALLED_CYCLES_BACKEND] = { UNSUPPORTED_PERF_EVENT_ID },
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+    /*fetch*/
+	[PERF_COUNT_HW_INSTQ_EMPTY] = { 0x01, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_INSTRUCTIONS] = { 0x02, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_1] = { 0x04, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_2] = { 0x05, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_3] = { 0x06, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_4] = { 0x07, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_5] = { 0x08, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_6] = { 0x09, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_7] = { 0x0a, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_8] = { 0x0b, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_LESSTHAN_8] = { 0x0c, CNTR_ALL },
+	[PERF_COUNT_HW_INSTQ_FULL] = { 0x0d, CNTR_ALL },
+	[PERF_COUNT_HW_DECODE_INST] = { 0x0e, CNTR_ALL },
+	[PERF_COUNT_HW_LOOP_BUFFER_INST] = { 0x0f, CNTR_ALL },
+	[PERF_COUNT_HW_LOOP_FIND] = { 0x10, CNTR_ALL },
+	[PERF_COUNT_HW_LOOP_TRIGGER] = { 0x11, CNTR_ALL },
+	[PERF_COUNT_HW_DECODE_BRANCH_0] = { 0x12, CNTR_ALL },
+	[PERF_COUNT_HW_DECODE_BRANCH_1] = { 0x13, CNTR_ALL },
+	[PERF_COUNT_HW_DECODE_BRANCH_2] = { 0x14, CNTR_ALL },
+	[PERF_COUNT_HW_ICACHE_MISSES_BLOCK] = { 0x15, CNTR_ALL },
+	[PERF_COUNT_HW_BRBTB_TAKEN_BRANCH_MISSES] = { 0x16, CNTR_ALL },
+	[PERF_COUNT_HW_ICACHE_REPLACE] = { 0x19, CNTR_ALL },
+	[PERF_COUNT_HW_ITLB_MISS_TLB_HIT] = { 0x1a, CNTR_ALL },
+	[PERF_COUNT_HW_ITLB_FLUSHED] = { 0x1b, CNTR_ALL },
+    /*rmap*/
+	[PERF_COUNT_HW_RESOURCE_ALLOC_BLOCKED] = { 0x40, CNTR_ALL },
+	[PERF_COUNT_HW_GR_BLOCKED] = { 0x41, CNTR_ALL },
+	[PERF_COUNT_HW_GR_PSEUDO_BLOCKED] = { 0x42, CNTR_ALL },
+	[PERF_COUNT_HW_FR_BLOCKED] = { 0x43, CNTR_ALL },
+	[PERF_COUNT_HW_FR_PSEUDO_BLOCKED] = { 0x44, CNTR_ALL },
+	[PERF_COUNT_HW_FCR_BLOCKED] = { 0x45, CNTR_ALL },
+	[PERF_COUNT_HW_FCR_PSEUDO_BLOCKED] = { 0x46, CNTR_ALL },
+	[PERF_COUNT_HW_ACC_BLOCKED] = { 0x47, CNTR_ALL },
+	[PERF_COUNT_HW_ACC_PSEUDO_BLOCKED] = { 0x48, CNTR_ALL },
+	[PERF_COUNT_HW_DSPCTRL_BLOCKED] = { 0x49, CNTR_ALL },
+	[PERF_COUNT_HW_DSPCTRL_PSEUDO_BLOCKED] = { 0x4a, CNTR_ALL },
+	[PERF_COUNT_HW_BRQ_BLOCKED] = { 0x4b, CNTR_ALL },
+	[PERF_COUNT_HW_BRQ_PSEUDO_BLOCKED] = { 0x4c, CNTR_ALL },
+	[PERF_COUNT_HW_FXQ_BLOCKED] = { 0x4d, CNTR_ALL },
+	[PERF_COUNT_HW_FXQ_PSEUDO_BLOCKED] = { 0x4e, CNTR_ALL },
+	[PERF_COUNT_HW_FTQ_BLOCKED] = { 0x4f, CNTR_ALL },
+	[PERF_COUNT_HW_FTQ_PSEUDO_BLOCKED] = { 0x50, CNTR_ALL },
+	[PERF_COUNT_HW_MMQ_BLOCKED] = { 0x51, CNTR_ALL },
+	[PERF_COUNT_HW_MMQ_PSEUDO_BLOCKED] = { 0x52, CNTR_ALL },
+	[PERF_COUNT_HW_CP0Q_BLOCKED] = { 0x53, CNTR_ALL },
+	[PERF_COUNT_HW_CP0Q_PSEUDO_BLOCKED] = { 0x54, CNTR_ALL },
+	[PERF_COUNT_HW_ROQ_BLOCKED] = { 0x55, CNTR_ALL },
+	[PERF_COUNT_HW_NOP_INST] = { 0x56, CNTR_ALL },
+	[PERF_COUNT_HW_REGMAP_ISSUED] = { 0x57, CNTR_ALL },
+	[PERF_COUNT_HW_EXCEPTIONS] = { 0x58, CNTR_ALL },
+	[PERF_COUNT_HW_BRANCH_MISSES_OVERHEAD] = { 0x59, CNTR_ALL },
+    /*roq*/
+	[PERF_COUNT_HW_ALU_COMMITTED] = { 0x82, CNTR_ALL },
+	[PERF_COUNT_HW_FALU_COMMITTED] = { 0x83, CNTR_ALL },
+	[PERF_COUNT_HW_MEMORY_SWAP_COMMITTED] = { 0x84, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_COMMITTED] = { 0x85, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_COMMITTED] = { 0x86, CNTR_ALL },
+	[PERF_COUNT_HW_LL_COMMITTED] = { 0x87, CNTR_ALL },
+	[PERF_COUNT_HW_SC_COMMITTED] = { 0x88, CNTR_ALL },
+	[PERF_COUNT_HW_UNALIGNED_LOAD_COMMITTED] = { 0x89, CNTR_ALL },
+	[PERF_COUNT_HW_UNALIGNED_STORE_COMMITTED] = { 0x8a, CNTR_ALL },
+	[PERF_COUNT_HW_EXCEPTIONS_AND_INTERRUPTS] = { 0x8b, CNTR_ALL },
+	[PERF_COUNT_HW_INTERRUPTS] = { 0x8c, CNTR_ALL },
+	[PERF_COUNT_HW_ROQ_INTERRUPT] = { 0x8d, CNTR_ALL },
+	[PERF_COUNT_HW_ROQ_INTERRUPT_INST] = { 0x8e, CNTR_ALL },
+	[PERF_COUNT_HW_VM_EXCEPTIONS] = { 0x8f, CNTR_ALL },
+	[PERF_COUNT_HW_ADDRESS_FAULT_EXCEPTIONS] = { 0x90, CNTR_ALL },
+	[PERF_COUNT_HW_TLB_EXCEPTIONS] = { 0x91, CNTR_ALL },
+	[PERF_COUNT_HW_TLB_REFILL_EXCEPTIONS] = { 0x92, CNTR_ALL },
+	[PERF_COUNT_HW_TLB_REFILL_HANDLE_TIME] = { 0x93, CNTR_ALL },
+	[PERF_COUNT_HW_JUMP_REGISTER] = { 0x95, CNTR_ALL },
+	[PERF_COUNT_HW_JUMP_AND_LINK] = { 0x96, CNTR_ALL },
+	[PERF_COUNT_HW_BRANCH_AND_LINK] = { 0x97, CNTR_ALL },
+	[PERF_COUNT_HW_BHT_BRANCH] = { 0x98, CNTR_ALL },
+	[PERF_COUNT_HW_LIKELY_BRANCH] = { 0x99, CNTR_ALL },
+	[PERF_COUNT_HW_NOT_TAKEN_BRANCH] = { 0x9a, CNTR_ALL },
+	[PERF_COUNT_HW_TAKEN_BRANCH] = { 0x9b, CNTR_ALL },
+	[PERF_COUNT_HW_JUMP_REGISTER_MISSES] = { 0x9d, CNTR_ALL },
+	[PERF_COUNT_HW_JUMP_AND_LINK_MISSES] = { 0x9e, CNTR_ALL },
+	[PERF_COUNT_HW_BRANCH_AND_LINK_MISSES] = { 0x9f, CNTR_ALL },
+	[PERF_COUNT_HW_BHT_BRANCH_MISSES] = { 0xa0, CNTR_ALL },
+	[PERF_COUNT_HW_LIKELY_BRANCH_MISSES] = { 0xa1, CNTR_ALL },
+	[PERF_COUNT_HW_NOT_TAKEN_MISSES] = { 0xa2, CNTR_ALL },
+	[PERF_COUNT_HW_TAKEN_MISSES] = { 0xa3, CNTR_ALL },
+    /*fix*/
+	[PERF_COUNT_HW_FXQ_NO_ISSUE] = { 0xc0, CNTR_ALL },
+	[PERF_COUNT_HW_FXQ_ISSUE_OPERAND] = { 0xc1, CNTR_ALL },
+	[PERF_COUNT_HW_FXQ_FU0_OPERAND] = { 0xc2, CNTR_ALL },
+	[PERF_COUNT_HW_FXQ_FU1_OPERAND] = { 0xc3, CNTR_ALL },
+	[PERF_COUNT_HW_FU0_FIXED_MUL] = { 0xc4, CNTR_ALL },
+	[PERF_COUNT_HW_FU0_FIXED_DIV] = { 0xc5, CNTR_ALL },
+	[PERF_COUNT_HW_FU1_FIXED_MUL] = { 0xc6, CNTR_ALL },
+	[PERF_COUNT_HW_FU1_FIXED_DIV] = { 0xc7, CNTR_ALL },
+    /*float*/
+	[PERF_COUNT_HW_FTQ_NO_ISSUE] = { 0x100, CNTR_ALL },
+	[PERF_COUNT_HW_FTQ_ISSUE_OPERAND] = { 0x101, CNTR_ALL },
+	[PERF_COUNT_HW_FTQ_FU3_OPERAND] = { 0x102, CNTR_ALL },
+	[PERF_COUNT_HW_FTQ_FU4_OPERAND] = { 0x103, CNTR_ALL },
+	[PERF_COUNT_HW_FU3_EMPTY_FU4_FULL] = { 0x104, CNTR_ALL },
+	[PERF_COUNT_HW_FU4_EMPTY_FU3_FULL] = { 0x105, CNTR_ALL },
+	[PERF_COUNT_HW_SCALAR_FLOAT_OPERAND] = { 0x106, CNTR_ALL },
+	[PERF_COUNT_HW_GS_ALU_INST] = { 0x107, CNTR_ALL },
+	[PERF_COUNT_HW_FIXED_VECTOR_ISSUE_64] = { 0x108, CNTR_ALL },
+	[PERF_COUNT_HW_VECTOR_ISSUE_128] = { 0x109, CNTR_ALL },
+	[PERF_COUNT_HW_FIXED_VECTOR_ISSUE_128] = { 0x10a, CNTR_ALL },
+	[PERF_COUNT_HW_FLOAT_VECTOR_ISSUE_128] = { 0x10b, CNTR_ALL },
+	[PERF_COUNT_HW_VECTOR_ISSUE_256] = { 0x10c, CNTR_ALL },
+	[PERF_COUNT_HW_FIXED_VECTOR_ISSUE_256] = { 0x10d, CNTR_ALL },
+	[PERF_COUNT_HW_FLOAT_VECTOR_ISSUE_256] = { 0x10e, CNTR_ALL },
+	[PERF_COUNT_HW_FU3_VECTOR_FIXED_DIV] = { 0x10f, CNTR_ALL },
+	[PERF_COUNT_HW_FU3_FLOAT_DIV_SQRT] = { 0x110, CNTR_ALL },
+	[PERF_COUNT_HW_FU4_VECTOR_FIXED_DIV] = { 0x111, CNTR_ALL },
+	[PERF_COUNT_HW_FU4_FLOAT_DIV_SQRT] = { 0x112, CNTR_ALL },
+    /*memory*/
+	[PERF_COUNT_HW_MMQ_NO_ISSUE] = { 0x140, CNTR_ALL },
+	[PERF_COUNT_HW_MMQ_ISSUE_OPERAND] = { 0x141, CNTR_ALL },
+	[PERF_COUNT_HW_MMQ_FU2_INST] = { 0x142, CNTR_ALL },
+	[PERF_COUNT_HW_MMQ_FU5_INST] = { 0x143, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_ISSUE] = { 0x144, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_ISSUE] = { 0x145, CNTR_ALL },
+	[PERF_COUNT_HW_SRC_FLOAT_MEM_INST] = { 0x146, CNTR_ALL },
+	[PERF_COUNT_HW_VECTOR_MEM_ISSUE] = { 0x147, CNTR_ALL },
+	[PERF_COUNT_HW_FIX_FLOAT_SHIFT_ISSUE] = { 0x148, CNTR_ALL },
+	[PERF_COUNT_HW_WAIT_FIRST_BLOCK_CYCLES] = { 0x149, CNTR_ALL },
+	[PERF_COUNT_HW_SYNC_BLOCK_CYCLES] = { 0x14a, CNTR_ALL },
+	[PERF_COUNT_HW_STALL_ISSUE_BLOCK_CYCLES] = { 0x14b, CNTR_ALL },
+	[PERF_COUNT_HW_SOFTWARE_PREFETCH_TOTAL] = { 0x14c, CNTR_ALL },
+	[PERF_COUNT_HW_DMEMREF_BLOCK_DCACHEWRITE] = { 0x14d, CNTR_ALL },
+	[PERF_COUNT_HW_DMEMREF_BANK_CLASH] = { 0x14e, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_BLOCK_DMEMREF] = { 0x14f, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHEWRITE_NO_CANCEL] = { 0x150, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHEWRITE0_AND_1_VALID] = { 0x151, CNTR_ALL },
+	[PERF_COUNT_HW_SC_WRITE_DCACHE] = { 0x152, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_DCACHE_MISS] = { 0x153, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_DCACHE_SHARED_MISS] = { 0x154, CNTR_ALL },
+    /*cache2mem*/
+	[PERF_COUNT_HW_STORE_DCACHE_HIT] = { 0x155, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_HIT] = { 0x156, CNTR_ALL },
+	[PERF_COUNT_HW_FWDBUS2] = { 0x157, CNTR_ALL },
+	[PERF_COUNT_HW_FWDBUS5] = { 0x158, CNTR_ALL },
+	[PERF_COUNT_HW_FWDBUS_TOTAL] = { 0x159, CNTR_ALL },
+	[PERF_COUNT_HW_DWAITSTORE] = { 0x15a, CNTR_ALL },
+	[PERF_COUNT_HW_MISPEC] = { 0x15b, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHEWRITE_CANCEL] = { 0x15c, CNTR_ALL },
+	[PERF_COUNT_HW_CP0Q_DMEMREAD] = { 0x15d, CNTR_ALL },
+	[PERF_COUNT_HW_CP0Q_DUNCACHE] = { 0x15e, CNTR_ALL },
+	[PERF_COUNT_HW_RESBUS2_OCCUPY_RESBUS5] = { 0x15f, CNTR_ALL },
+	[PERF_COUNT_HW_SW_PREFETCH_L1DCACHE_HIT] = { 0x160, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_SW_PREFETCH_L1DCACHE_HIT] = { 0x161, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_SW_PREFETCH_L1DCACHE_MISS] = { 0x162, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_SW_PREFETCH_L1DCACHE_HIT] = { 0x163, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_SW_PREFETCH_L1DCACHE_MISS] = { 0x164, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_L1DCACHE_MISS_SHARE_STATE] = { 0x165, CNTR_ALL },
+	[PERF_COUNT_HW_SPECFWDBUS2] = { 0x166, CNTR_ALL },
+	[PERF_COUNT_HW_SPECFWDBUS5] = { 0x167, CNTR_ALL },
+	[PERF_COUNT_HW_SPECFWDBUS2_TOTAL] = { 0x168, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_LOAD_VCACHE_ACCESS_REQ] = { 0x180, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_STORE_VCACHE_ACCESS_REQ] = { 0x181, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_VCACHE_ACCESS_REQ] = { 0x182, CNTR_ALL },
+	[PERF_COUNT_HW_INST_VCACHE_ACCESS_REQ] = { 0x183, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_ACCESS] = { 0x184, CNTR_ALL },
+	[PERF_COUNT_HW_SW_PREFETCH_ACCESS_VCACHE] = { 0x185, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_LOAD_HIT] = { 0x186, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_STORE_HIT] = { 0x187, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_DATA_HIT] = { 0x188, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_INST_HIT] = { 0x189, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_HIT] = { 0x18a, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_SW_PREFETCH_HIT] = { 0x18b, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_LOAD_MISS] = { 0x18c, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_STORE_MISS] = { 0x18d, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_DATA_MISS] = { 0x18e, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_INST_MISS] = { 0x18f, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_MISS] = { 0x190, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_SW_PREFETCH_MISS] = { 0x191, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_EXTREQ_INVALID] = { 0x192, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_WTBK_DEGRADE] = { 0x193, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_INV_INVALID] = { 0x194, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_INVWTBK_INVALID] = { 0x195, CNTR_ALL },
+	[PERF_COUNT_HW_AR_REQUEST_ISSUE] = { 0x196, CNTR_ALL },
+	[PERF_COUNT_HW_AW_REQUEST_ISSUE] = { 0x197, CNTR_ALL },
+	[PERF_COUNT_HW_AW_DATA_REQUEST] = { 0x198, CNTR_ALL },
+	[PERF_COUNT_HW_AR_BLOCKED_AW_UNDONE] = { 0x199, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_WTBK_REQUEST] = { 0x19a, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_INVWTBK_REQUEST] = { 0x19b, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_INV_REQUEST] = { 0x19c, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_INV_CLASS_REQUEST] = { 0x19d, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_TOTAL] = { 0x19e, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_ICACHE] = { 0x19f, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_DCACHE] = { 0x1a0, CNTR_ALL },
+	[PERF_COUNT_HW_REPLACE_REFILL] = { 0x1a1, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_DCACHE_SHARED] = { 0x1a2, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_DCACHE_EXC] = { 0x1a3, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_DATA_TOTAL] = { 0x1a4, CNTR_ALL },
+	[PERF_COUNT_HW_REFILL_INST_TOTAL] = { 0x1a5, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHE_REPLACE_VALID_BLOCK] = { 0x1a6, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHE_REPLACE_SHARED_BLOCK] = { 0x1a7, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHE_REPLACE_EXC_BLOCK] = { 0x1a8, CNTR_ALL },
+	[PERF_COUNT_HW_DCACHE_REPLACE_DIRTY_BLOCK] = { 0x1a9, CNTR_ALL },
+	[PERF_COUNT_HW_ICACHE_REPLACE_VALID_DATA] = { 0x1aa, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE] = { 0x1ab, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE_VALID_BLOCK] = { 0x1ac, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE_SHARED_BLOCK] = { 0x1ad, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE_EXC_BLOCK] = { 0x1ae, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE_DIRTY_BLOCK] = { 0x1af, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE_VALID_DCBLOCK] = { 0x1b0, CNTR_ALL },
+	[PERF_COUNT_HW_VCACHE_REPLACE_VALID_ICBLOCK] = { 0x1b1, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_LOAD_NOT_RETURN] = { 0x1b2, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_STORE_NOT_RETURN] = { 0x1b3, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_ICACHEREQ_NOT_RETURN] = { 0x1b4, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_TOTAL] = { 0x1b5, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_LOAD] = { 0x1b6, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_STORE] = { 0x1b7, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_DATA_ACCESS] = { 0x1b8, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_INST_ACCESS] = { 0x1b9, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_NPREFETCH] = { 0x1ba, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_NPREFETCH_DATA_LOAD] = { 0x1bb, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_NPREFETCH_STORE] = { 0x1bc, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_NPREFETCH_DATA_ACCESS] = { 0x1bd, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_NPREFETCH_INST_ACCESS] = { 0x1be, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_PREFETCH] = { 0x1bf, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_LOAD_PREFETCH] = { 0x1c0, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_STORE_PREFETCH] = { 0x1c1, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_PREFETCH_DATA_ACCESS] = { 0x1c2, CNTR_ALL },
+	[PERF_COUNT_HW_SCREAD_PREFETCH_INST_ACCESS] = { 0x1c3, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_SW_PREFETCH_REQUEST] = { 0x1c4, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_SCWRITE] = { 0x1c5, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_REPLACE_SCWRITE] = { 0x1c6, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_INVALID_SCWRITE] = { 0x1c7, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_REPLACE_VALID_SCWRITE] = { 0x1c8, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_ACCEPT_REQ] = { 0x1c9, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_ACCEPT_LOAD] = { 0x1ca, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_ACCEPT_SIORE] = { 0x1cb, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_DATA_ACCESS] = { 0x1cc, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_INST_ACCESS] = { 0x1cd, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_NON_EMPTY] = { 0x1ce, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_COMMON_ACCESS_OCCUPY] = { 0x1cf, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_FETCH_ACCESS_OCCUPY] = { 0x1d0, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_EXTERNAL_REQ_OCCUPY] = { 0x1d1, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_PREFETCH_REQ_OCCUPY] = { 0x1d2, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_OCCUPY_CYCLES] = { 0x1d3, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_COMMON_ACCESS_CYCLES] = { 0x1d4, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_FETCH_ACCESS_CYCLES] = { 0x1d5, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_EXTERNAL_REQ_CYCLES] = { 0x1d6, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_PREFETCH_REQ_CYCLES] = { 0x1d7, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_FULL_COUNT] = { 0x1d8, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_MISSQ_PREFETCH] = { 0x1d9, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_MISSQ_PRE_SCREF] = { 0x1da, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_MISSQ_PRE_RDY] = { 0x1db, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_MISSQ_PRE_WAIT] = { 0x1dc, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PRE_SCREF_LOAD] = { 0x1dd, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PRE_RDY_SHARD] = { 0x1de, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PRE_WAIT_LOAD] = { 0x1df, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PRE_SCREF_STORE] = { 0x1e0, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PRE_RDY_EXC] = { 0x1e1, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PRE_WAIT_STORE] = { 0x1e2, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_PREFETCH] = { 0x1e3, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_MISSQ_VALID_PREFETCH] = { 0x1e4, CNTR_ALL },
+	[PERF_COUNT_HW_ALL_REQ_MISSQ_PREFETCH] = { 0x1e5, CNTR_ALL },
+	[PERF_COUNT_HW_ALL_REQ_MISSQ_PRE_SCREF] = { 0x1e6, CNTR_ALL },
+	[PERF_COUNT_HW_ALL_REQ_MISSQ_PRE_RDY] = { 0x1e7, CNTR_ALL },
+	[PERF_COUNT_HW_ALL_REQ_MISSQ_PRE_WAIT] = { 0x1e8, CNTR_ALL },
+	[PERF_COUNT_HW_FETCH_MISSQ_PREFETCH] = { 0x1e9, CNTR_ALL },
+	[PERF_COUNT_HW_FETCH_PRE_SCREF] = { 0x1ea, CNTR_ALL },
+	[PERF_COUNT_HW_FETCH_PRE_RDY] = { 0x1eb, CNTR_ALL },
+	[PERF_COUNT_HW_FETCH_PRE_WAIT] = { 0x1ec, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_FETCH_PRE_RDY] = { 0x1ef, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_FETCH_PRE_WAIT] = { 0x1f0, CNTR_ALL },
+	[PERF_COUNT_HW_HW_LOAD_PRE_SCACHE_CANCEL] = { 0x1f1, CNTR_ALL },
+	[PERF_COUNT_HW_HW_STORE_PRE_SCACHE_CANCEL] = { 0x1f2, CNTR_ALL },
+	[PERF_COUNT_HW_HW_DATA_PRE_SCACHE_CANCEL] = { 0x1f3, CNTR_ALL },
+	[PERF_COUNT_HW_HW_FETCH_PRE_SCACHE_CANCEL] = { 0x1f4, CNTR_ALL },
+	[PERF_COUNT_HW_HW_PREFETCH_SCACHE_CANCEL] = { 0x1f5, CNTR_ALL },
+	[PERF_COUNT_HW_HW_LOAD_PREFETCH] = { 0x1f6, CNTR_ALL },
+	[PERF_COUNT_HW_HW_STORE_PREFETCH] = { 0x1f7, CNTR_ALL },
+	[PERF_COUNT_HW_HW_DATA_PREFETCH] = { 0x1f8, CNTR_ALL },
+	[PERF_COUNT_HW_HW_INST_PREFETCH] = { 0x1f9, CNTR_ALL },
+	[PERF_COUNT_HW_HW_PREFETCH] = { 0x1fa, CNTR_ALL },
+	[PERF_COUNT_HW_TAGGED_LOAD_PREFETCH] = { 0x1fb, CNTR_ALL },
+	[PERF_COUNT_HW_MISS_LOAD_PREFETCH] = { 0x1fc, CNTR_ALL },
+	[PERF_COUNT_HW_TAGGED_STORE_PREFETCH] = { 0x1fd, CNTR_ALL },
+	[PERF_COUNT_HW_MISS_STORE_PREFETCH] = { 0x1fe, CNTR_ALL },
+	[PERF_COUNT_HW_TAGGED_DATA_PREFETCH] = { 0x1ff, CNTR_ALL },
+	[PERF_COUNT_HW_MISS_DATA_PREFETCH] = { 0x200, CNTR_ALL },
+	[PERF_COUNT_HW_TAGGED_INST_PREFETCH] = { 0x201, CNTR_ALL },
+	[PERF_COUNT_HW_MISS_INST_PREFETCH] = { 0x202, CNTR_ALL },
+	[PERF_COUNT_HW_TAGGED_PREFETCH] = { 0x203, CNTR_ALL },
+	[PERF_COUNT_HW_MISS_PREFETCH] = { 0x204, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_AC_LOAD_PREFETCH] = { 0x205, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_AC_STORE_PREFETCH] = { 0x206, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_AC_DATA_PREFETCH] = { 0x207, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_AC_INST_PREFETCH] = { 0x208, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_AC_PREFETCH] = { 0x209, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_LOAD_PREFETCH] = { 0x20a, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_STORE_PREFETCH] = { 0x20b, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_DATA_PREFETCH] = { 0x20c, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_INST_PREFETCH] = { 0x20d, CNTR_ALL },
+	[PERF_COUNT_HW_SCACHE_VALID_PREFETCH] = { 0x20e, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_LOAD_PREFETCH] = { 0x20f, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_STORE_PREFETCH] = { 0x210, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_DATA_PREFETCH] = { 0x211, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_INST_PREFETCH] = { 0x212, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_PREFETCH] = { 0x213, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_LOAD_REQUEST] = { 0x214, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_STORE_REQUEST] = { 0x215, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_DATA_REQUEST] = { 0x216, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_INST_REQUEST] = { 0x217, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_RDY_REQUEST] = { 0x218, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_LOAD_REQ] = { 0x219, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_STORE_REQ] = { 0x21b, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_DATA_REQ] = { 0x21c, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_INST_REQ] = { 0x21d, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_PREFETCH_REQ] = { 0x21e, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_LOAD_PREFETCH] = { 0x21f, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_HIT_STORE_PREFETCH] = { 0x220, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_RDY_DATA_REQ] = { 0x221, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_RDY_INST_REQ] = { 0x222, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_RDY_PREFETCH] = { 0x223, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_SCREF_MISS_LOAD] = { 0x224, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_WAIT_HIT_LOAD_PREFETCH] = { 0x229, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_WAIT_HIT_STORE_PREFETCH] = { 0x22a, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_WAIT_HIT_DATA_PREFETCH] = { 0x22b, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_WAIT_HIT_INST_PREFETCH] = { 0x22c, CNTR_ALL },
+	[PERF_COUNT_HW_PRE_WAIT_HIT_PREFETCH] = { 0x22d, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_REPLACE_PRE_WAIT_PREFEETCH] = { 0x22e, CNTR_ALL },
+	[PERF_COUNT_HW_MISSQ_REPLACE_PRE_RDY_PREFEETCH] = { 0x22f, CNTR_ALL },
+	[PERF_COUNT_HW_PREFETCH_INV] = { 0x230, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_PREFETCH_OCCUPY] = { 0x231, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_PREFETCH_ISOCCUPY] = { 0x232, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_PREFETCH_OCCUPY] = { 0x233, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_PREFETCH_ISOCCUPY] = { 0x234, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_PREFETCH_OCCUPY] = { 0x235, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_PREFETCH_ISOCCUPY] = { 0x236, CNTR_ALL },
+	[PERF_COUNT_HW_INST_PREFETCH_OCCUPY] = { 0x237, CNTR_ALL },
+	[PERF_COUNT_HW_INST_PREFETCH_ISOCCUPY] = { 0x238, CNTR_ALL },
+	[PERF_COUNT_HW_LOAD_PRE_SCREF_PRE_RDY_HIT] = { 0x239, CNTR_ALL },
+	[PERF_COUNT_HW_STORE_PRE_SCREF_PRE_RDY_HIT] = { 0x23a, CNTR_ALL },
+	[PERF_COUNT_HW_DATA_PRE_SCREF_PRE_RDY_HIT] = { 0x23b, CNTR_ALL },
+	[PERF_COUNT_HW_INST_PRE_SCREF_PRE_RDY_HIT] = { 0x23c, CNTR_ALL },
+	[PERF_COUNT_HW_PREFETCH_PRE_SCREF_PRE_RDY_HIT] = { 0x23d, CNTR_ALL },
+#endif
 };
-
-static const struct mips_perf_event loongson3_event_map[PERF_COUNT_HW_MAX] = {
-        [PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN, P },
-        [PERF_COUNT_HW_INSTRUCTIONS] = { 0x00, CNTR_ODD, T },
-        [PERF_COUNT_HW_CACHE_REFERENCES] = { UNSUPPORTED_PERF_EVENT_ID },
-        [PERF_COUNT_HW_CACHE_MISSES] = { UNSUPPORTED_PERF_EVENT_ID },
-        [PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x01, CNTR_EVEN, T },
-        [PERF_COUNT_HW_BRANCH_MISSES] = { 0x01, CNTR_ODD, T },
-        [PERF_COUNT_HW_BUS_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
-};
-
 /* 24K/34K/1004K cores can share the same cache event map. */
 static const struct mips_perf_event mipsxxcore_cache_map
 				[PERF_COUNT_HW_CACHE_MAX]
@@ -880,6 +1372,10 @@ static const struct mips_perf_event mipsxxcore_cache_map
 		[C(RESULT_ACCESS)]	= { 0x0a, CNTR_EVEN, T },
 		[C(RESULT_MISS)]	= { 0x0b, CNTR_EVEN | CNTR_ODD, T },
 	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(L1I)] = {
 	[C(OP_READ)] = {
@@ -896,6 +1392,7 @@ static const struct mips_perf_event mipsxxcore_cache_map
 		 * Note that MIPS has only "hit" events countable for
 		 * the prefetch operation.
 		 */
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(LL)] = {
@@ -907,6 +1404,10 @@ static const struct mips_perf_event mipsxxcore_cache_map
 		[C(RESULT_ACCESS)]	= { 0x15, CNTR_ODD, P },
 		[C(RESULT_MISS)]	= { 0x16, CNTR_EVEN, P },
 	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(DTLB)] = {
 	[C(OP_READ)] = {
@@ -916,6 +1417,10 @@ static const struct mips_perf_event mipsxxcore_cache_map
 	[C(OP_WRITE)] = {
 		[C(RESULT_ACCESS)]	= { 0x06, CNTR_EVEN, T },
 		[C(RESULT_MISS)]	= { 0x06, CNTR_ODD, T },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(ITLB)] = {
@@ -927,6 +1432,10 @@ static const struct mips_perf_event mipsxxcore_cache_map
 		[C(RESULT_ACCESS)]	= { 0x05, CNTR_EVEN, T },
 		[C(RESULT_MISS)]	= { 0x05, CNTR_ODD, T },
 	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(BPU)] = {
 	/* Using the same code for *HW_BRANCH* */
@@ -937,6 +1446,24 @@ static const struct mips_perf_event mipsxxcore_cache_map
 	[C(OP_WRITE)] = {
 		[C(RESULT_ACCESS)]	= { 0x02, CNTR_EVEN, T },
 		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD, T },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(NODE)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 };
@@ -961,6 +1488,10 @@ static const struct mips_perf_event mipsxx74Kcore_cache_map
 		[C(RESULT_ACCESS)]	= { 0x17, CNTR_ODD, T },
 		[C(RESULT_MISS)]	= { 0x18, CNTR_ODD, T },
 	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(L1I)] = {
 	[C(OP_READ)] = {
@@ -977,6 +1508,7 @@ static const struct mips_perf_event mipsxx74Kcore_cache_map
 		 * Note that MIPS has only "hit" events countable for
 		 * the prefetch operation.
 		 */
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(LL)] = {
@@ -987,6 +1519,25 @@ static const struct mips_perf_event mipsxx74Kcore_cache_map
 	[C(OP_WRITE)] = {
 		[C(RESULT_ACCESS)]	= { 0x1c, CNTR_ODD, P },
 		[C(RESULT_MISS)]	= { 0x1d, CNTR_EVEN | CNTR_ODD, P },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(DTLB)] = {
+	/* 74K core does not have specific DTLB events. */
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(ITLB)] = {
@@ -998,6 +1549,10 @@ static const struct mips_perf_event mipsxx74Kcore_cache_map
 		[C(RESULT_ACCESS)]	= { 0x04, CNTR_EVEN, T },
 		[C(RESULT_MISS)]	= { 0x04, CNTR_ODD, T },
 	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(BPU)] = {
 	/* Using the same code for *HW_BRANCH* */
@@ -1008,65 +1563,24 @@ static const struct mips_perf_event mipsxx74Kcore_cache_map
 	[C(OP_WRITE)] = {
 		[C(RESULT_ACCESS)]	= { 0x27, CNTR_EVEN, T },
 		[C(RESULT_MISS)]	= { 0x27, CNTR_ODD, T },
-	},
-},
-};
-
-/* BMIPS5000 */
-static const struct mips_perf_event bmips5000_cache_map
-				[PERF_COUNT_HW_CACHE_MAX]
-				[PERF_COUNT_HW_CACHE_OP_MAX]
-				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
-[C(L1D)] = {
-	/*
-	 * Like some other architectures (e.g. ARM), the performance
-	 * counters don't differentiate between read and write
-	 * accesses/misses, so this isn't strictly correct, but it's the
-	 * best we can do. Writes and reads get combined.
-	 */
-	[C(OP_READ)] = {
-		[C(RESULT_ACCESS)]	= { 12, CNTR_EVEN, T },
-		[C(RESULT_MISS)]	= { 12, CNTR_ODD, T },
-	},
-	[C(OP_WRITE)] = {
-		[C(RESULT_ACCESS)]	= { 12, CNTR_EVEN, T },
-		[C(RESULT_MISS)]	= { 12, CNTR_ODD, T },
-	},
-},
-[C(L1I)] = {
-	[C(OP_READ)] = {
-		[C(RESULT_ACCESS)]	= { 10, CNTR_EVEN, T },
-		[C(RESULT_MISS)]	= { 10, CNTR_ODD, T },
-	},
-	[C(OP_WRITE)] = {
-		[C(RESULT_ACCESS)]	= { 10, CNTR_EVEN, T },
-		[C(RESULT_MISS)]	= { 10, CNTR_ODD, T },
 	},
 	[C(OP_PREFETCH)] = {
-		[C(RESULT_ACCESS)]	= { 23, CNTR_EVEN, T },
-		/*
-		 * Note that MIPS has only "hit" events countable for
-		 * the prefetch operation.
-		 */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
-[C(LL)] = {
+[C(NODE)] = {
 	[C(OP_READ)] = {
-		[C(RESULT_ACCESS)]	= { 28, CNTR_EVEN, P },
-		[C(RESULT_MISS)]	= { 28, CNTR_ODD, P },
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 	[C(OP_WRITE)] = {
-		[C(RESULT_ACCESS)]	= { 28, CNTR_EVEN, P },
-		[C(RESULT_MISS)]	= { 28, CNTR_ODD, P },
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
-},
-[C(BPU)] = {
-	/* Using the same code for *HW_BRANCH* */
-	[C(OP_READ)] = {
-		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD, T },
-	},
-	[C(OP_WRITE)] = {
-		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD, T },
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 };
@@ -1083,63 +1597,39 @@ static const struct mips_perf_event octeon_cache_map
 	},
 	[C(OP_WRITE)] = {
 		[C(RESULT_ACCESS)]	= { 0x30, CNTR_ALL },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(L1I)] = {
 	[C(OP_READ)] = {
 		[C(RESULT_ACCESS)]	= { 0x18, CNTR_ALL },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 	[C(OP_PREFETCH)] = {
 		[C(RESULT_ACCESS)]	= { 0x19, CNTR_ALL },
-	},
-},
-[C(DTLB)] = {
-	/*
-	 * Only general DTLB misses are counted use the same event for
-	 * read and write.
-	 */
-	[C(OP_READ)] = {
-		[C(RESULT_MISS)]	= { 0x35, CNTR_ALL },
-	},
-	[C(OP_WRITE)] = {
-		[C(RESULT_MISS)]	= { 0x35, CNTR_ALL },
-	},
-},
-[C(ITLB)] = {
-	[C(OP_READ)] = {
-		[C(RESULT_MISS)]	= { 0x37, CNTR_ALL },
-	},
-},
-};
-
-static const struct mips_perf_event xlp_cache_map
-				[PERF_COUNT_HW_CACHE_MAX]
-				[PERF_COUNT_HW_CACHE_OP_MAX]
-				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
-[C(L1D)] = {
-	[C(OP_READ)] = {
-		[C(RESULT_ACCESS)]	= { 0x31, CNTR_ALL }, /* PAPI_L1_DCR */
-		[C(RESULT_MISS)]	= { 0x30, CNTR_ALL }, /* PAPI_L1_LDM */
-	},
-	[C(OP_WRITE)] = {
-		[C(RESULT_ACCESS)]	= { 0x2f, CNTR_ALL }, /* PAPI_L1_DCW */
-		[C(RESULT_MISS)]	= { 0x2e, CNTR_ALL }, /* PAPI_L1_STM */
-	},
-},
-[C(L1I)] = {
-	[C(OP_READ)] = {
-		[C(RESULT_ACCESS)]	= { 0x04, CNTR_ALL }, /* PAPI_L1_ICA */
-		[C(RESULT_MISS)]	= { 0x07, CNTR_ALL }, /* PAPI_L1_ICM */
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(LL)] = {
 	[C(OP_READ)] = {
-		[C(RESULT_ACCESS)]	= { 0x35, CNTR_ALL }, /* PAPI_L2_DCR */
-		[C(RESULT_MISS)]	= { 0x37, CNTR_ALL }, /* PAPI_L2_LDM */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 	[C(OP_WRITE)] = {
-		[C(RESULT_ACCESS)]	= { 0x34, CNTR_ALL }, /* PAPI_L2_DCA */
-		[C(RESULT_MISS)]	= { 0x36, CNTR_ALL }, /* PAPI_L2_DCM */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(DTLB)] = {
@@ -1148,142 +1638,278 @@ static const struct mips_perf_event xlp_cache_map
 	 * read and write.
 	 */
 	[C(OP_READ)] = {
-		[C(RESULT_MISS)]	= { 0x2d, CNTR_ALL }, /* PAPI_TLB_DM */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x35, CNTR_ALL },
 	},
 	[C(OP_WRITE)] = {
-		[C(RESULT_MISS)]	= { 0x2d, CNTR_ALL }, /* PAPI_TLB_DM */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x35, CNTR_ALL },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(ITLB)] = {
 	[C(OP_READ)] = {
-		[C(RESULT_MISS)]	= { 0x08, CNTR_ALL }, /* PAPI_TLB_IM */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x37, CNTR_ALL },
 	},
 	[C(OP_WRITE)] = {
-		[C(RESULT_MISS)]	= { 0x08, CNTR_ALL }, /* PAPI_TLB_IM */
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 [C(BPU)] = {
+	/* Using the same code for *HW_BRANCH* */
 	[C(OP_READ)] = {
-		[C(RESULT_MISS)]	= { 0x25, CNTR_ALL },
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+};
+
+static const struct mips_perf_event loongson3a2000_cache_map
+				[PERF_COUNT_HW_CACHE_MAX]
+				[PERF_COUNT_HW_CACHE_OP_MAX]
+				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
+[C(L1D)] = {
+	/*
+	 * Like some other architectures (e.g. ARM), the performance
+	 * counters don't differentiate between read and write
+	 * accesses/misses, so this isn't strictly correct, but it's the
+	 * best we can do. Writes and reads get combined.
+	 */
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_ODD },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_ODD },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(L1I)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x17, CNTR_ALL },
+		[C(RESULT_MISS)]	= { 0x18, CNTR_ALL },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		/*
+		 * Note that MIPS has only "hit" events countable for
+		 * the prefetch operation.
+		 */
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(LL)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x1b6, CNTR_ALL },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { 0x1b7, CNTR_ALL },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { 0x1bf, CNTR_ALL },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(DTLB)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x92, CNTR_ODD },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(ITLB)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x1a, CNTR_ALL },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(BPU)] = {
+	/* Using the same code for *HW_BRANCH* */
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x02, CNTR_EVEN },
+		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { 0x02, CNTR_EVEN },
+		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+},
+[C(NODE)] = {
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
 	},
 },
 };
 
 static const struct mips_perf_event loongson3_cache_map
-                                [PERF_COUNT_HW_CACHE_MAX]
-                                [PERF_COUNT_HW_CACHE_OP_MAX]
-                                [PERF_COUNT_HW_CACHE_RESULT_MAX] = {
+				[PERF_COUNT_HW_CACHE_MAX]
+				[PERF_COUNT_HW_CACHE_OP_MAX]
+				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 [C(L1D)] = {
-        /*
-         * Like some other architectures (e.g. ARM), the performance
-         * counters don't differentiate between read and write
-         * accesses/misses, so this isn't strictly correct, but it's the
-         * best we can do. Writes and reads get combined.
-         */
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x04, CNTR_ODD, T },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x04, CNTR_ODD, T },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	/*
+	 * Like some other architectures (e.g. ARM), the performance
+	 * counters don't differentiate between read and write
+	 * accesses/misses, so this isn't strictly correct, but it's the
+	 * best we can do. Writes and reads get combined.
+	 */
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_ODD, T },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_ODD, T },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(L1I)] = {
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x04, CNTR_EVEN, T },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x04, CNTR_EVEN, T },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                /*
-                 * Note that MIPS has only "hit" events countable for
-                 * the prefetch operation.
-                 */
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_EVEN, T },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x04, CNTR_EVEN, T },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		/*
+		 * Note that MIPS has only "hit" events countable for
+		 * the prefetch operation.
+		 */
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(LL)] = {
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(DTLB)] = {
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x09, CNTR_ODD, P },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x09, CNTR_ODD, P },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x09, CNTR_ODD, P },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x09, CNTR_ODD, P },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(ITLB)] = {
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x0c, CNTR_ODD, P },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { 0x0c, CNTR_ODD, P },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x0c, CNTR_ODD, P },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { 0x0c, CNTR_ODD, P },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(BPU)] = {
-        /* Using the same code for *HW_BRANCH* */
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { 0x02, CNTR_EVEN, T },
-                [C(RESULT_MISS)]        = { 0x02, CNTR_ODD, T },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { 0x02, CNTR_EVEN, T },
-                [C(RESULT_MISS)]        = { 0x02, CNTR_ODD, T },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	/* Using the same code for *HW_BRANCH* */
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { 0x02, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD, T },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { 0x02, CNTR_EVEN, T },
+		[C(RESULT_MISS)]	= { 0x02, CNTR_ODD, T },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 [C(NODE)] = {
-        [C(OP_READ)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
-        [C(OP_WRITE)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
-        [C(OP_PREFETCH)] = {
-                [C(RESULT_ACCESS)]      = { UNSUPPORTED_PERF_EVENT_ID },
-                [C(RESULT_MISS)]        = { UNSUPPORTED_PERF_EVENT_ID },
-        },
+	[C(OP_READ)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_WRITE)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
+	[C(OP_PREFETCH)] = {
+		[C(RESULT_ACCESS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+		[C(RESULT_MISS)]	= { UNSUPPORTED_PERF_EVENT_ID },
+	},
 },
 };
-                          
 #ifdef CONFIG_MIPS_MT_SMP
 static void check_and_calc_range(struct perf_event *event,
 				 const struct mips_perf_event *pev)
@@ -1430,7 +2056,7 @@ static int mipsxx_pmu_handle_shared_irq(void)
 	int handled = IRQ_NONE;
 	struct pt_regs *regs;
 
-	if (cpu_has_perf_cntr_intr_bit && !(read_c0_cause() & CAUSEF_PCI))
+	if (!(read_c0_cause() & (1 << 26)))
 		return handled;
 	/*
 	 * First we pause the local counters, so that when we are locked
@@ -1440,7 +2066,7 @@ static int mipsxx_pmu_handle_shared_irq(void)
 	 * See also mipsxx_pmu_start().
 	 */
 	pause_local_counters();
-#ifdef CONFIG_MIPS_PERF_SHARED_TC_COUNTERS
+#ifdef CONFIG_MIPS_MT_SMP
 	read_lock(&pmuint_rwlock);
 #endif
 
@@ -1472,7 +2098,7 @@ static int mipsxx_pmu_handle_shared_irq(void)
 	if (handled == IRQ_HANDLED)
 		irq_work_run();
 
-#ifdef CONFIG_MIPS_PERF_SHARED_TC_COUNTERS
+#ifdef CONFIG_MIPS_MT_SMP
 	read_unlock(&pmuint_rwlock);
 #endif
 	resume_local_counters();
@@ -1497,7 +2123,7 @@ static irqreturn_t mipsxx_pmu_handle_irq(int irq, void *dev)
 	 (b) == 25 || (b) == 39 || (r) == 44 || (r) == 174 ||		\
 	 (r) == 176 || ((b) >= 50 && (b) <= 55) ||			\
 	 ((b) >= 64 && (b) <= 67))
-#define IS_RANGE_V_34K_EVENT(r) ((r) == 47)
+#define IS_RANGE_V_34K_EVENT(r)	((r) == 47)
 #endif
 
 /* 74K */
@@ -1516,11 +2142,6 @@ static irqreturn_t mipsxx_pmu_handle_irq(int irq, void *dev)
 	 ((b) >= 64 && (b) <= 67))
 #define IS_RANGE_V_1004K_EVENT(r)	((r) == 47)
 #endif
-
-/* BMIPS5000 */
-#define IS_BOTH_COUNTERS_BMIPS5000_EVENT(b)				\
-	((b) == 0 || (b) == 1)
-
 
 /*
  * User can use 0-255 raw events, where 0-127 for the events of even
@@ -1592,17 +2213,12 @@ static const struct mips_perf_event *mipsxx_pmu_map_raw_event(u64 config)
 			raw_event.range = T;
 #endif
 		break;
-	case CPU_BMIPS5000:
-		if (IS_BOTH_COUNTERS_BMIPS5000_EVENT(base_id))
-			raw_event.cntr_mask = CNTR_EVEN | CNTR_ODD;
-		else
-			raw_event.cntr_mask =
-				raw_id > 127 ? CNTR_ODD : CNTR_EVEN;
+
+	case CPU_LOONGSON3:
+		raw_event.cntr_mask =
+			raw_id > 127 ? CNTR_ODD : CNTR_EVEN;
 		break;
-        case CPU_LOONGSON3:
-                raw_event.cntr_mask =
-                        raw_id > 127 ? CNTR_ODD : CNTR_EVEN;
-                break;
+
 	}
 
 	return &raw_event;
@@ -1641,18 +2257,25 @@ static const struct mips_perf_event *octeon_pmu_map_raw_event(u64 config)
 	return &raw_event;
 }
 
-static const struct mips_perf_event *xlp_pmu_map_raw_event(u64 config)
+static const struct mips_perf_event *loongson3a2000_pmu_map_raw_event(u64 config)
 {
-	unsigned int raw_id = config & 0xff;
 
-	/* Only 1-63 are defined */
-	if ((raw_id < 0x01) || (raw_id > 0x3f))
-		return ERR_PTR(-EOPNOTSUPP);
+	unsigned int evt_id = config & 0x3ff;
+
 
 	raw_event.cntr_mask = CNTR_ALL;
-	raw_event.event_id = raw_id;
+	raw_event.event_id = evt_id;
 
-	return &raw_event;
+	if ((evt_id >= 1 && evt_id < 28) || 
+		(evt_id >= 64 && evt_id < 90) ||
+		(evt_id >= 128 && evt_id < 164) ||
+		(evt_id >= 192 && evt_id < 200) ||
+		(evt_id >= 256 && evt_id < 274) ||
+		(evt_id >= 320 && evt_id < 358) ||
+		(evt_id >= 384 && evt_id < 574))
+		return &raw_event;
+	else
+		return ERR_PTR(-EOPNOTSUPP);
 }
 
 static int __init
@@ -1661,15 +2284,13 @@ init_hw_perf_events(void)
 	int counters, irq;
 	int counter_bits;
 
-	pr_info("Performance counters: ");
-
 	counters = n_counters();
 	if (counters == 0) {
 		pr_cont("No available PMU.\n");
 		return -ENODEV;
 	}
 
-#ifdef CONFIG_MIPS_PERF_SHARED_TC_COUNTERS
+#ifdef CONFIG_MIPS_MT_SMP
 	cpu_has_mipsmt_pertccounters = read_c0_config7() & (1<<19);
 	if (!cpu_has_mipsmt_pertccounters)
 		counters = counters_total_to_per_cpu(counters);
@@ -1728,21 +2349,19 @@ init_hw_perf_events(void)
 		mipspmu.cache_event_map = &octeon_cache_map;
 		mipspmu.map_raw_event = octeon_pmu_map_raw_event;
 		break;
-	case CPU_BMIPS5000:
-		mipspmu.name = "BMIPS5000";
-		mipspmu.general_event_map = &bmips5000_event_map;
-		mipspmu.cache_event_map = &bmips5000_cache_map;
-		break;
-	case CPU_XLP:
-		mipspmu.name = "xlp";
-		mipspmu.general_event_map = &xlp_event_map;
-		mipspmu.cache_event_map = &xlp_cache_map;
-		mipspmu.map_raw_event = xlp_pmu_map_raw_event;
-		break;
 	case CPU_LOONGSON3:
-		mipspmu.name = "mips/loongson3";
+		mipspmu.name = "loongson3";
 		mipspmu.general_event_map = &loongson3_event_map;
 		mipspmu.cache_event_map = &loongson3_cache_map;
+        counters = 2;
+		if ((current_cpu_data.processor_id & PRID_REV_MASK)
+				== PRID_REV_LOONGSON3A2000) {
+			mipspmu.name = "loongson3a2000";
+			mipspmu.general_event_map = &loongson3a2000_event_map;
+			mipspmu.cache_event_map = &loongson3a2000_cache_map;
+			mipspmu.map_raw_event = loongson3a2000_pmu_map_raw_event;
+            counters = 4;
+		}
 		break;
 	default:
 		pr_cont("Either hardware does not support performance "
@@ -1754,12 +2373,23 @@ init_hw_perf_events(void)
 	mipspmu.irq = irq;
 
 	if (read_c0_perfctrl0() & M_PERFCTL_WIDE) {
-		mipspmu.max_period = (1ULL << 63) - 1;
-		mipspmu.valid_count = (1ULL << 63) - 1;
-		mipspmu.overflow = 1ULL << 63;
-		mipspmu.read_counter = mipsxx_pmu_read_counter_64;
-		mipspmu.write_counter = mipsxx_pmu_write_counter_64;
-		counter_bits = 64;
+		if ((current_cpu_data.processor_id & PRID_REV_MASK)
+				== PRID_REV_LOONGSON3A2000) {
+			mipspmu.write_counter = mipsxx_pmu_write_counter_48;
+			mipspmu.read_counter = mipsxx_pmu_read_counter_48;
+			mipspmu.max_period = (1ULL << 47) - 1;
+			mipspmu.valid_count = (1ULL << 47) - 1;
+			mipspmu.overflow = 1ULL << 47;
+			counter_bits = 48;
+
+		} else {
+			mipspmu.write_counter = mipsxx_pmu_write_counter_64;
+			mipspmu.read_counter = mipsxx_pmu_read_counter_64;
+			mipspmu.max_period = (1ULL << 63) - 1;
+			mipspmu.valid_count = (1ULL << 63) - 1;
+			mipspmu.overflow = 1ULL << 63;
+			counter_bits = 64;
+		}
 	} else {
 		mipspmu.max_period = (1ULL << 31) - 1;
 		mipspmu.valid_count = (1ULL << 31) - 1;
