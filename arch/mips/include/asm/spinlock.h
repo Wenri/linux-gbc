@@ -141,12 +141,14 @@ static inline void arch_spin_unlock(arch_spinlock_t *lock)
 	wmb();
 	__asm__ __volatile__(
 	"	.set	mips64r2			\n"
+        "       .set    noreorder       	    	\n"
 	"1:	ll	%1, %3				\n"
 	"	addiu	%2, %1, 1			\n"
 	"	ins	%1, %2, 0, 16			\n"
 	"	sc	%1, %0				\n"
 	"	beqz	%1, 1b				\n"
 	"	nop					\n"
+        "       .set    reorder   	    	    	\n"
 	"	.set	mips0				\n"
 	: "=m" (lock->lock), "=&r" (tmp), "=&r" (tmp2)
 	: "m" (lock->lock)
@@ -348,15 +350,32 @@ static inline void arch_write_lock(arch_rwlock_t *rw)
 
 static inline void arch_write_unlock(arch_rwlock_t *rw)
 {
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+	int tmp;
+#endif
 	smp_mb();
 
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+
+	__asm__ __volatile__(
+        "       .set    noreorder       # arch_write_unlock    	\n"
+	"1:	ll	%1, %0					\n"
+	"	move	%1, $0					\n"
+	"	sc	%1, %0					\n"
+	"	beqz	%1, 1b					\n"
+	"	nop						\n"
+        "       .set    reorder       			    	\n"
+	: "=m" (rw->lock), "=&r" (tmp)
+	: "m" (rw->lock)
+	: "memory");
+#else
 	__asm__ __volatile__(
 	"				# arch_write_unlock	\n"
 	"	sw	$0, %0					\n"
 	: "=m" (rw->lock)
 	: "m" (rw->lock)
 	: "memory");
-
+#endif
 	nudge_writes();
 }
 

@@ -38,8 +38,26 @@
  *
  * Atomically sets the value of @v to @i.
  */
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+static __inline__ void atomic_set(atomic_t * v,int i)
+{
+		int temp;
+		__asm__ __volatile__(
+		"	.set	mips3		# atomic_set		\n"
+                "       .set    noreorder       		    	\n"
+		"1:	ll	%0, %1					\n"
+		"	move	%0, %2					\n"
+		"	sc	%0, %1					\n"
+		"	beqz	%0, 1b					\n"
+		"	nop						\n"
+		"	.set	reorder					\n"
+		"	.set	mips0					\n"
+		: "=&r" (temp), "+m" (v->counter)
+		: "r" (i));
+}
+#else
 #define atomic_set(v, i)		((v)->counter = (i))
-
+#endif
 /*
  * atomic_add - add integer to atomic variable
  * @i: integer value to add
@@ -413,7 +431,26 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
  * @v: pointer of type atomic64_t
  * @i: required value
  */
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+static __inline__ void atomic64_set(atomic64_t * v,long i)
+{
+		long temp;
+		__asm__ __volatile__(
+		"	.set	mips3		# atomic64_set		\n"
+                "       .set    noreorder       		    	\n"
+		"1:	lld	%0, %1					\n"
+		"	move	%0, %2					\n"
+		"	scd	%0, %1					\n"
+		"	beqz	%0, 1b					\n"
+		"	nop						\n"
+                "       .set    reorder       			    	\n"
+		"	.set	mips0					\n"
+		: "=&r" (temp), "+m" (v->counter)
+		: "r" (i));
+}
+#else
 #define atomic64_set(v, i)	((v)->counter = (i))
+#endif
 
 /*
  * atomic64_add - add integer to atomic variable
@@ -567,6 +604,9 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 	long result;
 
 #ifdef CONFIG_PHASE_LOCK
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+	int tmp;
+#endif
 	unsigned long flags;
 	u32 my_node_id, my_tmp, my_cpu;
 	static u32 phase_lock[32];
@@ -650,9 +690,21 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 
 	__asm__ __volatile__(
 		"	.set	noreorder       # unlock for phase   	\n"
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+		"1:	ll	%1, %0					\n"
+		"	move	%1, $0					\n"
+		"	sc	%1, %0					\n"
+		"	beqz	%1, 1b					\n"
+		"	nop						\n"
+#else
 		"	sw	$0, %0                                  \n"
+#endif
 		"	.set\treorder                                 	\n"
+#ifdef CONFIG_CPU_LOONGSON3_GS464E
+		: "=m" (phase_lock[my_node_id]), "=&r" (tmp)
+#else
 		: "=m" (phase_lock[my_node_id])
+#endif
 		: "m" (phase_lock[my_node_id])
 		: "memory");
 
