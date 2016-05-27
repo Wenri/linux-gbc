@@ -22,10 +22,6 @@
 	mfc0	t0, $16, 6
 	or	t0, 0x100
 	mtc0	t0, $16, 6
-	/* disable sw combine */
-	mfc0    t0, $16, 6
-	ori     t0, 0x200
-	mtc0    t0, $16, 6
 #endif
 	/* Set LPA on LOONGSON3 config3 */
 	mfc0	t0, $16, 3
@@ -52,10 +48,6 @@
 	mfc0	t0, $16, 6
 	or	t0, 0x100
 	mtc0	t0, $16, 6
-	/* disable sw combine */
-	mfc0    t0, $16, 6
-	ori     t0, 0x200
-	mtc0    t0, $16, 6
 #endif
 	/* Set LPA on LOONGSON3 config3 */
 	mfc0	t0, $16, 3
