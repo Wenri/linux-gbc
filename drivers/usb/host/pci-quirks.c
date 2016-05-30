@@ -79,6 +79,9 @@
 #define USB_INTEL_USB3_PSSEN   0xD8
 #define USB_INTEL_USB3PRM      0xDC
 
+u32 ls2h_usb_readl(const volatile void __iomem *);
+void ls2h_usb_writel(u32 , volatile void __iomem *);
+
 static struct amd_chipset_info {
 	struct pci_dev	*nb_dev;
 	struct pci_dev	*smbus_dev;
@@ -488,7 +491,7 @@ static void quirk_usb_handoff_ohci(struct pci_dev *pdev)
 	if (pdev->vendor == PCI_VENDOR_ID_AL && pdev->device == 0x5237)
 		no_fminterval = true;
 
-	control = readl(base + OHCI_CONTROL);
+	control = ls2h_usb_readl(base + OHCI_CONTROL);
 
 /* On PA-RISC, PDC can leave IR set incorrectly; ignore it there. */
 #ifdef __hppa__
@@ -498,28 +501,28 @@ static void quirk_usb_handoff_ohci(struct pci_dev *pdev)
 
 	if (control & OHCI_CTRL_IR) {
 		int wait_time = 500; /* arbitrary; 5 seconds */
-		writel(OHCI_INTR_OC, base + OHCI_INTRENABLE);
-		writel(OHCI_OCR, base + OHCI_CMDSTATUS);
+		ls2h_usb_writel(OHCI_INTR_OC, base + OHCI_INTRENABLE);
+		ls2h_usb_writel(OHCI_OCR, base + OHCI_CMDSTATUS);
 		while (wait_time > 0 &&
-				readl(base + OHCI_CONTROL) & OHCI_CTRL_IR) {
+				ls2h_usb_readl(base + OHCI_CONTROL) & OHCI_CTRL_IR) {
 			wait_time -= 10;
 			msleep(10);
 		}
 		if (wait_time <= 0)
 			dev_warn(&pdev->dev, "OHCI: BIOS handoff failed"
 					" (BIOS bug?) %08x\n",
-					readl(base + OHCI_CONTROL));
+					ls2h_usb_readl(base + OHCI_CONTROL));
 	}
 #endif
 
 	/* disable interrupts */
-	writel((u32) ~0, base + OHCI_INTRDISABLE);
+	ls2h_usb_writel((u32) ~0, base + OHCI_INTRDISABLE);
 
 	/* Reset the USB bus, if the controller isn't already in RESET */
 	if (control & OHCI_HCFS) {
 		/* Go into RESET, preserving RWC (and possibly IR) */
-		writel(control & OHCI_CTRL_MASK, base + OHCI_CONTROL);
-		readl(base + OHCI_CONTROL);
+		ls2h_usb_writel(control & OHCI_CTRL_MASK, base + OHCI_CONTROL);
+		ls2h_usb_readl(base + OHCI_CONTROL);
 
 		/* drive bus reset for at least 50 ms (7.1.7.5) */
 		msleep(50);
@@ -527,19 +530,19 @@ static void quirk_usb_handoff_ohci(struct pci_dev *pdev)
 
 	/* software reset of the controller, preserving HcFmInterval */
 	if (!no_fminterval)
-		fminterval = readl(base + OHCI_FMINTERVAL);
+		fminterval = ls2h_usb_readl(base + OHCI_FMINTERVAL);
 
-	writel(OHCI_HCR, base + OHCI_CMDSTATUS);
+	ls2h_usb_writel(OHCI_HCR, base + OHCI_CMDSTATUS);
 
 	/* reset requires max 10 us delay */
 	for (cnt = 30; cnt > 0; --cnt) {	/* ... allow extra time */
-		if ((readl(base + OHCI_CMDSTATUS) & OHCI_HCR) == 0)
+		if ((ls2h_usb_readl(base + OHCI_CMDSTATUS) & OHCI_HCR) == 0)
 			break;
 		udelay(1);
 	}
 
 	if (!no_fminterval)
-		writel(fminterval, base + OHCI_FMINTERVAL);
+		ls2h_usb_writel(fminterval, base + OHCI_FMINTERVAL);
 
 	/* Now the controller is safely in SUSPEND and nothing can wake it up */
 	iounmap(base);
@@ -648,7 +651,7 @@ static void ehci_bios_handoff(struct pci_dev *pdev,
 	 * any power sessions to remain intact.
 	 */
 	if (tried_handoff)
-		writel(0, op_reg_base + EHCI_CONFIGFLAG);
+		ls2h_usb_writel(0, op_reg_base + EHCI_CONFIGFLAG);
 }
 
 static void quirk_usb_disable_ehci(struct pci_dev *pdev)
@@ -672,7 +675,7 @@ static void quirk_usb_disable_ehci(struct pci_dev *pdev)
 	 * spec section 5.1 explains the bios handoff, e.g. for
 	 * booting from USB disk or using a usb keyboard
 	 */
-	hcc_params = readl(base + EHCI_HCC_PARAMS);
+	hcc_params = ls2h_usb_readl(base + EHCI_HCC_PARAMS);
 	offset = (hcc_params >> 8) & 0xff;
 	while (offset && --count) {
 		pci_read_config_dword(pdev, offset, &cap);
@@ -695,25 +698,25 @@ static void quirk_usb_disable_ehci(struct pci_dev *pdev)
 	/*
 	 * halt EHCI & disable its interrupts in any case
 	 */
-	val = readl(op_reg_base + EHCI_USBSTS);
+	val = ls2h_usb_readl(op_reg_base + EHCI_USBSTS);
 	if ((val & EHCI_USBSTS_HALTED) == 0) {
-		val = readl(op_reg_base + EHCI_USBCMD);
+		val = ls2h_usb_readl(op_reg_base + EHCI_USBCMD);
 		val &= ~EHCI_USBCMD_RUN;
-		writel(val, op_reg_base + EHCI_USBCMD);
+		ls2h_usb_writel(val, op_reg_base + EHCI_USBCMD);
 
 		wait_time = 2000;
 		do {
-			writel(0x3f, op_reg_base + EHCI_USBSTS);
+			ls2h_usb_writel(0x3f, op_reg_base + EHCI_USBSTS);
 			udelay(100);
 			wait_time -= 100;
-			val = readl(op_reg_base + EHCI_USBSTS);
+			val = ls2h_usb_readl(op_reg_base + EHCI_USBSTS);
 			if ((val == ~(u32)0) || (val & EHCI_USBSTS_HALTED)) {
 				break;
 			}
 		} while (wait_time > 0);
 	}
-	writel(0, op_reg_base + EHCI_USBINTR);
-	writel(0x3f, op_reg_base + EHCI_USBSTS);
+	ls2h_usb_writel(0, op_reg_base + EHCI_USBINTR);
+	ls2h_usb_writel(0x3f, op_reg_base + EHCI_USBSTS);
 
 	iounmap(base);
 }
@@ -737,7 +740,7 @@ static int handshake(void __iomem *ptr, u32 mask, u32 done,
 	u32	result;
 
 	do {
-		result = readl(ptr);
+		result = ls2h_usb_readl(ptr);
 		result &= mask;
 		if (result == done)
 			return 0;
@@ -902,7 +905,7 @@ static void quirk_usb_handoff_xhci(struct pci_dev *pdev)
 			/* We've reached the end of the extended capabilities */
 			goto hc_init;
 
-		val = readl(base + ext_cap_offset);
+		val = ls2h_usb_readl(base + ext_cap_offset);
 		if (XHCI_EXT_CAPS_ID(val) == XHCI_EXT_CAPS_LEGACY)
 			break;
 		ext_cap_offset = xhci_find_next_cap_offset(base, ext_cap_offset);
@@ -910,7 +913,7 @@ static void quirk_usb_handoff_xhci(struct pci_dev *pdev)
 
 	/* If the BIOS owns the HC, signal that the OS wants it, and wait */
 	if (val & XHCI_HC_BIOS_OWNED) {
-		writel(val | XHCI_HC_OS_OWNED, base + ext_cap_offset);
+		ls2h_usb_writel(val | XHCI_HC_OS_OWNED, base + ext_cap_offset);
 
 		/* Wait for 5 seconds with 10 microsecond polling interval */
 		timeout = handshake(base + ext_cap_offset, XHCI_HC_BIOS_OWNED,
@@ -920,23 +923,23 @@ static void quirk_usb_handoff_xhci(struct pci_dev *pdev)
 		if (timeout) {
 			dev_warn(&pdev->dev, "xHCI BIOS handoff failed"
 					" (BIOS bug ?) %08x\n", val);
-			writel(val & ~XHCI_HC_BIOS_OWNED, base + ext_cap_offset);
+			ls2h_usb_writel(val & ~XHCI_HC_BIOS_OWNED, base + ext_cap_offset);
 		}
 	}
 
-	val = readl(base + ext_cap_offset + XHCI_LEGACY_CONTROL_OFFSET);
+	val = ls2h_usb_readl(base + ext_cap_offset + XHCI_LEGACY_CONTROL_OFFSET);
 	/* Mask off (turn off) any enabled SMIs */
 	val &= XHCI_LEGACY_DISABLE_SMI;
 	/* Mask all SMI events bits, RW1C */
 	val |= XHCI_LEGACY_SMI_EVENTS;
 	/* Disable any BIOS SMIs and clear all SMI events*/
-	writel(val, base + ext_cap_offset + XHCI_LEGACY_CONTROL_OFFSET);
+	ls2h_usb_writel(val, base + ext_cap_offset + XHCI_LEGACY_CONTROL_OFFSET);
 
 hc_init:
 	if (usb_is_intel_switchable_xhci(pdev))
 		usb_enable_xhci_ports(pdev);
 
-	op_reg_base = base + XHCI_HC_LENGTH(readl(base));
+	op_reg_base = base + XHCI_HC_LENGTH(ls2h_usb_readl(base));
 
 	/* Wait for the host controller to be ready before writing any
 	 * operational or runtime registers.  Wait 5 seconds and no more.
@@ -945,22 +948,22 @@ hc_init:
 			5000, 10);
 	/* Assume a buggy HC and start HC initialization anyway */
 	if (timeout) {
-		val = readl(op_reg_base + XHCI_STS_OFFSET);
+		val = ls2h_usb_readl(op_reg_base + XHCI_STS_OFFSET);
 		dev_warn(&pdev->dev,
 				"xHCI HW not ready after 5 sec (HC bug?) "
 				"status = 0x%x\n", val);
 	}
 
 	/* Send the halt and disable interrupts command */
-	val = readl(op_reg_base + XHCI_CMD_OFFSET);
+	val = ls2h_usb_readl(op_reg_base + XHCI_CMD_OFFSET);
 	val &= ~(XHCI_CMD_RUN | XHCI_IRQS);
-	writel(val, op_reg_base + XHCI_CMD_OFFSET);
+	ls2h_usb_writel(val, op_reg_base + XHCI_CMD_OFFSET);
 
 	/* Wait for the HC to halt - poll every 125 usec (one microframe). */
 	timeout = handshake(op_reg_base + XHCI_STS_OFFSET, XHCI_STS_HALT, 1,
 			XHCI_MAX_HALT_USEC, 125);
 	if (timeout) {
-		val = readl(op_reg_base + XHCI_STS_OFFSET);
+		val = ls2h_usb_readl(op_reg_base + XHCI_STS_OFFSET);
 		dev_warn(&pdev->dev,
 				"xHCI HW did not halt within %d usec "
 				"status = 0x%x\n", XHCI_MAX_HALT_USEC, val);

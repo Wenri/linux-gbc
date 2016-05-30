@@ -993,7 +993,7 @@ static int ehci_hub_control (
 			/* If the debug port is active any port
 			 * feature requests should get denied */
 			if (wIndex == HCS_DEBUG_PORT(ehci->hcs_params) &&
-			    (readl(&ehci->debug->control) & DBGP_ENABLED)) {
+			    (ls2h_usb_readl(&ehci->debug->control) & DBGP_ENABLED)) {
 				retval = -ENODEV;
 				goto error_exit;
 			}

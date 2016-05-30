@@ -24,7 +24,7 @@ static void ls2h_start_hc(struct platform_device *pdev)
 	/*
 	 * The USB host controller must remain in reset.
 	 */
-	writel(0, &regs->control);
+	ls2h_usb_writel(0, &regs->control);
 }
 
 static void ls2h_stop_hc(struct platform_device *pdev)
@@ -37,7 +37,7 @@ static void ls2h_stop_hc(struct platform_device *pdev)
 	/*
 	 * Put the USB host controller into reset.
 	 */
-	writel(0, &regs->control);
+	ls2h_usb_writel(0, &regs->control);
 
 }
 

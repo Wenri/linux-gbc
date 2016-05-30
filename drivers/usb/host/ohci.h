@@ -549,6 +549,9 @@ static inline struct usb_hcd *ohci_to_hcd (const struct ohci_hcd *ohci)
 #define big_endian_mmio(ohci)	0		/* only little endian */
 #endif
 
+u32 ls2h_usb_readl(const volatile void __iomem *);
+void ls2h_usb_writel(u32 , volatile void __iomem *);
+
 /*
  * Big-endian read/write functions are arch-specific.
  * Other arches can be added if/when they're needed.
@@ -562,7 +565,7 @@ static inline unsigned int _ohci_readl (const struct ohci_hcd *ohci,
 		readl_be (regs) :
 		readl (regs);
 #else
-	return readl (regs);
+	return ls2h_usb_readl (regs);
 #endif
 }
 
@@ -574,7 +577,7 @@ static inline void _ohci_writel (const struct ohci_hcd *ohci,
 		writel_be (val, regs) :
 		writel (val, regs);
 #else
-		writel (val, regs);
+		ls2h_usb_writel (val, regs);
 #endif
 }
 

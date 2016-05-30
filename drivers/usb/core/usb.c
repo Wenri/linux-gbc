@@ -993,6 +993,49 @@ static void usb_debugfs_cleanup(void)
 	debugfs_remove(usb_debug_root);
 }
 
+#if	defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_LS2H_SB)
+rwlock_t ls2h_usb_rwlock;
+
+u32 ls2h_usb_readl(const volatile void __iomem *addr)
+{
+	u32 ret;
+	unsigned long flags;
+
+	if (board_type == LS2H) {
+		read_lock_irqsave(&ls2h_usb_rwlock,flags);
+		ret = readl(addr);
+		read_unlock_irqrestore(&ls2h_usb_rwlock,flags);
+		return ret;
+	}else{
+		return readl(addr);
+	}
+}
+
+void ls2h_usb_writel(u32 value, volatile void __iomem *addr)
+{
+
+	unsigned long flags;
+
+	if (board_type == LS2H) {
+		write_lock_irqsave(&ls2h_usb_rwlock,flags);
+		writel(value,addr);
+		write_unlock_irqrestore(&ls2h_usb_rwlock,flags);
+	}else{
+		writel(value,addr);
+	}
+}
+#else
+u32 ls2h_usb_readl(const volatile void __iomem *addr)
+{
+	return readl(addr);
+}
+
+void ls2h_usb_writel(u32 value, volatile void __iomem *addr)
+{
+	writel(value,addr);
+}
+#endif
+
 /*
  * Init
  */
@@ -1004,7 +1047,11 @@ static int __init usb_init(void)
 		return 0;
 	}
 	usb_init_pool_max();
-
+#if	defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_LS2H_SB)
+	if (board_type == LS2H) {
+		rwlock_init(&ls2h_usb_rwlock);
+	}
+#endif
 	retval = usb_debugfs_init();
 	if (retval)
 		goto out;

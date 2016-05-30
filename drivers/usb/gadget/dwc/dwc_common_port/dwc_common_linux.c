@@ -56,6 +56,8 @@
 #include "dwc_os.h"
 #include "dwc_list.h"
 
+u32 ls2h_usb_readl(const volatile void __iomem *);
+void ls2h_usb_writel(u32 , volatile void __iomem *);
 
 /* MISC */
 
@@ -558,7 +560,7 @@ uint16_t DWC_BE16_TO_CPU(uint16_t *p)
 
 uint32_t DWC_READ_REG32(uint32_t volatile *reg)
 {
-	return readl(reg);
+	return ls2h_usb_readl(reg);
 }
 
 #if 0
@@ -569,7 +571,7 @@ uint64_t DWC_READ_REG64(uint64_t volatile *reg)
 
 void DWC_WRITE_REG32(uint32_t volatile *reg, uint32_t value)
 {
-	writel(value, reg);
+	ls2h_usb_writel(value, reg);
 }
 
 #if 0
@@ -580,7 +582,7 @@ void DWC_WRITE_REG64(uint64_t volatile *reg, uint64_t value)
 
 void DWC_MODIFY_REG32(uint32_t volatile *reg, uint32_t clear_mask, uint32_t set_mask)
 {
-	writel((readl(reg) & ~clear_mask) | set_mask, reg);
+	ls2h_usb_writel((ls2h_usb_readl(reg) & ~clear_mask) | set_mask, reg);
 }
 
 #if 0

@@ -78,13 +78,13 @@ static void dbgp_ehci_status(char *str)
 	if (!ehci_debug)
 		return;
 	dbgp_printk("dbgp: %s\n", str);
-	dbgp_printk("  Debug control: %08x", readl(&ehci_debug->control));
-	dbgp_printk("  ehci cmd     : %08x", readl(&ehci_regs->command));
+	dbgp_printk("  Debug control: %08x", ls2h_usb_readl(&ehci_debug->control));
+	dbgp_printk("  ehci cmd     : %08x", ls2h_usb_readl(&ehci_regs->command));
 	dbgp_printk("  ehci conf flg: %08x\n",
-		    readl(&ehci_regs->configured_flag));
-	dbgp_printk("  ehci status  : %08x", readl(&ehci_regs->status));
+		    ls2h_usb_readl(&ehci_regs->configured_flag));
+	dbgp_printk("  ehci status  : %08x", ls2h_usb_readl(&ehci_regs->status));
 	dbgp_printk("  ehci portsc  : %08x\n",
-		    readl(&ehci_regs->port_status[dbgp_phys_port - 1]));
+		    ls2h_usb_readl(&ehci_regs->port_status[dbgp_phys_port - 1]));
 }
 #else
 static inline void dbgp_ehci_status(char *str) { }
@@ -164,7 +164,7 @@ static int dbgp_wait_until_complete(void)
 	int loop = DBGP_TIMEOUT;
 
 	do {
-		ctrl = readl(&ehci_debug->control);
+		ctrl = ls2h_usb_readl(&ehci_debug->control);
 		/* Stop when the transaction is finished */
 		if (ctrl & DBGP_DONE)
 			break;
@@ -178,7 +178,7 @@ static int dbgp_wait_until_complete(void)
 	 * Now that we have observed the completed transaction,
 	 * clear the done bit.
 	 */
-	writel(ctrl | DBGP_DONE, &ehci_debug->control);
+	ls2h_usb_writel(ctrl | DBGP_DONE, &ehci_debug->control);
 	return (ctrl & DBGP_ERROR) ? -DBGP_ERRCODE(ctrl) : DBGP_LEN(ctrl);
 }
 
@@ -203,9 +203,9 @@ static int dbgp_wait_until_done(unsigned ctrl, int loop)
 	int ret;
 
 retry:
-	writel(ctrl | DBGP_GO, &ehci_debug->control);
+	ls2h_usb_writel(ctrl | DBGP_GO, &ehci_debug->control);
 	ret = dbgp_wait_until_complete();
-	pids = readl(&ehci_debug->pids);
+	pids = ls2h_usb_readl(&ehci_debug->pids);
 	lpid = DBGP_PID_GET(pids);
 
 	if (ret < 0) {
@@ -249,8 +249,8 @@ static inline void dbgp_set_data(const void *buf, int size)
 		lo |= bytes[i] << (8*i);
 	for (; i < 8 && i < size; i++)
 		hi |= bytes[i] << (8*(i - 4));
-	writel(lo, &ehci_debug->data03);
-	writel(hi, &ehci_debug->data47);
+	ls2h_usb_writel(lo, &ehci_debug->data03);
+	ls2h_usb_writel(hi, &ehci_debug->data47);
 }
 
 static inline void dbgp_get_data(void *buf, int size)
@@ -259,8 +259,8 @@ static inline void dbgp_get_data(void *buf, int size)
 	u32 lo, hi;
 	int i;
 
-	lo = readl(&ehci_debug->data03);
-	hi = readl(&ehci_debug->data47);
+	lo = ls2h_usb_readl(&ehci_debug->data03);
+	hi = ls2h_usb_readl(&ehci_debug->data47);
 	for (i = 0; i < 4 && i < size; i++)
 		bytes[i] = (lo >> (8*i)) & 0xff;
 	for (; i < 8 && i < size; i++)
@@ -279,17 +279,17 @@ static int dbgp_bulk_write(unsigned devnum, unsigned endpoint,
 
 	addr = DBGP_EPADDR(devnum, endpoint);
 
-	pids = readl(&ehci_debug->pids);
+	pids = ls2h_usb_readl(&ehci_debug->pids);
 	pids = dbgp_pid_write_update(pids, USB_PID_OUT);
 
-	ctrl = readl(&ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	ctrl = dbgp_len_update(ctrl, size);
 	ctrl |= DBGP_OUT;
 	ctrl |= DBGP_GO;
 
 	dbgp_set_data(bytes, size);
-	writel(addr, &ehci_debug->address);
-	writel(pids, &ehci_debug->pids);
+	ls2h_usb_writel(addr, &ehci_debug->address);
+	ls2h_usb_writel(pids, &ehci_debug->pids);
 	ret = dbgp_wait_until_done(ctrl, DBGP_LOOPS);
 
 	return ret;
@@ -306,16 +306,16 @@ static int dbgp_bulk_read(unsigned devnum, unsigned endpoint, void *data,
 
 	addr = DBGP_EPADDR(devnum, endpoint);
 
-	pids = readl(&ehci_debug->pids);
+	pids = ls2h_usb_readl(&ehci_debug->pids);
 	pids = dbgp_pid_read_update(pids, USB_PID_IN);
 
-	ctrl = readl(&ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	ctrl = dbgp_len_update(ctrl, size);
 	ctrl &= ~DBGP_OUT;
 	ctrl |= DBGP_GO;
 
-	writel(addr, &ehci_debug->address);
-	writel(pids, &ehci_debug->pids);
+	ls2h_usb_writel(addr, &ehci_debug->address);
+	ls2h_usb_writel(pids, &ehci_debug->pids);
 	ret = dbgp_wait_until_done(ctrl, loops);
 	if (ret < 0)
 		return ret;
@@ -348,15 +348,15 @@ static int dbgp_control_msg(unsigned devnum, int requesttype,
 	pids = DBGP_PID_SET(USB_PID_DATA0, USB_PID_SETUP);
 	addr = DBGP_EPADDR(devnum, 0);
 
-	ctrl = readl(&ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	ctrl = dbgp_len_update(ctrl, sizeof(req));
 	ctrl |= DBGP_OUT;
 	ctrl |= DBGP_GO;
 
 	/* Send the setup message */
 	dbgp_set_data(&req, sizeof(req));
-	writel(addr, &ehci_debug->address);
-	writel(pids, &ehci_debug->pids);
+	ls2h_usb_writel(addr, &ehci_debug->address);
+	ls2h_usb_writel(pids, &ehci_debug->pids);
 	ret = dbgp_wait_until_done(ctrl, DBGP_LOOPS);
 	if (ret < 0)
 		return ret;
@@ -434,26 +434,26 @@ static int dbgp_ehci_startup(void)
 	int loop;
 
 	/* Claim ownership, but do not enable yet */
-	ctrl = readl(&ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	ctrl |= DBGP_OWNER;
 	ctrl &= ~(DBGP_ENABLED | DBGP_INUSE);
-	writel(ctrl, &ehci_debug->control);
+	ls2h_usb_writel(ctrl, &ehci_debug->control);
 	udelay(1);
 
 	dbgp_ehci_status("EHCI startup");
 	/* Start the ehci running */
-	cmd = readl(&ehci_regs->command);
+	cmd = ls2h_usb_readl(&ehci_regs->command);
 	cmd &= ~(CMD_LRESET | CMD_IAAD | CMD_PSE | CMD_ASE | CMD_RESET);
 	cmd |= CMD_RUN;
-	writel(cmd, &ehci_regs->command);
+	ls2h_usb_writel(cmd, &ehci_regs->command);
 
 	/* Ensure everything is routed to the EHCI */
-	writel(FLAG_CF, &ehci_regs->configured_flag);
+	ls2h_usb_writel(FLAG_CF, &ehci_regs->configured_flag);
 
 	/* Wait until the controller is no longer halted */
 	loop = 1000;
 	do {
-		status = readl(&ehci_regs->status);
+		status = ls2h_usb_readl(&ehci_regs->status);
 		if (!(status & STS_HALT))
 			break;
 		udelay(1);
@@ -473,11 +473,11 @@ static int dbgp_ehci_controller_reset(void)
 	u32 cmd;
 
 	/* Reset the EHCI controller */
-	cmd = readl(&ehci_regs->command);
+	cmd = ls2h_usb_readl(&ehci_regs->command);
 	cmd |= CMD_RESET;
-	writel(cmd, &ehci_regs->command);
+	ls2h_usb_writel(cmd, &ehci_regs->command);
 	do {
-		cmd = readl(&ehci_regs->command);
+		cmd = ls2h_usb_readl(&ehci_regs->command);
 	} while ((cmd & CMD_RESET) && (--loop > 0));
 
 	if (!loop) {
@@ -511,18 +511,18 @@ try_port_reset_again:
 	/* Wait for a device to show up in the debug port */
 	ret = ehci_wait_for_port(dbg_port);
 	if (ret < 0) {
-		portsc = readl(&ehci_regs->port_status[dbg_port - 1]);
+		portsc = ls2h_usb_readl(&ehci_regs->port_status[dbg_port - 1]);
 		if (!(portsc & PORT_CONNECT) && try_hard_once) {
 			/* Last ditch effort to try to force enable
 			 * the debug device by using the packet test
 			 * ehci command to try and wake it up. */
 			try_hard_once = 0;
-			cmd = readl(&ehci_regs->command);
+			cmd = ls2h_usb_readl(&ehci_regs->command);
 			cmd &= ~CMD_RUN;
-			writel(cmd, &ehci_regs->command);
-			portsc = readl(&ehci_regs->port_status[dbg_port - 1]);
+			ls2h_usb_writel(cmd, &ehci_regs->command);
+			portsc = ls2h_usb_readl(&ehci_regs->port_status[dbg_port - 1]);
 			portsc |= PORT_TEST_PKT;
-			writel(portsc, &ehci_regs->port_status[dbg_port - 1]);
+			ls2h_usb_writel(portsc, &ehci_regs->port_status[dbg_port - 1]);
 			dbgp_ehci_status("Trying to force debug port online");
 			mdelay(50);
 			dbgp_ehci_controller_reset();
@@ -536,21 +536,21 @@ try_port_reset_again:
 	dbgp_ehci_status("wait for port done");
 
 	/* Enable the debug port */
-	ctrl = readl(&ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	ctrl |= DBGP_CLAIM;
-	writel(ctrl, &ehci_debug->control);
-	ctrl = readl(&ehci_debug->control);
+	ls2h_usb_writel(ctrl, &ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	if ((ctrl & DBGP_CLAIM) != DBGP_CLAIM) {
 		dbgp_printk("No device in debug port\n");
-		writel(ctrl & ~DBGP_CLAIM, &ehci_debug->control);
+		ls2h_usb_writel(ctrl & ~DBGP_CLAIM, &ehci_debug->control);
 		return -ENODEV;
 	}
 	dbgp_ehci_status("debug ported enabled");
 
 	/* Completely transfer the debug device to the debug controller */
-	portsc = readl(&ehci_regs->port_status[dbg_port - 1]);
+	portsc = ls2h_usb_readl(&ehci_regs->port_status[dbg_port - 1]);
 	portsc &= ~PORT_PE;
-	writel(portsc, &ehci_regs->port_status[dbg_port - 1]);
+	ls2h_usb_writel(portsc, &ehci_regs->port_status[dbg_port - 1]);
 
 	dbgp_mdelay(100);
 
@@ -623,27 +623,27 @@ static int ehci_reset_port(int port)
 
 	dbgp_ehci_status("reset port");
 	/* Reset the usb debug port */
-	portsc = readl(&ehci_regs->port_status[port - 1]);
+	portsc = ls2h_usb_readl(&ehci_regs->port_status[port - 1]);
 	portsc &= ~PORT_PE;
 	portsc |= PORT_RESET;
-	writel(portsc, &ehci_regs->port_status[port - 1]);
+	ls2h_usb_writel(portsc, &ehci_regs->port_status[port - 1]);
 
 	delay = HUB_ROOT_RESET_TIME;
 	for (delay_time = 0; delay_time < HUB_RESET_TIMEOUT;
 	     delay_time += delay) {
 		dbgp_mdelay(delay);
-		portsc = readl(&ehci_regs->port_status[port - 1]);
+		portsc = ls2h_usb_readl(&ehci_regs->port_status[port - 1]);
 		if (!(portsc & PORT_RESET))
 			break;
 	}
 		if (portsc & PORT_RESET) {
 			/* force reset to complete */
 			loop = 100 * 1000;
-			writel(portsc & ~(PORT_RWC_BITS | PORT_RESET),
+			ls2h_usb_writel(portsc & ~(PORT_RWC_BITS | PORT_RESET),
 				&ehci_regs->port_status[port - 1]);
 			do {
 				udelay(1);
-				portsc = readl(&ehci_regs->port_status[port-1]);
+				portsc = ls2h_usb_readl(&ehci_regs->port_status[port-1]);
 			} while ((portsc & PORT_RESET) && (--loop > 0));
 		}
 
@@ -667,7 +667,7 @@ static int ehci_wait_for_port(int port)
 	int ret, reps;
 
 	for (reps = 0; reps < 300; reps++) {
-		status = readl(&ehci_regs->status);
+		status = ls2h_usb_readl(&ehci_regs->status);
 		if (status & STS_PCD)
 			break;
 		dbgp_mdelay(1);
@@ -718,7 +718,7 @@ static void __init detect_set_debug_port(void)
 #define EHCI_USBLEGCTLSTS	4		/* legacy control/status */
 static void __init early_ehci_bios_handoff(void)
 {
-	u32 hcc_params = readl(&ehci_caps->hcc_params);
+	u32 hcc_params = ls2h_usb_readl(&ehci_caps->hcc_params);
 	int offset = (hcc_params >> 8) & 0xff;
 	u32 cap;
 	int msec;
@@ -773,7 +773,7 @@ try_next_time:
 
 try_next_port:
 
-	hcs_params = readl(&ehci_caps->hcs_params);
+	hcs_params = ls2h_usb_readl(&ehci_caps->hcs_params);
 	debug_port = HCS_DEBUG_PORT(hcs_params);
 	dbgp_phys_port = debug_port;
 	n_ports    = HCS_N_PORTS(hcs_params);
@@ -783,7 +783,7 @@ try_next_port:
 	dbgp_ehci_status("");
 
 	for (i = 1; i <= n_ports; i++) {
-		portsc = readl(&ehci_regs->port_status[i-1]);
+		portsc = ls2h_usb_readl(&ehci_regs->port_status[i-1]);
 		dbgp_printk("portstatus%d: %08x\n", i, portsc);
 	}
 
@@ -797,7 +797,7 @@ try_next_port:
 
 	/* Only reset the controller if it is not already in the
 	 * configured state */
-	if (!(readl(&ehci_regs->configured_flag) & FLAG_CF)) {
+	if (!(ls2h_usb_readl(&ehci_regs->configured_flag) & FLAG_CF)) {
 		if (dbgp_ehci_controller_reset() != 0)
 			return -1;
 	} else {
@@ -810,9 +810,9 @@ try_next_port:
 
 	if (ret < 0) {
 		/* Things didn't work so remove my claim */
-		ctrl = readl(&ehci_debug->control);
+		ctrl = ls2h_usb_readl(&ehci_debug->control);
 		ctrl &= ~(DBGP_CLAIM | DBGP_OUT);
-		writel(ctrl, &ehci_debug->control);
+		ls2h_usb_writel(ctrl, &ehci_debug->control);
 		return -1;
 	}
 	return 0;
@@ -895,7 +895,7 @@ int __init early_dbgp_init(char *s)
 	dbgp_printk("ehci_bar: %p\n", ehci_bar);
 
 	ehci_caps  = ehci_bar;
-	ehci_regs  = ehci_bar + EARLY_HC_LENGTH(readl(&ehci_caps->hc_capbase));
+	ehci_regs  = ehci_bar + EARLY_HC_LENGTH(ls2h_usb_readl(&ehci_caps->hc_capbase));
 	ehci_debug = ehci_bar + offset;
 	ehci_dev.bus = bus;
 	ehci_dev.slot = slot;
@@ -926,18 +926,18 @@ static void early_dbgp_write(struct console *con, const char *str, u32 n)
 	if (!ehci_debug || dbgp_not_safe)
 		return;
 
-	cmd = readl(&ehci_regs->command);
+	cmd = ls2h_usb_readl(&ehci_regs->command);
 	if (unlikely(!(cmd & CMD_RUN))) {
 		/* If the ehci controller is not in the run state do extended
 		 * checks to see if the acpi or some other initialization also
 		 * reset the ehci debug port */
-		ctrl = readl(&ehci_debug->control);
+		ctrl = ls2h_usb_readl(&ehci_debug->control);
 		if (!(ctrl & DBGP_ENABLED)) {
 			dbgp_not_safe = 1;
 			_dbgp_external_startup();
 		} else {
 			cmd |= CMD_RUN;
-			writel(cmd, &ehci_regs->command);
+			ls2h_usb_writel(cmd, &ehci_regs->command);
 			reset_run = 1;
 		}
 	}
@@ -961,9 +961,9 @@ static void early_dbgp_write(struct console *con, const char *str, u32 n)
 		}
 	}
 	if (unlikely(reset_run)) {
-		cmd = readl(&ehci_regs->command);
+		cmd = ls2h_usb_readl(&ehci_regs->command);
 		cmd &= ~CMD_RUN;
-		writel(cmd, &ehci_regs->command);
+		ls2h_usb_writel(cmd, &ehci_regs->command);
 	}
 }
 
@@ -994,10 +994,10 @@ int dbgp_reset_prep(struct usb_hcd *hcd)
 	/* This means the console is not initialized, or should get
 	 * shutdown so as to allow for reuse of the usb device, which
 	 * means it is time to shutdown the usb debug port. */
-	ctrl = readl(&ehci_debug->control);
+	ctrl = ls2h_usb_readl(&ehci_debug->control);
 	if (ctrl & DBGP_ENABLED) {
 		ctrl &= ~(DBGP_CLAIM);
-		writel(ctrl, &ehci_debug->control);
+		ls2h_usb_writel(ctrl, &ehci_debug->control);
 	}
 	return 0;
 }
@@ -1073,7 +1073,7 @@ static int kgdbdbgp_reader_thread(void *ptr)
 {
 	int ret;
 
-	while (readl(&ehci_debug->control) & DBGP_ENABLED) {
+	while (ls2h_usb_readl(&ehci_debug->control) & DBGP_ENABLED) {
 		kgdbdbgp_loop_cnt = 1;
 		ret = kgdbdbgp_read_char();
 		kgdbdbgp_loop_cnt = DBGP_LOOPS;

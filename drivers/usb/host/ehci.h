@@ -664,6 +664,9 @@ ehci_port_speed(struct ehci_hcd *ehci, unsigned int portsc)
 #define writel_be(val, addr)	__raw_writel(val, (__force unsigned *)addr)
 #endif
 
+void ls2h_usb_writel(u32 , volatile void __iomem *);
+u32 ls2h_usb_readl(const volatile void __iomem *);
+
 static inline unsigned int ehci_readl(const struct ehci_hcd *ehci,
 		__u32 __iomem * regs)
 {
@@ -672,7 +675,7 @@ static inline unsigned int ehci_readl(const struct ehci_hcd *ehci,
 		readl_be(regs) :
 		readl(regs);
 #else
-	return readl(regs);
+	return ls2h_usb_readl(regs);
 #endif
 }
 
@@ -699,7 +702,7 @@ static inline void ehci_writel(const struct ehci_hcd *ehci,
 	if (ehci->imx28_write_fix)
 		imx28_ehci_writel(val, regs);
 	else
-		writel(val, regs);
+		ls2h_usb_writel(val, regs);
 #endif
 }
 
