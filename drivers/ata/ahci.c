@@ -526,7 +526,49 @@ static int marvell_enable = 1;
 module_param(marvell_enable, int, 0644);
 MODULE_PARM_DESC(marvell_enable, "Marvell SATA via AHCI (1 = enabled)");
 
+#if	defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_LS2H_SB)
+rwlock_t ls2h_sata_rwlock;
 
+u32 ahci_readl(const volatile void __iomem *addr)
+{
+	u32 ret;
+	unsigned long flags;
+
+	if (board_type == LS2H) {
+		read_lock_irqsave(&ls2h_sata_rwlock,flags);
+		ret = readl(addr);
+		read_unlock_irqrestore(&ls2h_sata_rwlock,flags);
+		return ret;
+	}else{
+		return readl(addr);
+	}
+}
+
+void ahci_writel(u32 value, volatile void __iomem *addr)
+{
+
+	unsigned long flags;
+
+	if (board_type == LS2H) {
+		write_lock_irqsave(&ls2h_sata_rwlock,flags);
+		writel(value,addr);
+		write_unlock_irqrestore(&ls2h_sata_rwlock,flags);
+	}else{
+		writel(value,addr);
+	}
+}
+#else
+u32 ahci_readl(const volatile void __iomem *addr)
+{
+	return readl(addr);
+}
+
+void ahci_writel(u32 value, volatile void __iomem *addr)
+{
+	writel(value,addr);
+}
+#endif
+ 
 static void ahci_pci_save_initial_config(struct pci_dev *pdev,
 					 struct ahci_host_priv *hpriv)
 {
@@ -592,13 +634,13 @@ static void ahci_pci_init_controller(struct ata_host *host)
 			mv = 4;
 		port_mmio = __ahci_port_base(host, mv);
 
-		writel(0, port_mmio + PORT_IRQ_MASK);
+		ahci_writel(0, port_mmio + PORT_IRQ_MASK);
 
 		/* clear port IRQ */
-		tmp = readl(port_mmio + PORT_IRQ_STAT);
+		tmp = ahci_readl(port_mmio + PORT_IRQ_STAT);
 		VPRINTK("PORT_IRQ_STAT 0x%x\n", tmp);
 		if (tmp)
-			writel(tmp, port_mmio + PORT_IRQ_STAT);
+			ahci_writel(tmp, port_mmio + PORT_IRQ_STAT);
 	}
 
 	ahci_init_controller(host);
@@ -692,10 +734,10 @@ static int ahci_pci_device_suspend(struct pci_dev *pdev, pm_message_t mesg)
 		 * Software must disable interrupts prior to requesting a
 		 * transition of the HBA to D3 state.
 		 */
-		ctl = readl(mmio + HOST_CTL);
+		ctl = ahci_readl(mmio + HOST_CTL);
 		ctl &= ~HOST_IRQ_EN;
-		writel(ctl, mmio + HOST_CTL);
-		readl(mmio + HOST_CTL); /* flush */
+		ahci_writel(ctl, mmio + HOST_CTL);
+		ahci_readl(mmio + HOST_CTL); /* flush */
 	}
 
 	return ata_pci_device_suspend(pdev, mesg);
@@ -1430,7 +1472,24 @@ static int ahci_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 				 &ahci_sht);
 }
 
+#if	defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_LS2H_SB)
+static int __init ahci_init(void)
+{
+	if (board_type == LS2H) {
+		rwlock_init(&ls2h_sata_rwlock);
+	}
+	return pci_register_driver(&ahci_pci_driver);
+}
+module_init(ahci_init);
+
+static void __exit ahci_exit(void)
+{
+	pci_unregister_driver(&ahci_pci_driver);
+}
+module_exit(ahci_exit);
+#else
 module_pci_driver(ahci_pci_driver);
+#endif
 
 MODULE_AUTHOR("Jeff Garzik");
 MODULE_DESCRIPTION("AHCI SATA low-level driver");

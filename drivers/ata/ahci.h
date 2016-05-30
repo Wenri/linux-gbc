@@ -49,6 +49,9 @@
 #define EM_MSG_LED_VALUE_OFF          0xfff80000
 #define EM_MSG_LED_VALUE_ON           0x00010000
 
+u32 ahci_readl(const volatile void __iomem *addr);
+void ahci_writel(u32 value, volatile void __iomem *addr);
+
 enum {
 	AHCI_MAX_PORTS		= 32,
 	AHCI_MAX_SG		= 168, /* hardware max is 64K */

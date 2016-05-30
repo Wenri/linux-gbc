@@ -264,10 +264,10 @@ static int ahci_suspend(struct device *dev)
 	 * Software must disable interrupts prior to requesting a
 	 * transition of the HBA to D3 state.
 	 */
-	ctl = readl(mmio + HOST_CTL);
+	ctl = ahci_readl(mmio + HOST_CTL);
 	ctl &= ~HOST_IRQ_EN;
-	writel(ctl, mmio + HOST_CTL);
-	readl(mmio + HOST_CTL); /* flush */
+	ahci_writel(ctl, mmio + HOST_CTL);
+	ahci_readl(mmio + HOST_CTL); /* flush */
 
 	rc = ata_host_suspend(host, PMSG_SUSPEND);
 	if (rc)
