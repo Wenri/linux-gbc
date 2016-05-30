@@ -767,13 +767,73 @@ static unsigned char *fb_do_probe_ddc_edid(struct i2c_adapter *adapter)
 	return NULL;
 }
 
+static const struct i2c_device_id dvi_eep_ids[] = {
+	{ "dvi-eeprom-edid", 0 },
+	{ /* END OF LIST */ }
+};
+
+static const struct i2c_device_id vga_eep_ids[] = {
+	{ "eeprom-edid", 2 },
+	{ /* END OF LIST */ }
+};
+MODULE_DEVICE_TABLE(i2c, eep_ids);
+
+static int eep_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	eeprom_info.adapter = client->adapter;
+	eeprom_info.addr = client->addr;
+	return 0;
+}
+
+static int eep_remove(struct i2c_client *client)
+{
+
+	i2c_unregister_device(client);
+	return 0;
+}
+static struct i2c_driver vga_eep_driver = {
+	.driver = {
+		.name = "vga_eep-edid",
+		.owner = THIS_MODULE,
+	},
+	.probe = eep_probe,
+	.remove = eep_remove,
+	.id_table = vga_eep_ids,
+};
+
+static struct i2c_driver dvi_eep_driver = {
+	.driver = {
+		.name = "dvi_eep-edid",
+		.owner = THIS_MODULE,
+	},
+	.probe = eep_probe,
+	.remove = eep_remove,
+	.id_table = dvi_eep_ids,
+};
+
+static bool edid_flag = 0;
 static unsigned char *ls2h_fb_i2c_connector(struct ls2h_fb_par *fb_par)
 {
 	unsigned char *edid = NULL;
 
 	LS2H_DEBUG("edid entry\n");
+	if (i2c_add_driver(&dvi_eep_driver)) {
+		pr_err("i2c-%d No eeprom device register!",dvi_eep_driver.id_table->driver_data);
+		return -ENODEV;
+	}
+
 	if (eeprom_info.adapter)
 		edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
+
+	if (!edid) {
+		if (i2c_add_driver(&vga_eep_driver)) {
+			pr_err("i2c-%d No eeprom device register!",vga_eep_driver.id_table->driver_data);
+			return -ENODEV;
+		}
+		edid_flag = 1;
+		if (eeprom_info.adapter)
+			edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
+	}
 
 	if (edid)
 		fb_par->edid = edid;
@@ -1046,37 +1106,6 @@ static struct platform_driver ls2h_fb_driver = {
 	},
 };
 
-static const struct i2c_device_id eep_ids[] = {
-	{ "eeprom-edid", 0 },
-	{ /* END OF LIST */ }
-};
-
-MODULE_DEVICE_TABLE(i2c, eep_ids);
-
-static int eep_probe(struct i2c_client *client, const struct i2c_device_id *id)
-{
-	eeprom_info.adapter = client->adapter;
-	eeprom_info.addr = client->addr;
-	return 0;
-}
-
-static int eep_remove(struct i2c_client *client)
-{
-
-	i2c_unregister_device(client);
-	return 0;
-}
-
-static struct i2c_driver eep_driver = {
-	.driver = {
-		.name = "eep-edid",
-		.owner = THIS_MODULE,
-	},
-	.probe = eep_probe,
-	.remove = eep_remove,
-	.id_table = eep_ids,
-};
-
 static int __init ls2h_fb_init(void)
 {
 	int ret = 0;
@@ -1092,11 +1121,6 @@ static int __init ls2h_fb_init(void)
 	if (!ls2h_fb_enable)
 		return -ENXIO;
 
-	if (i2c_add_driver(&eep_driver)) {
-		pr_err("No eeprom device register!");
-		return -ENODEV;
-	}
-
 	ret = platform_driver_register(&ls2h_fb_driver);
 
 	return ret;
@@ -1108,7 +1132,9 @@ module_init(ls2h_fb_init);
 static void __exit ls2h_fb_exit(void)
 {
 	platform_driver_unregister(&ls2h_fb_driver);
-	i2c_del_driver(&eep_driver);
+	i2c_del_driver(&dvi_eep_driver);
+	if (edid_flag)
+		i2c_del_driver(&vga_eep_driver);
 }
 
 module_exit(ls2h_fb_exit);
