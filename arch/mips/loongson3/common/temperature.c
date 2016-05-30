@@ -20,8 +20,8 @@
 #define CPU_TEMP_SENSOR0		0xc
 #define CPU_TEMP_SENSOR1		0xd
 #define DEVNAME				"temphandler"
-#define WARNING_TEMP			70
-#define POWEROFF_TEMP			85
+#define WARNING_TEMP			700
+#define POWEROFF_TEMP			850
 
 static struct timer_list timer_temp;
 static int probe_temp(struct platform_device *);

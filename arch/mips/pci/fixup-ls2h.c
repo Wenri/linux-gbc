@@ -53,7 +53,7 @@ int __init ls2h_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin)
 /* Do platform specific device initialization at pci_enable_device() time */
 int ls2h_pcie_bios_init(struct pci_dev *dev)
 {
-	int pos;
+	int pos, i;
 	u16 max_payload_spt, cur_payload_spt, control;
 
 	/**
@@ -89,6 +89,12 @@ int ls2h_pcie_bios_init(struct pci_dev *dev)
 	pci_write_config_word(dev, pos + PCI_EXP_DEVCTL, control);
 	pr_info("pci %s: set Max_Payload_Size & Max_Read_Request_Size to %03x\n",
 	       pci_name(dev), max_payload_spt);
+
+	/* Disable pcie port physical link disconnect interrupt */
+	for (i = 0; i < 4; i++) {
+		ls2h_writel(ls2h_readl(LS2H_PCIE_PORT_INT_MASK_REG(i)) & (~(1<<27)), LS2H_PCIE_PORT_INT_MASK_REG(i));
+		ls2h_readl(LS2H_PCIE_PORT_INT_MASK_REG(i));
+	}
 
 	return 0;
 }

@@ -21,6 +21,7 @@
 extern void ls2h_init_irq(void);
 extern void ls2h_irq_dispatch(unsigned int pending);
 extern int ls2h_platform_init(void);
+extern struct mips_dma_map_ops ls2h_pcie_dma_map_ops;
 
 #ifdef CONFIG_LS2H_PCIE
 
@@ -70,7 +71,10 @@ static void __init ls2h_arch_initcall(void)
 {
 	enable_south_bridge();
 
-	ls2h_dma_ops_init();
+	if (1)
+		loongson_dma_map_ops = &ls2h_pcie_dma_map_ops;
+	else
+		ls2h_dma_ops_init();
 
 #ifdef CONFIG_LS2H_PCIE
 	ls2h_pcie_init();

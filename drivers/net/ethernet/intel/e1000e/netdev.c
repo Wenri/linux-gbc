@@ -6509,6 +6509,23 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	u16 eeprom_data = 0;
 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
 
+	int j;
+	u16 *peeprom;
+	static int counter = 0;
+	u16 eeprom[] = { /* eeprom for e1000e 82574 */
+		0x1b00, 0x3d21, 0x6602, 0x0420, 0xf746, 0x1080, 0xffff, 0xffff,
+		0xe469, 0x8103, 0x026b, 0xa01f, 0x8086, 0x10d3, 0xffff, 0x9c58,
+		0x0000, 0x2001, 0x7e94, 0xffff, 0x1000, 0x0048, 0x0000, 0x2704,
+		0x6cc9, 0x3150, 0x073e, 0x460b, 0x2d84, 0x0140, 0xf000, 0x0706,
+		0x6000, 0x7100, 0x1408, 0xffff, 0x4d01, 0x92ec, 0xfc5c, 0xf083,
+		0x0028, 0x0233, 0x0050, 0x7d1f, 0x1961, 0x0453, 0x00a0, 0xffff,
+		0x0100, 0x4000, 0x1315, 0x4003, 0xffff, 0xffff, 0xffff, 0xffff,
+		0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0x0130, 0xffff, 0xb69e,
+	};
+	peeprom = eeprom;
+	counter++;
+	eeprom[2] = counter;
+
 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
 		aspm_disable_flag = PCIE_LINK_STATE_L0S;
 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L1)
@@ -6690,9 +6707,13 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		if (e1000_validate_nvm_checksum(&adapter->hw) >= 0)
 			break;
 		if (i == 2) {
-			dev_err(&pdev->dev, "The NVM Checksum Is Not Valid\n");
-			err = -EIO;
-			goto err_eeprom;
+			for(j=0; j<64; j++) {
+				e1000_write_nvm(&adapter->hw, j, 1, peeprom++);
+				printk("<0>eeprom[j] = 0x%x \r\n", *peeprom);
+			}
+			e1000e_update_nvm_checksum(&adapter->hw);
+			dev_err(&pdev->dev, "The NVM Checksum Updated...\n");
+			break;
 		}
 	}
 

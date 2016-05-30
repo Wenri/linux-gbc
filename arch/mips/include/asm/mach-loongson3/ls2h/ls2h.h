@@ -280,6 +280,7 @@ enum {
 #define LS2H_PCIE_IO_BASE_PORT(portnum)		(0x18100000 + (portnum << 22))
 
 #define LS2H_PCIE_REG_BASE_PORT(portnum)        (0x18118000 + (portnum << 22))
+#define LS2H_PCIE_PORT_INT_MASK_REG(portnum)	(LS2H_PCIE_REG_BASE_PORT(portnum) + 0x20)
 #define LS2H_PCIE_PORT_REG_CTR0			0x0
 #define LS2H_PCIE_REG_CTR0_BIT_LTSSM_EN			(1 << 3)
 #define LS2H_PCIE_REG_CTR0_BIT_REQ_L1			(1 << 12)
