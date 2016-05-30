@@ -54,6 +54,7 @@ u16 reserved_cpus_mask;
 u32 dma64_supported;
 enum loongson_cpu_type cputype;
 enum board_type board_type;
+EXPORT_SYMBOL(board_type);
 u32 nr_cpus_loongson = NR_CPUS;
 u32 nr_nodes_loongson = MAX_NUMNODES;
 int cores_per_node;

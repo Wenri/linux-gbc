@@ -4474,6 +4474,8 @@ static void igb_tx_map(struct igb_ring *tx_ring,
 	u32 tx_flags = first->tx_flags;
 	u32 cmd_type = igb_tx_cmd_type(skb, tx_flags);
 	u16 i = tx_ring->next_to_use;
+	u8 *align_data;
+	unsigned long tmp;
 
 	tx_desc = IGB_TX_DESC(tx_ring, i);
 
@@ -4481,6 +4483,13 @@ static void igb_tx_map(struct igb_ring *tx_ring,
 
 	size = skb_headlen(skb);
 	data_len = skb->data_len;
+
+	if (board_type == LS2H){
+		tmp = (unsigned long) skb->data;
+		align_data = skb->data - (tmp & 0xf);
+		memcpy(align_data,skb->data,size);
+		skb->data = align_data;
+	}
 
 	dma = dma_map_single(tx_ring->dev, skb->data, size, DMA_TO_DEVICE);
 

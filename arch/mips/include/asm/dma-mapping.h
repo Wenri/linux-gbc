@@ -6,6 +6,11 @@
 #include <asm/cache.h>
 #include <asm-generic/dma-coherent.h>
 
+#if defined(CONFIG_CPU_LOONGSON3)
+extern unsigned long long io_tlb_start_addr;
+extern unsigned long long io_tlb_end_addr;
+#endif
+
 struct mips_dma_map_ops {
 	struct dma_map_ops dma_map_ops;
 	dma_addr_t (*phys_to_dma)(struct device *dev, phys_addr_t paddr);
@@ -14,15 +19,69 @@ struct mips_dma_map_ops {
 
 extern struct mips_dma_map_ops *loongson_dma_map_ops;
 
+static inline bool special_dev(struct device *dev)
+{
+	return (strcmp(dev->driver->name,"igb") == 0) || (strcmp(dev->driver->name,"e1000e") == 0);
+}
+
 static inline struct dma_map_ops *get_dma_ops(struct device *dev)
 {
 	struct mips_dma_map_ops *ops;
 
-	if (dev && dev->archdata.dma_ops)
-		ops = dev->archdata.dma_ops;
-	else
-		ops = loongson_dma_map_ops;
-	
+	if (board_type == LS2H) {
+		if (dev && dev->archdata.dma_ops && !special_dev(dev))
+			ops = dev->archdata.dma_ops;
+		else
+			ops = loongson_dma_map_ops;
+	} else {
+		if (dev && dev->archdata.dma_ops)
+			ops = dev->archdata.dma_ops;
+		else
+			ops = loongson_dma_map_ops;
+	}
+
+	return &ops->dma_map_ops;
+}
+
+static inline struct dma_map_ops *get_special_dma_ops(struct device *dev, dma_addr_t addr)
+{
+	struct mips_dma_map_ops *ops;
+
+	if (board_type == LS2H) {
+		if ((special_dev(dev) && (io_tlb_start_addr <= addr) && (addr < io_tlb_end_addr))
+				|| (dev && dev->archdata.dma_ops && !special_dev(dev)))
+			ops = dev->archdata.dma_ops;
+		else
+			ops = loongson_dma_map_ops;
+	} else {
+		if (dev && dev->archdata.dma_ops)
+			ops = dev->archdata.dma_ops;
+		else
+			ops = loongson_dma_map_ops;
+	}
+
+	return &ops->dma_map_ops;
+}
+
+static inline struct dma_map_ops *get_dev_dma_ops(struct device *dev,
+		dma_addr_t addr, enum dma_data_direction dir)
+{
+	struct mips_dma_map_ops *ops;
+
+	if (board_type == LS2H) {
+		if ((dev && dev->archdata.dma_ops && !special_dev(dev))
+				|| ((((io_tlb_start_addr <= addr) && (addr < io_tlb_end_addr)) || (addr & 0xf))
+					&& special_dev(dev) && (dir & DMA_TO_DEVICE)))
+			ops = dev->archdata.dma_ops;
+		else
+			ops = loongson_dma_map_ops;
+	} else {
+		if (dev && dev->archdata.dma_ops)
+			ops = dev->archdata.dma_ops;
+		else
+			ops = loongson_dma_map_ops;
+	}
+
 	return &ops->dma_map_ops;
 }
 
@@ -81,7 +140,7 @@ static inline int dma_supported(struct device *dev, u64 mask)
 
 static inline int dma_mapping_error(struct device *dev, u64 mask)
 {
-	struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_special_dma_ops(dev, mask);
 
 	debug_dma_mapping_error(dev, mask);
 	return ops->mapping_error(dev, mask);

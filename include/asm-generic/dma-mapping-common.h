@@ -72,8 +72,9 @@ static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
 				      size_t offset, size_t size,
 				      enum dma_data_direction dir)
 {
-	struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops;
 	dma_addr_t addr;
+	ops = get_dev_dma_ops(dev, (unsigned long)(page_address(page) + offset), dir);
 
 	kmemcheck_mark_initialized(page_address(page) + offset, size);
 	BUG_ON(!valid_dma_direction(dir));
@@ -86,7 +87,7 @@ static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
 static inline void dma_unmap_page(struct device *dev, dma_addr_t addr,
 				  size_t size, enum dma_data_direction dir)
 {
-	struct dma_map_ops *ops = get_dma_ops(dev);
+	struct dma_map_ops *ops = get_dev_dma_ops(dev, addr, dir);
 
 	BUG_ON(!valid_dma_direction(dir));
 	if (ops->unmap_page)

@@ -5196,6 +5196,8 @@ static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
 	unsigned int len = skb_headlen(skb);
 	unsigned int offset = 0, size, count = 0, i;
 	unsigned int f, bytecount, segs;
+	u8 *align_data;
+	unsigned long tmp;
 
 	i = tx_ring->next_to_use;
 
@@ -5206,6 +5208,14 @@ static int e1000_tx_map(struct e1000_ring *tx_ring, struct sk_buff *skb,
 		buffer_info->length = size;
 		buffer_info->time_stamp = jiffies;
 		buffer_info->next_to_watch = i;
+
+		if (board_type == LS2H){
+			tmp = (unsigned long) skb->data;
+			align_data = skb->data - (tmp & 0xf);
+			memcpy(align_data,skb->data,size);
+			skb->data = align_data;
+		}
+
 		buffer_info->dma = dma_map_single(&pdev->dev,
 						  skb->data + offset,
 						  size, DMA_TO_DEVICE);

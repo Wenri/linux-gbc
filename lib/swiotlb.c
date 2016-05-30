@@ -58,6 +58,10 @@ int swiotlb_force;
  * API.
  */
 static phys_addr_t io_tlb_start, io_tlb_end;
+unsigned long long io_tlb_start_addr;
+unsigned long long io_tlb_end_addr;
+EXPORT_SYMBOL(io_tlb_start_addr);
+EXPORT_SYMBOL(io_tlb_end_addr);
 
 /*
  * The number of IO TLB blocks (in groups of 64) between io_tlb_start and
@@ -148,6 +152,9 @@ void swiotlb_print_info(void)
 
 	vstart = phys_to_virt(io_tlb_start);
 	vend = phys_to_virt(io_tlb_end);
+	io_tlb_start_addr = (unsigned long long)vstart;
+	io_tlb_end_addr = (unsigned long long)vend;
+
 
 	printk(KERN_INFO "software IO TLB [mem %#010llx-%#010llx] (%luMB) mapped at [%p-%p]\n",
 	       (unsigned long long)io_tlb_start,
