@@ -411,6 +411,12 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 {
 	switch (c->processor_id & 0xff00) {
 	case PRID_IMP_LOONGSON2: /* Loongson-2/3 have the same PRID_IMP field */
+		c->isa_level = MIPS_CPU_ISA_M64R2;
+		c->options = R4K_OPTS |
+			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
+			     MIPS_CPU_32FPR | MIPS_CPU_ULRI |
+			     MIPS_CPU_PREFETCH;
+
 		switch (c->processor_id & PRID_REV_MASK) {
 		case PRID_REV_LOONGSON3A2000:
 			c->cputype = CPU_LOONGSON3;
@@ -418,12 +424,6 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 			decode_configs(c);
 			break;
 		}
-
-		c->isa_level = MIPS_CPU_ISA_M64R2;
-		c->options = R4K_OPTS |
-			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
-			     MIPS_CPU_32FPR | MIPS_CPU_ULRI |
-			     MIPS_CPU_RIXI | MIPS_CPU_PREFETCH | MIPS_CPU_RIXIEX;
 		break;
 	}
 }
