@@ -627,6 +627,8 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 		 *   0x1          gslhx: load 2 bytes to GPR
 		 *   0x2          gslwx: load 4 bytes to GPR
 		 *   0x3          gsldx: load 8 bytes to GPR
+		 *   0x6	  gslwxc1: load 4 bytes to FPR
+		 *   0x7	  gsldxc1: load 8 bytes to FPR
 		 */
 		case 0x1:
 			if (!access_ok(VERIFY_READ, addr, 2))
@@ -661,7 +663,35 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			compute_return_epc(regs);
 			regs->regs[insn.loongson3_lsdc2_format.rt] = value;
 			break;
+
+		case 0x6:
+			die_if_kernel("Unaligned FP access in kernel code", regs);
+			BUG_ON(!used_math());
+			if (!access_ok(VERIFY_READ, addr, 4))
+				goto sigbus;
+
+			LoadW(addr, value, res);
+			if (res)
+				goto fault;
+			compute_return_epc(regs);
+			current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt] = value;
+			break;
+
+		case 0x7:
+			die_if_kernel("Unaligned FP access in kernel code", regs);
+			BUG_ON(!used_math());
+			if (!access_ok(VERIFY_READ, addr, 8))
+				goto sigbus;
+
+			LoadDW(addr, value, res);
+			if (res)
+				goto fault;
+			compute_return_epc(regs);
+			current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt] = value;
+			break;
+
 		}
+
 		break;
 	case sdc2_op:
 		switch (insn.loongson3_lsdc2_format.opcode1) {
@@ -671,6 +701,8 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 		 *   0x1          gsshx: store 2 bytes from GPR
 		 *   0x2          gsswx: store 4 bytes from GPR
 		 *   0x3          gssdx: store 8 bytes from GPR
+		 *   0x6          gsswxc1: store 4 bytes from FPR
+		 *   0x7          gssdxc1: store 8 bytes from FPR
 		 */
 		case 0x1:
 			if (!access_ok(VERIFY_WRITE, addr, 2))
@@ -708,6 +740,41 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			if (res)
 				goto fault;
 			break;
+
+		case 0x6:
+			die_if_kernel("Unaligned FP access in kernel code", regs);
+			BUG_ON(!used_math());
+
+			if (!access_ok(VERIFY_WRITE, addr, 4))
+				goto sigbus;
+
+			compute_return_epc(regs);
+			value = current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt];
+
+			StoreW(addr, value, res);
+
+			if (res)
+				goto fault;
+			break;
+
+
+		case 0x7:
+			die_if_kernel("Unaligned FP access in kernel code", regs);
+			BUG_ON(!used_math());
+
+			if (!access_ok(VERIFY_WRITE, addr, 8))
+				goto sigbus;
+
+			compute_return_epc(regs);
+			value = current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt];
+
+			StoreDW(addr, value, res);
+
+			if (res)
+				goto fault;
+			break;
+
+
 		}
 		break;
 #else
