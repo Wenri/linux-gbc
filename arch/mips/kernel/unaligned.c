@@ -669,12 +669,14 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			BUG_ON(!used_math());
 			if (!access_ok(VERIFY_READ, addr, 4))
 				goto sigbus;
+			lose_fpu(1);
 
 			LoadW(addr, value, res);
 			if (res)
 				goto fault;
-			compute_return_epc(regs);
 			current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt] = value;
+			compute_return_epc(regs);
+			own_fpu(1);
 			break;
 
 		case 0x7:
@@ -682,12 +684,14 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			BUG_ON(!used_math());
 			if (!access_ok(VERIFY_READ, addr, 8))
 				goto sigbus;
+			lose_fpu(1);
 
 			LoadDW(addr, value, res);
 			if (res)
 				goto fault;
-			compute_return_epc(regs);
 			current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt] = value;
+			compute_return_epc(regs);
+			own_fpu(1);
 			break;
 
 		}
@@ -748,13 +752,15 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			if (!access_ok(VERIFY_WRITE, addr, 4))
 				goto sigbus;
 
-			compute_return_epc(regs);
+			lose_fpu(1);
 			value = current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt];
 
 			StoreW(addr, value, res);
 
 			if (res)
 				goto fault;
+			compute_return_epc(regs);
+			own_fpu(1);
 			break;
 
 
@@ -764,14 +770,16 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 
 			if (!access_ok(VERIFY_WRITE, addr, 8))
 				goto sigbus;
+			lose_fpu(1);
 
-			compute_return_epc(regs);
 			value = current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt];
 
 			StoreDW(addr, value, res);
 
 			if (res)
 				goto fault;
+			compute_return_epc(regs);
+			own_fpu(1);
 			break;
 
 
