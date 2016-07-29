@@ -18,10 +18,10 @@
 #include <asm/dma-mapping.h>
 #include <asm/io.h>
 
-extern inline void __dma_sync(unsigned long addr, size_t size,
+extern void __dma_sync(unsigned long addr, size_t size,
 	enum dma_data_direction direction);
 
-extern inline unsigned long dma_addr_to_virt(struct device *dev,
+extern unsigned long dma_addr_to_virt(struct device *dev,
 	dma_addr_t dma_addr);
 
 static dma_addr_t pcie_dma_map_page(struct device *dev, struct page *page,
