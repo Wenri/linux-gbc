@@ -612,17 +612,18 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 	static u32 phase_lock[32];
 #endif
 
-	smp_mb__before_llsc();
 
 #ifdef CONFIG_PHASE_LOCK
+	local_irq_save(flags);
+
 	__asm__ __volatile__(
 		"	.set	mips32					\n"
 		"	mfc0	%0, $15, 1				\n"
 		"	.set	mips0					\n"
 		: "=r" (my_cpu));
-	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
 
-	local_irq_save(flags);
+	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
+	smp_mb__before_llsc();
 
 	__asm__ __volatile__(
                 "       .set    noreorder       # lock for phase    	\n"

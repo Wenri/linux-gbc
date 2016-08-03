@@ -204,16 +204,16 @@ static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int siz
 	u32 my_node_id, my_tmp, my_cpu;					\
 	static u32 phase_lock[32];					\
 									\
-	smp_mb__before_llsc();						\
+	local_irq_save(flags);    					\
 									\
 	__asm__ __volatile__(						\
 		"	.set	mips32				\n"	\
 		"	mfc0	%0, $15, 1			\n"	\
 		"	.set	mips0				\n"	\
 		: "=r" (my_cpu));					\
-	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;			\
 									\
-	local_irq_save(flags);    					\
+	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;			\
+	smp_mb__before_llsc();						\
 									\
 	__asm__ __volatile__(     					\
                 "       .set    noreorder   # lock for phase	\n"	\
