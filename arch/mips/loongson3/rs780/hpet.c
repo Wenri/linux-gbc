@@ -210,7 +210,7 @@ void __init setup_hpet_timer(void)
 
 	cd = &per_cpu(hpet_clockevent_device, cpu);
 	cd->name = "hpet";
-	cd->rating = 320;
+	cd->rating = 60;
 	cd->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT;
 	cd->set_mode = hpet_set_mode;
 	cd->set_next_event = hpet_next_event;
