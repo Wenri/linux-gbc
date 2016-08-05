@@ -17,6 +17,7 @@
 #include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
+#include <linux/hugetlb.h>
 
 #include <asm/bcache.h>
 #include <asm/bootinfo.h>
@@ -480,7 +481,10 @@ static inline void local_r4k_flush_cache_page(void *args)
 	pgdp = pgd_offset(mm, addr);
 	pudp = pud_offset(pgdp, addr);
 	pmdp = pmd_offset(pudp, addr);
+if (!pmd_huge(*pmdp)) 
 	ptep = pte_offset(pmdp, addr);
+else
+	ptep = (pte_t *)pmdp;
 
 	/*
 	 * If the page isn't marked valid, the page cannot possibly be
