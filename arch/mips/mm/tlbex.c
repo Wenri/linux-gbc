@@ -869,10 +869,11 @@ build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 #ifdef CONFIG_MIPS_PGD_C0_CONTEXT
 	if (pgd_reg != -1) {
 		/* pgd is in pgd_reg */
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
-		UASM_i_MFC0(p, ptr, 5, 5);
-#else
-		UASM_i_MFC0(p, ptr, 31, pgd_reg);
+#ifdef CONFIG_CPU_LOONGSON3
+		if (cpu_has_ldpte)
+			UASM_i_MFC0(p, ptr, 5, 5);
+		else
+			UASM_i_MFC0(p, ptr, 31, pgd_reg);
 #endif
 	} else {
 		/*
@@ -1553,10 +1554,11 @@ static void __cpuinit build_r4000_setup_pgd(void)
 	} else {
 		/* PGD in c0_KScratch */
 		uasm_i_jr(&p, 31);
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
-		UASM_i_MTC0(&p, a0, 5, 5);
-#else
-		UASM_i_MTC0(&p, a0, 31, pgd_reg);
+#ifdef CONFIG_CPU_LOONGSON3
+		if (cpu_has_ldpte)
+			UASM_i_MTC0(&p, a0, 5, 5);
+		else
+			UASM_i_MTC0(&p, a0, 31, pgd_reg);
 #endif
 	}
 	if (p - tlbmiss_handler_setup_pgd_array > ARRAY_SIZE(tlbmiss_handler_setup_pgd_array))
@@ -2346,10 +2348,11 @@ void __cpuinit build_tlb_refill_handler(void)
 	 */
 	static int run_once = 0;
 	bool cpu_has_fasttlb;
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
-	cpu_has_fasttlb = 1;
-#else
-	cpu_has_fasttlb = 0;
+#ifdef CONFIG_CPU_LOONGSON3
+	if (cpu_has_ldpte)
+		cpu_has_fasttlb = 1;
+	else
+		cpu_has_fasttlb = 0;
 #endif
 	output_pgtable_bits_defines();
 

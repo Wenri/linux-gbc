@@ -119,6 +119,9 @@
 #ifndef cpu_has_local_ebase
 #define cpu_has_local_ebase	1
 #endif
+#ifndef cpu_has_ldpte
+#define cpu_has_ldpte           (cpu_data[0].options & MIPS_CPU_LDPTE)
+#endif
 /*
  * I-Cache snoops remote store.	 This only matters on SMP.  Some multiprocessors
  * such as the R10000 have I-Caches that snoop local stores; the embedded ones

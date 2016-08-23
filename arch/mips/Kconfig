@@ -1158,9 +1158,9 @@ config BOOT_ELF32
 config MIPS_L1_CACHE_SHIFT
 	int
 	default "4" if MACH_DECSTATION || MIKROTIK_RB532 || PMC_MSP4200_EVAL || SOC_RT288X
-	default "6" if MIPS_CPU_SCACHE || CPU_LOONGSON3_GS464E
+	default "6" if MIPS_CPU_SCACHE
 	default "7" if SGI_IP22 || SGI_IP27 || SGI_IP28 || SNI_RM || CPU_CAVIUM_OCTEON
-	default "5"
+	default "6"
 
 config HAVE_STD_PC_SERIAL_PORT
 	bool
@@ -1561,6 +1561,8 @@ config CPU_LOONGSON3
 	select CPU_SUPPORTS_HUGEPAGES
 	select WEAK_ORDERING
 	select WEAK_REORDERING_BEYOND_LLSC
+	select CPU_HAS_FTLB
+	select CPU_HAS_PREFETCH
 	help
 		The Loongson 3 processor implements the MIPS III instruction set
 		with many extensions.
@@ -1568,8 +1570,6 @@ config CPU_LOONGSON3
 config CPU_LOONGSON3_GS464E
 	bool "Loongson 3 CPU based on GS464E"
 	depends on CPU_LOONGSON3
-	select CPU_HAS_FTLB
-	select CPU_HAS_PREFETCH
 	help
 	  The GS464E processor core implements the MIPS64R2 instruction set
 	  with Multicore design.

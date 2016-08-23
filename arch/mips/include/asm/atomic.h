@@ -38,7 +38,7 @@
  *
  * Atomically sets the value of @v to @i.
  */
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 static __inline__ void atomic_set(atomic_t * v,int i)
 {
 		int temp;
@@ -431,7 +431,7 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
  * @v: pointer of type atomic64_t
  * @i: required value
  */
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 static __inline__ void atomic64_set(atomic64_t * v,long i)
 {
 		long temp;
@@ -604,7 +604,7 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 	long result;
 
 #ifdef CONFIG_PHASE_LOCK
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 	int tmp;
 #endif
 	unsigned long flags;
@@ -691,7 +691,7 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 
 	__asm__ __volatile__(
 		"	.set	noreorder       # unlock for phase   	\n"
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 		"1:	ll	%1, %0					\n"
 		"	move	%1, $0					\n"
 		"	sc	%1, %0					\n"
@@ -701,7 +701,7 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 		"	sw	$0, %0                                  \n"
 #endif
 		"	.set\treorder                                 	\n"
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 		: "=m" (phase_lock[my_node_id]), "=&r" (tmp)
 #else
 		: "=m" (phase_lock[my_node_id])

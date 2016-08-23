@@ -23,7 +23,7 @@ typedef union {
 		u16 serving_now;
 		u16 ticket;
 #endif
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 		u32 padding;
 #endif
 	} h;
@@ -33,7 +33,7 @@ typedef union {
 
 typedef struct {
 	volatile unsigned int lock;
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 	volatile unsigned int padding;
 #endif
 } __attribute__((aligned(8))) arch_rwlock_t;

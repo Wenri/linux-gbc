@@ -17,7 +17,7 @@
 #ifdef CONFIG_NUMA
 	.set	push
 	.set	mips64
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 	/* enable stfill buffer */
 	mfc0	t0, $16, 6
 	or	t0, 0x100
@@ -43,7 +43,7 @@
 #ifdef CONFIG_NUMA
 	.set	push
 	.set	mips64
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 	/* enable stfill buffer */
 	mfc0	t0, $16, 6
 	or	t0, 0x100

@@ -642,6 +642,14 @@ static int __init hugepage_init(void)
 	if (totalram_pages < (512 << (20 - PAGE_SHIFT)))
 		transparent_hugepage_flags = 0;
 
+#ifdef CONFIG_CPU_LOONGSON3
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000){
+		clear_bit(TRANSPARENT_HUGEPAGE_FLAG,
+				&transparent_hugepage_flags);
+		clear_bit(TRANSPARENT_HUGEPAGE_REQ_MADV_FLAG,
+				&transparent_hugepage_flags);
+	}
+#endif
 	start_khugepaged();
 
 	return 0;

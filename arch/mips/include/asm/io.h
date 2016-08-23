@@ -302,7 +302,7 @@ static inline void iounmap(const volatile void __iomem *addr)
 #undef __IS_KSEG1
 }
 
-#if defined(CONFIG_CPU_CAVIUM_OCTEON) || defined(CONFIG_CPU_LOONGSON3_GS464E)
+#if defined(CONFIG_CPU_CAVIUM_OCTEON) || defined(CONFIG_CPU_LOONGSON3)
 #define war_octeon_io_reorder_wmb()		wmb()
 #else
 #define war_octeon_io_reorder_wmb()		do { } while (0)

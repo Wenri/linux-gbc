@@ -143,9 +143,6 @@ static inline void arch_local_irq_enable(void)
 	"	mtc0	$1, $2, 1					\n"
 #elif defined(CONFIG_CPU_MIPSR2)
 	"	ei							\n"
-#elif defined(CONFIG_CPU_LOONGSON3_GS464E)
-	"	.set	mips64r2					\n"
-	"	ei							\n"
 #else
 	"	mfc0	$1,$12						\n"
 	"	ori	$1,0x1f						\n"

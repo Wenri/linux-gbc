@@ -332,6 +332,7 @@ enum cpu_type_enum {
 #define MIPS_CPU_MICROMIPS	0x01000000 /* CPU has microMIPS capability */
 #define MIPS_CPU_TLBINV	        0x02000000ull /* CPU supports TLBINV/F */
 #define MIPS_CPU_RIXIEX		0x200000000ull /* CPU has unique exception codes for {Read, Execute}-Inhibit exceptions */
+#define MIPS_CPU_LDPTE          0x40000000000ull /* CPU has ldpte/lddir instructions */
 
 /*
  * CPU ASE encodings

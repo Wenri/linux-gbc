@@ -135,7 +135,7 @@ static inline void arch_spin_lock(arch_spinlock_t *lock)
 
 static inline void arch_spin_unlock(arch_spinlock_t *lock)
 {
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
         /* for 3A2000A and 3A2000B */
 	int tmp, tmp2;
 	wmb();
@@ -350,12 +350,12 @@ static inline void arch_write_lock(arch_rwlock_t *rw)
 
 static inline void arch_write_unlock(arch_rwlock_t *rw)
 {
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 	int tmp;
 #endif
 	smp_mb();
 
-#ifdef CONFIG_CPU_LOONGSON3_GS464E
+#ifdef CONFIG_CPU_LOONGSON3
 
 	__asm__ __volatile__(
         "       .set    noreorder       # arch_write_unlock    	\n"

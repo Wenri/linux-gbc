@@ -49,9 +49,6 @@ notrace void arch_local_irq_disable(void)
 	"	mtc0	$1, $2, 1					\n"
 #elif defined(CONFIG_CPU_MIPSR2)
 	/* see irqflags.h for inline function */
-#elif defined(CONFIG_CPU_LOONGSON3_GS464E)
-	"	.set	mips64r2					\n"
-	"	di							\n"
 #else
 	"	mfc0	$1,$12						\n"
 	"	ori	$1,0x1f						\n"
@@ -88,11 +85,6 @@ notrace unsigned long arch_local_irq_save(void)
 	"	andi	%[flags], %[flags], 0x400			\n"
 #elif defined(CONFIG_CPU_MIPSR2)
 	/* see irqflags.h for inline function */
-#elif defined(CONFIG_CPU_LOONGSON3_GS464E)
-	"	mfc0	%[flags], $12					\n"
-	"	.set	mips64r2					\n"
-	"	di							\n"
-	"	andi	%[flags], 1					\n"
 #else
 	"	mfc0	%[flags], $12					\n"
 	"	ori	$1, %[flags], 0x1f				\n"
@@ -140,7 +132,7 @@ notrace void arch_local_irq_restore(unsigned long flags)
 	"	mtc0	%[flags], $2, 1					\n"
 #elif defined(CONFIG_CPU_MIPSR2) && defined(CONFIG_IRQ_CPU)
 	/* see irqflags.h for inline function */
-#elif defined(CONFIG_CPU_LOONGSON3_GS464E) && defined(CONFIG_IRQ_CPU)
+#elif !defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_IRQ_CPU)
 	/*
 	 * Slow, but doesn't suffer from a relativly unlikely race
 	 * condition we're having since days 1.
@@ -190,7 +182,7 @@ notrace void __arch_local_irq_restore(unsigned long flags)
 	"	mtc0	%[flags], $2, 1					\n"
 #elif defined(CONFIG_CPU_MIPSR2) && defined(CONFIG_IRQ_CPU)
 	/* see irqflags.h for inline function */
-#elif defined(CONFIG_CPU_LOONGSON3_GS464E) && defined(CONFIG_IRQ_CPU)
+#elif !defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_IRQ_CPU)
 	/*
 	 * Slow, but doesn't suffer from a relativly unlikely race
 	 * condition we're having since days 1.
