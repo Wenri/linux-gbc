@@ -127,12 +127,18 @@ static int pcie_dma_set_mask(struct device *dev, u64 mask)
 }
 static dma_addr_t pcie_phys_to_dma(struct device *dev, phys_addr_t paddr)
 {
-	return paddr;
+	if (strstr(einter->description, "V3.3.1"))
+		return (paddr < 0x10000000) ? paddr : (paddr - 0x80000000);
+	else
+		return paddr & 0xffffffff;
 }
 
 static phys_addr_t pcie_dma_to_phys(struct device *dev, dma_addr_t daddr)
 {
-	return daddr;
+	if (strstr(einter->description, "V3.3.1"))
+		return (daddr < 0x10000000) ? daddr : (daddr + 0x80000000);
+	else
+		return (daddr < 0x10000000) ? daddr : (daddr | 0x100000000);
 }
 
 struct mips_dma_map_ops ls2h_pcie_dma_map_ops = {
