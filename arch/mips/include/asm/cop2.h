@@ -11,6 +11,16 @@
 
 #include <linux/notifier.h>
 
+#if defined(CONFIG_CPU_LOONGSON3)
+
+#define cop2_save(r)
+#define cop2_restore(r)
+
+#define cop2_present		1
+#define cop2_lazy_restore	1
+
+#endif
+
 enum cu2_ops {
 	CU2_EXCEPTION,
 	CU2_LWC2_OP,
