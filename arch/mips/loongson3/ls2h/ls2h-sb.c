@@ -18,6 +18,7 @@
 #include <dma-coherence.h>
 #include <ls2h/ls2h.h>
 
+#define MEMSIZE_4G 0x100000000
 extern void ls2h_init_irq(void);
 extern void ls2h_irq_dispatch(unsigned int pending);
 extern int ls2h_platform_init(void);
@@ -67,15 +68,30 @@ static void enable_south_bridge(void)
 	ls2h_writel(i, LS2H_CHIP_CFG0_REG);
 }
 
+#ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
+extern u32 memsize;
+extern u32 highmemsize;
+#endif
+
 static void __init ls2h_arch_initcall(void)
 {
-	enable_south_bridge();
+	int i;
+	unsigned long total_memsize = 0;
 
-	if (1)
+	enable_south_bridge();
+#ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
+	total_memsize = memsize + highmemsize;
+#else
+	for (i = 0; i < emap->nr_map; i++){
+		if((emap->map[i].node_id == 0)&&(emap->map[i].mem_type != SMBIOS_TABLE)){
+			total_memsize += emap->map[i].mem_size;
+		}
+	}
+#endif
+	if ((total_memsize << 20) > MEMSIZE_4G)
 		loongson_dma_map_ops = &ls2h_pcie_dma_map_ops;
 	else
 		ls2h_dma_ops_init();
-
 #ifdef CONFIG_LS2H_PCIE
 	ls2h_pcie_init();
 #endif
