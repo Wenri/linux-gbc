@@ -264,6 +264,9 @@ enum {
 	LS3A2H_BOARD_VER_OLD = 0xf,
 };
 
+#define LS2H_GPIO_PIN_4			4
+#define LS2H_GPIO_PIN_5			5
+
 #define LS2H_PCIE_MAX_PORTNUM       3
 #define LS2H_PCIE_PORT0             0
 #define LS2H_PCIE_PORT1             1

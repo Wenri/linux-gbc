@@ -28,6 +28,7 @@
 
 #include <ls2h/ls2h.h>
 #include <ls2h/ls2h_int.h>
+#include <linux/i2c-gpio.h>
 
 /*
  * UART
@@ -494,6 +495,26 @@ static struct platform_device ls2h_gpu_device = {
 		.platform_data = &ls2h_gpu_data,
 	}
 };
+/*
+ * GPIO-I2C
+ */
+static struct i2c_gpio_platform_data pdata = {
+	.sda_pin                = LS2H_GPIO_PIN_5,
+	.sda_is_open_drain      = 0,
+	.scl_pin                = LS2H_GPIO_PIN_4,
+	.scl_is_open_drain      = 0,
+	.udelay                 = 100,
+};
+
+static struct platform_device ls2h_gpio_i2c_device = {
+	.name                   = "i2c-gpio",
+	.id                     = 2,
+	.num_resources          = 0,
+	.resource               = NULL,
+	.dev                    = {
+		.platform_data  = &pdata,
+	},
+};
 
 static struct platform_device *ls2h_platform_devices[] = {
 	&uart8250_device,
@@ -514,12 +535,20 @@ static struct platform_device *ls2h_platform_devices[] = {
 	&ls2h_gpu_device,
 };
 
+static struct platform_device *ls2h_i2c_gpio_platform_devices[] = {
+	&ls2h_gpio_i2c_device,
+};
+
 const struct i2c_board_info __initdata ls2h_gmac_eep_info = {
 	I2C_BOARD_INFO("eeprom-mac", 0x50),
 };
 
 const struct i2c_board_info __initdata ls2h_fb_eep_info = {
 	I2C_BOARD_INFO("eeprom-edid", 0x50),
+};
+
+const struct i2c_board_info __initdata ls2h_dvi_fb_eep_info = {
+	I2C_BOARD_INFO("dvi-eeprom-edid", 0x50),
 };
 
 int ls2h_platform_init(void)
@@ -542,12 +571,22 @@ int ls2h_platform_init(void)
 #define I2C_BUS_1 1
 	tmp = ls2h_readl(LS2H_GPIO_IN_REG);
 	tmp = (tmp >> 8) & 0xf;
-	if (tmp == LS3A2H_BOARD_VER_OLD)
-		i2c_register_board_info(I2C_BUS_1, &ls2h_gmac_eep_info, 1);
-	else
-		i2c_register_board_info(I2C_BUS_0, &ls2h_gmac_eep_info, 1);
 
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+		i2c_register_board_info(I2C_BUS_0, &ls2h_gmac_eep_info, 1);
+	}else{
+		if (tmp == LS3A2H_BOARD_VER_OLD)
+			i2c_register_board_info(I2C_BUS_1, &ls2h_gmac_eep_info, 1);
+		else
+			i2c_register_board_info(I2C_BUS_0, &ls2h_gmac_eep_info, 1);
+	}
 	i2c_register_board_info(I2C_BUS_1, &ls2h_fb_eep_info, 1);
+
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+		i2c_register_board_info(2, &ls2h_dvi_fb_eep_info, 1);
+		/* gpio 4 5 used for simulation an i2c device.gpio 4 -> SDA,gpio 5 ->SCL */
+		ls2h_readl(LS2H_GPIO_CFG_REG) &= (~((1 << LS2H_GPIO_PIN_4) || (1 << LS2H_GPIO_PIN_5)));
+	}
 
 	/* This register is zero in 2h3, !zero in 2h2 */
 	tmp = ls2h_readl(LS2H_CHIP_SAMP3_REG);
@@ -566,7 +605,10 @@ int ls2h_platform_init(void)
 	}
 	pr_info("GPU USE : %s DDR as VRAM\n", tmp? "3A " : "2H");
 	pr_info("VRAM size is :0x%lx \n", uma_vram_size << 20);
-
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+		platform_add_devices(ls2h_i2c_gpio_platform_devices,
+			ARRAY_SIZE(ls2h_i2c_gpio_platform_devices));
+	}
 	return platform_add_devices(ls2h_platform_devices,
 			ARRAY_SIZE(ls2h_platform_devices));
 }

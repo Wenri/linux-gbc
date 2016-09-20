@@ -817,23 +817,24 @@ static unsigned char *ls2h_fb_i2c_connector(struct ls2h_fb_par *fb_par)
 	unsigned char *edid = NULL;
 
 	LS2H_DEBUG("edid entry\n");
-	if (i2c_add_driver(&dvi_eep_driver)) {
-		pr_err("i2c-%d No eeprom device register!",dvi_eep_driver.id_table->driver_data);
-		return -ENODEV;
-	}
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (i2c_add_driver(&dvi_eep_driver)) {
+			pr_err("i2c-%d No eeprom device register!",dvi_eep_driver.id_table->driver_data);
+			return -ENODEV;
+		}
 
 	if (eeprom_info.adapter)
 		edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
-
-	if (!edid) {
-		if (i2c_add_driver(&vga_eep_driver)) {
-			pr_err("i2c-%d No eeprom device register!",vga_eep_driver.id_table->driver_data);
-			return -ENODEV;
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (!edid) {
+			if (i2c_add_driver(&vga_eep_driver)) {
+				pr_err("i2c-%d No eeprom device register!",vga_eep_driver.id_table->driver_data);
+				return -ENODEV;
+			}
+			edid_flag = 1;
+			if (eeprom_info.adapter)
+				edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
 		}
-		edid_flag = 1;
-		if (eeprom_info.adapter)
-			edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
-	}
 
 	if (edid)
 		fb_par->edid = edid;
@@ -1106,6 +1107,23 @@ static struct platform_driver ls2h_fb_driver = {
 	},
 };
 
+static const struct i2c_device_id eep_ids[] = {
+	{ "eeprom-edid", 0 },
+	{ /* END OF LIST */ }
+};
+
+MODULE_DEVICE_TABLE(i2c, eep_ids);
+
+static struct i2c_driver eep_driver = {
+	.driver = {
+		.name = "eep-edid",
+		.owner = THIS_MODULE,
+	},
+	.probe = eep_probe,
+	.remove = eep_remove,
+	.id_table = eep_ids,
+};
+
 static int __init ls2h_fb_init(void)
 {
 	int ret = 0;
@@ -1121,6 +1139,12 @@ static int __init ls2h_fb_init(void)
 	if (!ls2h_fb_enable)
 		return -ENXIO;
 
+if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000) 
+	if (i2c_add_driver(&eep_driver)) {
+		pr_err("No eeprom device register!");
+		return -ENODEV;
+	}
+
 	ret = platform_driver_register(&ls2h_fb_driver);
 
 	return ret;
@@ -1132,9 +1156,12 @@ module_init(ls2h_fb_init);
 static void __exit ls2h_fb_exit(void)
 {
 	platform_driver_unregister(&ls2h_fb_driver);
+if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
 	i2c_del_driver(&dvi_eep_driver);
 	if (edid_flag)
 		i2c_del_driver(&vga_eep_driver);
+}else
+	i2c_del_driver(&eep_driver);
 }
 
 module_exit(ls2h_fb_exit);

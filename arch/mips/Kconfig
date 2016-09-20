@@ -1563,6 +1563,7 @@ config CPU_LOONGSON3
 	select WEAK_REORDERING_BEYOND_LLSC
 	select CPU_HAS_FTLB
 	select CPU_HAS_PREFETCH
+	select GENERIC_GPIO
 	help
 		The Loongson 3 processor implements the MIPS III instruction set
 		with many extensions.
@@ -2473,6 +2474,12 @@ config HT_PCI
 
 config PCI_DOMAINS
 	bool
+
+config GENERIC_GPIO
+       bool "2H GPIO I2C support"
+       depends on LS2H_SB
+       help
+         Make use of the Loongson2H GPIO for i2c Controller.
 
 config LS2H_PCIE
 	bool "Loongson2H PCI-Express Controller"
