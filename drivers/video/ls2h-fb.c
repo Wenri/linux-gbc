@@ -817,7 +817,7 @@ static unsigned char *ls2h_fb_i2c_connector(struct ls2h_fb_par *fb_par)
 	unsigned char *edid = NULL;
 
 	LS2H_DEBUG("edid entry\n");
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A)
 		if (i2c_add_driver(&dvi_eep_driver)) {
 			pr_err("i2c-%d No eeprom device register!",dvi_eep_driver.id_table->driver_data);
 			return -ENODEV;
@@ -825,7 +825,7 @@ static unsigned char *ls2h_fb_i2c_connector(struct ls2h_fb_par *fb_par)
 
 	if (eeprom_info.adapter)
 		edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A)
 		if (!edid) {
 			if (i2c_add_driver(&vga_eep_driver)) {
 				pr_err("i2c-%d No eeprom device register!",vga_eep_driver.id_table->driver_data);
@@ -1139,7 +1139,7 @@ static int __init ls2h_fb_init(void)
 	if (!ls2h_fb_enable)
 		return -ENXIO;
 
-if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000) 
+if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A)
 	if (i2c_add_driver(&eep_driver)) {
 		pr_err("No eeprom device register!");
 		return -ENODEV;
@@ -1156,7 +1156,7 @@ module_init(ls2h_fb_init);
 static void __exit ls2h_fb_exit(void)
 {
 	platform_driver_unregister(&ls2h_fb_driver);
-if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A){
 	i2c_del_driver(&dvi_eep_driver);
 	if (edid_flag)
 		i2c_del_driver(&vga_eep_driver);

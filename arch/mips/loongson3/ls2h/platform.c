@@ -572,17 +572,17 @@ int ls2h_platform_init(void)
 	tmp = ls2h_readl(LS2H_GPIO_IN_REG);
 	tmp = (tmp >> 8) & 0xf;
 
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
-		i2c_register_board_info(I2C_BUS_0, &ls2h_gmac_eep_info, 1);
-	}else{
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A){
 		if (tmp == LS3A2H_BOARD_VER_OLD)
 			i2c_register_board_info(I2C_BUS_1, &ls2h_gmac_eep_info, 1);
 		else
 			i2c_register_board_info(I2C_BUS_0, &ls2h_gmac_eep_info, 1);
+	}else{
+		i2c_register_board_info(I2C_BUS_0, &ls2h_gmac_eep_info, 1);
 	}
 	i2c_register_board_info(I2C_BUS_1, &ls2h_fb_eep_info, 1);
 
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A){
 		i2c_register_board_info(2, &ls2h_dvi_fb_eep_info, 1);
 		/* gpio 4 5 used for simulation an i2c device.gpio 4 -> SDA,gpio 5 ->SCL */
 		ls2h_readl(LS2H_GPIO_CFG_REG) &= (~((1 << LS2H_GPIO_PIN_4) || (1 << LS2H_GPIO_PIN_5)));
@@ -605,7 +605,7 @@ int ls2h_platform_init(void)
 	}
 	pr_info("GPU USE : %s DDR as VRAM\n", tmp? "3A " : "2H");
 	pr_info("VRAM size is :0x%lx \n", uma_vram_size << 20);
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A){
 		platform_add_devices(ls2h_i2c_gpio_platform_devices,
 			ARRAY_SIZE(ls2h_i2c_gpio_platform_devices));
 	}

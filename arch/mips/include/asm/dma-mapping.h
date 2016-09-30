@@ -117,7 +117,8 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
 	 * by device. node3 dma start addr is 0x6000000000. when
 	 * dma address >= 0x6000000000, we must enable softiotlb.
 	 */
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) {
+	ret = read_c0_prid() & 0xf;
+	if ((ret == PRID_REV_LOONGSON3A2000) || (ret == PRID_REV_LOONGSON3A3000)) {
 		ret = addr + size < 0x0000006000000000;
 		if (!ret)
 			return ret;

@@ -643,7 +643,7 @@ static int __init hugepage_init(void)
 		transparent_hugepage_flags = 0;
 
 #ifdef CONFIG_CPU_LOONGSON3
-	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000){
+	if (((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000) && ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A3000)) {
 		clear_bit(TRANSPARENT_HUGEPAGE_FLAG,
 				&transparent_hugepage_flags);
 		clear_bit(TRANSPARENT_HUGEPAGE_REQ_MADV_FLAG,

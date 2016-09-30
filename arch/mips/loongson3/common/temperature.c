@@ -104,11 +104,16 @@ static void temp_handler(int node_num)
 {
 	unsigned char temp[4];
 	int i;
+        int temp_int[4];
 
 	switch (cputype) {
 		case Loongson_3A:
 			for(i = 0; i < node_num; i++) {
-				temp[i] = *((volatile unsigned char *)temp_device.resource[i].end);
+				if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000) {
+					temp_int[i] = *((volatile unsigned int *)temp_device.resource[i].start);
+					temp[i] = (temp_int[i] & 0xffff)*731/0x4000 - 273;
+				} else
+					temp[i] = *((volatile unsigned char *)temp_device.resource[i].end);
 				if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
 					temp[i] -= 100;
 				//if (temp[i] >= WARNING_TEMP)

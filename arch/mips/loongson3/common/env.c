@@ -159,7 +159,8 @@ void __init prom_init_env(void)
 		cores_per_package = 1;
 		loongson_chipcfg[0] = 0x900000001fe00180;
 	}
-	if ((ecpu->cputype == Loongson_3A) && ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)) {
+	tmp = (read_c0_prid() & 0xf);
+	if ((ecpu->cputype == Loongson_3A) && ((tmp == PRID_REV_LOONGSON3A2000) || (tmp == PRID_REV_LOONGSON3A3000))) {
 		loongson_chipcfg[0] = 0x900000001fe001d0;
 		loongson_chipcfg[1] = 0x900010001fe001d0;
 		loongson_chipcfg[2] = 0x900020001fe001d0;

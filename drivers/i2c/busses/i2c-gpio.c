@@ -31,7 +31,7 @@ static void i2c_gpio_setsda_dir(void *data, int state)
 	struct i2c_gpio_platform_data *pdata = data;
 
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)){
 		if (state)
 			ls2h_gpio_direction_input(pdata->sda_pin);
 		else
@@ -57,7 +57,7 @@ static void i2c_gpio_setsda_val(void *data, int state)
 	struct i2c_gpio_platform_data *pdata = data;
 
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		ls2h_gpio_set_value(pdata->sda_pin, state);
 	else
 #endif
@@ -70,7 +70,7 @@ static void i2c_gpio_setscl_dir(void *data, int state)
 	struct i2c_gpio_platform_data *pdata = data;
 
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)){
 		if (state)
 			ls2h_gpio_direction_input(pdata->scl_pin);
 		else
@@ -97,7 +97,7 @@ static void i2c_gpio_setscl_val(void *data, int state)
 	struct i2c_gpio_platform_data *pdata = data;
 
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		ls2h_gpio_set_value(pdata->scl_pin, state);
 	else
 #endif
@@ -108,7 +108,7 @@ static int i2c_gpio_getsda(void *data)
 {
 	struct i2c_gpio_platform_data *pdata = data;
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		return ls2h_gpio_get_value(pdata->sda_pin);
 	else
 #endif
@@ -119,7 +119,7 @@ static int i2c_gpio_getscl(void *data)
 {
 	struct i2c_gpio_platform_data *pdata = data;
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		return ls2h_gpio_get_value(pdata->scl_pin);
 	else
 #endif
@@ -185,7 +185,7 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 		scl_pin = pdata->scl_pin;
 	}
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)){
 		ret = ls2h_gpio_request(sda_pin, "sda");
 		if (ret) {
 			if (ret == -EINVAL)
@@ -234,7 +234,7 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 
 	if (pdata->sda_is_open_drain) {
 #if	defined(CONFIG_CPU_LOONGSON3)
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 			ls2h_gpio_direction_output(pdata->sda_pin, 1);
 		else
 #endif
@@ -242,7 +242,7 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 		bit_data->setsda = i2c_gpio_setsda_val;
 	} else {
 #if	defined(CONFIG_CPU_LOONGSON3)
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 			ls2h_gpio_direction_input(pdata->sda_pin);
 		else
 #endif
@@ -252,7 +252,7 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 
 	if (pdata->scl_is_open_drain || pdata->scl_is_output_only) {
 #if	defined(CONFIG_CPU_LOONGSON3)
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 			ls2h_gpio_direction_output(pdata->sda_pin, 1);
 		else
 #endif
@@ -260,7 +260,7 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 		bit_data->setscl = i2c_gpio_setscl_val;
 	} else {
 #if	defined(CONFIG_CPU_LOONGSON3)
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 			ls2h_gpio_direction_input(pdata->sda_pin);
 		else
 #endif
@@ -315,14 +315,14 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 
 err_add_bus:
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		ls2h_gpio_free(scl_pin);
 	else
 #endif
 		gpio_free(scl_pin);
 err_request_scl:
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		ls2h_gpio_free(sda_pin);
 	else
 #endif
@@ -343,7 +343,7 @@ static int i2c_gpio_remove(struct platform_device *pdev)
 
 	i2c_del_adapter(adap);
 #if	defined(CONFIG_CPU_LOONGSON3)
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)){
 		ls2h_gpio_free(pdata->scl_pin);
 		ls2h_gpio_free(pdata->sda_pin);
 	}else{

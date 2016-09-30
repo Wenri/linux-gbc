@@ -1492,7 +1492,7 @@ void __cpuinit r4k_cache_init(void)
 	struct cpuinfo_mips *c = &current_cpu_data;
 
 	probe_pcache();
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000))
 		probe_vcache();
 	setup_scache();
 

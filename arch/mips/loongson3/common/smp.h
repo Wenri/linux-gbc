@@ -9,6 +9,7 @@
 
 #define LOONGSON3_TO_BASE(cpu) \
 	(((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A) || \
+	 ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000) || \
 	 ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)) ? \
 	LOONGSON3A_TO_BASE(cpu) : LOONGSON3B_TO_BASE(cpu)
 

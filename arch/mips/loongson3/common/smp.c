@@ -458,12 +458,12 @@ void play_dead(void)
 	idle_task_exit();
 	switch (cputype) {
 	case Loongson_3A:
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
-			play_dead_at_ckseg1 =
-				(void *)CKSEG1ADDR((unsigned long)loongson3a2000_play_dead);
-		else
+		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A)
 			play_dead_at_ckseg1 =
 				(void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
+		else
+			play_dead_at_ckseg1 =
+				(void *)CKSEG1ADDR((unsigned long)loongson3a2000_play_dead);
 		break;
 	case Loongson_3B:
 		play_dead_at_ckseg1 = (void *)CKSEG1ADDR((unsigned long)loongson3b_play_dead);
@@ -489,6 +489,7 @@ void loongson3_disable_clock(int cpu)
 				LOONGSON_CHIPCFG(package_id) &= ~(1 << (12 + core_id));
 				break;
 			case PRID_REV_LOONGSON3A2000:
+			case PRID_REV_LOONGSON3A3000:
 				LOONGSON_CHIPCFG(package_id) &= ~(1 << (core_id * 4 + 3));
 				break;
 		}
@@ -516,6 +517,7 @@ void loongson3_enable_clock(int cpu)
 				LOONGSON_CHIPCFG(package_id) |= 1 << (12 + core_id);
 				break;
 			case PRID_REV_LOONGSON3A2000:
+			case PRID_REV_LOONGSON3A3000:
 				LOONGSON_CHIPCFG(package_id) |= 1 << (core_id * 4 + 3);
 				break;
 		}

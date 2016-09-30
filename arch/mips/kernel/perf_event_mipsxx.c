@@ -2353,14 +2353,22 @@ init_hw_perf_events(void)
 		mipspmu.name = "loongson3";
 		mipspmu.general_event_map = &loongson3_event_map;
 		mipspmu.cache_event_map = &loongson3_cache_map;
-        counters = 2;
+		counters = 2;
 		if ((current_cpu_data.processor_id & PRID_REV_MASK)
 				== PRID_REV_LOONGSON3A2000) {
 			mipspmu.name = "loongson3a2000";
 			mipspmu.general_event_map = &loongson3a2000_event_map;
 			mipspmu.cache_event_map = &loongson3a2000_cache_map;
 			mipspmu.map_raw_event = loongson3a2000_pmu_map_raw_event;
-            counters = 4;
+			counters = 4;
+		}
+		if ((current_cpu_data.processor_id & PRID_REV_MASK)
+				== PRID_REV_LOONGSON3A3000) {
+			mipspmu.name = "loongson3a3000";
+			mipspmu.general_event_map = &loongson3a2000_event_map;
+			mipspmu.cache_event_map = &loongson3a2000_cache_map;
+			mipspmu.map_raw_event = loongson3a2000_pmu_map_raw_event;
+			counters = 4;
 		}
 		break;
 	default:
@@ -2373,8 +2381,8 @@ init_hw_perf_events(void)
 	mipspmu.irq = irq;
 
 	if (read_c0_perfctrl0() & M_PERFCTL_WIDE) {
-		if ((current_cpu_data.processor_id & PRID_REV_MASK)
-				== PRID_REV_LOONGSON3A2000) {
+		if (((current_cpu_data.processor_id & PRID_REV_MASK) == PRID_REV_LOONGSON3A2000) ||
+                    ((current_cpu_data.processor_id & PRID_REV_MASK) == PRID_REV_LOONGSON3A3000)) {
 			mipspmu.write_counter = mipsxx_pmu_write_counter_48;
 			mipspmu.read_counter = mipsxx_pmu_read_counter_48;
 			mipspmu.max_period = (1ULL << 47) - 1;

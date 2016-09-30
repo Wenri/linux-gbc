@@ -321,7 +321,7 @@ static inline unsigned int decode_config4(struct cpuinfo_mips *c)
 	ftlbdis = config6 & 0x00400000;
 	if (cpu_has_tlb) {
 #ifdef CONFIG_CPU_LOONGSON3
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)
+		if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000))
 			c->options |= MIPS_CPU_TLBINV;
 #endif
 		mmuextdef = config4 & MIPS_CONF4_MMUEXTDEF;
@@ -375,7 +375,7 @@ static void __cpuinit decode_configs(struct cpuinfo_mips *c)
 	c->scache.flags = MIPS_CACHE_NOT_PRESENT;
 
 #ifdef CONFIG_CPU_HAS_FTLB
-	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000){
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000)){
 		write_c0_diag(0x3000); /* before enable or disable the FTLB, We should flush all TLB */
 		set_ftlb_enable(c, 1); /* Enable FTLB if present */
 	}
@@ -425,6 +425,12 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 			c->cputype = CPU_LOONGSON3;
 			c->options |= MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
 			__cpu_name[cpu] = "ICT Loongson-3A2000";
+			decode_configs(c);
+			break;
+		case PRID_REV_LOONGSON3A3000:
+			c->cputype = CPU_LOONGSON3;
+			c->options |= MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
+			__cpu_name[cpu] = "ICT Loongson-3A3000";
 			decode_configs(c);
 			break;
 		}
