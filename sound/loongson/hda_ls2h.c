@@ -171,6 +171,7 @@ MODULE_DESCRIPTION("Loongson2H HDA driver");
 #define ICH6_REG_INTSTS			0x24
 #define ICH6_REG_WALLCLK		0x30	/* 24Mhz source */
 #define ICH6_REG_SYNC			0x34
+#define ICH6_REG_SSYNC			0x38
 #define ICH6_REG_CORBLBASE		0x40
 #define ICH6_REG_CORBUBASE		0x44
 #define ICH6_REG_CORBWP			0x48
@@ -1218,6 +1219,11 @@ static void azx_stream_start(struct azx *chip, struct azx_dev *azx_dev)
 	/* ls2h: write byte will flush neighbour bytes to 0. */
 	azx_sd_writel(azx_dev, SD_CTL, azx_sd_readl(azx_dev, SD_CTL) |
 		      SD_CTL_DMA_START | SD_INT_MASK);
+	if (chip_version == LS2H_VER3) {
+		azx_sd_writel(azx_dev, SD_CTL,
+				(azx_sd_readl(azx_dev, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK)
+				| (azx_dev->stream_tag << SD_CTL_STREAM_TAG_SHIFT));
+	}
 }
 
 static unsigned int azx_get_position_org(struct azx *chip, struct azx_dev *azx_dev);
@@ -1483,9 +1489,16 @@ static int azx_setup_controller(struct azx *chip, struct azx_dev *azx_dev)
 	/* make sure the run bit is zero for SD */
 	azx_stream_clear(chip, azx_dev);
 	/* program the stream_tag */
-	azx_sd_writel(azx_dev, SD_CTL,
-		      (azx_sd_readl(azx_dev, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK)
-		      | (azx_dev->stream_tag << SD_CTL_STREAM_TAG_SHIFT));
+	if (chip_version == LS2H_VER2) {
+		azx_sd_writel(azx_dev, SD_CTL,
+				(azx_sd_readl(azx_dev, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK)
+				| (azx_dev->stream_tag << SD_CTL_STREAM_TAG_SHIFT));
+	}
+	else
+	{
+		azx_sd_writel(azx_dev, SD_CTL,
+				(azx_sd_readl(azx_dev, SD_CTL) & ~SD_CTL_STREAM_TAG_MASK));
+	}
 
 	/* program the length of samples in cyclic buffer */
 	/*fix hardware pointer, different form intel hda
@@ -1924,9 +1937,15 @@ static int azx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 
 	spin_lock(&chip->reg_lock);
 
-	if (nsync > 1) {
-		/* first, set SYNC bits of corresponding streams */
-		azx_writel(chip, SYNC, azx_readl(chip, SYNC) | sbits);
+	if (chip_version == LS2H_VER2) {
+		if (nsync > 1) {
+			/* first, set SYNC bits of corresponding streams */
+			azx_writel(chip, SYNC, azx_readl(chip, SYNC) | sbits);
+		}
+	}
+	else
+	{
+		azx_writel(chip, SSYNC, azx_readl(chip, SSYNC) | sbits);
 	}
 
 	snd_pcm_group_for_each_entry(s, substream) {
@@ -1949,9 +1968,11 @@ static int azx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	}
 	spin_unlock(&chip->reg_lock);
 	if (start) {
-		if (nsync == 1)
-			return 0;
+		if (chip_version == LS2H_VER2) {
+			if (nsync == 1)
+				return 0;
 
+		}
 		/* wait until all FIFOs get ready */
 		for (timeout = 5000; timeout; timeout--) {
 			nwait = 0;
@@ -1985,11 +2006,21 @@ static int azx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 		}
 	}
 
-	if (nsync > 1) {
+	if (chip_version == LS2H_VER2) {
+		if (nsync > 1) {
+			spin_lock(&chip->reg_lock);
+			/* reset SYNC bits */
+			azx_writel(chip, SYNC, azx_readl(chip, SYNC) & ~sbits);
+			spin_unlock(&chip->reg_lock);
+		}
+	}
+	else
+	{
 		spin_lock(&chip->reg_lock);
 		/* reset SYNC bits */
-		azx_writel(chip, SYNC, azx_readl(chip, SYNC) & ~sbits);
+		azx_writel(chip, SSYNC, azx_readl(chip, SSYNC) & ~sbits);
 		spin_unlock(&chip->reg_lock);
+
 	}
 
 	return 0;
