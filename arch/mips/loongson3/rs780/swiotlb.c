@@ -35,7 +35,7 @@ static void *loongson_dma_alloc_coherent(struct device *dev, size_t size,
 	else
 #endif
 	;
-	gfp |= __GFP_NORETRY;
+	gfp |= __GFP_NORETRY | __GFP_NOWARN;
 
 	ret = swiotlb_alloc_coherent(dev, size, dma_handle, gfp);
 	mb();
