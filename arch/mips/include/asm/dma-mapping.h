@@ -105,26 +105,13 @@ static inline phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr)
 
 static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
 {
-	unsigned int ret;
 	if (!dev->dma_mask)
 		return 0;
 
 #if defined(CONFIG_CPU_LOONGSON3)
 	if (!dma64_supported)
 		return addr + size <= 0x00000000ffffffff;
-	/*
-	 * 3A2000 four way, node3's phy memory can not be DMA'd
-	 * by device. node3 dma start addr is 0x6000000000. when
-	 * dma address >= 0x6000000000, we must enable softiotlb.
-	 */
-	ret = read_c0_prid() & 0xf;
-	if ((ret == PRID_REV_LOONGSON3A2000) || (ret == PRID_REV_LOONGSON3A3000)) {
-		ret = addr + size < 0x0000006000000000;
-		if (!ret)
-			return ret;
-	}
 #endif
-
 
 	return addr + size <= *dev->dma_mask;
 }
