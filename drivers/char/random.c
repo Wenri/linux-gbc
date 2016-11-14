@@ -250,12 +250,16 @@
 #include <linux/interrupt.h>
 #include <linux/mm.h>
 #include <linux/spinlock.h>
+#include <linux/kthread.h>
 #include <linux/percpu.h>
 #include <linux/cryptohash.h>
 #include <linux/fips.h>
 #include <linux/ptrace.h>
 #include <linux/kmemcheck.h>
-
+#include <linux/workqueue.h>
+#include <linux/irq.h>
+#include <linux/syscalls.h>
+#include <linux/completion.h>
 #ifdef CONFIG_GENERIC_HARDIRQS
 # include <linux/irq.h>
 #endif
@@ -280,11 +284,21 @@
 #define LONGS(x) (((x) + sizeof(unsigned long) - 1)/sizeof(unsigned long))
 
 /*
+ * To allow fractional bits to be tracked, the entropy_count field is
+ * denominated in units of 1/8th bits.
+ *
+ * 2*(ENTROPY_SHIFT + log2(poolbits)) must <= 31, or the multiply in
+ * credit_entropy_bits() needs to be 64 bits wide.
+ */
+#define ENTROPY_SHIFT 3
+#define ENTROPY_BITS(r) ((r)->entropy_count >> ENTROPY_SHIFT)
+
+/*
  * The minimum number of bits of entropy before we wake up a read on
  * /dev/random.  Should be enough to do a significant reseed.
  */
 static int random_read_wakeup_thresh = 64;
-
+static int random_read_wakeup_bits = 64;
 /*
  * If the entropy count falls under this number of bits, then we
  * should wake up processes which are selecting or polling on write
@@ -397,6 +411,7 @@ static struct poolinfo {
  */
 static DECLARE_WAIT_QUEUE_HEAD(random_read_wait);
 static DECLARE_WAIT_QUEUE_HEAD(random_write_wait);
+static DECLARE_WAIT_QUEUE_HEAD(urandom_init_wait);
 static struct fasync_struct *fasync;
 
 static bool debug;
@@ -1153,68 +1168,58 @@ void rand_initialize_disk(struct gendisk *disk)
 		disk->random = state;
 }
 #endif
-
 static ssize_t
-random_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
+_random_read(int nonblock,char __user *buf,size_t nbytes)
 {
-	ssize_t n, retval = 0, count = 0;
-
-	if (nbytes == 0)
+	ssize_t n;
+	if(nbytes == 0)
 		return 0;
-
-	while (nbytes > 0) {
-		n = nbytes;
-		if (n > SEC_XFER_SIZE)
-			n = SEC_XFER_SIZE;
-
-		DEBUG_ENT("reading %zu bits\n", n*8);
-
-		n = extract_entropy_user(&blocking_pool, buf, n);
-
-		if (n < 0) {
-			retval = n;
-			break;
-		}
-
-		DEBUG_ENT("read got %zd bits (%zd still needed)\n",
-			  n*8, (nbytes-n)*8);
-
-		if (n == 0) {
-			if (file->f_flags & O_NONBLOCK) {
-				retval = -EAGAIN;
-				break;
-			}
-
-			DEBUG_ENT("sleeping?\n");
-
-			wait_event_interruptible(random_read_wait,
-				input_pool.entropy_count >=
-						 random_read_wakeup_thresh);
-
-			DEBUG_ENT("awake\n");
-
-			if (signal_pending(current)) {
-				retval = -ERESTARTSYS;
-				break;
-			}
-
-			continue;
-		}
-
-		count += n;
-		buf += n;
-		nbytes -= n;
-		break;		/* This break makes the device work */
-				/* like a named pipe */
-	}
-
-	return (count ? count : retval);
+	nbytes = min_t(size_t,nbytes,SEC_XFER_SIZE);
+	while(1){
+		n = extract_entropy_user(&blocking_pool,buf,nbytes);
+		if(n < 0)
+			return n;
+		trace_random_read(n*8, (nbytes-n)*8,
+			ENTROPY_BITS(&blocking_pool),
+			ENTROPY_BITS(&input_pool));
+	
+		if(n > 0)
+			return n;
+		/* Pool is (near) empty. Maybe wait and retry. */
+		if(nonblock)
+			return -EAGAIN;
+		wait_event_interruptible(random_read_wait,
+			ENTROPY_BITS(&input_pool) >=
+			random_read_wakeup_bits);
+		if(signal_pending(current))
+			return -ERESTARTSYS;
+	}	
 }
-
+static ssize_t
+random_read(struct file *file, char __user * buf,size_t nbytes, loff_t *ppos)
+{
+	return _random_read(file->f_flags & 	O_NONBLOCK, buf, nbytes);
+}
 static ssize_t
 urandom_read(struct file *file, char __user *buf, size_t nbytes, loff_t *ppos)
 {
-	return extract_entropy_user(&nonblocking_pool, buf, nbytes);
+	static int maxwarn = 10;
+	int ret;
+	if(unlikely(nonblocking_pool.initialized == 0) &&
+		maxwarn > 0){
+		maxwarn--;
+		printk(KERN_NOTICE "random: %s:uninitialized urandom read"
+			"(%zd bytes read, %d bits of entropy availabel)\n",
+			current->comm, nbytes,nonblocking_pool.entropy_total);
+	}
+	
+	nbytes = min_t(size_t, nbytes, INT_MAX >> (ENTROPY_SHIFT + 3));
+	ret = extract_entropy_user(&nonblocking_pool, buf, nbytes);
+
+	trace_urandom_read(8 * nbytes, ENTROPY_BITS(&nonblocking_pool),
+		ENTROPY_BITS(&input_pool));
+
+	return ret;
 }
 
 static unsigned int
@@ -1336,6 +1341,30 @@ const struct file_operations urandom_fops = {
 	.fasync = random_fasync,
 	.llseek = noop_llseek,
 };
+
+SYSCALL_DEFINE3(getrandom, char __user *, buf, size_t, count,
+                unsigned int, flags)
+{
+	printk("getrandom is sussce !\n");
+	if (flags & ~(GRND_NONBLOCK|GRND_RANDOM))
+		return -EINVAL;
+
+	if (count > INT_MAX)
+		count = INT_MAX;
+
+	if (flags & GRND_RANDOM)
+		return _random_read(flags & GRND_NONBLOCK, buf, count);
+
+	if (unlikely(nonblocking_pool.initialized == 0)) {
+		if (flags & GRND_NONBLOCK)
+			return -EAGAIN;
+		wait_event_interruptible(urandom_init_wait,
+ 					nonblocking_pool.initialized);
+		if (signal_pending(current))
+			return -ERESTARTSYS;
+	}
+	return urandom_read(NULL, buf, count, NULL);
+}
 
 /***************************************************************
  * Random UUID interface

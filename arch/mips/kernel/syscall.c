@@ -56,6 +56,7 @@ asmlinkage int sysm_pipe(void)
 	return fd[0];
 }
 
+
 SYSCALL_DEFINE6(mips_mmap, unsigned long, addr, unsigned long, len,
 	unsigned long, prot, unsigned long, flags, unsigned long,
 	fd, off_t, offset)
