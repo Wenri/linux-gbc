@@ -341,16 +341,16 @@ static int mipsxx_pmu_alloc_counter(struct cpu_hw_events *cpuc,
 				    struct hw_perf_event *hwc)
 {
 	int i;
-
+	unsigned long cntr_mask;
 	/*
 	 * We only need to care the counter mask. The range has been
 	 * checked definitely.
 	 */
-#if defined(CONFIG_CPU_LOONGSON3_GS464E)
-	unsigned long cntr_mask = (hwc->event_base >> 10) & 0xffff;
-#else
-	unsigned long cntr_mask = (hwc->event_base >> 8) & 0xffff;
-#endif
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000))
+		cntr_mask = (hwc->event_base >> 10) & 0xffff;
+	else
+		cntr_mask = (hwc->event_base >> 8) & 0xffff;
+
 
 	for (i = mipspmu.num_counters - 1; i >= 0; i--) {
 		/*
@@ -378,14 +378,16 @@ static void mipsxx_pmu_enable_event(struct hw_perf_event *evt, int idx)
 
 	WARN_ON(idx < 0 || idx >= mipspmu.num_counters);
 
-#if defined(CONFIG_CPU_LOONGSON3_GS464E)
-	cpuc->saved_ctrl[idx] = M_PERFCTL_EVENT(evt->event_base & 0x3ff) |
-#else
-	cpuc->saved_ctrl[idx] = M_PERFCTL_EVENT(evt->event_base & 0xff) |
-#endif
-		(evt->config_base & M_PERFCTL_CONFIG_MASK) |
-		/* Make sure interrupt enabled. */
-		M_PERFCTL_INTERRUPT_ENABLE;
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000))
+		cpuc->saved_ctrl[idx] = M_PERFCTL_EVENT(evt->event_base & 0x3ff) |
+			(evt->config_base & M_PERFCTL_CONFIG_MASK) |
+			/* Make sure interrupt enabled. */
+			M_PERFCTL_INTERRUPT_ENABLE;
+	else
+		cpuc->saved_ctrl[idx] = M_PERFCTL_EVENT(evt->event_base & 0xff) |
+			(evt->config_base & M_PERFCTL_CONFIG_MASK) |
+			/* Make sure interrupt enabled. */
+			M_PERFCTL_INTERRUPT_ENABLE;
 	/*
 	 * We do not actually let the counter run. Leave it until start().
 	 */
@@ -412,24 +414,37 @@ static int mipspmu_event_set_period(struct perf_event *event,
 	u64 left = local64_read(&hwc->period_left);
 	u64 period = hwc->sample_period;
 	int ret = 0;
-#if defined(CONFIG_CPU_LOONGSON3_GS464E)
-	if (unlikely((left + period) & (1ULL << 47))) {
-#else
-	if (unlikely((left + period) & (1ULL << 63))) {
-#endif
-		/* left underflowed by more than period. */
-		left = period;
-		local64_set(&hwc->period_left, left);
-		hwc->last_period = period;
-		ret = 1;
-	} else	if (unlikely((left + period) <= period)) {
-		/* left underflowed by less than period. */
-		left += period;
-		local64_set(&hwc->period_left, left);
-		hwc->last_period = period;
-		ret = 1;
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000)){
+		if (unlikely((left + period) & (1ULL << 47))) {
+			/* left underflowed by more than period. */
+			left = period;
+			local64_set(&hwc->period_left, left);
+			hwc->last_period = period;
+			ret = 1;
+		} else	if (unlikely((left + period) <= period)) {
+			/* left underflowed by less than period. */
+			left += period;
+			local64_set(&hwc->period_left, left);
+			hwc->last_period = period;
+			ret = 1;
+		}
 	}
+	else{
+		if (unlikely((left + period) & (1ULL << 63))) {
 
+			/* left underflowed by more than period. */
+			left = period;
+			local64_set(&hwc->period_left, left);
+			hwc->last_period = period;
+			ret = 1;
+		} else	if (unlikely((left + period) <= period)) {
+			/* left underflowed by less than period. */
+			left += period;
+			local64_set(&hwc->period_left, left);
+			hwc->last_period = period;
+			ret = 1;
+		}
+	}
 	if (left > mipspmu.max_period) {
 		left = mipspmu.max_period;
 		local64_set(&hwc->period_left, left);
@@ -707,13 +722,14 @@ static unsigned int mipspmu_perf_event_encode(const struct mips_perf_event *pev)
 	return ((unsigned int)pev->range << 24) |
 		(pev->cntr_mask & 0xffff00) |
 		(pev->event_id & 0xff);
-#elif defined(CONFIG_CPU_LOONGSON3_GS464E)
-	
-	return (pev->cntr_mask & 0xfffc00) | 
-		(pev->event_id & 0x3ff);
 #else
-	return (pev->cntr_mask & 0xffff00) |
-		(pev->event_id & 0xff);
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000))
+	
+		return (pev->cntr_mask & 0xfffc00) | 
+			(pev->event_id & 0x3ff);
+	else
+		return (pev->cntr_mask & 0xffff00) |
+			(pev->event_id & 0xff);
 #endif
 }
 
@@ -832,89 +848,94 @@ static int n_counters(void)
 
 	return counters;
 }
-
+static void loongson3_reset_counters(void* arg)
+{
+	int counters = (int)(long)arg;	
+	switch (counters) {
+		case 4:
+			mipsxx_pmu_write_control(3, 0);
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 127<<5);
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 191<<5);
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 255<<5);
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 319<<5);
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 383<<5);
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 575<<5);
+			mipspmu.write_counter(3, 0);
+		case 3:
+			mipsxx_pmu_write_control(2, 0);
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 127<<5);
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 191<<5);
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 255<<5);
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 319<<5);
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 383<<5);
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 575<<5);
+			mipspmu.write_counter(2, 0);
+		case 2:
+			mipsxx_pmu_write_control(1, 0);
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 127<<5);
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 191<<5);
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 255<<5);
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 319<<5);
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 383<<5);
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 575<<5);
+			mipspmu.write_counter(1, 0);
+		case 1:
+			mipsxx_pmu_write_control(0, 0);
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 127<<5);
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 191<<5);
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 255<<5);
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 319<<5);
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 383<<5);
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 575<<5);
+			mipspmu.write_counter(0, 0);
+	}
+}
 static void reset_counters(void *arg)
 {
 	int counters = (int)(long)arg;
-#if defined(CONFIG_CPU_LOONGSON3_GS464E)
-    switch (counters) {
-    case 4:
-        mipsxx_pmu_write_control(3, 0);
-        mipspmu.write_counter(3, 0);
-        mipsxx_pmu_write_control(3, 127<<5);
-        mipspmu.write_counter(3, 0);
-        mipsxx_pmu_write_control(3, 191<<5);
-        mipspmu.write_counter(3, 0);
-        mipsxx_pmu_write_control(3, 255<<5);
-        mipspmu.write_counter(3, 0);
-        mipsxx_pmu_write_control(3, 319<<5);
-        mipspmu.write_counter(3, 0);
-        mipsxx_pmu_write_control(3, 383<<5);
-        mipspmu.write_counter(3, 0);
-        mipsxx_pmu_write_control(3, 575<<5);
-        mipspmu.write_counter(3, 0);
-    case 3:
-        mipsxx_pmu_write_control(2, 0);
-        mipspmu.write_counter(2, 0);
-        mipsxx_pmu_write_control(2, 127<<5);
-        mipspmu.write_counter(2, 0);
-        mipsxx_pmu_write_control(2, 191<<5);
-        mipspmu.write_counter(2, 0);
-        mipsxx_pmu_write_control(2, 255<<5);
-        mipspmu.write_counter(2, 0);
-        mipsxx_pmu_write_control(2, 319<<5);
-        mipspmu.write_counter(2, 0);
-        mipsxx_pmu_write_control(2, 383<<5);
-        mipspmu.write_counter(2, 0);
-        mipsxx_pmu_write_control(2, 575<<5);
-        mipspmu.write_counter(2, 0);
-    case 2:
-        mipsxx_pmu_write_control(1, 0);
-        mipspmu.write_counter(1, 0);
-        mipsxx_pmu_write_control(1, 127<<5);
-        mipspmu.write_counter(1, 0);
-        mipsxx_pmu_write_control(1, 191<<5);
-        mipspmu.write_counter(1, 0);
-        mipsxx_pmu_write_control(1, 255<<5);
-        mipspmu.write_counter(1, 0);
-        mipsxx_pmu_write_control(1, 319<<5);
-        mipspmu.write_counter(1, 0);
-        mipsxx_pmu_write_control(1, 383<<5);
-        mipspmu.write_counter(1, 0);
-        mipsxx_pmu_write_control(1, 575<<5);
-        mipspmu.write_counter(1, 0);
-    case 1:
-        mipsxx_pmu_write_control(0, 0);
-        mipspmu.write_counter(0, 0);
-        mipsxx_pmu_write_control(0, 127<<5);
-        mipspmu.write_counter(0, 0);
-        mipsxx_pmu_write_control(0, 191<<5);
-        mipspmu.write_counter(0, 0);
-        mipsxx_pmu_write_control(0, 255<<5);
-        mipspmu.write_counter(0, 0);
-        mipsxx_pmu_write_control(0, 319<<5);
-        mipspmu.write_counter(0, 0);
-        mipsxx_pmu_write_control(0, 383<<5);
-        mipspmu.write_counter(0, 0);
-        mipsxx_pmu_write_control(0, 575<<5);
-        mipspmu.write_counter(0, 0);
-    }
-#else
-	switch (counters) {
-	case 4:
-		mipspmu.write_counter(3, 0);
-		mipsxx_pmu_write_control(3, 0);
-	case 3:
-		mipspmu.write_counter(2, 0);
-		mipsxx_pmu_write_control(2, 0);
-	case 2:
-		mipspmu.write_counter(1, 0);
-		mipsxx_pmu_write_control(1, 0);
-	case 1:
-		mipspmu.write_counter(0, 0);
-		mipsxx_pmu_write_control(0, 0);
+	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000)){
+		loongson3_reset_counters(arg);
+		return;
 	}
-#endif
+
+	switch (counters) {
+		case 4:
+			mipspmu.write_counter(3, 0);
+			mipsxx_pmu_write_control(3, 0);
+		case 3:
+			mipspmu.write_counter(2, 0);
+			mipsxx_pmu_write_control(2, 0);
+		case 2:
+			mipspmu.write_counter(1, 0);
+			mipsxx_pmu_write_control(1, 0);
+		case 1:
+			mipspmu.write_counter(0, 0);
+			mipsxx_pmu_write_control(0, 0);
+	}
 
 }
 
@@ -953,7 +974,7 @@ static const struct mips_perf_event octeon_event_map[PERF_COUNT_HW_MAX] = {
 };
 
 static const struct mips_perf_event loongson3_event_map
-				[PERF_COUNT_HW_MAX] = {
+[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_EVEN, P },
 	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x00, CNTR_ODD, T },
 	[PERF_COUNT_HW_CACHE_REFERENCES] = { UNSUPPORTED_PERF_EVENT_ID },
@@ -961,25 +982,23 @@ static const struct mips_perf_event loongson3_event_map
 	[PERF_COUNT_HW_BRANCH_INSTRUCTIONS] = { 0x01, CNTR_EVEN, T },
 	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x01, CNTR_ODD, T },
 	[PERF_COUNT_HW_BUS_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
-    [PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] = { UNSUPPORTED_PERF_EVENT_ID },
-    [PERF_COUNT_HW_STALLED_CYCLES_BACKEND] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] = { UNSUPPORTED_PERF_EVENT_ID },
+	[PERF_COUNT_HW_STALLED_CYCLES_BACKEND] = { UNSUPPORTED_PERF_EVENT_ID },
 
-#if defined(CONFIG_CPU_LOONGSON3_GS464E)
-#else
-    [PERF_COUNT_HW_JUMP_INSTRUCTIONS] = { 0x02, CNTR_EVEN, T },
-    [PERF_COUNT_HW_JR31_INSTRUCTIONS] = { 0x03, CNTR_EVEN, T },
-    [PERF_COUNT_HW_ICACHE_MISSES] = { 0x04, CNTR_EVEN, T },
-    [PERF_COUNT_HW_ALU1_ISSUED] = { 0x05, CNTR_EVEN, T },
-    [PERF_COUNT_HW_MEM_ISSUED] = { 0x06, CNTR_EVEN, T },
-    [PERF_COUNT_HW_FALU1_ISSUED] = { 0x07, CNTR_EVEN, T },
-    [PERF_COUNT_HW_BHT_BRANCH_INSTRUCTIONS] = { 0x08, CNTR_EVEN, T },
-    [PERF_COUNT_HW_MEM_READ] = { 0x09, CNTR_EVEN, T },
-    [PERF_COUNT_HW_FQUEUE_FULL] = { 0x0a, CNTR_EVEN, T },
-    [PERF_COUNT_HW_ROQ_FULL] = { 0x0b, CNTR_EVEN, T },
-    [PERF_COUNT_HW_CP0_QUEUE_FULL] = { 0x0c, CNTR_EVEN, T },
-    [PERF_COUNT_HW_TLB_REFILL] = { 0x0d, CNTR_EVEN, T },
-    [PERF_COUNT_HW_EXCEPTION] = { 0x0e, CNTR_EVEN, T },
-    [PERF_COUNT_HW_INTERNAL_EXCEPTION] = { 0x0f, CNTR_EVEN, T },
+	[PERF_COUNT_HW_JUMP_INSTRUCTIONS] = { 0x02, CNTR_EVEN, T },
+	[PERF_COUNT_HW_JR31_INSTRUCTIONS] = { 0x03, CNTR_EVEN, T },
+	[PERF_COUNT_HW_ICACHE_MISSES] = { 0x04, CNTR_EVEN, T },
+	[PERF_COUNT_HW_ALU1_ISSUED] = { 0x05, CNTR_EVEN, T },
+	[PERF_COUNT_HW_MEM_ISSUED] = { 0x06, CNTR_EVEN, T },
+	[PERF_COUNT_HW_FALU1_ISSUED] = { 0x07, CNTR_EVEN, T },
+	[PERF_COUNT_HW_BHT_BRANCH_INSTRUCTIONS] = { 0x08, CNTR_EVEN, T },
+	[PERF_COUNT_HW_MEM_READ] = { 0x09, CNTR_EVEN, T },
+	[PERF_COUNT_HW_FQUEUE_FULL] = { 0x0a, CNTR_EVEN, T },
+	[PERF_COUNT_HW_ROQ_FULL] = { 0x0b, CNTR_EVEN, T },
+	[PERF_COUNT_HW_CP0_QUEUE_FULL] = { 0x0c, CNTR_EVEN, T },
+	[PERF_COUNT_HW_TLB_REFILL] = { 0x0d, CNTR_EVEN, T },
+	[PERF_COUNT_HW_EXCEPTION] = { 0x0e, CNTR_EVEN, T },
+	[PERF_COUNT_HW_INTERNAL_EXCEPTION] = { 0x0f, CNTR_EVEN, T },
 
 	[PERF_COUNT_HW_JR_MISPREDICTED] = { 0x02, CNTR_ODD, T },
 	[PERF_COUNT_HW_JR31_MISPREDICTED] = { 0x03, CNTR_ODD, T },
@@ -995,7 +1014,7 @@ static const struct mips_perf_event loongson3_event_map
 	[PERF_COUNT_HW_TOTAL_EXCEPTIONS] = { 0x0d, CNTR_ODD, T },
 	[PERF_COUNT_HW_LOAD_SPECULATION_MISSES] = { 0x0e, CNTR_ODD, T },
 	[PERF_COUNT_HW_CP0Q_FORWARD_VALID] = { 0x0f, CNTR_ODD, T },
-#endif
+
 };
 
 static const struct mips_perf_event loongson3a2000_event_map
@@ -2056,7 +2075,7 @@ static int mipsxx_pmu_handle_shared_irq(void)
 	int handled = IRQ_NONE;
 	struct pt_regs *regs;
 
-	if (!(read_c0_cause() & (1 << 26)))
+	if (cpu_has_perf_cntr_intr_bit && !(read_c0_cause() & CAUSEF_PCI))
 		return handled;
 	/*
 	 * First we pause the local counters, so that when we are locked
@@ -2350,25 +2369,26 @@ init_hw_perf_events(void)
 		mipspmu.map_raw_event = octeon_pmu_map_raw_event;
 		break;
 	case CPU_LOONGSON3:
-		mipspmu.name = "loongson3";
-		mipspmu.general_event_map = &loongson3_event_map;
-		mipspmu.cache_event_map = &loongson3_cache_map;
-		counters = 2;
-		if ((current_cpu_data.processor_id & PRID_REV_MASK)
-				== PRID_REV_LOONGSON3A2000) {
+		if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000)){
+
 			mipspmu.name = "loongson3a2000";
 			mipspmu.general_event_map = &loongson3a2000_event_map;
 			mipspmu.cache_event_map = &loongson3a2000_cache_map;
 			mipspmu.map_raw_event = loongson3a2000_pmu_map_raw_event;
 			counters = 4;
 		}
-		if ((current_cpu_data.processor_id & PRID_REV_MASK)
-				== PRID_REV_LOONGSON3A3000) {
+		else if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000)){
 			mipspmu.name = "loongson3a3000";
 			mipspmu.general_event_map = &loongson3a2000_event_map;
 			mipspmu.cache_event_map = &loongson3a2000_cache_map;
 			mipspmu.map_raw_event = loongson3a2000_pmu_map_raw_event;
 			counters = 4;
+		}
+		else{
+			mipspmu.name = "loongson3";
+			mipspmu.general_event_map = &loongson3_event_map;
+			mipspmu.cache_event_map = &loongson3_cache_map;
+			counters = 2;
 		}
 		break;
 	default:

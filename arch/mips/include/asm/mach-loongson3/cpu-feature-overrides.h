@@ -50,5 +50,6 @@
 #define cpu_has_local_ebase	0
 #define cpu_has_64bit_gp_regs	1
 #define cpu_has_64bit_zero_reg	1
+#define cpu_has_perf_cntr_intr_bit	0
 
 #endif /* __ASM_MACH_LOONGSON3_CPU_FEATURE_OVERRIDES_H */
