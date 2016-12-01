@@ -183,7 +183,7 @@ const char *perf_evsel__hw_names[PERF_COUNT_HW_MAX] = {
 	"bus-cycles",
 	"stalled-cycles-frontend",
 	"stalled-cycles-backend",
-//	"ref-cycles",
+	"ref-cycles",
 
 /*loongson3a2000 hardware events*/
 #if defined(CONFIG_CPU_LOONGSON3_GS464E)
@@ -528,7 +528,6 @@ const char *perf_evsel__hw_names[PERF_COUNT_HW_MAX] = {
         "Inst-pre-scref-pre-rdy-hit",
         "Prefetch-pre-scref-pre-rdy-hit",
 /*loongson3a1000 hardware events*/
-#elif defined(CONFIG_CPU_LOONGSON3)
 	"JR-instructions",
 	"JR31-instructions",
 	"icache-misses",
@@ -557,7 +556,6 @@ const char *perf_evsel__hw_names[PERF_COUNT_HW_MAX] = {
 	"total-exceptions",
 	"load-speculation-misses",
 	"CP0-queue-forward-valid",
-#else
 #endif
 };
 

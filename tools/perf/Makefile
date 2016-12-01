@@ -19,7 +19,14 @@ info_2 := $(shell cat /proc/cpuinfo | grep 'Loongson-3A2000')
 ifneq ($(info_2),)
 #   CFLAGS += -D CONFIG_CPU_LOONGSON3_GS464E
 #   BASIC_CFLAGS += -D CONFIG_CPU_LOONGSON3_GS464E
-#    CPU_MODEL += -D CONFIG_CPU_LOONGSON3_GS464E
+#   CPU_MODEL += -D CONFIG_CPU_LOONGSON3_GS464E
+endif
+
+info_3 := $(shell cat /proc/cpuinfo | grep 'Loongson-3A3000')
+ifneq ($(info_2),)
+#   CFLAGS += -D CONFIG_CPU_LOONGSON3_GS464E
+#   BASIC_CFLAGS += -D CONFIG_CPU_LOONGSON3_GS464E
+#   CPU_MODEL += -D CONFIG_CPU_LOONGSON3_GS464E
 endif
 
 # Define V to have a more verbose compile.

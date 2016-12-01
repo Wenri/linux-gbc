@@ -54,9 +54,9 @@ enum perf_hw_id {
 	PERF_COUNT_HW_BUS_CYCLES		= 6,
 	PERF_COUNT_HW_STALLED_CYCLES_FRONTEND	= 7,
 	PERF_COUNT_HW_STALLED_CYCLES_BACKEND	= 8,
-	//PERF_COUNT_HW_REF_CPU_CYCLES		= 9,
+	PERF_COUNT_HW_REF_CPU_CYCLES		= 9,
 
-#if defined(CONFIG_CPU_LOONGSON3)
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
 	/*loongson-3A1000 hardware events*/
 	PERF_COUNT_HW_JUMP_INSTRUCTIONS     = 9,
 	PERF_COUNT_HW_JR31_INSTRUCTIONS     = 10,
@@ -87,9 +87,7 @@ enum perf_hw_id {
 	PERF_COUNT_HW_TOTAL_EXCEPTIONS      = 34,
 	PERF_COUNT_HW_LOAD_SPECULATION_MISSES   = 35,
 	PERF_COUNT_HW_CP0Q_FORWARD_VALID    = 36,
-#endif
-	//	PERF_COUNT_HW_MAX,			/* non-ABI */
-#if defined(CONFIG_CPU_LOONGSON3_GS464E)
+
 	/*loongson-3A2000 hardware events*/
 	/*fetch*/
 	PERF_COUNT_HW_INSTQ_EMPTY               = 9, 
@@ -463,15 +461,9 @@ enum perf_hw_id {
 	PERF_COUNT_HW_LOAD_SPECULATION_MISSES   = 368,
 	PERF_COUNT_HW_CP0Q_FORWARD_VALID    = 369,
 #endif
+	PERF_COUNT_HW_MAX,			/* non-ABI */
 
 };
-
-
-#if defined(CONFIG_CPU_LOONGSON3)
-#define PERF_COUNT_HW_MAX  342
-#else
-#define PERF_COUNT_HW_MAX  9
-#endif
 
 /*
  * Generalized hardware cache events:

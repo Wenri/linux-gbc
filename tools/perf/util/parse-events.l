@@ -134,10 +134,11 @@ cache-misses					{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE
 branch-instructions|branches			{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_INSTRUCTIONS); }
 branch-misses					{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES); }
 bus-cycles					{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BUS_CYCLES); }
-	/* ref-cycles					{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_REF_CPU_CYCLES); } */
+ref-cycles					{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_REF_CPU_CYCLES); }
 
     /*loongson3a2000 hardware events*/
     /*fetch*/
+	/*
 Inst-queue-empty    { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTQ_EMPTY); }
 Inst-queue-instructions { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTQ_INSTRUCTIONS); }
 Inst-queue-1 { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTQ_1); }
@@ -162,7 +163,9 @@ BrBTB-taken-branch-misses { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT
 Icache-replace/refill { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_ICACHE_REPLACE); }
 Itlb-miss-tlb-hit { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_ITLB_MISS_TLB_HIT); }
 Itlb-flushed { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_ITLB_FLUSHED); }
+	*/
     /*rmap*/
+	/*
 Resource-alloc-blocked { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_RESOURCE_ALLOC_BLOCKED); }
 GR-blocked { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_GR_BLOCKED); }
 GR-pseudo-blocked { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_GR_PSEUDO_BLOCKED); }
@@ -189,7 +192,9 @@ Nop-inst { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_NOP_INST); }
 Regmap-issued { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_REGMAP_ISSUED); }
 Exceptions { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_EXCEPTIONS); }
 Branch-misses-overhead { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BRANCH_MISSES_OVERHEAD); }
-    /*roq*/
+	*/
+	/*roq*/
+	/*
 Alu-committed { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_ALU_COMMITTED); }
 Falu-committed { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FALU_COMMITTED); }
 Memory-swap-committed { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_MEMORY_SWAP_COMMITTED); }
@@ -222,7 +227,9 @@ Bht-branch-misses { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_BHT_
 Likely-branch-misses { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_LIKELY_BRANCH_MISSES); }
 Not-taken-misses { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_NOT_TAKEN_MISSES); }
 Taken-misses { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_TAKEN_MISSES); }
-    /*fix*/
+    */
+	/*fix*/
+	/*
 Fxq-no-issue { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FXQ_NO_ISSUE); }
 Fxq-issue-operand { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FXQ_ISSUE_OPERAND); }
 Fxq-fu0-operand { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FXQ_FU0_OPERAND); }
@@ -231,7 +238,9 @@ Fu0-fixed-mul { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU0_FIXE
 Fu0-fixed-div { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU0_FIXED_DIV); }
 Fu1-fixed-mul { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU1_FIXED_MUL); }
 Fu1-fixed-div { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU1_FIXED_DIV); }
-    /*float*/
+	*/
+	/*float*/
+	/*
 Ftq-no-issue { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FTQ_NO_ISSUE); }
 Ftq-issue-operand { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FTQ_ISSUE_OPERAND); }
 Ftq-fu3-operand { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FTQ_FU3_OPERAND); }
@@ -251,7 +260,9 @@ Fu3-vector-fixed-div { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_F
 Fu3-float-div-sqrt { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU3_FLOAT_DIV_SQRT); }
 Fu4-vector-fixed-div { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU4_VECTOR_FIXED_DIV); }
 Fu4-float-div-sqrt { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FU4_FLOAT_DIV_SQRT); }
-    /*memory*/
+    */
+	/*memory*/
+	/*
 Mmq-no-issue { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_MMQ_NO_ISSUE); }
 Mmq-issue-operand { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_MMQ_ISSUE_OPERAND); }
 Mmq-fu2-inst { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_MMQ_FU2_INST); }
@@ -273,7 +284,9 @@ Dcachewrite0-and-1-valid { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_
 Sc-write-dcache { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_SC_WRITE_DCACHE); }
 Store-dcache-miss { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_STORE_DCACHE_MISS); }
 Store-dcache-shared-miss { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_STORE_DCACHE_SHARED_MISS); }
-    /*cache2mem*/
+    */
+	/*cache2mem*/
+	/*
 Store-dcache-hit { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_STORE_DCACHE_HIT); }
 Load-hit { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_LOAD_HIT); }
 Fwdbus2 { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_FWDBUS2); }
@@ -479,6 +492,7 @@ Inst-pre-scref-pre-rdy-hit { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUN
 Prefetch-pre-scref-pre-rdy-hit { return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_PREFETCH_PRE_SCREF_PRE_RDY_HIT); }
 
     /*loongson3a1000 hardware events*/
+	/*
 JR-instructions					{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_JUMP_INSTRUCTIONS); }
 JR(RS=31)-instructions|JR31-instructions	{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_JR31_INSTRUCTIONS); }
 instruction-cache-misses|icache-misses		{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_ICACHE_MISSES); }
@@ -508,7 +522,7 @@ instruction-TLB-misses|ITLB-misses		{ return sym(yyscanner, PERF_TYPE_HARDWARE, 
 total-exceptions				{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_TOTAL_EXCEPTIONS); }
 load-speculation-misses				{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_LOAD_SPECULATION_MISSES); }
 CP0-queue-forward-valid				{ return sym(yyscanner, PERF_TYPE_HARDWARE, PERF_COUNT_HW_CP0Q_FORWARD_VALID); }
-
+	*/
 cpu-clock					{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_CPU_CLOCK); }
 task-clock					{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_TASK_CLOCK); }
 page-faults|faults				{ return sym(yyscanner, PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS); }

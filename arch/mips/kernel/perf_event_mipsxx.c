@@ -985,6 +985,7 @@ static const struct mips_perf_event loongson3_event_map
 	[PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] = { UNSUPPORTED_PERF_EVENT_ID },
 	[PERF_COUNT_HW_STALLED_CYCLES_BACKEND] = { UNSUPPORTED_PERF_EVENT_ID },
 
+#if defined(CONFIG_CPU_LOONGSON3_GS464E)
 	[PERF_COUNT_HW_JUMP_INSTRUCTIONS] = { 0x02, CNTR_EVEN, T },
 	[PERF_COUNT_HW_JR31_INSTRUCTIONS] = { 0x03, CNTR_EVEN, T },
 	[PERF_COUNT_HW_ICACHE_MISSES] = { 0x04, CNTR_EVEN, T },
@@ -1014,7 +1015,7 @@ static const struct mips_perf_event loongson3_event_map
 	[PERF_COUNT_HW_TOTAL_EXCEPTIONS] = { 0x0d, CNTR_ODD, T },
 	[PERF_COUNT_HW_LOAD_SPECULATION_MISSES] = { 0x0e, CNTR_ODD, T },
 	[PERF_COUNT_HW_CP0Q_FORWARD_VALID] = { 0x0f, CNTR_ODD, T },
-
+#endif
 };
 
 static const struct mips_perf_event loongson3a2000_event_map
