@@ -1745,7 +1745,7 @@ config CPU_SUPPORTS_UNCACHED_ACCELERATED
 	bool
 config MIPS_PGD_C0_CONTEXT
 	bool
-	default y if 64BIT && CPU_MIPSR2 && !CPU_XLP || CPU_LOONGSON3_GS464E
+	default y if 64BIT && CPU_MIPSR2 && !CPU_XLP || CPU_LOONGSON3
 
 #
 # Set to y for ptrace access to watch registers.
