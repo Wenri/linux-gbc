@@ -11,6 +11,20 @@
 #include <linux/pm.h>
 #include <asm/mipsregs.h>
 #include <asm/bootinfo.h>
+#include <boot_param.h>
+extern void prom_printf(char *fmt, ...);
+extern void mach_resume_rs780(suspend_state_t state);
+extern void mach_suspend_rs780(suspend_state_t state);
+extern void mach_resume_ls2h(suspend_state_t state);
+extern void mach_suspend_ls2h(suspend_state_t state);
+u32 loongson_nr_nodes;
+u64 loongson_suspend_addr;
+u32 loongson_scache_ways;
+u32 loongson_scache_sets;
+u32 loongson_scache_linesz;
+u32 loongson_pcache_ways;
+u32 loongson_pcache_sets;
+u32 loongson_pcache_linesz;
 
 static u64 loongson_chipcfg[1] = {0xffffffffbfc00180};
 #define LOONGSON_CHIPCFG(id) (*(volatile u32 *)(loongson_chipcfg[id]))
@@ -60,7 +74,44 @@ int __weak wakeup_loongson(void)
 {
 	return 1;
 }
+struct loongson_registers {
+	u32 config4;
+	u32 config6;
+	u64 pgd;
+	u64 kpgd;
+	u32 pwctl;
+	u64 pwbase;
+	u64 pwsize;
+	u64 pwfield;
+};
 
+static struct loongson_registers loongson_regs;
+/*save 3a2000 and 3a3000 new feature register*/
+static void mach_save_register(void)
+{
+	loongson_regs.config4 = read_c0_config4();
+	loongson_regs.config6 = read_c0_config6();
+
+	loongson_regs.pgd = read_c0_pgd();
+	loongson_regs.kpgd = read_c0_kpgd();
+	loongson_regs.pwctl = read_c0_pwctl();
+	loongson_regs.pwbase = read_c0_pwbase();
+	loongson_regs.pwsize = read_c0_pwsize();
+	loongson_regs.pwfield = read_c0_pwfield();
+}
+/*resume 3a2000 and 3a3000 new feature register*/
+static void mach_resume_register(void)
+{
+	write_c0_config4(loongson_regs.config4);
+	write_c0_config6(loongson_regs.config6);
+
+	write_c0_pgd(loongson_regs.pgd);
+	write_c0_kpgd(loongson_regs.kpgd);
+	write_c0_pwctl(loongson_regs.pwctl);
+	write_c0_pwbase(loongson_regs.pwbase);
+	write_c0_pwsize(loongson_regs.pwsize);
+	write_c0_pwfield(loongson_regs.pwfield);
+}
 /*
  * If the events are really what we want to wakeup the CPU, wake it up
  * otherwise put the CPU asleep again.
@@ -116,22 +167,56 @@ void mach_resume(suspend_state_t state);
 void loongson_suspend_lowlevel(void);
 static int loongson_pm_enter(suspend_state_t state)
 {
-	mach_suspend(state);
+	int tmp;
 
+	if (state == PM_SUSPEND_MEM) {
+		if (board_type == RS780E)
+			mach_suspend_rs780(state);
+		else if (board_type == LS2H)
+			mach_suspend_ls2h(state);
+
+		tmp = (read_c0_prid() & 0xf);
+		if (((tmp == PRID_REV_LOONGSON3A2000) || (tmp == PRID_REV_LOONGSON3A3000)))
+		{
+			mach_save_register();
+		}
+	}
 	/* processor specific suspend */
 	switch(state){
 		case PM_SUSPEND_STANDBY:
 			loongson_suspend_enter();
 			break;
 		case PM_SUSPEND_MEM:
-			loongson_suspend_lowlevel();
-			HT_uncache_enable_reg0	= 0x0;
-			HT_uncache_enable_reg1	= 0x0;
-			printk("SET HT_DMA CACHED\n");
+#ifdef CONFIG_CPU_LOONGSON3
+		loongson_nr_nodes = nr_nodes_loongson;
+		loongson_suspend_addr = 0xffffffffbfc00500;
+		loongson_pcache_ways = cpu_data[0].dcache.ways;
+		loongson_pcache_sets = cpu_data[0].dcache.sets;
+		loongson_pcache_linesz = cpu_data[0].dcache.linesz;
+		loongson_scache_ways = cpu_data[0].scache.ways;
+		loongson_scache_sets = cpu_data[0].scache.sets*4;
+		loongson_scache_linesz = cpu_data[0].scache.linesz;
+		loongson_suspend_lowlevel();
+		cmos_write64(0x0, 0x40);  /* clear pc in cmos */
+		cmos_write64(0x0, 0x48);  /* clear sp in cmos */
+#else
+		loongson_suspend_enter();
+#endif
 			break;
 	}
-	mach_resume(state);
+	if (state == PM_SUSPEND_MEM) {
 
+		tmp = (read_c0_prid() & 0xf);
+		if (((tmp == PRID_REV_LOONGSON3A2000) || (tmp == PRID_REV_LOONGSON3A3000))) {
+			mach_resume_register();
+		}
+
+		if (board_type == RS780E) {
+			mach_resume_rs780(state);
+		}
+		else if (board_type == LS2H)
+			mach_resume_ls2h(state);
+	}
 	return 0;
 }
 

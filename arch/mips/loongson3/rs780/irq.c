@@ -78,6 +78,27 @@ void __init rs780_init_irq(void)
 
 }
 
+void rs780_irq_router_init(void)
+{
+	int i;
+
+	/* route LPC int to cpu core0 int 0 */
+	if (cores_per_node == 4)
+		LOONGSON_INT_ROUTER_LPC = LOONGSON_INT_COREx_INTy(boot_cpu_id, 0);
+	else
+		LOONGSON_INT_ROUTER_LPC = LOONGSON_INT_COREx_INTy(1, 0);
+	/* route HT1 int0 ~ int7 to cpu core0 INT1*/
+	for (i = 0; i < 8; i++) {
+		if (cores_per_node == 4)
+			LOONGSON_INT_ROUTER_HT1(i) = LOONGSON_INT_COREx_INTy(boot_cpu_id, 1);
+		else
+			LOONGSON_INT_ROUTER_HT1(i) = LOONGSON_INT_COREx_INTy(1, 1);
+	}
+	/* enable HT1 interrupt */
+	LOONGSON_HT1_INTN_EN(0) = 0xffffffff;
+	/* enable router interrupt intenset */
+	LOONGSON_INT_ROUTER_INTENSET = LOONGSON_INT_ROUTER_INTEN | (0xffff << 16) | 0x1 << 10;
+}
 #ifdef CONFIG_HOTPLUG_CPU
 
 void fixup_irqs(void)

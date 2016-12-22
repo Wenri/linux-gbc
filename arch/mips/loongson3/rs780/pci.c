@@ -12,6 +12,8 @@
 #include <pci.h>
 #include <loongson.h>
 #include <boot_param.h>
+extern void prom_printf(char *fmt, ...);
+extern int sbx00_acpi_init(void);
 
 static struct resource loongson_pci_mem_resource = {
 	.name	= "pci memory space",
@@ -88,6 +90,7 @@ int __init rs780_pcibios_init(void)
 	loongson_pci_mem_resource.end = pci_mem_end_addr;
 #endif
 	register_pci_controller(&loongson_pci_controller);
+	sbx00_acpi_init();
 
 	return 0;
 }

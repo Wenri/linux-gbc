@@ -2,7 +2,7 @@
 # Makefile for loongson3 based machines.
 #
 
-obj-y += setup.o init.o cmdline.o env.o time.o reset.o irq.o \
+obj-y += setup.o init.o cmdline.o env.o dbg_io.o time.o reset.o irq.o \
     bonito-irq.o mem.o machtype.o platform.o efi.o boardinfo.o cpu.o \
     temperature.o cputemp.o
 obj-$(CONFIG_GPIOLIB) += gpio.o
@@ -31,4 +31,4 @@ obj-$(CONFIG_HOTPLUG_CPU)	+= cpuplug_war.o
 
 obj-$(CONFIG_NUMA)	+= numa.o
 
-obj-$(CONFIG_SUSPEND) += pm.o sleep.o
+obj-$(CONFIG_SUSPEND) += pm.o sleep.o acpi_init.o

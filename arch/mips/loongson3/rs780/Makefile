@@ -8,3 +8,5 @@ obj-$(CONFIG_LOONGSON_MC146818) += rtc.o
 obj-$(CONFIG_RS780_HPET) += hpet.o
 
 obj-$(CONFIG_SWIOTLB) += swiotlb.o
+
+obj-$(CONFIG_SUSPEND) += pm.o
