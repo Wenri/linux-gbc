@@ -424,13 +424,13 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		case PRID_REV_LOONGSON3A2000:
 			c->cputype = CPU_LOONGSON3;
 			c->options |= MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
-			__cpu_name[cpu] = "ICT Loongson-3A2000";
+			__cpu_name[cpu] = "Loongson-3A2000";
 			decode_configs(c);
 			break;
 		case PRID_REV_LOONGSON3A3000:
 			c->cputype = CPU_LOONGSON3;
 			c->options |= MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
-			__cpu_name[cpu] = "ICT Loongson-3A3000";
+			__cpu_name[cpu] = "Loongson-3A3000";
 			decode_configs(c);
 			break;
 		}
@@ -728,23 +728,23 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 		switch (c->processor_id & PRID_REV_MASK) {
 		case PRID_REV_LOONGSON2E:
 			c->cputype = CPU_LOONGSON2;
-			__cpu_name[cpu] = "ICT Loongson-2E";
+			__cpu_name[cpu] = "Loongson-2E";
 			set_elf_platform(cpu, "loongson2e");
 			break;
 		case PRID_REV_LOONGSON2F:
 			c->cputype = CPU_LOONGSON2;
-			__cpu_name[cpu] = "ICT Loongson-2F";
+			__cpu_name[cpu] = "Loongson-2F";
 			set_elf_platform(cpu, "loongson2f");
 			break;
 		case PRID_REV_LOONGSON3A:
 			c->cputype = CPU_LOONGSON3;
-			__cpu_name[cpu] = "ICT Loongson-3A";
+			__cpu_name[cpu] = "Loongson-3A";
 			set_elf_platform(cpu, "loongson3a");
 			break;
 		case PRID_REV_LOONGSON3B_R1:
 		case PRID_REV_LOONGSON3B_R2:
 			c->cputype = CPU_LOONGSON3;
-			__cpu_name[cpu] = "ICT Loongson-3B";
+			__cpu_name[cpu] = "Loongson-3B";
 			set_elf_platform(cpu, "loongson3b");
 			break;
 		}
