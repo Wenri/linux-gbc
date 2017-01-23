@@ -20,6 +20,8 @@ obj-$(CONFIG_LOONGSON_UART_BASE) += uart_base.o
 
 obj-$(CONFIG_LOONGSON_SUSPEND) += pm.o
 
+obj-$(CONFIG_LOONGSON3_CPUAUTOPLUG) += loongson3_cpuautoplug.o
+
 #
 # Big Memory (SWIOTLB) Support
 #

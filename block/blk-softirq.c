@@ -58,17 +58,27 @@ static void trigger_softirq(void *data)
  */
 static int raise_blk_irq(int cpu, struct request *rq)
 {
+	atomic_inc(&global_cfd_refcount);
 	if (cpu_online(cpu)) {
 		struct call_single_data *data = &rq->csd;
 
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+		extern int autoplug_adjusting;
+		if(autoplug_adjusting) {
+			atomic_dec(&global_cfd_refcount);
+			return 1;
+		}
+#endif
 		data->func = trigger_softirq;
 		data->info = rq;
 		data->flags = 0;
 
 		__smp_call_function_single(cpu, data, 0);
+		atomic_dec(&global_cfd_refcount);
 		return 0;
 	}
 
+	atomic_dec(&global_cfd_refcount);
 	return 1;
 }
 #else /* CONFIG_SMP && CONFIG_USE_GENERIC_SMP_HELPERS */

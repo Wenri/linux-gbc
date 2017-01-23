@@ -1107,12 +1107,14 @@ static void __cpuinit probe_pcache(void)
 	c->icache.ways = 1;
 #endif
 
-	printk("Primary instruction cache %ldkB, %s, %s, linesize %d bytes.\n",
+	if (system_state == SYSTEM_BOOTING)
+		printk("Primary instruction cache %ldkB, %s, %s, linesize %d bytes.\n",
 	       icache_size >> 10,
 	       c->icache.flags & MIPS_CACHE_VTAG ? "VIVT" : "VIPT",
 	       way_string[c->icache.ways], c->icache.linesz);
 
-	printk("Primary data cache %ldkB, %s, %s, %s, linesize %d bytes\n",
+	if (system_state == SYSTEM_BOOTING)
+		printk("Primary data cache %ldkB, %s, %s, %s, linesize %d bytes\n",
 	       dcache_size >> 10, way_string[c->dcache.ways],
 	       (c->dcache.flags & MIPS_CACHE_PINDEX) ? "PIPT" : "VIPT",
 	       (c->dcache.flags & MIPS_CACHE_ALIASES) ?
@@ -1283,7 +1285,8 @@ static void __cpuinit setup_scache(void)
 
 	c->scache.sets = scache_size / (c->scache.linesz * c->scache.ways);
 
-	printk("Unified secondary cache %ldkB %s, linesize %d bytes.\n",
+	if (system_state == SYSTEM_BOOTING)
+		printk("Unified secondary cache %ldkB %s, linesize %d bytes.\n",
 	       scache_size >> 10, way_string[c->scache.ways], c->scache.linesz);
 
 	c->options |= MIPS_CPU_INCLUSIVE_CACHES;

@@ -15,6 +15,12 @@
 
 #include "smpboot.h"
 
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+DECLARE_PER_CPU(int, cpu_adjusting);
+#endif
+
+atomic_t global_cfd_refcount = ATOMIC_INIT(0);
+
 #ifdef CONFIG_USE_GENERIC_SMP_HELPERS
 enum {
 	CSD_FLAG_LOCK		= 0x01,
@@ -248,12 +254,20 @@ int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
 		func(info);
 		local_irq_restore(flags);
 	} else {
+		atomic_inc(&global_cfd_refcount);
 		if ((unsigned)cpu < nr_cpu_ids && cpu_online(cpu)) {
 			struct call_single_data *csd = &d;
 
 			if (!wait)
 				csd = &__get_cpu_var(csd_data);
 
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+			if (per_cpu(cpu_adjusting, cpu) < 0) {
+				put_cpu();
+				atomic_dec(&global_cfd_refcount);
+				return -ENXIO;
+			}
+#endif
 			csd_lock(csd);
 
 			csd->func = func;
@@ -262,6 +276,8 @@ int smp_call_function_single(int cpu, smp_call_func_t func, void *info,
 		} else {
 			err = -ENXIO;	/* CPU not online */
 		}
+
+		atomic_dec(&global_cfd_refcount);
 	}
 
 	put_cpu();
@@ -370,7 +386,7 @@ void smp_call_function_many(const struct cpumask *mask,
 			    smp_call_func_t func, void *info, bool wait)
 {
 	struct call_function_data *cfd;
-	int cpu, next_cpu, this_cpu = smp_processor_id();
+	int i, cpu, next_cpu, this_cpu = smp_processor_id();
 
 	/*
 	 * Can deadlock when called with interrupts disabled.
@@ -401,14 +417,24 @@ void smp_call_function_many(const struct cpumask *mask,
 		return;
 	}
 
+	atomic_inc(&global_cfd_refcount);
+
 	cfd = &__get_cpu_var(cfd_data);
 
 	cpumask_and(cfd->cpumask, mask, cpu_online_mask);
 	cpumask_clear_cpu(this_cpu, cfd->cpumask);
 
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+	for_each_possible_cpu(i)
+		if (per_cpu(cpu_adjusting, i) < 0)
+			cpumask_clear_cpu(i, cfd->cpumask);
+#endif
+
 	/* Some callers race with other cpus changing the passed mask */
-	if (unlikely(!cpumask_weight(cfd->cpumask)))
+	if (unlikely(!cpumask_weight(cfd->cpumask))) {
+		atomic_dec(&global_cfd_refcount);
 		return;
+	}
 
 	/*
 	 * After we put an entry into the list, cfd->cpumask may be cleared
@@ -443,6 +469,8 @@ void smp_call_function_many(const struct cpumask *mask,
 			csd_lock_wait(csd);
 		}
 	}
+
+	atomic_dec(&global_cfd_refcount);
 }
 EXPORT_SYMBOL(smp_call_function_many);
 

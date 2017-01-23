@@ -31,7 +31,13 @@
 #include "smp.h"
 
 DEFINE_PER_CPU(int, cpu_state);
-DEFINE_PER_CPU(uint32_t, core0_c0count);
+static uint32_t core0_c0count[NR_CPUS];
+#ifdef CONFIG_LOONGSON3_CPUAUTOPLUG
+extern int autoplug_verbose;
+#define verbose autoplug_verbose
+#else
+#define verbose 1
+#endif
 
 /* read a 64bit value from ipi register */
 uint64_t loongson3_ipi_read64(void * addr)
@@ -108,8 +114,10 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 	if (action & SMP_ASK_C0COUNT) {
 		BUG_ON(cpu != 0);
 		c0count = read_c0_count();
-		for (i=1; i < nr_cpus_loongson; i++)
-			per_cpu(core0_c0count, i) = c0count;
+		c0count = c0count ? c0count : 1;
+		for (i = 1; i < num_possible_cpus(); i++)
+			core0_c0count[i] = c0count;
+		__wbflush(); /* Let others see the result ASAP */
 	}
 
 	irqs = action >> IPI_IRQ_OFFSET;
@@ -130,11 +138,11 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 	}
 }
 
-#define MAX_LOOPS 1200
+#define MAX_LOOPS 800
 /*
  * SMP init and finish on secondary CPUs
  */
-void loongson3_init_secondary(void)
+void __cpuinit loongson3_init_secondary(void)
 {
 	int i;
 	uint32_t initcount;
@@ -145,49 +153,74 @@ void loongson3_init_secondary(void)
 	/* Set interrupt mask, but don't enable */
 	change_c0_status(ST0_IM, imask);
 
-	for (i = 0; i < nr_cpus_loongson; i++) {
+	for (i = 0; i < num_possible_cpus(); i++) {
 		unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(i));
 		loongson3_ipi_write32(0xffffffff,(void *)(base + IPI_OFF_ENABLE));
 	}
 
 	per_cpu(cpu_state, cpu) = CPU_ONLINE;
+	cpu_data[cpu].core = cpu_logical_map(cpu) % cores_per_package;
+	cpu_data[cpu].package = cpu_logical_map(cpu) / cores_per_package;
 
 	i = 0;
-	__get_cpu_var(core0_c0count) = 0;
+	core0_c0count[cpu] = 0;
 	loongson3_send_ipi_single(0, SMP_ASK_C0COUNT);
-	while (!__get_cpu_var(core0_c0count))
+	while (!core0_c0count[cpu]) {
 		i++;
+		cpu_relax();
+	}
 
 	if (i > MAX_LOOPS)
 		i = MAX_LOOPS;
-	initcount = __get_cpu_var(core0_c0count) + i;
+	if (cpu_data[cpu].package)
+		initcount = core0_c0count[cpu] + i;
+	else /* Local access is faster for loops */
+		initcount = core0_c0count[cpu] + i/2;
 	write_c0_count(initcount);
 }
 
-void loongson3_smp_finish(void)
+void __cpuinit loongson3_smp_finish(void)
 {
 	int cpu = smp_processor_id();
 	unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(cpu));
 	write_c0_compare(read_c0_count() + mips_hpt_frequency/HZ);
 	local_irq_enable();
 	loongson3_ipi_write64(0, (void *)(base + IPI_OFF_MAILBOX0));
-	printk("CPU#%d finished, CP0_ST=%x\n",
+	if (verbose || system_state == SYSTEM_BOOTING)
+		printk("CPU#%d finished, CP0_ST=%x\n",
 			smp_processor_id(), read_c0_status());
 }
 
 void __init loongson3_smp_setup(void)
 {
-	int num = 0; /* num: logical id */
+	int i = 0, num = 0; /* i: physical id, num: logical id */
 
 	init_cpu_possible(cpu_none_mask);
 
 	/* For unified kernel, NR_CPUS is the maximum possible value,
 	 * nr_cpus_loongson is the really present value */
+	while (i < nr_cpus_loongson) {
+		if (reserved_cpus_mask & (1<<i)) {
+			/* Reserved physical CPU cores */
+			__cpu_number_map[i] = -1;
+		} else {
+			__cpu_number_map[i] = num;
+			__cpu_logical_map[num] = i;
+			set_cpu_possible(num, true);
+			num++;
+		}
+		i++;
+	}
+	printk(KERN_INFO "Detected %i available CPU(s)\n", num);
+
 	while (num < nr_cpus_loongson) {
-		set_cpu_possible(num, true);
+		__cpu_logical_map[num] = -1;
 		num++;
 	}
 	printk("Detected %i available CPU(s)\n", num);
+	cpu_data[0].core = cpu_logical_map(0) % cores_per_package;
+	cpu_data[0].package = cpu_logical_map(0) / cores_per_package;
+
 }
 
 void __init loongson3_prepare_cpus(unsigned int max_cpus)
@@ -199,13 +232,14 @@ void __init loongson3_prepare_cpus(unsigned int max_cpus)
 /*
  * Setup the PC, SP, and GP of a secondary processor and start it runing!
  */
-void loongson3_boot_secondary(int cpu, struct task_struct *idle)
+void __cpuinit loongson3_boot_secondary(int cpu, struct task_struct *idle)
 {
 	volatile unsigned long startargs[4];
 	unsigned long coreid = cpu_logical_map(cpu);
 	unsigned long base = LOONGSON3_TO_BASE(coreid);
 
-	printk("Booting CPU#%d...\n", cpu);
+	if (verbose || system_state == SYSTEM_BOOTING)
+		printk("Booting CPU#%d...\n", cpu);
 
 	/* startargs[] are initial PC, SP and GP for secondary CPU */
 	startargs[0] = (unsigned long)&smp_bootstrap;
@@ -213,7 +247,8 @@ void loongson3_boot_secondary(int cpu, struct task_struct *idle)
 	startargs[2] = (unsigned long)task_thread_info(idle);
 	startargs[3] = 0;
 
-	printk("CPU#%d, func_pc=%lx, sp=%lx, gp=%lx\n",
+	if (verbose || system_state == SYSTEM_BOOTING)
+		printk("CPU#%d, func_pc=%lx, sp=%lx, gp=%lx\n",
 			cpu, startargs[0], startargs[1], startargs[2]);
 
 	loongson3_ipi_write64(startargs[3], (void *)(base + IPI_OFF_MAILBOX3));
@@ -222,12 +257,7 @@ void loongson3_boot_secondary(int cpu, struct task_struct *idle)
 	loongson3_ipi_write64(startargs[0], (void *)(base + IPI_OFF_MAILBOX0));
 }
 
-/*
- * Final cleanup after all secondaries booted
- */
-void __init loongson3_cpus_done(void)
-{
-}
+
 
 #ifdef CONFIG_HOTPLUG_CPU
 
@@ -379,74 +409,86 @@ void loongson3b_play_dead(int *state_addr)
 
 void loongson3a2000_play_dead(int *state_addr)
 {
-	__asm__ __volatile__(
-		"      .set push                         \n"
-		"      .set noreorder                    \n"
-		"      li $t0, 0x80000000                \n" /* KSEG0 */
-		"      li $t1, 256                       \n" /* num of L1 entries */
-		"1:    cache 0, 0($t0)                   \n" /* flush L1 ICache */
-		"      cache 0, 1($t0)                   \n"
-		"      cache 0, 2($t0)                   \n"
-		"      cache 0, 3($t0)                   \n"
-		"      cache 1, 0($t0)                   \n" /* flush L1 DCache */
-		"      cache 1, 1($t0)                   \n"
-		"      cache 1, 2($t0)                   \n"
-		"      cache 1, 3($t0)                   \n"
-		"      addiu $t0, $t0, 0x40              \n"
-		"      bnez  $t1, 1b                     \n"
-		"      addiu $t1, $t1, -1                \n"
-		"      li $t0, 0x80000000                \n" /* KSEG0 */
-		"      li $t1, 256                       \n" /* num of L2 entries */
-		"2:    cache 2, 0($t0)                   \n" /* flush L2 VCache */
-		"      cache 2, 1($t0)                   \n"
-		"      cache 2, 2($t0)                   \n"
-		"      cache 2, 3($t0)                   \n"
-		"      cache 2, 4($t0)                   \n"
-		"      cache 2, 5($t0)                   \n"
-		"      cache 2, 6($t0)                   \n"
-		"      cache 2, 7($t0)                   \n"
-		"      cache 2, 8($t0)                   \n"
-		"      cache 2, 9($t0)                   \n"
-		"      cache 2, 10($t0)                   \n"
-		"      cache 2, 11($t0)                   \n"
-		"      cache 2, 12($t0)                   \n"
-		"      cache 2, 13($t0)                   \n"
-		"      cache 2, 14($t0)                   \n"
-		"      cache 2, 15($t0)                   \n"
-		"      addiu $t0, $t0, 0x40              \n"
-		"      bnez  $t1, 2b                     \n"
-		"      addiu $t1, $t1, -1                \n"
-		"      li    $t0, 0x7                    \n" /* *state_addr = CPU_DEAD; */
-		"      sw    $t0, 0($a0)                 \n"
-		"      sync                              \n"
-		"      cache 21, 0($a0)                  \n" /* flush entry of *state_addr */
-		"      .set pop                          \n");
+	register int val;
+	register long cpuid, core, node, count;
+	register void *addr, *base, *initfunc;
 
 	__asm__ __volatile__(
-		"      .set push                         \n"
-		"      .set noreorder                    \n"
-		"      .set mips64                       \n"
-		"      mfc0  $t2, $15, 1                 \n"
-		"      andi  $t2, 0x3ff                  \n"
-		"      dli   $t0, 0x900000003ff01000     \n"
-		"      andi  $t3, $t2, 0x3               \n"
-		"      sll   $t3, 8                      \n"  /* get cpu id */
-		"      or    $t0, $t0, $t3               \n"
-		"      andi  $t1, $t2, 0xc               \n"
-		"      dsll  $t1, 42                     \n"  /* get node id */
-		"      or    $t0, $t0, $t1               \n"
-		"1:    li    $a0, 0x100                  \n"  /* wait for init loop */
-		"2:    bnez  $a0, 2b                     \n"  /* idle loop */
-		"      addiu $a0, -1                     \n"
-		"      lw    $v0, 0x20($t0)              \n"  /* get PC via mailbox */
-		"      beqz  $v0, 1b                     \n"
-		"      nop                               \n"
-		"      ld    $sp, 0x28($t0)              \n"  /* get SP via mailbox */
-		"      ld    $gp, 0x30($t0)              \n"  /* get GP via mailbox */
-		"      ld    $a1, 0x38($t0)              \n"
-		"      jr  $v0                           \n"  /* jump to initial PC */
-		"      nop                               \n"
-		"      .set pop                          \n");
+		"   .set push                     \n"
+		"   .set noreorder                \n"
+		"   li %[addr], 0x80000000        \n" /* KSEG0 */
+		"1: cache 0, 0(%[addr])           \n" /* flush L1 ICache */
+		"   cache 0, 1(%[addr])           \n"
+		"   cache 0, 2(%[addr])           \n"
+		"   cache 0, 3(%[addr])           \n"
+		"   cache 1, 0(%[addr])           \n" /* flush L1 DCache */
+		"   cache 1, 1(%[addr])           \n"
+		"   cache 1, 2(%[addr])           \n"
+		"   cache 1, 3(%[addr])           \n"
+		"   addiu %[sets], %[sets], -1    \n"
+		"   bnez  %[sets], 1b             \n"
+		"   addiu %[addr], %[addr], 0x40  \n"
+		"   li %[addr], 0x80000000        \n" /* KSEG0 */
+		"2: cache 2, 0(%[addr])           \n" /* flush L1 VCache */
+		"   cache 2, 1(%[addr])           \n"
+		"   cache 2, 2(%[addr])           \n"
+		"   cache 2, 3(%[addr])           \n"
+		"   cache 2, 4(%[addr])           \n"
+		"   cache 2, 5(%[addr])           \n"
+		"   cache 2, 6(%[addr])           \n"
+		"   cache 2, 7(%[addr])           \n"
+		"   cache 2, 8(%[addr])           \n"
+		"   cache 2, 9(%[addr])           \n"
+		"   cache 2, 10(%[addr])          \n"
+		"   cache 2, 11(%[addr])          \n"
+		"   cache 2, 12(%[addr])          \n"
+		"   cache 2, 13(%[addr])          \n"
+		"   cache 2, 14(%[addr])          \n"
+		"   cache 2, 15(%[addr])          \n"
+		"   addiu %[vsets], %[vsets], -1  \n"
+		"   bnez  %[vsets], 2b            \n"
+		"   addiu %[addr], %[addr], 0x40  \n"
+		"   li    %[val], 0x7             \n" /* *state_addr = CPU_DEAD; */
+		"   sw    %[val], (%[state_addr]) \n"
+		"   sync                          \n"
+		"   cache 21, (%[state_addr])     \n" /* flush entry of *state_addr */
+		"   .set pop                      \n"
+		: [addr] "=&r" (addr), [val] "=&r" (val)
+		: [state_addr] "r" (state_addr),
+		  [sets] "r" (cpu_data[smp_processor_id()].dcache.sets),
+		  [vsets] "r" (cpu_data[smp_processor_id()].vcache.sets));
+
+	__asm__ __volatile__(
+		"   .set push                         \n"
+		"   .set noreorder                    \n"
+		"   .set mips64                       \n"
+		"   mfc0  %[cpuid], $15, 1            \n"
+		"   andi  %[cpuid], 0x3ff             \n"
+		"   dli   %[base], 0x900000003ff01000 \n"
+		"   andi  %[core], %[cpuid], 0x3      \n"
+		"   sll   %[core], 8                  \n" /* get core id */
+		"   or    %[base], %[base], %[core]   \n"
+		"   andi  %[node], %[cpuid], 0xc      \n"
+		"   dsll  %[node], 42                 \n" /* get node id */
+		"   or    %[base], %[base], %[node]   \n"
+		"1: li    %[count], 0x100             \n" /* wait for init loop */
+		"2: bnez  %[count], 2b                \n" /* limit mailbox access */
+		"   addiu %[count], -1                \n"
+		"   ld    %[initfunc], 0x20(%[base])  \n" /* get PC via mailbox */
+		"   beqz  %[initfunc], 1b             \n"
+		"   nop                               \n"
+		"   ld    $sp, 0x28(%[base])          \n" /* get SP via mailbox */
+		"   ld    $gp, 0x30(%[base])          \n" /* get GP via mailbox */
+		"   ld    $a1, 0x38(%[base])          \n"
+		"   jr    %[initfunc]                 \n" /* jump to initial PC */
+		"   nop                               \n"
+		"   .set pop                          \n"
+		: [core] "=&r" (core), [node] "=&r" (node),
+		  [base] "=&r" (base), [cpuid] "=&r" (cpuid),
+		  [count] "=&r" (count), [initfunc] "=&r" (initfunc)
+		: /* No Input */
+		: "a1");
+
 }
 
 void play_dead(void)
@@ -535,7 +577,7 @@ void loongson3_enable_clock(int cpu)
 }
 
 #define CPU_POST_DEAD_FROZEN	(CPU_POST_DEAD | CPU_TASKS_FROZEN)
-static int loongson3_cpu_callback(struct notifier_block *nfb,
+static int __cpuinit loongson3_cpu_callback(struct notifier_block *nfb,
 	unsigned long action, void *hcpu)
 {
 	unsigned int cpu = (unsigned long)hcpu;
@@ -543,26 +585,28 @@ static int loongson3_cpu_callback(struct notifier_block *nfb,
 	switch (action) {
 	case CPU_POST_DEAD:
 	case CPU_POST_DEAD_FROZEN:
-		printk("Disable clock for CPU#%d\n", cpu);
+		if (verbose || system_state == SYSTEM_BOOTING)
+			printk("Disable clock for CPU#%d\n", cpu);
 		loongson3_disable_clock(cpu);
 		break;
 	case CPU_UP_PREPARE:
 	case CPU_UP_PREPARE_FROZEN:
-		printk("Enable clock for CPU#%d\n", cpu);
+		if (verbose || system_state == SYSTEM_BOOTING)
+			printk("Enable clock for CPU#%d\n", cpu);
 		loongson3_enable_clock(cpu);
 		break;
 	}
 	return NOTIFY_OK;
 }
 
-static int register_loongson3_notifier(void)
+static int __cpuinit register_loongson3_notifier(void)
 {
 	hotcpu_notifier(loongson3_cpu_callback, 0);
 	return 0;
 }
 early_initcall(register_loongson3_notifier);
 
-#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+#if defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
 void __cpuinit disable_unused_cpus(void)
 {
 	int cpu;
@@ -579,6 +623,13 @@ void __cpuinit disable_unused_cpus(void)
 }
 #endif
 #endif
+/*
+ * Final cleanup after all secondaries booted
+ */
+void __init loongson3_cpus_done(void)
+{
+	disable_unused_cpus();
+}
 
 struct plat_smp_ops loongson3_smp_ops = {
 	.send_ipi_single = loongson3_send_ipi_single,
