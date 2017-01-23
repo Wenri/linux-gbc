@@ -10,6 +10,10 @@ char *bios_release_date;
 char *board_manufacturer;
 char _bios_info[64];
 char _board_info[64];
+char __bios_info[64];
+char __board_info[64];
+char _bios_release_date[64];
+unsigned short biosrom_size;
 extern struct interface_info *einter;
 extern struct board_devices *eboard;
 
@@ -17,14 +21,14 @@ static int show_boardinfo(struct seq_file *m, void *v)
 {
 	seq_printf(m, "BIOS Information\n");
 	seq_printf(m, "Vendor\t\t\t: %s\n", bios_vendor);
-	seq_printf(m, "Version\t\t\t: %s\n", einter->description);
-	seq_printf(m, "BIOS ROMSIZE\t\t: %d\n", einter->size);
-	seq_printf(m, "Release date\t\t: %s\n", bios_release_date);
+	seq_printf(m, "Version\t\t\t: %s\n", __bios_info);
+	seq_printf(m, "BIOS ROMSIZE\t\t: %d\n", biosrom_size);
+	seq_printf(m, "Release date\t\t: %s\n", _bios_release_date);
 	seq_printf(m, "\n");
 
 	seq_printf(m, "Base Board Information\t\t\n");
 	seq_printf(m, "Manufacturer\t\t: %s\n", board_manufacturer);
-	seq_printf(m, "Board name\t\t: %s\n", eboard->name);
+	seq_printf(m, "Board name\t\t: %s\n", __board_info);
 	seq_printf(m, "Family\t\t\t: LOONGSON3\n");
 	seq_printf(m, "\n");
 

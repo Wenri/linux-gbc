@@ -75,6 +75,10 @@ extern char *bios_release_date;
 extern char *board_manufacturer;
 extern char _bios_info[];
 extern char _board_info[];
+extern char __bios_info[];
+extern char __board_info[];
+extern char _bios_release_date[];
+extern unsigned short biosrom_size;
 extern struct south_bridge ls2h_south_bridge;
 extern struct south_bridge rs780_south_bridge;
 
@@ -305,12 +309,17 @@ void __init prom_init_env(void)
 	strsep(&bios_info, "-");
 	bios_release_date = strsep(&bios_info, "-");
 	if (!bios_release_date)
-		bios_release_date = especial->special_name;
+		strcpy(_bios_release_date, especial->special_name);
 
 	/* parse board info */
 	strcpy(_board_info, eboard->name);
 	board_info = _board_info;
 	board_manufacturer = strsep(&board_info, "-");
+
+	strcpy(__bios_info, einter->description);
+	strcpy(__board_info, eboard->name);
+
+	biosrom_size = einter->size;
 
 	vgabios_addr = boot_p->efi.smbios.vga_bios;
 #endif
