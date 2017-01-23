@@ -17,6 +17,11 @@ static struct platform_device loongson2_cpufreq_device = {
 	.id = -1,
 };
 
+static struct platform_device loongson_sci_event_device = {
+	.name = "ls_pm_hotkey",
+	.id = -1,
+};
+
 static int __init loongson2_cpufreq_init(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
@@ -29,3 +34,11 @@ static int __init loongson2_cpufreq_init(void)
 }
 
 arch_initcall(loongson2_cpufreq_init);
+
+static int __init loongson3_platform_init(void)
+{
+	platform_device_register(&loongson_sci_event_device);
+	return 0;
+}
+
+arch_initcall(loongson3_platform_init);
