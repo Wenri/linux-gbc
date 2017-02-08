@@ -282,8 +282,10 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 		c->ases |= MIPS_ASE_SMARTMIPS;
 		c->options |= MIPS_CPU_RIXI;
 	}
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 	if (config3 & MIPS_CONF3_RXI)
 		c->options |= MIPS_CPU_RIXI;
+#endif
 	if (config3 & MIPS_CONF3_DSP)
 		c->ases |= MIPS_ASE_DSP;
 	if (config3 & MIPS_CONF3_DSP2P)
@@ -294,8 +296,10 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 		c->options |= MIPS_CPU_VEIC;
 	if (config3 & MIPS_CONF3_MT)
 		c->ases |= MIPS_ASE_MIPSMT;
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 	if (config3 & MIPS_CONF3_ULRI)
 		c->options |= MIPS_CPU_ULRI;
+#endif
 	if (config3 & MIPS_CONF3_ISA)
 		c->options |= MIPS_CPU_MICROMIPS;
 #ifdef CONFIG_CPU_MICROMIPS
@@ -369,16 +373,22 @@ static void __cpuinit decode_configs(struct cpuinfo_mips *c)
 	int ok;
 
 	/* MIPS32 or MIPS64 compliant CPU.  */
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	c->options = MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE | MIPS_CPU_COUNTER;
+#else
 	c->options |= MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE | MIPS_CPU_COUNTER |
 		     MIPS_CPU_DIVEC | MIPS_CPU_LLSC | MIPS_CPU_MCHECK;
+#endif
 
 	c->scache.flags = MIPS_CACHE_NOT_PRESENT;
 
 #ifdef CONFIG_CPU_HAS_FTLB
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A3000)){
 		write_c0_diag(0x3000); /* before enable or disable the FTLB, We should flush all TLB */
 		set_ftlb_enable(c, 1); /* Enable FTLB if present */
 	}
+#endif
 #endif
 
 	ok = decode_config0(c);			/* Read Config registers.  */
@@ -417,7 +427,11 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		c->isa_level = MIPS_CPU_ISA_M64R2;
 		c->options = R4K_OPTS |
 			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 			     MIPS_CPU_32FPR | MIPS_CPU_ULRI |
+#else
+			     MIPS_CPU_32FPR |
+#endif
 			     MIPS_CPU_PREFETCH;
 
 		switch (c->processor_id & PRID_REV_MASK) {

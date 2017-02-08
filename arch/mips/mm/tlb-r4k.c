@@ -89,8 +89,10 @@ void local_flush_tlb_all(void)
 	/* Blast 'em all away. */
 	loongson_tmp = current_cpu_data.tlbsize;
 #ifdef CONFIG_CPU_HAS_FTLB
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		loongson_tmp = current_cpu_data.tlbsizevtlb;
+#endif
 #endif
 
 	while (entry < loongson_tmp) {
@@ -102,8 +104,10 @@ void local_flush_tlb_all(void)
 		entry++;
 	}
 #ifdef CONFIG_CPU_HAS_FTLB
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 	if (((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000) || ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A2000))
 		write_c0_diag(0x1 << 13); /* flush the FTLB */
+#endif
 #endif
 	tlbw_use_hazard();
 	write_c0_entryhi(old_ctx);
