@@ -30,8 +30,8 @@ extern struct mips_dma_map_ops ls2h_pcie_dma_map_ops;
 /* PCI-E controller0 X4 can't use whole memory space */
 static struct resource ls2h_pcie_mem_resource0 = {
 	.name	= "LS2H PCIE0 MEM",
-	.start	= 0x10000000UL,
-	.end	= 0x11ffffffUL,
+	.start	= 0x40000000UL,
+	.end	= 0x4fffffffUL,
 	.flags	= IORESOURCE_MEM,
 };
 
@@ -48,14 +48,23 @@ static struct pci_controller ls2h_pcie_controller0 = {
 	.mem_resource	= &ls2h_pcie_mem_resource0,
 	.mem_offset	= 0x00000000UL,
 	.io_offset	= 0x00000000UL,
-	.io_map_base	= 0x00000000UL,
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_LS2H_PCIE_GRAPHIC_CARD)
+        .io_map_base    = 0x18100000UL,
+#else
+        .io_map_base    = 0x00000000UL,
+#endif
 };
 
 /* PCI-E controller1 */
 static struct resource ls2h_pcie_mem_resource1 = {
 	.name	= "LS2H PCIE1 MEM",
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_LS2H_PCIE_GRAPHIC_CARD)
+	.start  = 0x50000000UL,
+	.end    = 0x5fffffffUL,
+#else
 	.start	= 0x12000000UL,
 	.end	= 0x13ffffffUL,
+#endif
 	.flags	= IORESOURCE_MEM,
 };
 
@@ -78,8 +87,13 @@ static struct pci_controller ls2h_pcie_controller1 = {
 /* PCI-E controller2 */
 static struct resource ls2h_pcie_mem_resource2 = {
 	.name	= "LS2H PCIE2 MEM",
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_LS2H_PCIE_GRAPHIC_CARD)
+	.start  = 0x60000000UL,
+	.end    = 0x6fffffffUL,
+#else
 	.start	= 0x14000000UL,
 	.end	= 0x15ffffffUL,
+#endif
 	.flags	= IORESOURCE_MEM,
 };
 
@@ -102,8 +116,13 @@ static struct pci_controller ls2h_pcie_controller2 = {
 /* PCI-E controller3 */
 static struct resource ls2h_pcie_mem_resource3 = {
 	.name	= "LS2H PCIE3 MEM",
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_LS2H_PCIE_GRAPHIC_CARD)
+	.start  = 0x70000000UL,
+	.end    = 0x7fffffffUL,
+#else
 	.start	= 0x16000000UL,
 	.end	= 0x17ffffffUL,
+#endif
 	.flags	= IORESOURCE_MEM,
 };
 
@@ -199,6 +218,11 @@ int __init ls2h_pcie_init(void)
 
 	if (!is_rc_mode())
 		return 0;
+
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_LS2H_PCIE_GRAPHIC_CARD)
+	if (is_x4_mode())
+		ls2h_pcie_mem_resource0.end = 0x7fffffffUL;
+#endif
 
 	ls2h_pcie_port_init(0);
 	register_pci_controller(&ls2h_pcie_controller0);

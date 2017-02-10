@@ -19,6 +19,8 @@
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/i2c.h>
+#include <linux/pci.h>
+#include <linux/pci_ids.h>
 
 #include <asm/addrspace.h>
 #include <linux/fb.h>
@@ -1127,6 +1129,11 @@ static struct i2c_driver eep_driver = {
 static int __init ls2h_fb_init(void)
 {
 	int ret = 0;
+        struct pci_dev *pdev = NULL;
+
+        pdev = pci_get_device(PCI_VENDOR_ID_ATI, PCI_ANY_ID, NULL);
+        if(pdev)
+                return -ENODEV;
 
 #ifndef MODULE
 	char *option = NULL;

@@ -2540,4 +2540,11 @@ config FB_SSD1307
 	  This driver implements support for the Solomon SSD1307
 	  OLED controller over I2C.
 
+config LS2H_PCIE_GRAPHIC_CARD
+	bool "Loongson2H south bridge pcie graphic card"
+	depends on LS2H_SB
+	default y
+	---help---
+	  Graphic card support for 3A2H
+
 endmenu

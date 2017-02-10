@@ -272,9 +272,16 @@ enum {
 #define LS2H_PCIE_PORT1             1
 #define LS2H_PCIE_PORT2             2
 #define LS2H_PCIE_PORT3             3
+#if defined(CONFIG_CPU_LOONGSON3) && defined(CONFIG_LS2H_PCIE_GRAPHIC_CARD)
+#define LS2H_PCIE_MEM1_BASE            0x40000000
 #define LS2H_PCIE_GET_PORTNUM(sysdata) \
-        ((((struct pci_controller *)(sysdata))->mem_resource->start \
-                        & ~LS2H_PCIE_MEM0_DOWN_MASK) >> 25)
+               ((((struct pci_controller *)(sysdata))->mem_resource->start \
+                       - LS2H_PCIE_MEM1_BASE) >> 28)
+#else
+#define LS2H_PCIE_GET_PORTNUM(sysdata) \
+               ((((struct pci_controller *)(sysdata))->mem_resource->start \
+                       & ~LS2H_PCIE_MEM0_DOWN_MASK) >> 25)
+#endif
 
 #define LS2H_CHIP_CFG_REG_CLK_CTRL3     0x22c
 #define LS2H_CLK_CTRL3_BIT_PEREF_EN(portnum) (1 << (24 + portnum))
