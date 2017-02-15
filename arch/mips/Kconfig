@@ -1564,6 +1564,7 @@ config CPU_LOONGSON3
 	select CPU_HAS_FTLB
 	select CPU_HAS_PREFETCH
 	select GENERIC_GPIO
+	select HAVE_KVM
 	help
 		The Loongson 3 processor implements the MIPS III instruction set
 		with many extensions.
