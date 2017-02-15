@@ -466,6 +466,12 @@ unsigned long pgd_current[NR_CPUS];
  * it in the linker script.
  */
 pgd_t swapper_pg_dir[_PTRS_PER_PGD] __section(.bss..swapper_pg_dir);
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+pgd_t kvm_pg_dir[_PTRS_PER_PGD] __page_aligned_bss;
+pgd_t* kvmmips_pg_dir[NR_CPUS] = {0};
+pgd_t* kvmmips_swapper_pg_dir[NR_CPUS] = {0};
+unsigned long kvmmips_pgd_current[NR_CPUS];
+#endif
 #ifndef __PAGETABLE_PMD_FOLDED
 pmd_t invalid_pmd_table[PTRS_PER_PMD] __page_aligned_bss;
 #endif

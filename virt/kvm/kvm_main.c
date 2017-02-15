@@ -758,6 +758,13 @@ int __kvm_set_memory_region(struct kvm *kvm,
 	if (r)
 		goto out;
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	/* address page align */
+	mem->memory_size = PAGE_ALIGN(mem->memory_size);
+	mem->guest_phys_addr = PAGE_ALIGN(mem->guest_phys_addr);
+	mem->userspace_addr = PAGE_ALIGN(mem->userspace_addr);
+#endif
+
 	r = -EINVAL;
 	/* General sanity checks */
 	if (mem->memory_size & (PAGE_SIZE - 1))
@@ -1855,7 +1862,11 @@ static int kvm_vcpu_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		page = virt_to_page(vcpu->kvm->coalesced_mmio_ring);
 #endif
 	else
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 		return kvm_arch_vcpu_fault(vcpu, vmf);
+#else
+		return VM_FAULT_SIGBUS;
+#endif
 	get_page(page);
 	vmf->page = page;
 	return 0;
@@ -1999,6 +2010,16 @@ static long kvm_vcpu_ioctl(struct file *filp,
 	if (r)
 		return r;
 	switch (ioctl) {
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	case KVM_LOAD_KERNEL: {
+		/* TODO: this is a easy way to load guest kernel(to be deleted) */
+		void *ram_base = (void*)0xffffffff88000000;
+
+		copy_from_user(ram_base, argp, 128 * 1024 * 1024);
+		r = 0;
+		break;
+	}
+#endif
 	case KVM_RUN:
 		r = -EINVAL;
 		if (arg)

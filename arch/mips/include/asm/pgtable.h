@@ -193,6 +193,10 @@ static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *pt
  */
 extern pgd_t swapper_pg_dir[];
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+extern pgd_t kvm_pg_dir[];
+#endif
+
 /*
  * The following only work if pte_present() is true.
  * Undefined behaviour if not..
@@ -379,6 +383,17 @@ static inline void update_mmu_cache_pmd(struct vm_area_struct *vma,
 
 	__update_tlb(vma, address, pte);
 }
+
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+extern void kvmmips__update_tlb(unsigned long address, pte_t *ptep);
+extern void kvmmips__update_cache(unsigned long address, pte_t pte);
+static inline void kvmmips_update_mmu_cache(unsigned long address, pte_t *ptep)
+{
+	pte_t pte = *ptep;
+	kvmmips__update_tlb(address, ptep);
+	kvmmips__update_cache(address, pte);
+}
+#endif
 
 #define kern_addr_valid(addr)	(1)
 

@@ -10,6 +10,7 @@
 * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <linux/init.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
@@ -947,3 +948,727 @@ EXPORT_SYMBOL(kvm_mips_dump_guest_tlbs);
 EXPORT_SYMBOL(kvm_get_inst);
 EXPORT_SYMBOL(kvm_arch_vcpu_load);
 EXPORT_SYMBOL(kvm_arch_vcpu_put);
+#else
+#include <linux/kvm_host.h>
+#include <linux/highmem.h>
+#include <linux/slab.h>
+
+#include <asm/r4kcache.h>
+#include <asm/ptrace.h>
+#include <asm/kvm_loongson.h>
+#include <asm/kvm_mips.h>
+#include <asm/kvm_asm.h>
+#include <linux/mm.h>
+
+#include "loongson_tlb.h"
+#include "statistic.h"
+
+#define FLUSH_ITLB write_c0_diag(0x104)
+#define KERNEL_TLB_SIZE 32
+
+#ifdef CONFIG_KERNEL_PAGE_SIZE_4KB
+#define KERNEL_PAGE_SHIFT	12
+#endif
+#ifdef CONFIG_KERNEL_PAGE_SIZE_8KB
+#define KERNEL_PAGE_SHIFT	13
+#endif
+#ifdef CONFIG_KERNEL_PAGE_SIZE_16KB
+#define KERNEL_PAGE_SHIFT	14
+#endif
+#ifdef CONFIG_KERNEL_PAGE_SIZE_32KB
+#define KERNEL_PAGE_SHIFT	15
+#endif
+#ifdef CONFIG_KERNEL_PAGE_SIZE_64KB
+#define KERNEL_PAGE_SHIFT	16
+#endif
+#ifdef CONFIG_KERNEL_PAGE_SIZE_16M
+#define KERNEL_PAGE_SHIFT	24
+#endif
+#define KERNEL_PAGE_SIZE	(_AC(1,UL) << KERNEL_PAGE_SHIFT)
+#define KERNEL_PAGE_MASK	(~((1 << KERNEL_PAGE_SHIFT) - 1))
+
+extern void local_flush_tlb_all(void);
+
+u32 kvmmips_get_kernel_instruction(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr)
+{
+	struct page* new_page;
+	u64 basic_addr = 0;
+	u64 epc_gfn;
+	u64 epc = vcpu_ptr->arch.temp_cp0_cause & CAUSEF_BD ? vcpu_ptr->arch.temp_cp0_epc + 4 :
+					vcpu_ptr->arch.temp_cp0_epc;
+
+#ifdef CONFIG_KVM64_SUPPORT
+	if ((epc & 0xfffffffff0000000) != 0x4000000080000000) {
+#else
+	if ((epc & 0xfffffffff0000000) != 0xffffffffc0000000) {
+#endif
+		//the instruction should be in guest os' kernel mode
+		return 0;
+	}
+
+#ifdef CONFIG_KVM64_SUPPORT
+	epc = epc & ~0xffffffffe0000000;
+#else
+	epc = epc & ~0xffffffffc0000000;
+#endif
+	epc_gfn = epc >> PAGE_SHIFT;
+	//TODO: it is 0x9000000008000000 because we map  c0000000 ~ c8000000 to 08000000 ~ 10000000
+	if (kvm_is_visible_gfn(vcpu_ptr->kvm,epc_gfn))
+	{
+		new_page = gfn_to_page(vcpu_ptr->kvm,epc_gfn);
+		if (is_error_page(new_page))
+		{
+			printk(KERN_ERR "kvmmips: Couldn't get guest page for gfn %lx!\n", (unsigned long)0x0);
+			kvm_release_page_clean(new_page);
+			return 0;
+		}
+		basic_addr = page_to_phys(new_page);
+
+		/* release page, for it will not use */
+		kvm_release_page_clean(new_page);
+	}
+
+	basic_addr |= 0x9800000000000000;
+	epc = (epc & ((1 << PAGE_SHIFT) -1)) | basic_addr;
+
+	return *(volatile u32*)epc;
+}
+
+/* TODO: it supports that I/O in qemu store value in little endian */
+int kvmmips_handle_load(struct kvm_run *run_ptr, struct kvm_vcpu *vcpu_ptr,
+			unsigned int rt, unsigned int bytes, u64 vaddr, int is_sign_extend)
+{
+	if (bytes > sizeof(run_ptr->mmio.data)) {
+		printk(KERN_ERR "%s: bad MMIO length: %d\n", __func__,
+			run_ptr->mmio.len);
+	}
+
+	run_ptr->mmio.phys_addr = vaddr;
+	run_ptr->mmio.len = bytes;
+	run_ptr->mmio.is_write = 0;
+	vcpu_ptr->mmio_needed = 1;
+	vcpu_ptr->mmio_is_write = 0;
+	vcpu_ptr->arch.io_gpr = rt;
+	vcpu_ptr->arch.mmio_sign_extend = is_sign_extend;
+
+	return EMULATE_DO_MMIO;
+}
+
+void kvmmips_complete_mmio_load(struct kvm_run *run_ptr, struct kvm_vcpu *vcpu_ptr)
+{
+	u64 gpr = 0;
+
+	if (run_ptr->mmio.len > sizeof(gpr)) {
+		printk(KERN_ERR "bad MMIO length: %d\n", run_ptr->mmio.len);
+		return;
+	}
+
+	switch (run_ptr->mmio.len) {
+	case 8:
+		gpr = *(u64 *)run_ptr->mmio.data;
+		break;
+	case 4:
+		gpr = *(u32 *)run_ptr->mmio.data;
+		break;
+	case 2:
+		gpr = *(u16 *)run_ptr->mmio.data;
+		break;
+	case 1:
+		gpr = *(u8 *)run_ptr->mmio.data;
+		break;
+	}
+
+	if (vcpu_ptr->arch.mmio_sign_extend) {
+		switch (run_ptr->mmio.len) {
+		case 4:
+			gpr = (s64)(s32)gpr;
+			break;
+		case 2:
+			gpr = (s64)(s16)gpr;
+			break;
+		case 1:
+			gpr = (s64)(s8)gpr;
+			break;
+		}
+	}
+
+	/* TODO: now not consider fpr and other */
+	vcpu_ptr->arch.gpr[vcpu_ptr->arch.io_gpr % 32] = gpr;
+}
+
+int kvmmips_handle_store(struct kvm_run *run_ptr, struct kvm_vcpu *vcpu_ptr,
+			unsigned int rt, unsigned int bytes, u64 vaddr)
+{
+	void *data = run_ptr->mmio.data;
+	u64   val  = vcpu_ptr->arch.gpr[rt];
+	if (bytes > sizeof(run_ptr->mmio.data)) {
+		printk(KERN_ERR "%s: bad MMIO length: %d\n", __func__,
+			run_ptr->mmio.len);
+	}
+
+	run_ptr->mmio.phys_addr = vaddr;
+	run_ptr->mmio.len = bytes;
+	run_ptr->mmio.is_write = 1;
+	vcpu_ptr->mmio_needed = 1;
+	vcpu_ptr->mmio_is_write = 1;
+
+	switch (bytes) {
+		case 8: *(u64 *)data = val; break;
+		case 4: *(u32 *)data = val; break;
+		case 2: *(u16 *)data = val; break;
+		case 1: *(u8  *)data = val; break;
+	}
+
+	return EMULATE_DO_MMIO;
+}
+
+int kvmmips_emulate_mmio(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr, u64 vaddr)
+{
+	u32 opcode = kvmmips_get_kernel_instruction(run_ptr, vcpu_ptr);
+
+	/* TODO: vaddr use or not should be considered */
+	switch ((opcode & OPCODE1) >> OPCODE1_OFFSET) {
+	case LB:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 1, vaddr, 1);
+		break;
+	case LBU:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 1, vaddr, 0);
+		break;
+	case LH:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 2, vaddr, 1);
+		break;
+	case LHU:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 2, vaddr, 0);
+		break;
+	case LW:
+	case LWL:
+	case LL:
+		/* TODO: LL should be considered more */
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 4, vaddr, 1);
+		break;
+	case LWR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	case LWU:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 4, vaddr, 0);
+		break;
+	case LD:
+	case LLD:
+	case LDL:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 8, vaddr, 1);
+		break;
+	case LDR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	case SB:
+		kvmmips_handle_store(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 1, vaddr);
+		break;
+	case SH:
+		kvmmips_handle_store(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 2, vaddr);
+		break;
+	case SW:
+	case SWL:
+	case SC:
+		/* TODO: SC should be considered more */
+		kvmmips_handle_store(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 4, vaddr);
+		break;
+	case SWR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	case SD:
+	case SDL:
+	case SCD:
+		/* TODO: SC should be considered more */
+		kvmmips_handle_store(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 8, vaddr);
+		break;
+	case SDR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	default:
+		break;
+	}
+
+	run_ptr->exit_reason = KVM_EXIT_MMIO;
+	return 0;
+}
+
+int kvmmips_emulate_mm(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr, u64 vaddr)
+{
+	u32 opcode = kvmmips_get_kernel_instruction(run_ptr, vcpu_ptr);
+
+	/* TODO: vaddr use or not should be considered */
+	switch ((opcode & OPCODE1) >> OPCODE1_OFFSET) {
+	case LB:
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (s64)(s8)(*(u8*)vaddr);
+		break;
+	case LBU:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 1, vaddr, 0);
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (*(u8*)vaddr);
+		break;
+	case LH:
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (s64)(s16)(*(u16*)vaddr);
+		break;
+	case LHU:
+		kvmmips_handle_load(run_ptr, vcpu_ptr, (opcode & OP1) >> OP1_OFFSET, 2, vaddr, 0);
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (*(u16*)vaddr);
+		break;
+	case LW:
+	case LWL:
+	case LL:
+		/* TODO: LL should be considered more */
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (s64)(s32)(*(u32*)vaddr);
+		break;
+	case LWR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together,LWR do nothing */
+		break;
+	case LWU:
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (*(u32*)vaddr);
+		break;
+	case LD:
+	case LLD:
+	case LDL:
+		vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET] = (*(u64*)vaddr);
+		break;
+	case LDR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	case SB:
+		*(u8*)vaddr = vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET];
+		break;
+	case SH:
+		*(u16*)vaddr = vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET];
+		break;
+	case SW:
+	case SWL:
+	case SC:
+		/* TODO: SC should be considered more*/
+		*(u32*)vaddr = vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET];
+		break;
+	case SWR:
+		/* TODO:suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	case SD:
+	case SDL:
+	case SCD:
+		/* TODO: SC should be considered more */
+		*(u64*)vaddr = vcpu_ptr->arch.gpr[(opcode & OP1) >> OP1_OFFSET];
+		break;
+	case SDR:
+		/* TODO: suppose that address in badvaddr is real address and LWL,
+		 * LWR shall use together, LWR do nothing */
+		break;
+	default:
+		break;
+	}
+
+	run_ptr->exit_reason = KVM_EXIT_MMIO;
+	return 0;
+}
+
+extern void kvmmips_emulate_branch(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr);
+asmlinkage int do_kvm_tlbmiss(struct kvm_run* run_ptr , struct kvm_vcpu* vcpu_ptr)
+{
+	u64 vaddr = vcpu_ptr->arch.temp_cp0_badvaddr;
+
+	printk("[KVM-ERROR]:%s %d: vaddr(0x%lx)\n", __func__, __LINE__, (unsigned long)vaddr);
+	while(1);
+
+	return RETURN_TO_GUEST;
+}
+
+int kvmmips_handle_pte_fault(struct kvmmips_vcpu_loongson* vcpu_ptr, pte_t *pte, u64 vaddr, int mls)
+{
+	u64 gpaddr[2], gfn[2];
+	struct page *new_page[2];
+	pgprot_t page_prot;
+	pte_t entry0, entry1;
+	int i = 0;
+
+	u64 temp = vaddr & (PAGE_MASK << 1);
+
+	if (((vaddr & 0xffffffff00000000) == 0x4000000100000000) || ((vaddr & 0xffffffff00000000) == 0x4000000200000000)) {
+		gpaddr[0] = temp & ~(u64)0xffffffff00000000;
+		gpaddr[1] = (temp & ~(u64)0xffffffff00000000) | (0x1 << PAGE_SHIFT);
+	} else {
+		gpaddr[0] = temp & ~(u64)0xffffffffe0000000;
+		gpaddr[1] = (temp & ~(u64)0xffffffffe0000000) | (0x1 << PAGE_SHIFT);
+	}
+
+	gfn[0] = gpaddr[0] >> PAGE_SHIFT;
+	gfn[1] = gpaddr[1] >> PAGE_SHIFT;
+
+	for (i = 0; i < 2; i++)
+	{
+		if (kvm_is_visible_gfn(vcpu_ptr->vcpu.kvm, gfn[i]))
+		{
+			new_page[i] = gfn_to_page(vcpu_ptr->vcpu.kvm, gfn[i]);
+			if (is_error_page(new_page[i]))
+			{
+				printk(KERN_ERR "kvmmips: Couldn't get guest page for gfn %lx!\n", (unsigned long)gfn[i]);
+				kvm_release_page_clean(new_page[i]);
+				return -1;
+			}
+
+			/* release the count of page*/
+			kvm_release_page_clean(new_page[i]);
+		}
+	}
+
+	page_prot.pgprot = 0x3ff; //for kernel G=1
+	entry0 = mk_pte(new_page[0], page_prot);
+	set_pte(pte, entry0);
+	entry1 = mk_pte(new_page[1], page_prot);
+	set_pte(pte + 1, entry1);
+
+#ifndef CONFIG_KVM_MULTICLIENT
+	kvmmips_update_mmu_cache(vaddr, pte);
+#else
+	for (i = 0;i < vcpu_ptr->shadow_tlb_size;i++) {
+		if ((vcpu_ptr->shadow_tlb[i].mask0 & ~((0x1 << (PAGE_SHIFT + 1)) - 1))
+			== (vcpu_ptr->vcpu.arch.temp_cp0_entryhi & ~((0x1 << (PAGE_SHIFT + 1)) - 1))) {
+			break;
+		}
+	}
+
+	/* save to shadow tlb */
+	if (i >= vcpu_ptr->shadow_tlb_size) {
+		printk("ERROR!!!! in %s cannot find entryhi:%llx, vaddr:%llx\n",
+			__func__, vcpu_ptr->vcpu.arch.temp_cp0_entryhi, vaddr);
+		for (i = 0; i < vcpu_ptr->shadow_tlb_size; i++) {
+			printk("%llx  ", vcpu_ptr->shadow_tlb[i].mask0);
+			if (i % 8 == 7)
+				printk("\n");
+		}
+		return 1;
+	}
+#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+	vcpu_ptr->shadow_tlb[i].mask2 = pte->pte_high;
+	pte++;
+	vcpu_ptr->shadow_tlb[i].mask3 = pte->pte_high;
+#else
+	vcpu_ptr->shadow_tlb[i].mask2 = pte_to_entrylo(pte_val(*pte++));
+	vcpu_ptr->shadow_tlb[i].mask3 = pte_to_entrylo(pte_val(*pte));
+#endif
+#endif
+	return 1;
+}
+
+void kvm_print_tlb(void);
+
+void kvmmips_do_page_fault(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr, int mls)
+{
+	u64 vaddr = vcpu_ptr->arch.temp_cp0_entryhi & (PAGE_MASK << 1);
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *pte;
+
+	run_ptr->exit_reason = KVM_EXIT_UNKNOWN;
+	run_ptr->ready_for_interrupt_injection = 1;
+
+	pgd = kvmmips_pgd_offset(to_loongson(vcpu_ptr)->kvm_pg_dir, vaddr);
+	pmd = (pmd_t*)pgd;
+	pte = kvmmips_pte_alloc_map(NULL, pmd, vaddr);
+
+	kvmmips_handle_pte_fault(to_loongson(vcpu_ptr), pte, vaddr, mls);
+}
+
+int kvmmips_handle_kernel_address(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr, int mls)
+{
+	u64 vaddr = vcpu_ptr->arch.temp_cp0_entryhi;
+
+	run_ptr->exit_reason = KVM_EXIT_UNKNOWN;
+	run_ptr->ready_for_interrupt_injection = 1;
+
+	if (((vaddr & 0xfffffffff0000000) == 0x4000000080000000)
+		|| ((vaddr & 0xfffffffff0000000) == 0x40000000a0000000)
+		|| ((vaddr & 0xfffffffffff00000) == 0x40000000bfc00000)
+		|| ((vaddr & 0xffffffff00000000) == 0x4000000100000000)
+		|| ((vaddr & 0xffffffff00000000) == 0x4000000200000000)) {
+#ifndef CONFIG_KVM_MULTICLIENT
+		u64 temp_entryhi = read_c0_entryhi();
+		write_c0_entryhi(vcpu_ptr->arch.temp_cp0_entryhi); //restore entryhi
+#endif
+		kvmmips_do_page_fault(run_ptr, vcpu_ptr, mls);
+#ifndef CONFIG_KVM_MULTICLIENT
+		write_c0_entryhi(temp_entryhi);
+#endif
+		return 1; //is kernel address
+	} else {
+#ifdef KVM_MM_DEBUG
+		if(vaddr >= 0x4000000400000000)
+			printk("\n!!!%s %d: epc(0x%lx) cause(0x%lx) vaddr(0x%lx) mls(%d)\n", __func__, __LINE__,
+				vcpu_ptr->arch.temp_cp0_epc, vcpu_ptr->arch.temp_cp0_cause, vaddr, mls);
+		else {
+			printk("\n!!!%s %d: epc(0x%lx) cause(0x%lx) vaddr(0x%lx) mls(%d)\n", __func__, __LINE__,
+				vcpu_ptr->arch.temp_cp0_epc, vcpu_ptr->arch.temp_cp0_cause, vaddr, mls);
+		}
+#endif
+		return 0;
+	}
+}
+
+int kvmmips_check_pte_rwm(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr, u8 check, u8 new)
+{
+	u64 vaddr = vcpu_ptr->arch.temp_cp0_entryhi;
+	pgd_t *temp_pgdp;
+	pgd_t *pgd;
+	pmd_t *pmd;
+	pte_t *pte;
+	unsigned int check_result;
+
+	run_ptr->exit_reason = KVM_EXIT_UNKNOWN;
+	run_ptr->ready_for_interrupt_injection = 1;
+
+	if(vaddr >= 0x4000000400000000ULL)
+		temp_pgdp = to_loongson(vcpu_ptr)->swapper_pg_dir;
+	else if(vaddr < 0x4000000000000000ULL)
+		temp_pgdp = (pgd_t *)to_loongson(vcpu_ptr)->pgd_current;
+	else {
+		printk("===[ERROR]: %s %s %d\n", __FILE__, __func__, __LINE__);
+		while(1);
+	}
+
+	pgd = kvmmips_pgd_offset(temp_pgdp, vaddr);
+	pmd = (pmd_t*)pgd;
+	pte = kvmmips_pte_alloc_map(NULL, pmd, vaddr);
+
+	check_result = (pte_val(*pte) & check) ^ check;
+
+	if(!check_result) {
+		u64 entrylo0, entrylo1;
+
+		pte_val(*pte) |= new;
+		pte = (pte_t *)(((unsigned long)pte | 0x8) ^ 0x8);
+
+		entrylo0 = pte_val(*pte++) >> ilog2(_PAGE_GLOBAL);
+		entrylo1 = pte_val(*pte) >> ilog2(_PAGE_GLOBAL);
+
+#ifndef CONFIG_KVM_MULTICLIENT
+		/* cannot fit for the multi clients */
+	{
+		int idx, temp_idx;
+		u64 temp_entryhi;
+		temp_entryhi = read_c0_entryhi();
+		temp_idx = read_c0_index();
+
+		write_c0_entryhi(vcpu_ptr->arch.temp_cp0_entryhi);
+		mtc0_tlbw_hazard();
+		tlb_probe();
+		tlb_probe_hazard();
+
+		idx = read_c0_index();
+		write_c0_entrylo0(entrylo0);
+		write_c0_entrylo1(entrylo1);
+		mtc0_tlbw_hazard();
+
+		if (idx < 0)
+			tlb_write_random();
+		else
+			tlb_write_indexed();
+		tlbw_use_hazard();
+		FLUSH_ITLB;
+
+		write_c0_entryhi(temp_entryhi);
+		write_c0_index(temp_idx);
+	}
+#else
+		/* save to shadow tlb */
+	{
+		int i;
+		for (i = 0;i < to_loongson(vcpu_ptr)->shadow_tlb_size;i++) {
+			if (((to_loongson(vcpu_ptr)->shadow_tlb[i].mask0 & ~((0x1 << (PAGE_SHIFT + 1)) - 1))
+				== (to_loongson(vcpu_ptr)->vcpu.arch.temp_cp0_entryhi & ~((0x1 << (PAGE_SHIFT + 1)) - 1)))
+				&& ((to_loongson(vcpu_ptr)->shadow_tlb[i].mask0 & 0xff)
+					== (to_loongson(vcpu_ptr)->vcpu.arch.temp_cp0_entryhi & 0xff))) {
+				break;
+			}
+		}
+
+		/* save to shadow tlb */
+		if (i >= to_loongson(vcpu_ptr)->shadow_tlb_size) {
+			printk("ERROR!!!! in %s cannot find entryhi:%llx, vaddr:%llx\n",
+				__func__, to_loongson(vcpu_ptr)->vcpu.arch.temp_cp0_entryhi, vaddr);
+			for (i = 0; i < to_loongson(vcpu_ptr)->shadow_tlb_size; i++) {
+				printk("%llx  ", to_loongson(vcpu_ptr)->shadow_tlb[i].mask0);
+				if (i % 8 == 7)
+					printk("\n");
+			}
+			return 1;
+		}
+		to_loongson(vcpu_ptr)->shadow_tlb[i].mask0 = vcpu_ptr->arch.temp_cp0_entryhi;
+		to_loongson(vcpu_ptr)->shadow_tlb[i].mask1 = read_c0_pagemask();
+		to_loongson(vcpu_ptr)->shadow_tlb[i].mask2 = entrylo0;
+		to_loongson(vcpu_ptr)->shadow_tlb[i].mask3 = entrylo1;
+	}
+#endif
+		return 1;
+	}
+
+	return 0;
+}
+
+asmlinkage int do_kvm_mod(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr)
+{
+	if (kvmmips_handle_kernel_address(run_ptr, vcpu_ptr, 0))
+		return RETURN_TO_GUEST;
+
+	/* account info */
+	kvmmips_stat_exits(vcpu_ptr, MOD_EXITS);
+
+	/* TODO: inject to guest os*/
+	if (kvmmips_check_pte_rwm(run_ptr, vcpu_ptr, 0x4, 0xd8))
+		return RETURN_TO_GUEST;
+
+	kvmmips_queue_exception(vcpu_ptr, KVMMIPS_EXCEPTION_MOD);
+	return RETURN_TO_GUEST;
+}
+
+asmlinkage int do_kvm_tlbl(struct kvm_run* run_ptr, struct kvm_vcpu* vcpu_ptr)
+{
+	if (kvmmips_handle_kernel_address(run_ptr, vcpu_ptr, 1))
+		return RETURN_TO_GUEST;
+
+	/* account info */
+	kvmmips_stat_exits(vcpu_ptr, TLBL_EXITS);
+
+	/* TODO: inject to guest OS */
+	if (kvmmips_check_pte_rwm(run_ptr, vcpu_ptr, 0x3, 0x48))
+		return RETURN_TO_GUEST;
+
+	kvmmips_queue_exception(vcpu_ptr, KVMMIPS_EXCEPTION_TLBL);
+
+	return RETURN_TO_GUEST;
+}
+
+asmlinkage int do_kvm_tlbs(struct kvm_run* run_ptr , struct kvm_vcpu* vcpu_ptr)
+{
+	if (kvmmips_handle_kernel_address(run_ptr, vcpu_ptr, 2))
+		return RETURN_TO_GUEST;
+
+	/* account info */
+	kvmmips_stat_exits(vcpu_ptr, TLBS_EXITS);
+
+	/* TODO: inject to guest OS */
+	if(kvmmips_check_pte_rwm(run_ptr, vcpu_ptr, 0x5, 0xd8))
+		return RETURN_TO_GUEST;
+
+	kvmmips_queue_exception(vcpu_ptr, KVMMIPS_EXCEPTION_TLBS);
+
+	return RETURN_TO_GUEST;
+}
+
+void kvmmips_loongson_tlb_setup(struct kvmmips_vcpu_loongson *vcpu_loongson)
+{
+	return;
+}
+
+void kvmmips_local_flush_tlb_all(void)
+{
+	local_flush_tlb_all();
+}
+
+#ifndef CONFIG_KVM_MULTICLIENT
+int kvmmips_loongson_tlb_init(struct kvmmips_vcpu_loongson *vcpu_loongson)
+{
+	return 0;
+}
+#else
+void kvmmips_tlbsave(struct kvm_vcpu * vcpu_ptr)
+{
+	struct kvmmips_vcpu_loongson* vcpu_loongson = to_loongson(vcpu_ptr);
+	int i;
+	struct tlbe * temp_tlbe;
+	u32 temp_index, temp_pagemask;
+	u64 temp_entryhi, temp_entrylo0, temp_entrylo1;
+
+	temp_index = read_c0_index();
+	temp_entryhi = read_c0_entryhi();
+	temp_entrylo0 = read_c0_entrylo0();
+	temp_entrylo1 = read_c0_entrylo1();
+	temp_pagemask = read_c0_pagemask();
+
+	for (i = 0; i < vcpu_loongson->shadow_tlb_size; i++) {
+		temp_tlbe = &vcpu_loongson->shadow_tlb[i];
+
+		write_c0_index(i);
+		tlb_read();
+
+		temp_tlbe->mask0 = read_c0_entryhi();
+		temp_tlbe->mask1 = read_c0_pagemask();
+		temp_tlbe->mask2 = read_c0_entrylo0();
+		temp_tlbe->mask3 = read_c0_entrylo1();
+	}
+
+	write_c0_index(temp_index);
+	write_c0_entryhi(temp_entryhi);
+	write_c0_entrylo0(temp_entrylo0);
+	write_c0_entrylo1(temp_entrylo1);
+	write_c0_pagemask(temp_pagemask);
+}
+
+void kvmmips_finish_tlbload(struct kvm_vcpu * vcpu_ptr)
+{
+	struct kvmmips_vcpu_loongson* vcpu_loongson = to_loongson(vcpu_ptr);
+	int i;
+	struct tlbe * temp_tlbe;
+	u32 index, pagemask;
+	u64 entryhi, entrylo0, entrylo1;
+	u32 temp_index, temp_pagemask;
+	u64 temp_entryhi, temp_entrylo0, temp_entrylo1;
+
+	temp_index = read_c0_index();
+	temp_entryhi = read_c0_entryhi();
+	temp_entrylo0 = read_c0_entrylo0();
+	temp_entrylo1 = read_c0_entrylo1();
+	temp_pagemask = read_c0_pagemask();
+
+	for (i = 0; i < vcpu_loongson->shadow_tlb_size; i++) {
+		temp_tlbe = &vcpu_loongson->shadow_tlb[i];
+		index = i;
+		entryhi = temp_tlbe->mask0;
+		pagemask = (u32)(temp_tlbe->mask1 & 0xffffffff);
+		entrylo0 = temp_tlbe->mask2;
+		entrylo1 = temp_tlbe->mask3;
+
+		write_c0_index(index);
+		write_c0_entryhi(entryhi);
+		write_c0_entrylo0(entrylo0);
+		write_c0_entrylo1(entrylo1);
+		write_c0_pagemask(pagemask);
+		tlb_write_indexed();
+		write_c0_pagemask(0); //workround for 3a tlb bug
+	}
+
+	FLUSH_ITLB;
+
+	write_c0_index(temp_index);
+	write_c0_entryhi(temp_entryhi);
+	write_c0_entrylo0(temp_entrylo0);
+	write_c0_entrylo1(temp_entrylo1);
+	write_c0_pagemask(temp_pagemask);
+}
+
+int kvmmips_loongson_tlb_init(struct kvmmips_vcpu_loongson *vcpu_loongson)
+{
+	vcpu_loongson->shadow_tlb_size = KVM_LOONGSON_TLB_SIZE;
+	vcpu_loongson->shadow_tlb =
+		kzalloc(sizeof(struct tlbe) * KVM_LOONGSON_TLB_SIZE, GFP_KERNEL);
+	if (vcpu_loongson->shadow_tlb == NULL)
+		goto err_out_shadow;
+
+	return 0;
+
+err_out_shadow:
+	kfree(vcpu_loongson->shadow_tlb);
+
+	return -1;
+}
+#endif
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

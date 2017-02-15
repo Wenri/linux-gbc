@@ -942,6 +942,7 @@ struct kvm_s390_ucas_mapping {
 /*
  * ioctls for vcpu fds
  */
+#define KVM_LOAD_KERNEL           _IO(KVMIO,   0xa8)
 #define KVM_RUN                   _IO(KVMIO,   0x80)
 #define KVM_GET_REGS              _IOR(KVMIO,  0x81, struct kvm_regs)
 #define KVM_SET_REGS              _IOW(KVMIO,  0x82, struct kvm_regs)

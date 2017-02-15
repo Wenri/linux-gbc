@@ -250,6 +250,16 @@ static inline void pud_clear(pud_t *pudp)
 /* to find an entry in a page-table-directory */
 #define pgd_offset(mm, addr)	((mm)->pgd + pgd_index(addr))
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+extern int kvmmips__pte_alloc(struct mm_struct *mm, pmd_t *pmd, unsigned long address);
+
+#define kvmmips_pgd_offset(pgd, addr)	(pgd + pgd_index(addr))
+
+#define kvmmips_pte_alloc_map(mm, pmd, address)			\
+	((unlikely(!pmd_present(*(pmd))) && kvmmips__pte_alloc(mm, pmd, address))? \
+		NULL: pte_offset_map(pmd, address))
+#endif
+
 #ifndef __PAGETABLE_PMD_FOLDED
 static inline unsigned long pud_page_vaddr(pud_t pud)
 {

@@ -20,6 +20,7 @@
 #include <linux/spinlock.h>
 
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #define KVM_MAX_VCPUS		1
 #define KVM_USER_MEM_SLOTS	8
 /* memory slots that does not exposed to userspace */
@@ -70,6 +71,27 @@
 
 #define CAUSEB_DC       27
 #define CAUSEF_DC       (_ULCAST_(1)   << 27)
+#else
+#define KVM_MAX_VCPUS		1
+#define KVM_USER_MEM_SLOTS	8
+#define KVM_MEMORY_SLOTS	32
+/* memory slots that does not exposed to userspace */
+#define KVM_PRIVATE_MEM_SLOTS	4
+#define KVM_COALESCED_MMIO_PAGE_OFFSET	1
+
+/* We don't currently support large pages. */
+#define KVM_HPAGE_GFN_SHIFT(x)	0
+#define KVM_NR_PAGE_SIZES	1
+#define KVM_PAGES_PER_HPAGE(x)	(1UL<<31)
+
+#define HPTEG_CACHE_NUM			(1 << 15)
+#define HPTEG_HASH_BITS_PTE		13
+#define HPTEG_HASH_BITS_VPTE		13
+#define HPTEG_HASH_BITS_VPTE_LONG	5
+#define HPTEG_HASH_NUM_PTE		(1 << HPTEG_HASH_BITS_PTE)
+#define HPTEG_HASH_NUM_VPTE		(1 << HPTEG_HASH_BITS_VPTE)
+#define HPTEG_HASH_NUM_VPTE_LONG	(1 << HPTEG_HASH_BITS_VPTE_LONG)
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */
 
 struct kvm;
 struct kvm_run;
@@ -85,6 +107,190 @@ struct kvm_vm_stat {
 	u32 remote_tlb_flush;
 };
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+enum kvm_exit_types {
+	INT_EXITS = 0,
+	MOD_EXITS,
+	MMIO_EXITS,
+	MM_EXITS,
+	ADEL_EXITS,
+	ADES_EXITS,
+	IBE_EXITS,
+	DBE_EXITS,
+	TLBL_EXITS,
+	TLBS_EXITS,
+	SYSCALL_EXITS,
+	BP_EXITS,
+	RI_EXITS,
+	CPU_EXITS,
+	CPU_MFC0_EXITS,
+	CPU_DMFC0_EXITS,
+	CPU_MTC0_EXITS,
+	CPU_DMTC0_EXITS,
+	CPU_XI_EXITS,
+	CPU_TLBR_EXITS,
+	CPU_TLBWI_EXITS,
+	CPU_TLBWR_EXITS,
+	CPU_TLBP_EXITS,
+	CPU_ERET_EXITS,
+	CPU_KERNEL_CACHE_EXITS,
+	CPU_USER_CACHE_EXITS,
+	CPU_CP1_EXITS,
+	CPU_CP2_EXITS,
+	OV_EXITS,
+	TR_EXITS,
+	TR_INSERTSWAPPER_EXITS,
+	TR_GETHOSTVADDR_EXITS,
+	TR_INSERTPGCURRENT_EXITS,
+	TR_TLBFLUSHALL_EXITS,
+	TR_TLBFLUSHPAGE_EXITS,
+	FPE_EXITS,
+	C2E_EXITS,
+	MDMX_EXITS,
+	WATCH_EXITS,
+	MCHECK_EXITS,
+	MT_EXITS,
+	DSP_EXITS,
+	TLBMISS_EXITS,
+	KERNEL_MISS_EXITS,
+	USER_MISS_EXITS,
+	RESERVED_EXITS,
+	WRITE_WIRED_NR,
+	__NUMBER_OF_KVM_EXIT_TYPES
+};
+
+struct kvm_vcpu_stat {
+	u32 each_exits[__NUMBER_OF_KVM_EXIT_TYPES];
+	u32 cp0_uses[32];
+	u32 halt_wakeup;
+};
+
+enum kvm_exception_return {
+	RETURN_TO_HOST = 0,
+	RETURN_TO_GUEST = 1
+};
+
+#define KVMMIPS_EXCEPTION_INT		0
+#define KVMMIPS_EXCEPTION_MOD		1
+#define KVMMIPS_EXCEPTION_TLBL		2
+#define KVMMIPS_EXCEPTION_TLBS		3
+#define KVMMIPS_EXCEPTION_ADEL		4
+#define KVMMIPS_EXCEPTION_ADES		5
+#define KVMMIPS_EXCEPTION_IBE		6
+#define KVMMIPS_EXCEPTION_DBE		7
+#define KVMMIPS_EXCEPTION_SYSCALL	8
+#define KVMMIPS_EXCEPTION_BP		9
+#define KVMMIPS_EXCEPTION_RI		10
+#define KVMMIPS_EXCEPTION_CPU		11
+#define KVMMIPS_EXCEPTION_OV		12
+#define KVMMIPS_EXCEPTION_TR		13
+#define KVMMIPS_EXCEPTION_FPE		15
+#define KVMMIPS_EXCEPTION_C2E		18
+#define KVMMIPS_EXCEPTION_MDMX		22
+#define KVMMIPS_EXCEPTION_WATCH		23
+#define KVMMIPS_EXCEPTION_MCHECK	24
+#define KVMMIPS_EXCEPTION_MT		25
+#define KVMMIPS_EXCEPTION_DSP		26
+#define KVMMIPS_EXCEPTION_TLBMISS	32
+#define KVMMIPS_EXCEPTION_TOP		33
+
+struct kvmmips_cp0_reg {
+	u64 cp0_index;
+	u64 cp0_random;
+	u64 cp0_entrylo0;
+	u64 cp0_entrylo1;
+	u64 cp0_context;
+	u64 cp0_pagemask;
+	u64 cp0_pagegrain;
+	u64 cp0_wired;
+	u64 cp0_hwrena;
+	u64 cp0_badvaddr;
+	u64 cp0_count;
+	u64 cp0_entryhi;
+	u64 cp0_compare;
+	u64 cp0_status;
+	u64 cp0_intctl;
+	u64 cp0_srsctl;
+	u64 cp0_srsmap;
+	u64 cp0_cause;
+	u64 cp0_epc;
+	u64 cp0_prid;
+	u64 cp0_ebase;
+	u64 cp0_config;
+	u64 cp0_config1;
+	u64 cp0_config2;
+	u64 cp0_config3;
+	u64 cp0_lladdr;
+	u64 cp0_watchlo;
+	u64 cp0_watchhi;
+	u64 cp0_xcontext;
+	u64 cp0_diagnostic;
+	u64 cp0_debug;
+	u64 cp0_depc;
+	u64 cp0_perfcnt;
+	u64 cp0_perfctl;
+	u64 cp0_ecc;
+	u64 cp0_cacheerr;
+	u64 cp0_taglo;
+	u64 cp0_datalo;
+	u64 cp0_taghi;
+	u64 cp0_datahi;
+	u64 cp0_errorepc;
+	u64 cp0_desave;
+	u64 cp1_fcr;
+	u64 xtime_sec;
+	u64 xtime_nsec;
+};
+
+struct kvm_vcpu_arch {
+	u64 host_stack;
+	u64 gpr[32];            /* general registers */
+	u64 fpr[32];            /* fpu registers */
+	unsigned int fcr;       /* fcsr registers */
+	int save_fpr;           /* tell save fpr or not */
+	u64 hi;
+	u64 lo;
+	struct kvmmips_cp0_reg* cp0;  /* cp0 registers */
+	int is_cp0_released; /* tell cp0 released or not */
+	u64 cp0_origin;      /* store cp0 origin address for migration */
+	u64 pc;              /* pc pointer, can't be seen in real hardware */
+
+	/* temp host cp0 reg backup for exception */
+	u64 temp_cp0_cause;
+	u64 temp_cp0_epc;
+	u64 temp_cp0_badvaddr;
+	u64 temp_cp0_pagemask;
+	u64 temp_cp0_wired;
+	u64 temp_cp0_entryhi;
+	u64 temp_cp0_context;
+
+	u64 host_cp0_entryhi;
+	u64 host_cp0_pagemask;
+	u64 host_cp0_wired;
+
+	/* mmio related */
+	int io_gpr;
+	int mmio_sign_extend;
+
+	/* pending the exceptions */
+	u64 pending_exceptions;
+
+	/* pending the irq */
+	u64 pending_irqs;
+	/* others should be added when programming */
+
+	/* counter */
+	u32 count_start;
+	u32 count_end;
+
+	/* last compare and count_previous for multi vm */
+	unsigned int last_compare;
+	u64 count_previous;
+
+	/* state info */
+	struct kvm_vcpu_stat statistic;
+};
+#else
 struct kvm_vcpu_stat {
 	u32 wait_exits;
 	u32 cache_exits;
@@ -120,8 +326,10 @@ enum kvm_mips_exit_types {
 	FLUSH_DCACHE_EXITS,
 	MAX_KVM_MIPS_EXIT_TYPES
 };
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */
 
 struct kvm_arch_memory_slot {
+	unsigned long *rmap;
 };
 
 struct kvm_arch {
@@ -133,6 +341,7 @@ struct kvm_arch {
 	int commpage_tlb;
 };
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #define N_MIPS_COPROC_REGS      32
 #define N_MIPS_COPROC_SEL   	8
 
@@ -659,5 +868,6 @@ extern void mips32_SyncICache(unsigned long addr, unsigned long size);
 extern int kvm_mips_dump_stats(struct kvm_vcpu *vcpu);
 extern unsigned long kvm_mips_get_ramsize(struct kvm *kvm);
 
+#endif /*   CONFIG_KVM_MIPS_LOONGSON3   */
 
 #endif /* __MIPS_KVM_HOST_H__ */

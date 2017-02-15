@@ -928,6 +928,137 @@ build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 #endif
 }
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+void kvmmips_debug_info(void)
+{
+	printk("%s %s %d\n", __FILE__, __func__, __LINE__);
+}
+
+extern void kvmmips_tlb_do_page_fault_0(void);
+extern pgd_t* kvmmips_swapper_pg_dir[NR_CPUS];
+extern unsigned long kvmmips_pgd_current[NR_CPUS];
+
+static void __cpuinit
+build_kvmmips_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
+		 unsigned int tmp, unsigned int ptr)
+{
+	/*
+	 * The vmalloc handling is not in the hotpath.
+	 */
+	uasm_i_dmfc0(p, tmp, C0_BADVADDR);
+
+	if (check_for_high_segbits) {
+		/*
+		 * The kernel currently implicitely assumes that the
+		 * MIPS SEGBITS parameter for the processor is
+		 * (PGDIR_SHIFT+PGDIR_BITS) or less, and will never
+		 * allocate virtual addresses outside the maximum
+		 * range for SEGBITS = (PGDIR_SHIFT+PGDIR_BITS). But
+		 * that doesn't prevent user code from accessing the
+		 * higher xuseg addresses.  Here, we make sure that
+		 * everything but the lower xuseg addresses goes down
+		 * the module_alloc/vmalloc path.
+		 */
+		uasm_i_dsrl_safe(p, ptr, tmp, PGDIR_SHIFT + PGD_ORDER + PAGE_SHIFT - 3);
+		uasm_il_bnez(p, r, ptr, label_vmalloc);
+	} else {
+		uasm_il_bltz(p, r, tmp, label_vmalloc);
+	}
+	/* No uasm_i_nop needed here, since the next insn doesn't touch TMP. */
+
+	uasm_i_lui(p, ptr, uasm_rel_hi((long)kvmmips_pgd_current));
+	uasm_i_dmfc0(p, tmp, 4, 0);
+	uasm_i_dsrl_safe(p, tmp, tmp, 23);
+	uasm_i_addu(p, ptr, ptr, tmp);
+	uasm_i_ld(p, ptr, uasm_rel_lo((long)kvmmips_pgd_current), ptr);
+	uasm_i_dmfc0(p, tmp, C0_BADVADDR);
+
+	uasm_l_vmalloc_done(l, *p);
+
+	/* get pgd offset in bytes */
+	uasm_i_dsrl_safe(p, tmp, tmp, PGDIR_SHIFT - 3);
+
+	uasm_i_andi(p, tmp, tmp, (PTRS_PER_PGD - 1)<<3);
+	uasm_i_daddu(p, ptr, ptr, tmp); /* add in pgd offset */
+#ifndef __PAGETABLE_PMD_FOLDED
+	uasm_i_dmfc0(p, tmp, C0_BADVADDR); /* get faulting address */
+	uasm_i_ld(p, ptr, 0, ptr); /* get pmd pointer */
+	uasm_i_dsrl_safe(p, tmp, tmp, PMD_SHIFT-3); /* get pmd offset in bytes */
+	uasm_i_andi(p, tmp, tmp, (PTRS_PER_PMD - 1)<<3);
+	uasm_i_daddu(p, ptr, ptr, tmp); /* add in pmd offset */
+#endif
+}
+
+static void __cpuinit
+build_kvmmips_get_pgd_vmalloc64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
+			unsigned int bvaddr, unsigned int ptr,
+			enum vmalloc64_mode mode)
+{
+	long swpd = (long)kvm_pg_dir;
+	int single_insn_swpd;
+	int did_vmalloc_branch = 0;
+
+	single_insn_swpd = uasm_in_compat_space_p(swpd) && !uasm_rel_lo(swpd);
+
+	uasm_l_vmalloc(l, *p);
+
+	if (mode != not_refill && check_for_high_segbits) {
+		if (single_insn_swpd) {
+#if 1
+			uasm_i_dsrl_safe(p, ptr, bvaddr, 34);
+			uasm_i_andi(p, ptr, ptr, 0x1);
+			uasm_il_beqz(p, r, ptr, label_vmalloc_done);
+			uasm_i_dmfc0(p, ptr, 31, 0); //get kvm_pg_dir from cp0.reg31
+#endif
+			uasm_i_lui(p, ptr, uasm_rel_hi((long)kvmmips_swapper_pg_dir));
+			uasm_i_dmfc0(p, bvaddr, 4, 0);
+			uasm_i_dsrl_safe(p, bvaddr, bvaddr, 23);
+			uasm_i_addu(p, ptr, ptr, bvaddr);
+			uasm_i_ld(p, ptr, uasm_rel_lo((long)kvmmips_swapper_pg_dir), ptr);
+
+			uasm_il_b(p, r, label_vmalloc_done);
+			uasm_i_dmfc0(p, bvaddr, C0_BADVADDR);
+
+			did_vmalloc_branch = 1;
+			/* fall through */
+		} else {
+			uasm_il_bgez(p, r, bvaddr, label_large_segbits_fault);
+		}
+	}
+	if (!did_vmalloc_branch) {
+		if (uasm_in_compat_space_p(swpd) && !uasm_rel_lo(swpd)) {
+			uasm_il_b(p, r, label_vmalloc_done);
+			uasm_i_lui(p, ptr, uasm_rel_hi(swpd));
+		} else {
+			UASM_i_LA_mostly(p, ptr, swpd);
+			uasm_il_b(p, r, label_vmalloc_done);
+			if (uasm_in_compat_space_p(swpd))
+				uasm_i_addiu(p, ptr, ptr, uasm_rel_lo(swpd));
+			else
+				uasm_i_daddiu(p, ptr, ptr, uasm_rel_lo(swpd));
+		}
+	}
+	if (mode != not_refill && check_for_high_segbits) {
+		uasm_l_large_segbits_fault(l, *p);
+		/*
+		 * We get here if we are an xsseg address, or if we are
+		 * an xuseg address above (PGDIR_SHIFT+PGDIR_BITS) boundary.
+		 *
+		 * Ignoring xsseg (assume disabled so would generate
+		 * (address errors?), the only remaining possibility
+		 * is the upper xuseg addresses.  On processors with
+		 * TLB_SEGBITS <= PGDIR_SHIFT+PGDIR_BITS, these
+		 * addresses would have taken an address error. We try
+		 * to mimic that here by taking a load/istream page
+		 * fault.
+		 */
+		UASM_i_LA(p, ptr, (unsigned long)kvmmips_tlb_do_page_fault_0);
+		uasm_i_jr(p, ptr);
+		uasm_i_nop(p);
+	}
+}
+#endif
+
 /*
  * BVADDR is the faulting address, PTR is scratch.
  * PTR will hold the pgd for vmalloc.
@@ -1324,6 +1455,186 @@ build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 	return rv;
 }
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+#define MIPS64_REFILL_INSNS 32
+/*
+ * For a 64-bit kernel, we are using the 64-bit XTLB refill exception
+ * because EXL == 0.  If we wrap, we can also use the 32 instruction
+ * slots before the XTLB refill exception handler which belong to the
+ * unused TLB refill exception.
+ */
+#include <asm/asm-offsets.h>
+static unsigned long kvmmips_tlb_miss_handler;
+void * kvmmips_vcpu_mips_global[NR_CPUS];
+extern unsigned long kvmmips_ebase;
+
+static void __cpuinit build_kvmmips_r4000_tlb_refill_handler(void)
+{
+#ifndef CONFIG_KVM_OLDMMU
+	u32 *p = tlb_handler;
+	struct uasm_label *l = labels;
+	struct uasm_reloc *r = relocs;
+	u32 *f;
+	unsigned int final_len;
+
+	memset(tlb_handler, 0, sizeof(tlb_handler));
+	memset(labels, 0, sizeof(labels));
+	memset(relocs, 0, sizeof(relocs));
+	memset(final_handler, 0, sizeof(final_handler));
+
+	uasm_i_dmtc0(&p , K0, 30, 0);
+	uasm_i_dmtc0(&p , K1, 24, 0);
+	uasm_i_dmfc0(&p , K0, 2, 0);
+	uasm_i_dmfc0(&p , K1, 3, 0);
+	uasm_i_dmtc0(&p , K0, 25, 1);
+	uasm_i_dmtc0(&p , K1, 25, 3);
+
+	build_kvmmips_get_pmde64(&p, &l, &r, K0, K1); /* get pmd in K1 */
+
+	build_get_ptep(&p, K0, K1);
+	build_update_entries(&p, K0, K1);
+	build_tlb_write_entry(&p, &l, &r, tlb_random);
+	uasm_l_leave(&l, p);
+	uasm_i_dmfc0(&p , K0, 25, 1);
+	uasm_i_dmfc0(&p , K1, 25, 3);
+	uasm_i_dmtc0(&p , K0, 2, 0);
+	uasm_i_dmtc0(&p , K1, 3, 0);
+	uasm_i_dmfc0(&p , K0, 30, 0);
+	uasm_i_dmfc0(&p , K1, 24, 0);
+	uasm_i_eret(&p); /* return from trap */
+
+	build_kvmmips_get_pgd_vmalloc64(&p, &l, &r, K0, K1, !not_refill);
+
+	/*
+	 * Overflow check: For the 64bit handler, we need at least one
+	 * free instruction slot for the wrap-around branch. In worst
+	 * case, if the intended insertion point is a delay slot, we
+	 * need three, with the second nop'ed and the third being
+	 * unused.
+	 */
+	/* Loongson2 and Loongson3 ebase is different than r4k, we have more space */
+	if ((p - tlb_handler) > 64)
+		panic("TLB refill handler space exceeded");
+
+	/*
+	 * Now fold the handler in the TLB refill handler space.
+	 */
+	f = final_handler + MIPS64_REFILL_INSNS;
+	if ((p - tlb_handler) <= MIPS64_REFILL_INSNS) {
+		/* Just copy the handler. */
+		uasm_copy_handler(relocs, labels, tlb_handler, p, f);
+		final_len = p - tlb_handler;
+	} else {
+		const enum label_id ls = label_vmalloc;
+		u32 *split;
+		int ov = 0;
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(labels) && labels[i].lab != ls; i++)
+			;
+		BUG_ON(i == ARRAY_SIZE(labels));
+		split = labels[i].addr;
+
+		/*
+		 * See if we have overflown one way or the other.
+		 */
+		if (split > tlb_handler + MIPS64_REFILL_INSNS ||
+			split < p - MIPS64_REFILL_INSNS)
+			ov = 1;
+
+		if (ov) {
+			/*
+			 * Split two instructions before the end.  One
+			 * for the branch and one for the instruction
+			 * in the delay slot.
+			 */
+			split = tlb_handler + MIPS64_REFILL_INSNS - 2;
+
+			/*
+			 * If the branch would fall in a delay slot,
+			 * we must back up an additional instruction
+			 * so that it is no longer in a delay slot.
+			 */
+			if (uasm_insn_has_bdelay(relocs, split - 1))
+				split--;
+		}
+		/* Copy first part of the handler. */
+		uasm_copy_handler(relocs, labels, tlb_handler, split, f);
+		f += split - tlb_handler;
+
+		if (ov) {
+			/* Insert branch. */
+			uasm_l_split(&l, final_handler);
+			uasm_il_b(&f, &r, label_split);
+			if (uasm_insn_has_bdelay(relocs, split))
+				uasm_i_nop(&f);
+			else {
+				uasm_copy_handler(relocs, labels,
+						  split, split + 1, f);
+				uasm_move_labels(labels, f, f + 1, -1);
+				f++;
+				split++;
+			}
+		}
+
+		/* Copy the rest of the handler. */
+		uasm_copy_handler(relocs, labels, split, p, final_handler);
+		final_len = (f - (final_handler + MIPS64_REFILL_INSNS))
+				+ (p - split);
+	}
+
+	uasm_resolve_relocs(relocs, labels);
+	pr_debug("Wrote TLB refill handler (%u instructions).\n",
+		 final_len);
+
+	memcpy((void *)kvmmips_ebase, (void*)final_handler, 0x100);
+	local_flush_icache_range(kvmmips_ebase, kvmmips_ebase + 0x400);
+
+	dump_handler("kvmmips build", (u32 *)kvmmips_ebase, 64);
+#else
+	u32 *p = tlb_handler;
+	long  temp = (long)&kvmmips_tlb_miss_handler;
+	long  temp1 = (long)&kvmmips_vcpu_mips_global;
+
+	p += MIPS64_REFILL_INSNS;
+	memset(tlb_handler, 0, sizeof(tlb_handler));
+
+	uasm_i_dmtc0(&p , K0, 30, 0);
+	uasm_i_dmtc0(&p , K1, 24, 0);
+	uasm_i_lui(&p , K0, uasm_rel_hi(temp1));
+	uasm_i_dmfc0(&p , K1, 4, 0);
+	uasm_i_dsrl_safe(&p, K1, K1, 23);
+	uasm_i_daddu(&p, K0, K0, K1);
+	uasm_i_ld(&p, K0, uasm_rel_lo(temp1), K0);
+	uasm_i_sd(&p, 1, KVM_ARCH_R1, K0);
+	uasm_i_lui(&p, K1, uasm_rel_hi(temp));
+	uasm_i_ld(&p, K1, uasm_rel_lo(temp), K1);
+	uasm_i_jr(&p, K1);
+	uasm_i_nop(&p);
+
+	memcpy((void *)kvmmips_ebase, (void*)(tlb_handler + ), 0x100);
+	local_flush_icache_range(kvmmips_ebase, kvmmips_ebase + 0x400);
+
+	dump_handler("kvmmips build", (u32 *)kvmmips_ebase, 64);
+#endif
+}
+
+void kvmmips_set_tlbmiss_handler(unsigned long value)
+{
+	kvmmips_tlb_miss_handler = value;
+}
+
+void kvmmips_set_vcpu_mips_global(int index, void* value)
+{
+	if (index < 0 || index >= NR_CPUS) {
+		panic("cpu id error :%d\n", index);
+	}
+
+	kvmmips_vcpu_mips_global[index] = value;
+}
+
+#endif
+
 /*
  * For a 64-bit kernel, we are using the 64-bit XTLB refill exception
  * because EXL == 0.  If we wrap, we can also use the 32 instruction
@@ -1506,6 +1817,10 @@ static void __cpuinit build_r4000_tlb_refill_handler(void)
 	memcpy((void *)ebase, final_handler, 0x100);
 
 	dump_handler("r4000_tlb_refill", (u32 *)ebase, 64);
+
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	build_kvmmips_r4000_tlb_refill_handler();
+#endif
 }
 
 /*

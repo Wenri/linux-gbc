@@ -9,6 +9,7 @@
 * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/kvm_host.h>
@@ -1828,3 +1829,4 @@ kvm_mips_handle_tlbmiss(unsigned long cause, uint32_t *opc,
 
 	return er;
 }
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

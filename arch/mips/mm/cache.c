@@ -138,6 +138,13 @@ void __update_cache(struct vm_area_struct *vma, unsigned long address,
 	}
 }
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+void kvmmips__update_cache(unsigned long address, pte_t pte)
+{
+	flush_data_cache_page(address);
+}
+#endif
+
 unsigned long _page_cachable_default;
 EXPORT_SYMBOL(_page_cachable_default);
 

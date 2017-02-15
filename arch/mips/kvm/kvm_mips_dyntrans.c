@@ -9,6 +9,7 @@
 * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/kvm_host.h>
@@ -147,3 +148,4 @@ kvm_mips_trans_mtc0(uint32_t inst, uint32_t *opc, struct kvm_vcpu *vcpu)
 
 	return 0;
 }
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

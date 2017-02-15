@@ -20,6 +20,9 @@
 #include <asm/mmu_context.h>
 #include <asm/pgtable.h>
 #include <asm/tlbmisc.h>
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+#include <linux/module.h>
+#endif
 
 extern void build_tlb_refill_handler(void);
 
@@ -281,6 +284,37 @@ void local_flush_tlb_one(unsigned long page)
 	EXIT_CRITICAL(flags);
 }
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+void kvmmips_local_flush_tlb_page(unsigned long page)
+{
+	unsigned long flags;
+	int oldpid, idx;
+
+	ENTER_CRITICAL(flags);
+	oldpid = read_c0_entryhi();
+	write_c0_entryhi(page);
+	mtc0_tlbw_hazard();
+	tlb_probe();
+	tlb_probe_hazard();
+	idx = read_c0_index();
+	write_c0_entrylo0(0);
+	write_c0_entrylo1(0);
+
+	if (idx < 0)
+		goto finish;
+
+	/* Make sure all entries differ. */
+	write_c0_entryhi(UNIQUE_ENTRYHI(idx));
+	mtc0_tlbw_hazard();
+	tlb_write_indexed();
+	tlbw_use_hazard();
+
+finish:
+	write_c0_entryhi(oldpid);
+	EXIT_CRITICAL(flags);
+}
+#endif
+
 /*
  * We will need multiple versions of update_mmu_cache(), one that just
  * updates the TLB with the new pte(s), and another which also checks
@@ -353,6 +387,37 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	FLUSH_ITLB_VM(vma);
 	EXIT_CRITICAL(flags);
 }
+
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+void kvmmips__update_tlb(unsigned long address, pte_t *ptep)
+{
+	int idx, pid;
+
+	pid = (read_c0_entryhi() & ASID_MASK) | 0x80;
+	address &= (PAGE_MASK << 1);
+
+	write_c0_entryhi(address | pid);
+	mtc0_tlbw_hazard();
+	tlb_probe();
+	tlb_probe_hazard();
+	idx = read_c0_index();
+#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+	write_c0_entrylo0(ptep->pte_high);
+	ptep++;
+	write_c0_entrylo1(ptep->pte_high);
+#else
+	write_c0_entrylo0(pte_to_entrylo(pte_val(*ptep++)));
+	write_c0_entrylo1(pte_to_entrylo(pte_val(*ptep)));
+#endif
+	mtc0_tlbw_hazard();
+	if (idx < 0)
+		tlb_write_random();
+	else
+		tlb_write_indexed();
+	tlbw_use_hazard();
+	FLUSH_ITLB;
+}
+#endif
 
 void add_wired_entry(unsigned long entrylo0, unsigned long entrylo1,
 		     unsigned long entryhi, unsigned long pagemask)

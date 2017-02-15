@@ -9,6 +9,7 @@
 * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -241,3 +242,4 @@ int kvm_mips_pending_timer(struct kvm_vcpu *vcpu)
 {
 	return test_bit(MIPS_EXC_INT_TIMER, &vcpu->arch.pending_exceptions);
 }
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

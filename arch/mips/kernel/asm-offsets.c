@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/kbuild.h>
 #include <linux/suspend.h>
+#include <asm/kvm_host.h>
 #include <asm/ptrace.h>
 #include <asm/processor.h>
 
@@ -331,6 +332,7 @@ void output_pbe_defines(void)
 }
 #endif
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 void output_kvm_defines(void)
 {
 	COMMENT(" KVM/MIPS Specfic offsets. ");
@@ -394,3 +396,103 @@ void output_kvm_defines(void)
 	OFFSET(COP0_STATUS, mips_coproc, reg[MIPS_CP0_STATUS][0]);
 	BLANK();
 }
+#else
+void output_kvm_defines(void)
+{
+	COMMENT(" KVM/MIPS Specfic offsets. ");
+	OFFSET(VCPU_RUN, kvm_vcpu, run);
+	OFFSET(VCPU_HOST_ARCH, kvm_vcpu, arch);
+
+	OFFSET(KVM_ARCH_R0, kvm_vcpu, arch.gpr[0]);
+	OFFSET(KVM_ARCH_R1, kvm_vcpu, arch.gpr[1]);
+	OFFSET(KVM_ARCH_R2, kvm_vcpu, arch.gpr[2]);
+	OFFSET(KVM_ARCH_R3, kvm_vcpu, arch.gpr[3]);
+	OFFSET(KVM_ARCH_R4, kvm_vcpu, arch.gpr[4]);
+	OFFSET(KVM_ARCH_R5, kvm_vcpu, arch.gpr[5]);
+	OFFSET(KVM_ARCH_R6, kvm_vcpu, arch.gpr[6]);
+	OFFSET(KVM_ARCH_R7, kvm_vcpu, arch.gpr[7]);
+	OFFSET(KVM_ARCH_R8, kvm_vcpu, arch.gpr[8]);
+	OFFSET(KVM_ARCH_R9, kvm_vcpu, arch.gpr[9]);
+	OFFSET(KVM_ARCH_R10, kvm_vcpu, arch.gpr[10]);
+	OFFSET(KVM_ARCH_R11, kvm_vcpu, arch.gpr[11]);
+	OFFSET(KVM_ARCH_R12, kvm_vcpu, arch.gpr[12]);
+	OFFSET(KVM_ARCH_R13, kvm_vcpu, arch.gpr[13]);
+	OFFSET(KVM_ARCH_R14, kvm_vcpu, arch.gpr[14]);
+	OFFSET(KVM_ARCH_R15, kvm_vcpu, arch.gpr[15]);
+	OFFSET(KVM_ARCH_R16, kvm_vcpu, arch.gpr[16]);
+	OFFSET(KVM_ARCH_R17, kvm_vcpu, arch.gpr[17]);
+	OFFSET(KVM_ARCH_R18, kvm_vcpu, arch.gpr[18]);
+	OFFSET(KVM_ARCH_R19, kvm_vcpu, arch.gpr[19]);
+	OFFSET(KVM_ARCH_R20, kvm_vcpu, arch.gpr[20]);
+	OFFSET(KVM_ARCH_R21, kvm_vcpu, arch.gpr[21]);
+	OFFSET(KVM_ARCH_R22, kvm_vcpu, arch.gpr[22]);
+	OFFSET(KVM_ARCH_R23, kvm_vcpu, arch.gpr[23]);
+	OFFSET(KVM_ARCH_R24, kvm_vcpu, arch.gpr[24]);
+	OFFSET(KVM_ARCH_R25, kvm_vcpu, arch.gpr[25]);
+	OFFSET(KVM_ARCH_R26, kvm_vcpu, arch.gpr[26]);
+	OFFSET(KVM_ARCH_R27, kvm_vcpu, arch.gpr[27]);
+	OFFSET(KVM_ARCH_R28, kvm_vcpu, arch.gpr[28]);
+	OFFSET(KVM_ARCH_R29, kvm_vcpu, arch.gpr[29]);
+	OFFSET(KVM_ARCH_R30, kvm_vcpu, arch.gpr[30]);
+	OFFSET(KVM_ARCH_R31, kvm_vcpu, arch.gpr[31]);
+	OFFSET(KVM_ARCH_P0, kvm_vcpu, arch.fpr[0]);
+	OFFSET(KVM_ARCH_P1, kvm_vcpu, arch.fpr[1]);
+	OFFSET(KVM_ARCH_P2, kvm_vcpu, arch.fpr[2]);
+	OFFSET(KVM_ARCH_P3, kvm_vcpu, arch.fpr[3]);
+	OFFSET(KVM_ARCH_P4, kvm_vcpu, arch.fpr[4]);
+	OFFSET(KVM_ARCH_P5, kvm_vcpu, arch.fpr[5]);
+	OFFSET(KVM_ARCH_P6, kvm_vcpu, arch.fpr[6]);
+	OFFSET(KVM_ARCH_P7, kvm_vcpu, arch.fpr[7]);
+	OFFSET(KVM_ARCH_P8, kvm_vcpu, arch.fpr[8]);
+	OFFSET(KVM_ARCH_P9, kvm_vcpu, arch.fpr[9]);
+	OFFSET(KVM_ARCH_P10, kvm_vcpu, arch.fpr[10]);
+	OFFSET(KVM_ARCH_P11, kvm_vcpu, arch.fpr[11]);
+	OFFSET(KVM_ARCH_P12, kvm_vcpu, arch.fpr[12]);
+	OFFSET(KVM_ARCH_P13, kvm_vcpu, arch.fpr[13]);
+	OFFSET(KVM_ARCH_P14, kvm_vcpu, arch.fpr[14]);
+	OFFSET(KVM_ARCH_P15, kvm_vcpu, arch.fpr[15]);
+	OFFSET(KVM_ARCH_P16, kvm_vcpu, arch.fpr[16]);
+	OFFSET(KVM_ARCH_P17, kvm_vcpu, arch.fpr[17]);
+	OFFSET(KVM_ARCH_P18, kvm_vcpu, arch.fpr[18]);
+	OFFSET(KVM_ARCH_P19, kvm_vcpu, arch.fpr[19]);
+	OFFSET(KVM_ARCH_P20, kvm_vcpu, arch.fpr[20]);
+	OFFSET(KVM_ARCH_P21, kvm_vcpu, arch.fpr[21]);
+	OFFSET(KVM_ARCH_P22, kvm_vcpu, arch.fpr[22]);
+	OFFSET(KVM_ARCH_P23, kvm_vcpu, arch.fpr[23]);
+	OFFSET(KVM_ARCH_P24, kvm_vcpu, arch.fpr[24]);
+	OFFSET(KVM_ARCH_P25, kvm_vcpu, arch.fpr[25]);
+	OFFSET(KVM_ARCH_P26, kvm_vcpu, arch.fpr[26]);
+	OFFSET(KVM_ARCH_P27, kvm_vcpu, arch.fpr[27]);
+	OFFSET(KVM_ARCH_P28, kvm_vcpu, arch.fpr[28]);
+	OFFSET(KVM_ARCH_P29, kvm_vcpu, arch.fpr[29]);
+	OFFSET(KVM_ARCH_P30, kvm_vcpu, arch.fpr[30]);
+	OFFSET(KVM_ARCH_P31, kvm_vcpu, arch.fpr[31]);
+	OFFSET(KVM_ARCH_C31, kvm_vcpu, arch.fcr);
+	OFFSET(KVM_ARCH_SAVE_FPR, kvm_vcpu, arch.save_fpr);
+	OFFSET(KVM_ARCH_HI, kvm_vcpu, arch.hi);
+	OFFSET(KVM_ARCH_LO, kvm_vcpu, arch.lo);
+	OFFSET(KVM_ARCH_HOST_STACK , kvm_vcpu , arch.host_stack);
+	OFFSET(KVM_ARCH_PC,  kvm_vcpu, arch.pc);
+	OFFSET(KVM_ARCH_TEMP_CP0_CAUSE , kvm_vcpu , arch.temp_cp0_cause);
+	OFFSET(KVM_ARCH_TEMP_CP0_EPC , kvm_vcpu , arch.temp_cp0_epc);
+	OFFSET(KVM_ARCH_TEMP_CP0_BADVADDR , kvm_vcpu , arch.temp_cp0_badvaddr);
+	OFFSET(KVM_ARCH_TEMP_CP0_PAGEMASK , kvm_vcpu , arch.temp_cp0_pagemask);
+	OFFSET(KVM_ARCH_TEMP_CP0_WIRED , kvm_vcpu , arch.temp_cp0_wired);
+	OFFSET(KVM_ARCH_TEMP_CP0_ENTRYHI , kvm_vcpu , arch.temp_cp0_entryhi);
+	OFFSET(KVM_ARCH_TEMP_CP0_CONTEXT , kvm_vcpu , arch.temp_cp0_context);
+	OFFSET(KVM_ARCH_CP0, kvm_vcpu , arch.cp0);
+	OFFSET(KVM_ARCH_CP0_PAGEMASK, kvmmips_cp0_reg, cp0_pagemask);
+	OFFSET(KVM_ARCH_CP0_WIRED, kvmmips_cp0_reg, cp0_wired);
+	OFFSET(KVM_ARCH_CP0_ENTRYHI, kvmmips_cp0_reg, cp0_entryhi);
+	OFFSET(KVM_ARCH_CP0_STATUS, kvmmips_cp0_reg, cp0_status);
+	OFFSET(KVM_ARCH_CP1_FCR, kvmmips_cp0_reg, cp1_fcr);
+	OFFSET(KVM_ARCH_HOST_CP0_ENTRYHI, kvm_vcpu, arch.host_cp0_entryhi);
+	OFFSET(KVM_ARCH_HOST_CP0_PAGEMASK, kvm_vcpu, arch.host_cp0_pagemask);
+	OFFSET(KVM_ARCH_HOST_CP0_WIRED, kvm_vcpu, arch.host_cp0_wired);
+	OFFSET(KVM_ARCH_COUNT_START, kvm_vcpu, arch.count_start);
+	OFFSET(KVM_ARCH_COUNT_END, kvm_vcpu, arch.count_end);
+	DEFINE(KVM_ARCH_SIZE, sizeof(struct kvm_vcpu));
+
+	BLANK();
+}
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

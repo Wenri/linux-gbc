@@ -45,7 +45,9 @@
  */
 NESTED(except_vec3_generic, 0, sp)
 	.set	push
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 	.set	noat
+#endif
 #if R5432_CP0_INTERRUPT_WAR
 	mfc0	k0, CP0_INDEX
 #endif
@@ -580,4 +582,39 @@ isrdhwr:
 	__INIT
 
 	BUILD_HANDLER  daddi_ov daddi_ov none silent	/* #12 */
+#endif
+
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	__INIT
+/*
+ * General exception vector for all other CPUs.
+ *
+ * Be careful when changing this, it has to be at most 128 bytes
+ * to fit into space reserved for the exception handler.
+ */
+NESTED(kvmmips_except_vec3_generic, 0, sp)
+	.set	push
+	.set	noat
+/* use cp0_errepc to temp */
+/* TODO:use vcpu_mips_global here may cause troubles */
+	dmtc0	k0, $30
+	dmtc0	k1, $24
+	PTR_LA	k0, kvmmips_vcpu_mips_global
+	dmfc0	k1, $4
+	dsrl	k1, 23
+	dadd	k0, k1
+	LONG_L	k0, (k0)
+	LONG_S	$1, KVM_ARCH_R1(k0)
+#if R5432_CP0_INTERRUPT_WAR
+	mfc0	k0, CP0_INDEX
+#endif
+	mfc0	k1, CP0_CAUSE
+	andi	k1, k1, 0x7c
+#ifdef CONFIG_64BIT
+	dsll	k1, k1, 1
+#endif
+	PTR_L	k0, kvmmips_exception_handlers(k1)
+	jr	k0
+	.set	pop
+	END(kvmmips_except_vec3_generic)
 #endif

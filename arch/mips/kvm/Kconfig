@@ -44,6 +44,36 @@ config KVM_MIPS_DEBUG_COP0_COUNTERS
 
 	  If unsure, say N.
 
+config KVM_LOONGSON
+	tristate "KVM support for Loongson processors"
+	select KVM
+	select KVM64_SUPPORT
+	select KERNEL_PAGE_SIZE_16M
+	select KVM_MIPS_LOONGSON3
+	---help---
+	  Support running unmodified Loongson guest kernels in virtual machines on
+	  Loongson host processors.
+
+	  This module provides access to the hardware capabilities through
+	  a character device node named /dev/kvm.
+
+	  If unsure, say N.
+
+config KVM_MIPS_LOONGSON3
+	bool
+
+config KERNEL_PAGE_SIZE_16M
+	bool
+
+config EASY_TLB
+	bool
+
+config KVM_OLDMMU
+	bool
+
+config KVM64_SUPPORT
+	bool
+
 source drivers/vhost/Kconfig
 
 endif # VIRTUALIZATION

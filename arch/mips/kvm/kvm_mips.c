@@ -9,6 +9,7 @@
  * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -1214,3 +1215,797 @@ module_init(kvm_mips_init);
 module_exit(kvm_mips_exit);
 
 EXPORT_TRACEPOINT_SYMBOL(kvm_exit);
+#else
+#include <linux/errno.h>
+#include <linux/err.h>
+#include <linux/kvm_host.h>
+#include <linux/module.h>
+#include <linux/vmalloc.h>
+#include <linux/hrtimer.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
+#include <asm/uaccess.h>
+#include <asm/kvm_mips.h>
+#include <asm/tlbflush.h>
+#include "loongson_tlb.h"
+#include <linux/gfp.h>
+#include <asm/kvm_loongson.h>
+#include "loongson_tlb.h"
+#include "statistic.h"
+
+#define VM_STAT(x) offsetof(struct kvm, stat.x), KVM_STAT_VM
+#define VCPU_STAT(x) offsetof(struct kvm_vcpu, stat.x), KVM_STAT_VCPU
+
+struct kvm_stats_debugfs_item debugfs_entries[] = {
+	{ NULL }
+};
+
+int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
+{
+	vcpu->arch.cp0  = kzalloc(sizeof(struct kvmmips_cp0_reg), GFP_KERNEL);
+	vcpu->arch.is_cp0_released = 0;
+	vcpu->arch.save_fpr = 0;
+	vcpu->arch.last_compare = 0;
+	vcpu->arch.count_previous = 0;
+	vcpu->arch.pc = 0xbfc00000;
+	vcpu->arch.cp0->cp0_index = 0x0;
+	vcpu->arch.cp0->cp0_random = 0x0;
+	vcpu->arch.cp0->cp0_entrylo0 = 0x0;
+	vcpu->arch.cp0->cp0_entrylo1 = 0x0;
+	vcpu->arch.cp0->cp0_context = 0x0;
+	vcpu->arch.cp0->cp0_pagemask = 0x0;
+	vcpu->arch.cp0->cp0_pagegrain = 0x0;
+	vcpu->arch.cp0->cp0_wired = 0x0;
+	vcpu->arch.cp0->cp0_hwrena = 0x0;
+	vcpu->arch.cp0->cp0_badvaddr = 0x0;
+	vcpu->arch.cp0->cp0_count = 0x0;
+	vcpu->arch.cp0->cp0_entryhi = 0x0;
+	vcpu->arch.cp0->cp0_compare = 0x0;
+	vcpu->arch.cp0->cp0_status = 0x30c000e4;
+	vcpu->arch.cp0->cp0_intctl = 0x0;
+	vcpu->arch.cp0->cp0_srsctl = 0x0;
+	vcpu->arch.cp0->cp0_srsmap = 0x0;
+	vcpu->arch.cp0->cp0_cause = 0x0;
+	vcpu->arch.cp0->cp0_epc = 0x0;
+	vcpu->arch.cp0->cp0_prid = 0x0;
+	vcpu->arch.cp0->cp0_ebase = 0x0;
+	vcpu->arch.cp0->cp0_config = 0x00030932;
+	vcpu->arch.cp0->cp0_config1 = 0xfee37193;
+	vcpu->arch.cp0->cp0_config2 = 0x80001643;
+	vcpu->arch.cp0->cp0_config3 = 0x000000a0;
+	vcpu->arch.cp0->cp0_lladdr = 0x0;
+	vcpu->arch.cp0->cp0_watchlo = 0x0;
+	vcpu->arch.cp0->cp0_watchhi = 0x0;
+	vcpu->arch.cp0->cp0_xcontext = 0x0;
+	vcpu->arch.cp0->cp0_diagnostic = 0x0;
+	vcpu->arch.cp0->cp0_debug = 0x02018000;
+	vcpu->arch.cp0->cp0_depc = 0x0;
+	vcpu->arch.cp0->cp0_perfcnt = 0x0;
+	vcpu->arch.cp0->cp0_perfctl = 0x0;
+	vcpu->arch.cp0->cp0_ecc = 0x0;
+	vcpu->arch.cp0->cp0_cacheerr = 0x0;
+	vcpu->arch.cp0->cp0_taglo = 0x0;
+	vcpu->arch.cp0->cp0_datalo = 0x0;
+	vcpu->arch.cp0->cp0_taghi = 0x0;
+	vcpu->arch.cp0->cp0_datahi = 0x0;
+	vcpu->arch.cp0->cp0_errorepc = 0x0;
+	vcpu->arch.cp0->cp0_desave = 0x0;
+	vcpu->arch.cp0->cp1_fcr = 0x0;
+
+	return kvmmips_core_vcpu_setup(vcpu);
+}
+
+int kvm_arch_vcpu_runnable(struct kvm_vcpu *v)
+{
+	return 0;
+}
+
+int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
+{
+	return 1;
+}
+
+int kvm_arch_hardware_enable(void *garbage)
+{
+	return 0;
+}
+
+void kvm_arch_hardware_disable(void *garbage)
+{
+}
+
+int kvm_arch_hardware_setup(void)
+{
+	return 0;
+}
+
+void kvm_arch_hardware_unsetup(void)
+{
+}
+
+void kvm_arch_check_processor_compat(void *rtn)
+{
+	*(int *)rtn = kvmmips_core_check_processor_compat();
+}
+
+int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+{
+	if (type)
+		return -EINVAL;
+
+	return 0;
+}
+
+
+void kvm_arch_sync_events(struct kvm *kvm)
+{
+}
+
+static void kvm_release_vm_pages(struct kvm *kvm)
+{
+	struct kvm_memslots *slots;
+	struct kvm_memory_slot *memslot;
+	int i, j;
+
+	slots = kvm_memslots(kvm);
+	kvm_for_each_memslot(memslot, slots) {
+		for (j = 0; j < memslot->npages; j++) {
+			if (memslot->arch.rmap[j])
+				put_page((struct page *)memslot->arch.rmap[j]);
+		}
+	}
+}
+
+void kvm_arch_destroy_vm(struct kvm *kvm)
+{
+	unsigned int i;
+	struct kvm_vcpu *vcpu;
+
+	kvm_for_each_vcpu(i, vcpu, kvm)
+		kvm_arch_vcpu_free(vcpu);
+
+	mutex_lock(&kvm->lock);
+	for (i = 0; i < atomic_read(&kvm->online_vcpus); i++)
+		kvm->vcpus[i] = NULL;
+
+	atomic_set(&kvm->online_vcpus, 0);
+	mutex_unlock(&kvm->lock);
+
+	kvm_release_vm_pages(kvm);
+}
+
+int kvm_dev_ioctl_check_extension(long ext)
+{
+	int r;
+
+	switch (ext) {
+	default:
+		r = 0;
+		break;
+	}
+
+	return r;
+}
+
+long kvm_arch_dev_ioctl(struct file *filp,
+			unsigned int ioctl, unsigned long arg)
+{
+	return -EINVAL;
+}
+
+void kvm_arch_free_memslot(struct kvm_memory_slot *free,
+			   struct kvm_memory_slot *dont)
+{
+	if (!dont || free->arch.rmap != dont->arch.rmap) {
+		vfree(free->arch.rmap);
+		free->arch.rmap = NULL;
+	}
+}
+
+int kvm_arch_create_memslot(struct kvm_memory_slot *slot, unsigned long npages)
+{
+	slot->arch.rmap = vzalloc(npages * sizeof(*slot->arch.rmap));
+	if (!slot->arch.rmap)
+		return -ENOMEM;
+
+	return 0;
+}
+
+int kvm_arch_prepare_memory_region(struct kvm *kvm,
+				struct kvm_memory_slot *memslot,
+				struct kvm_userspace_memory_region *mem,
+				enum kvm_mr_change change)
+{
+	return 0;
+}
+
+void kvm_arch_commit_memory_region(struct kvm *kvm,
+				   struct kvm_userspace_memory_region *mem,
+				   const struct kvm_memory_slot *old,
+				   enum kvm_mr_change change)
+{
+	return;
+}
+
+void kvm_arch_flush_shadow_all(struct kvm *kvm)
+{
+}
+
+void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
+				struct kvm_memory_slot *slot)
+{
+}
+
+
+void kvm_arch_flush_shadow(struct kvm *kvm)
+{
+}
+
+struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
+{
+	struct kvm_vcpu *vcpu;
+	vcpu = kvmmips_core_vcpu_create(kvm, id);
+
+	return vcpu;
+}
+extern void kvminfo_proc_destroy(int qemu_pid);
+void kvm_arch_vcpu_free(struct kvm_vcpu *vcpu)
+{
+	kvminfo_proc_destroy(current->tgid);
+	if (!vcpu->arch.is_cp0_released) {
+		kfree(vcpu->arch.cp0);
+		vcpu->arch.is_cp0_released = 1;
+	}
+}
+
+void kvm_arch_vcpu_destroy(struct kvm_vcpu *vcpu)
+{
+	kvm_arch_vcpu_free(vcpu);
+}
+
+int kvm_cpu_has_pending_timer(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+void kvm_arch_vcpu_uninit(struct kvm_vcpu *vcpu)
+{
+}
+
+void kvm_arch_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+{
+	kvmmips_core_vcpu_load(vcpu, cpu);
+}
+
+void kvm_arch_vcpu_put(struct kvm_vcpu *vcpu)
+{
+}
+
+int kvm_arch_vcpu_ioctl_set_guest_debug(struct kvm_vcpu *vcpu,
+					struct kvm_guest_debug *dbg)
+{
+	return -EINVAL;
+}
+
+int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu, struct kvm_interrupt *irq)
+{
+	if (irq->irq & (~0x7)) {
+		irq->irq &= 0x7;
+
+		if (irq->irq == 7) {
+			return 0;
+		}
+		kvmmips_queue_interrupt(vcpu, irq);
+	} else {
+		kvmmips_dequeue_interrupt(vcpu, irq);
+	}
+
+	return 0;
+}
+
+int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
+{
+	int r;
+	sigset_t sigsaved;
+
+	if (vcpu->sigset_active)
+		sigprocmask(SIG_SETMASK, &vcpu->sigset, &sigsaved);
+
+	if (vcpu->mmio_needed) {
+		if (!vcpu->mmio_is_write)
+			kvmmips_complete_mmio_load(run, vcpu);
+		vcpu->mmio_needed = 0;
+	}
+
+	kvmmips_deliver_exceptions(vcpu);
+
+	local_irq_disable();
+	kvm_guest_enter();
+	r = __kvmmips_vcpu_run(run, vcpu);
+	kvm_guest_exit();
+	local_irq_enable();
+
+	if (vcpu->sigset_active)
+		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
+
+	return r;
+}
+
+int kvm_arch_vcpu_ioctl_get_mpstate(struct kvm_vcpu *vcpu,
+				struct kvm_mp_state *mp_state)
+{
+	return -EINVAL;
+}
+
+int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
+				struct kvm_mp_state *mp_state)
+{
+	return -EINVAL;
+}
+
+long kvm_arch_vcpu_ioctl(struct file *filp,
+			unsigned int ioctl, unsigned long arg)
+{	struct kvm_vcpu *vcpu = filp->private_data;
+	void __user *argp = (void __user *)arg;
+	long r = 0;
+
+	switch (ioctl) {
+	case KVM_INTERRUPT: {
+		struct kvm_interrupt irq;
+		r = -EFAULT;
+		if (copy_from_user(&irq, argp, sizeof(irq)))
+			goto out;
+		r = kvm_vcpu_ioctl_interrupt(vcpu, &irq);
+		goto out;
+		}
+	}
+
+out:
+	return r;
+}
+
+long kvm_arch_vm_ioctl(struct file *filp,
+			unsigned int ioctl, unsigned long arg)
+{
+	long r;
+
+	switch (ioctl) {
+	default:
+		r = -ENOTTY;
+	}
+
+	return r;
+}
+
+int kvm_arch_init(void *opaque)
+{
+	return 0;
+}
+
+void kvm_arch_exit(void)
+{
+}
+
+int kvm_arch_vcpu_postcreate(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+void kvmmips_update_timing_stats(struct kvm_vcpu *vcpu)
+{
+	u32 delta = vcpu->arch.count_end - vcpu->arch.count_start;
+	struct kvm_interrupt inter;
+
+	inter.irq = 7;
+
+	vcpu->arch.count_previous = vcpu->arch.cp0->cp0_count;
+	vcpu->arch.cp0->cp0_count += delta;
+	vcpu->arch.cp0->cp0_count &= (u64)0xffffffff;
+
+#if 1
+	/* inject timer interrupt */
+	/* TODO: may not be correct */
+	if ((vcpu->arch.cp0->cp0_count & 0xffffffff)  >= (vcpu->arch.cp0->cp0_compare & 0xffffffff)) {
+		if(vcpu->arch.last_compare) {
+			kvmmips_queue_interrupt(vcpu, &inter);
+			vcpu->arch.last_compare = 0;
+		} else {
+			if (((vcpu->arch.cp0->cp0_count & 0xffffffff) < (vcpu->arch.count_previous & 0xffffffff)) &&
+					((vcpu->arch.cp0->cp0_count & 0xffffffff) >= (vcpu->arch.cp0->cp0_compare & 0xffffffff)) &&
+					((vcpu->arch.count_previous & 0xffffffff) >= (vcpu->arch.cp0->cp0_compare & 0xffffffff))) {
+				//in case that compare is so small that last_compare will never be one
+				kvmmips_queue_interrupt(vcpu, &inter);
+				vcpu->arch.last_compare = 0;
+			}
+		}
+	} else {
+		vcpu->arch.last_compare = 1;
+		if (((vcpu->arch.cp0->cp0_count & 0xffffffff) < (vcpu->arch.count_previous & 0xffffffff)) &&
+				((vcpu->arch.cp0->cp0_count & 0xffffffff) < (vcpu->arch.cp0->cp0_compare & 0xffffffff)) &&
+				((vcpu->arch.count_previous & 0xffffffff) < (vcpu->arch.cp0->cp0_compare & 0xffffffff))) {
+			//in case that compare is so large that count will never larger than count
+			kvmmips_queue_interrupt(vcpu, &inter);
+			vcpu->arch.last_compare = 0;
+		}
+	}
+#endif
+
+	vcpu->arch.cp0->cp0_random = (vcpu->arch.cp0->cp0_random + 1) % 64;
+}
+
+int kvmmips_core_check_processor_compat(void)
+{
+	int r;
+	r = 0;
+
+	return r;
+}
+
+extern pgd_t* kvmmips_swapper_pg_dir[NR_CPUS];
+extern unsigned long kvmmips_pgd_current[NR_CPUS];
+
+void kvmmips_set_vcpu_kernel_pg_dir(int index, struct kvmmips_vcpu_loongson* vcpu_loongson)
+{
+	write_c0_desave(vcpu_loongson->kvm_pg_dir);
+
+	if (index < 0 || index >= NR_CPUS) {
+		panic("cpu id error :%d\n", index);
+	}
+
+	kvmmips_swapper_pg_dir[index] = vcpu_loongson->swapper_pg_dir;
+	kvmmips_pgd_current[index] = vcpu_loongson->pgd_current;
+}
+
+extern pgd_t kvm_pg_dir[];
+
+int kvmmips_init_kernel_pagetable(struct kvmmips_vcpu_loongson* vcpu_loongson)
+{
+	struct page* page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	int r;
+
+	if (!page) {
+		r = -ENOMEM;
+		goto fail;
+	}
+
+	vcpu_loongson->kvm_pg_dir = page_address(page);
+
+	pgd_init((unsigned long)vcpu_loongson->kvm_pg_dir);
+
+fail:
+	return r;
+}
+
+struct kvm_vcpu *kvmmips_core_vcpu_create(struct kvm *kvm, unsigned int id)
+{
+	struct kvmmips_vcpu_loongson *vcpu_loongson;
+	struct kvm_vcpu *vcpu;
+	int err;
+
+	vcpu_loongson = kmem_cache_zalloc(kvm_vcpu_cache, GFP_KERNEL);
+	if (!vcpu_loongson) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	vcpu = &vcpu_loongson->vcpu;
+	err = kvm_vcpu_init(vcpu, kvm, id);
+	if (err)
+		goto free_vcpu;
+
+	err = kvmmips_loongson_tlb_init(vcpu_loongson);
+
+	if (err)
+		goto uninit_vcpu;
+
+	kvmmips_init_except_vector();
+
+	kvmmips_init_kernel_pagetable(vcpu_loongson);
+
+	return vcpu;
+
+uninit_vcpu:
+	kvm_vcpu_uninit(vcpu);
+free_vcpu:
+	kmem_cache_free(kvm_vcpu_cache, vcpu_loongson);
+out:
+	return ERR_PTR(err);
+}
+
+int kvmmips_core_vcpu_setup(struct kvm_vcpu *vcpu)
+{
+	struct kvmmips_vcpu_loongson *vcpu_loongson = to_loongson(vcpu);
+
+	kvmmips_loongson_tlb_setup(vcpu_loongson);
+
+	/* Since loongson kvm only support one core, update all vcpus' PIR to 0 */
+//	vcpu->vcpu_id = 0;
+
+	return 0;
+}
+
+void kvmmips_loongson_tlb_load(struct kvm_vcpu *vcpu, int cpu)
+{
+}
+
+void kvmmips_core_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+{
+	kvmmips_loongson_tlb_load(vcpu, cpu);
+}
+
+int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
+{
+	int i;
+
+	regs->pc = vcpu->arch.pc;
+
+	regs->cp0_index = vcpu->arch.cp0->cp0_index;
+	regs->cp0_random = vcpu->arch.cp0->cp0_random;
+	regs->cp0_entrylo0 = vcpu->arch.cp0->cp0_entrylo0;
+	regs->cp0_entrylo1 = vcpu->arch.cp0->cp0_entrylo1;
+	regs->cp0_context = vcpu->arch.cp0->cp0_context;
+	regs->cp0_pagemask = vcpu->arch.cp0->cp0_pagemask;
+	regs->cp0_pagegrain = vcpu->arch.cp0->cp0_pagegrain;
+	regs->cp0_wired = vcpu->arch.cp0->cp0_wired;
+	regs->cp0_hwrena = vcpu->arch.cp0->cp0_hwrena;
+	regs->cp0_badvaddr = vcpu->arch.cp0->cp0_badvaddr;
+	regs->cp0_count = vcpu->arch.cp0->cp0_count;
+	regs->cp0_entryhi = vcpu->arch.cp0->cp0_entryhi;
+	regs->cp0_compare = vcpu->arch.cp0->cp0_compare;
+	regs->cp0_status = vcpu->arch.cp0->cp0_status;
+	regs->cp0_intctl = vcpu->arch.cp0->cp0_intctl;
+	regs->cp0_srsctl = vcpu->arch.cp0->cp0_srsctl;
+	regs->cp0_srsmap = vcpu->arch.cp0->cp0_srsmap;
+	regs->cp0_cause = vcpu->arch.cp0->cp0_cause;
+	regs->cp0_epc = vcpu->arch.cp0->cp0_epc;
+	regs->cp0_prid = vcpu->arch.cp0->cp0_prid;
+	regs->cp0_ebase = vcpu->arch.cp0->cp0_ebase;
+	regs->cp0_config = vcpu->arch.cp0->cp0_config;
+	regs->cp0_config1 = vcpu->arch.cp0->cp0_config1;
+	regs->cp0_config2 = vcpu->arch.cp0->cp0_config2;
+	regs->cp0_config3 = vcpu->arch.cp0->cp0_config3;
+	regs->cp0_lladdr = vcpu->arch.cp0->cp0_lladdr;
+	regs->cp0_watchlo = vcpu->arch.cp0->cp0_watchlo;
+	regs->cp0_watchhi = vcpu->arch.cp0->cp0_watchhi;
+	regs->cp0_xcontext = vcpu->arch.cp0->cp0_xcontext;
+	regs->cp0_diagnostic = vcpu->arch.cp0->cp0_diagnostic;
+	regs->cp0_debug = vcpu->arch.cp0->cp0_debug;
+	regs->cp0_depc = vcpu->arch.cp0->cp0_depc;
+	regs->cp0_perfcnt = vcpu->arch.cp0->cp0_perfcnt;
+	regs->cp0_perfctl = vcpu->arch.cp0->cp0_perfctl;
+	regs->cp0_ecc = vcpu->arch.cp0->cp0_ecc;
+	regs->cp0_cacheerr = vcpu->arch.cp0->cp0_cacheerr;
+	regs->cp0_taglo = vcpu->arch.cp0->cp0_taglo;
+	regs->cp0_datalo = vcpu->arch.cp0->cp0_datalo;
+	regs->cp0_taghi = vcpu->arch.cp0->cp0_taghi;
+	regs->cp0_datahi = vcpu->arch.cp0->cp0_datahi;
+	regs->cp0_errorepc = vcpu->arch.cp0->cp0_errorepc;
+	regs->cp0_desave = vcpu->arch.cp0->cp0_desave;
+
+	for(i = 0; i < ARRAY_SIZE(regs->gpr); i++)
+		regs->gpr[i] = vcpu->arch.gpr[i];
+
+	for(i = 0; i < ARRAY_SIZE(vcpu->arch.fpr); i++)
+		regs->fpr[i] = vcpu->arch.fpr[i];
+
+	regs->host_stack	= vcpu->arch.host_stack;
+	regs->fcr		= vcpu->arch.fcr;
+	regs->save_fpr		= vcpu->arch.save_fpr;
+	regs->hi		= vcpu->arch.hi;
+	regs->lo		= vcpu->arch.lo;
+	regs->temp_cp0_cause	= vcpu->arch.temp_cp0_cause;
+	regs->temp_cp0_epc	= vcpu->arch.temp_cp0_epc;
+	regs->temp_cp0_badvaddr	= vcpu->arch.temp_cp0_badvaddr;
+	regs->temp_cp0_pagemask	= vcpu->arch.temp_cp0_pagemask;
+	regs->temp_cp0_wired	= vcpu->arch.temp_cp0_wired;
+	regs->temp_cp0_entryhi	= vcpu->arch.temp_cp0_entryhi;
+	regs->temp_cp0_context	= vcpu->arch.temp_cp0_context;
+	regs->host_cp0_entryhi	= vcpu->arch.host_cp0_entryhi;
+	regs->host_cp0_pagemask	= vcpu->arch.host_cp0_pagemask;
+	regs->host_cp0_wired	= vcpu->arch.host_cp0_wired;
+	regs->io_gpr		= vcpu->arch.io_gpr;
+	regs->mmio_sign_extend	= vcpu->arch.mmio_sign_extend;
+	regs->pending_exceptions= vcpu->arch.pending_exceptions;
+	regs->pending_irqs	= vcpu->arch.pending_irqs;
+	regs->count_start	= vcpu->arch.count_start;
+	regs->count_end		= vcpu->arch.count_end;
+	regs->last_compare	= vcpu->arch.last_compare;
+	regs->count_previous	= vcpu->arch.count_previous;
+	regs->cp0_origin	= vcpu->arch.cp0_origin;
+	regs->cp1_fcr		= vcpu->arch.cp0->cp1_fcr;
+
+	return 0;
+}
+
+int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
+{
+	int i;
+
+	vcpu->arch.pc = regs->pc;
+
+	vcpu->arch.cp0->cp0_index = regs->cp0_index;
+	vcpu->arch.cp0->cp0_random = regs->cp0_random;
+	vcpu->arch.cp0->cp0_entrylo0 = regs->cp0_entrylo0;
+	vcpu->arch.cp0->cp0_entrylo1 = regs->cp0_entrylo1;
+	vcpu->arch.cp0->cp0_context = regs->cp0_context;
+	vcpu->arch.cp0->cp0_pagemask = regs->cp0_pagemask;
+	vcpu->arch.cp0->cp0_pagegrain = regs->cp0_pagegrain;
+	vcpu->arch.cp0->cp0_wired = regs->cp0_wired;
+	vcpu->arch.cp0->cp0_hwrena = regs->cp0_hwrena;
+	vcpu->arch.cp0->cp0_badvaddr = regs->cp0_badvaddr;
+	vcpu->arch.cp0->cp0_count = regs->cp0_count;
+	vcpu->arch.cp0->cp0_entryhi = regs->cp0_entryhi;
+	vcpu->arch.cp0->cp0_compare = regs->cp0_compare;
+	vcpu->arch.cp0->cp0_status = regs->cp0_status;
+	vcpu->arch.cp0->cp0_intctl = regs->cp0_intctl;
+	vcpu->arch.cp0->cp0_srsctl = regs->cp0_srsctl;
+	vcpu->arch.cp0->cp0_srsmap = regs->cp0_srsmap;
+	vcpu->arch.cp0->cp0_cause = regs->cp0_cause;
+	vcpu->arch.cp0->cp0_epc = regs->cp0_epc;
+	vcpu->arch.cp0->cp0_prid = regs->cp0_prid;
+	vcpu->arch.cp0->cp0_ebase = regs->cp0_ebase;
+	vcpu->arch.cp0->cp0_config = regs->cp0_config;
+	vcpu->arch.cp0->cp0_config1 = regs->cp0_config1;
+	vcpu->arch.cp0->cp0_config2 = regs->cp0_config2;
+	vcpu->arch.cp0->cp0_config3 = regs->cp0_config3;
+	vcpu->arch.cp0->cp0_lladdr = regs->cp0_lladdr;
+	vcpu->arch.cp0->cp0_watchlo = regs->cp0_watchlo;
+	vcpu->arch.cp0->cp0_watchhi = regs->cp0_watchhi;
+	vcpu->arch.cp0->cp0_xcontext = regs->cp0_xcontext;
+	vcpu->arch.cp0->cp0_diagnostic = regs->cp0_diagnostic;
+	vcpu->arch.cp0->cp0_debug = regs->cp0_debug;
+	vcpu->arch.cp0->cp0_depc = regs->cp0_depc;
+	vcpu->arch.cp0->cp0_perfcnt = regs->cp0_perfcnt;
+	vcpu->arch.cp0->cp0_perfctl = regs->cp0_perfctl;
+	vcpu->arch.cp0->cp0_ecc = regs->cp0_ecc;
+	vcpu->arch.cp0->cp0_cacheerr = regs->cp0_cacheerr;
+	vcpu->arch.cp0->cp0_taglo = regs->cp0_taglo;
+	vcpu->arch.cp0->cp0_datalo = regs->cp0_datalo;
+	vcpu->arch.cp0->cp0_taghi = regs->cp0_taghi;
+	vcpu->arch.cp0->cp0_datahi = regs->cp0_datahi;
+	vcpu->arch.cp0->cp0_errorepc = regs->cp0_errorepc;
+	vcpu->arch.cp0->cp0_desave = regs->cp0_desave;
+
+	for(i = 0; i < ARRAY_SIZE(regs->gpr); i++)
+		vcpu->arch.gpr[i] = regs->gpr[i];
+
+	for(i = 0; i < ARRAY_SIZE(regs->fpr); i++)
+		vcpu->arch.fpr[i] = regs->fpr[i];
+
+	vcpu->arch.host_stack		= regs->host_stack;
+	vcpu->arch.fcr			= regs->fcr;
+	vcpu->arch.save_fpr		= regs->save_fpr;
+	vcpu->arch.hi			= regs->hi;
+	vcpu->arch.lo			= regs->lo;
+	vcpu->arch.temp_cp0_cause	= regs->temp_cp0_cause;
+	vcpu->arch.temp_cp0_epc		= regs->temp_cp0_epc;
+	vcpu->arch.temp_cp0_badvaddr	= regs->temp_cp0_badvaddr;
+	vcpu->arch.temp_cp0_pagemask	= regs->temp_cp0_pagemask;
+	vcpu->arch.temp_cp0_wired	= regs->temp_cp0_wired;
+	vcpu->arch.temp_cp0_entryhi	= regs->temp_cp0_entryhi;
+	vcpu->arch.temp_cp0_context	= regs->temp_cp0_context;
+	vcpu->arch.host_cp0_entryhi	= regs->host_cp0_entryhi;
+	vcpu->arch.host_cp0_pagemask	= regs->host_cp0_pagemask;
+	vcpu->arch.host_cp0_wired	= regs->host_cp0_wired;
+	vcpu->arch.io_gpr		= regs->io_gpr;
+	vcpu->arch.mmio_sign_extend	= regs->mmio_sign_extend;
+	vcpu->arch.pending_exceptions	= regs->pending_exceptions;
+	vcpu->arch.pending_irqs		= regs->pending_irqs;
+	vcpu->arch.count_start		= regs->count_start;
+	vcpu->arch.count_end		= regs->count_end;
+	vcpu->arch.last_compare		= regs->last_compare;
+	vcpu->arch.count_previous	= regs->count_previous;
+	vcpu->arch.cp0_origin		= regs->cp0_origin;
+	vcpu->arch.cp0->cp1_fcr		= regs->cp1_fcr;
+
+	if (!vcpu->arch.is_cp0_released &&
+		((vcpu->arch.cp0_origin & 0xfffffffff0000000) == 0x4000000080000000)) {
+		u64 temp = vcpu->arch.cp0_origin;
+
+		//TODO: translate from c0000000 to phyical address + 0x9800000008000000
+		temp =	temp & 0x3fffffff;
+		{
+			struct page* new_page;
+			u64 base_addr;
+			base_addr = temp >> PAGE_SHIFT;
+			if (kvm_is_visible_gfn(vcpu->kvm,base_addr))
+			{
+				new_page = gfn_to_page(vcpu->kvm,base_addr);
+				if (is_error_page(new_page))
+				{
+					printk(KERN_ERR "kvmmips: Couldn't get guest page for gfn %lx!\n", (unsigned long)base_addr);
+					kvm_release_page_clean(new_page);
+					return 0;
+				}
+				base_addr = page_to_phys(new_page);
+				base_addr |= 0x9800000000000000;
+				temp = (temp & ((1 << PAGE_SHIFT) -1)) | base_addr;
+			} else {
+				printk(KERN_ERR "kvmmips: invisible  gfn %lx!\n", (unsigned long)base_addr);
+				return 0;
+			}
+		}
+
+		//release origin cp0
+		kfree(vcpu->arch.cp0);
+		vcpu->arch.is_cp0_released = 1;
+
+		//set arch.cp0 to new cp0
+		vcpu->arch.cp0 = (struct kvmmips_cp0_reg*)temp;
+	}
+
+	return 0;
+}
+
+int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
+				struct kvm_sregs *sregs)
+{
+	return -ENOTSUPP;
+}
+
+int kvm_arch_vcpu_ioctl_set_sregs(struct kvm_vcpu *vcpu,
+				struct kvm_sregs *sregs)
+{
+	return -ENOTSUPP;
+}
+
+int kvm_arch_vcpu_ioctl_get_fpu(struct kvm_vcpu *vcpu, struct kvm_fpu *fpu)
+{
+	return -ENOTSUPP;
+}
+
+int kvm_arch_vcpu_ioctl_set_fpu(struct kvm_vcpu *vcpu, struct kvm_fpu *fpu)
+{
+	return -ENOTSUPP;
+}
+
+int kvm_arch_vcpu_ioctl_translate(struct kvm_vcpu *vcpu,
+				struct kvm_translation *tr)
+{
+	return 0;
+}
+
+int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
+{
+	return -ENOTSUPP;
+}
+
+void kvm_init_debug_code(void)
+{
+	/* init the debug code for vcpu */
+	u32 *p = (u32 *)0xffffffff88000000;
+	*p++ = 0x3c04dfd0; /* lui a0, 0xdfd0 */
+	*p++ = 0x348403f8; /* ori a0, a0, 0x3f8 */
+	*p++ = 0x8c850000; /* lw a1, 0(a0) */
+	*p++ = 0x08000000; /* j 0xc0000000 */
+	*p++ = 0x00000000; /* nop */
+}
+
+void kvm_disasm(void)
+{
+	__asm__ volatile(
+		"	li 	$4, 0x01ffe000\n"
+		"	mtc0	$4, $5\n"
+		"	lui	$4, 0\n"
+	);
+}
+
+int __init kvmmips_loongson_init(void)
+{
+	/* kvm init */
+	return kvm_init(NULL, sizeof(struct kvmmips_vcpu_loongson), 0, THIS_MODULE);
+}
+
+void __exit kvmmips_loongson_exit(void)
+{
+	kvm_exit();
+}
+
+module_init(kvmmips_loongson_init);
+module_exit(kvmmips_loongson_exit);
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

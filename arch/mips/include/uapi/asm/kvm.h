@@ -26,6 +26,7 @@
  * stored in the lower 32-bits of the struct kvm_regs fields and sign
  * extended to 64-bits.
  */
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 struct kvm_regs {
 	/* out (KVM_GET_REGS) / in (KVM_SET_REGS) */
 	__u64 gpr[32];
@@ -33,6 +34,96 @@ struct kvm_regs {
 	__u64 lo;
 	__u64 pc;
 };
+#else
+struct kvm_regs {
+	__u64 cp0_index;
+	__u64 cp0_random;
+	__u64 cp0_entrylo0;
+	__u64 cp0_entrylo1;
+	__u64 cp0_context;
+	__u64 cp0_pagemask;
+	__u64 cp0_pagegrain;
+	__u64 cp0_wired;
+	__u64 cp0_hwrena;
+	__u64 cp0_badvaddr;
+	__u64 cp0_count;
+	__u64 cp0_entryhi;
+	__u64 cp0_compare;
+	__u64 cp0_status;
+	__u64 cp0_intctl;
+	__u64 cp0_srsctl;
+	__u64 cp0_srsmap;
+	__u64 cp0_cause;
+	__u64 cp0_epc;
+	__u64 cp0_prid;
+	__u64 cp0_ebase;
+	__u64 cp0_config;
+	__u64 cp0_config1;
+	__u64 cp0_config2;
+	__u64 cp0_config3;
+	__u64 cp0_lladdr;
+	__u64 cp0_watchlo;
+	__u64 cp0_watchhi;
+	__u64 cp0_xcontext;
+	__u64 cp0_diagnostic;
+	__u64 cp0_debug;
+	__u64 cp0_depc;
+	__u64 cp0_perfcnt;
+	__u64 cp0_perfctl;
+	__u64 cp0_ecc;
+	__u64 cp0_cacheerr;
+	__u64 cp0_taglo;
+	__u64 cp0_datalo;
+	__u64 cp0_taghi;
+	__u64 cp0_datahi;
+	__u64 cp0_errorepc;
+	__u64 cp0_desave;
+
+	__u64 pc;	/* pc pointer, can't be seen in real hardware */
+	__u64 gpr[32];	/* general registers */
+
+	__u64 fpr[32];	/* fpu registers */
+	__u64 host_stack;
+	__u64 fcr;	/* fcsr registers */
+	__u64 save_fpr;	/* indicates save fpr or not */
+	__u64 hi;
+	__u64 lo;
+
+	/* temp host cp0 reg backup for exception */
+	__u64 temp_cp0_cause;
+	__u64 temp_cp0_epc;
+	__u64 temp_cp0_badvaddr;
+	__u64 temp_cp0_pagemask;
+	__u64 temp_cp0_wired;
+	__u64 temp_cp0_entryhi;
+	__u64 temp_cp0_context;
+
+	__u64 host_cp0_entryhi;
+	__u64 host_cp0_pagemask;
+	__u64 host_cp0_wired;
+
+	/* mmio related */
+	__u64 io_gpr;
+	__u64 mmio_sign_extend;
+
+	/* pending the exceptions */
+	__u64 pending_exceptions;
+
+	/* pending the irq */
+	__u64 pending_irqs;
+	/* others should be added when programming */
+
+	/* counter */
+	__u64 count_start;
+	__u64 count_end;
+
+	/* last compare and count_previous for multi vm */
+	__u64 last_compare;
+	__u64 count_previous;
+	__u64 cp0_origin;
+	__u64 cp1_fcr;
+};
+#endif
 
 /*
  * for KVM_GET_FPU and KVM_SET_FPU

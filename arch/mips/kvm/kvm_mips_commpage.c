@@ -10,6 +10,7 @@
 * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/module.h>
@@ -35,3 +36,4 @@ void kvm_mips_commpage_init(struct kvm_vcpu *vcpu)
 
 	return;
 }
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

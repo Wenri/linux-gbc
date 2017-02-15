@@ -1484,6 +1484,10 @@ void __noreturn nmi_exception_handler(struct pt_regs *regs)
 
 #define VECTORSPACING 0x100	/* for EI/VI mode */
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+unsigned long kvmmips_ebase;
+unsigned long kvmmips_exception_handlers[32];
+#endif
 unsigned long ebase;
 unsigned long exception_handlers[32];
 unsigned long vi_handlers[64];
@@ -1843,6 +1847,37 @@ static int __init set_rdhwr_noopt(char *str)
 
 __setup("rdhwr_noopt", set_rdhwr_noopt);
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+void kvmmips_restore_host_exception(void)
+{
+	write_c0_ebase(ebase | (read_c0_ebase() & 0x3ff));
+}
+EXPORT_SYMBOL_GPL(kvmmips_restore_host_exception);
+
+void kvmmips_inject_exception_generic(void)
+{
+	write_c0_ebase(kvmmips_ebase | (read_c0_ebase() & 0x3ff));
+}
+EXPORT_SYMBOL_GPL(kvmmips_inject_exception_generic);
+
+void kvmmips_set_except_vector(int n, void *addr)
+{
+	unsigned long handler = (unsigned long) addr;
+
+	kvmmips_exception_handlers[n] = handler;
+}
+EXPORT_SYMBOL_GPL(kvmmips_set_except_vector);
+
+extern unsigned long kernelsp[NR_CPUS];
+EXPORT_SYMBOL_GPL(kernelsp);
+
+extern void kvmmips_set_tlbmiss_handler(unsigned long value);
+EXPORT_SYMBOL_GPL(kvmmips_set_tlbmiss_handler);
+
+extern void kvmmips_set_vcpu_mips_global(int index, void* value);
+EXPORT_SYMBOL_GPL(kvmmips_set_vcpu_mips_global);
+#endif
+
 void __init trap_init(void)
 {
 	extern char except_vec3_generic;
@@ -1863,10 +1898,20 @@ void __init trap_init(void)
 			__alloc_bootmem(size, 1 << fls(size), 0);
 	} else {
 #ifdef CONFIG_KVM_GUEST
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #define KVM_GUEST_KSEG0     0x40000000
         ebase = KVM_GUEST_KSEG0;
 #else
         ebase = CKSEG0;
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	kvmmips_ebase = ebase + (0x1 << 12);
+#endif
+#endif
+#else
+        ebase = CKSEG0;
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	kvmmips_ebase = ebase + (0x1 << 12);
+#endif
 #endif
 		if (cpu_has_mips_r2)
 			ebase += (read_c0_ebase() & 0x3ffff000);
@@ -1998,6 +2043,12 @@ void __init trap_init(void)
 		set_handler(0x080, &except_vec3_generic, 0x80);
 
 	local_flush_icache_range(ebase, ebase + 0x400);
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+	//copy kvmmips_except_vec3_generic
+	extern char kvmmips_except_vec3_generic;
+	memcpy((void *)(kvmmips_ebase + 0x180), &kvmmips_except_vec3_generic, 0x80);
+	local_flush_icache_range(kvmmips_ebase, kvmmips_ebase + 0x400);
+#endif
 	flush_tlb_handlers();
 
 	sort_extable(__start___dbe_table, __stop___dbe_table);

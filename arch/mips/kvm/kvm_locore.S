@@ -9,6 +9,7 @@
 * Authors: Sanjay Lal <sanjayl@kymasys.com>
 */
 
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 #include <asm/asm.h>
 #include <asm/asmmacro.h>
 #include <asm/regdef.h>
@@ -648,3 +649,570 @@ LEAF(MIPSX(SyncICache))
     nop
     .set pop
 END(MIPSX(SyncICache))
+#else
+/* use pt_regs struct to save guest OS entry point to stack */
+/* restore guest OS to physical cpu */
+#include <linux/init.h>
+#include <asm/asm.h>
+#include <asm/asmmacro.h>
+#include <asm/cacheops.h>
+#include <asm/irqflags.h>
+#include <asm/regdef.h>
+#include <asm/fpregdef.h>
+#include <asm/mipsregs.h>
+#include <asm/stackframe.h>
+#include <asm/war.h>
+#include <asm/thread_info.h>
+
+#include "loongson_tlb.h"
+
+	.macro	kvm_fpu_save_16even vcpu tmp=t0
+	cfc1	\tmp, fcr31
+	sdc1	$f0,  KVM_ARCH_P0(\vcpu)
+	sdc1	$f2,  KVM_ARCH_P2(\vcpu)
+	sdc1	$f4,  KVM_ARCH_P4(\vcpu)
+	sdc1	$f6,  KVM_ARCH_P6(\vcpu)
+	sdc1	$f8,  KVM_ARCH_P8(\vcpu)
+	sdc1	$f10, KVM_ARCH_P10(\vcpu)
+	sdc1	$f12, KVM_ARCH_P12(\vcpu)
+	sdc1	$f14, KVM_ARCH_P14(\vcpu)
+	sdc1	$f16, KVM_ARCH_P16(\vcpu)
+	sdc1	$f18, KVM_ARCH_P18(\vcpu)
+	sdc1	$f20, KVM_ARCH_P20(\vcpu)
+	sdc1	$f22, KVM_ARCH_P22(\vcpu)
+	sdc1	$f24, KVM_ARCH_P24(\vcpu)
+	sdc1	$f26, KVM_ARCH_P26(\vcpu)
+	sdc1	$f28, KVM_ARCH_P28(\vcpu)
+	sdc1	$f30, KVM_ARCH_P30(\vcpu)
+	sw	\tmp, KVM_ARCH_C31(\vcpu)
+	.endm
+
+	.macro	kvm_fpu_save_16odd vcpu
+	sdc1	$f1,  KVM_ARCH_P1(\vcpu)
+	sdc1	$f3,  KVM_ARCH_P3(\vcpu)
+	sdc1	$f5,  KVM_ARCH_P5(\vcpu)
+	sdc1	$f7,  KVM_ARCH_P7(\vcpu)
+	sdc1	$f9,  KVM_ARCH_P9(\vcpu)
+	sdc1	$f11, KVM_ARCH_P11(\vcpu)
+	sdc1	$f13, KVM_ARCH_P13(\vcpu)
+	sdc1	$f15, KVM_ARCH_P15(\vcpu)
+	sdc1	$f17, KVM_ARCH_P17(\vcpu)
+	sdc1	$f19, KVM_ARCH_P19(\vcpu)
+	sdc1	$f21, KVM_ARCH_P21(\vcpu)
+	sdc1	$f23, KVM_ARCH_P23(\vcpu)
+	sdc1	$f25, KVM_ARCH_P25(\vcpu)
+	sdc1	$f27, KVM_ARCH_P27(\vcpu)
+	sdc1	$f29, KVM_ARCH_P29(\vcpu)
+	sdc1	$f31, KVM_ARCH_P31(\vcpu)
+	.endm
+
+	.macro	kvm_fpu_save_double vcpu status tmp
+	sll	\tmp, \status, 5
+	bgez	\tmp, 2f
+	kvm_fpu_save_16odd \vcpu
+2:
+	kvm_fpu_save_16even \vcpu \tmp
+	.endm
+
+	.macro	kvm_fpu_restore_16even vcpu tmp=t0
+	lw	\tmp, KVM_ARCH_C31(\vcpu)
+	ldc1	$f0,  KVM_ARCH_P0(\vcpu)
+	ldc1	$f2,  KVM_ARCH_P2(\vcpu)
+	ldc1	$f4,  KVM_ARCH_P4(\vcpu)
+	ldc1	$f6,  KVM_ARCH_P6(\vcpu)
+	ldc1	$f8,  KVM_ARCH_P8(\vcpu)
+	ldc1	$f10, KVM_ARCH_P10(\vcpu)
+	ldc1	$f12, KVM_ARCH_P12(\vcpu)
+	ldc1	$f14, KVM_ARCH_P14(\vcpu)
+	ldc1	$f16, KVM_ARCH_P16(\vcpu)
+	ldc1	$f18, KVM_ARCH_P18(\vcpu)
+	ldc1	$f20, KVM_ARCH_P20(\vcpu)
+	ldc1	$f22, KVM_ARCH_P22(\vcpu)
+	ldc1	$f24, KVM_ARCH_P24(\vcpu)
+	ldc1	$f26, KVM_ARCH_P26(\vcpu)
+	ldc1	$f28, KVM_ARCH_P28(\vcpu)
+	ldc1	$f30, KVM_ARCH_P30(\vcpu)
+	ctc1	\tmp, fcr31
+	.endm
+
+	.macro	kvm_fpu_restore_16odd vcpu
+	ldc1	$f1,  KVM_ARCH_P1(\vcpu)
+	ldc1	$f3,  KVM_ARCH_P3(\vcpu)
+	ldc1	$f5,  KVM_ARCH_P5(\vcpu)
+	ldc1	$f7,  KVM_ARCH_P7(\vcpu)
+	ldc1	$f9,  KVM_ARCH_P9(\vcpu)
+	ldc1	$f11, KVM_ARCH_P11(\vcpu)
+	ldc1	$f13, KVM_ARCH_P13(\vcpu)
+	ldc1	$f15, KVM_ARCH_P15(\vcpu)
+	ldc1	$f17, KVM_ARCH_P17(\vcpu)
+	ldc1	$f19, KVM_ARCH_P19(\vcpu)
+	ldc1	$f21, KVM_ARCH_P21(\vcpu)
+	ldc1	$f23, KVM_ARCH_P23(\vcpu)
+	ldc1	$f25, KVM_ARCH_P25(\vcpu)
+	ldc1	$f27, KVM_ARCH_P27(\vcpu)
+	ldc1	$f29, KVM_ARCH_P29(\vcpu)
+	ldc1	$f31, KVM_ARCH_P31(\vcpu)
+	.endm
+
+	.macro	kvm_fpu_restore_double vcpu status tmp
+	sll	\tmp, \status, 5
+	bgez	\tmp, 1f				# 16 register mode?
+
+	kvm_fpu_restore_16odd \vcpu
+1:	kvm_fpu_restore_16even \vcpu \tmp
+	.endm
+
+#ifdef CONFIG_MIPS_MT_SMTC
+#define PTEBASE_SHIFT	19	/* TCBIND */
+#define CPU_ID_REG CP0_TCBIND
+#define CPU_ID_MFC0 mfc0
+#elif defined(CONFIG_MIPS_PGD_C0_CONTEXT)
+#define PTEBASE_SHIFT	48	/* XCONTEXT */
+#define CPU_ID_REG CP0_XCONTEXT
+#define CPU_ID_MFC0 MFC0
+#else
+#define PTEBASE_SHIFT	23	/* CONTEXT */
+#define CPU_ID_REG CP0_CONTEXT
+#define CPU_ID_MFC0 MFC0
+#endif
+
+NESTED(__kvmmips_vcpu_run, PT_SIZE, sp)
+	SAVE_ALL
+/* a0 point to kvm_run ,a1 point to kvm_vcpu
+ * save stack point  to kvm_vcpu
+ */
+	LONG_S	sp,	KVM_ARCH_HOST_STACK(a1)
+
+/* save kvm_vcpu kvm_run to global variable*/
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_S	a0,	run_mips_global(a2)
+	LONG_S	a1,	vcpu_mips_global(a2)
+
+lightweight_exit:
+
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a1,	vcpu_mips_global(a2)
+
+/* TODO: store host wired, entryhi and pagemask */
+	dmfc0	t0, CP0_ENTRYHI
+	LONG_S	t0, KVM_ARCH_HOST_CP0_ENTRYHI(a1)
+	mfc0	t0, CP0_PAGEMASK
+	LONG_S	t0, KVM_ARCH_HOST_CP0_PAGEMASK(a1)
+	mfc0	t0, CP0_WIRED
+	LONG_S	t0, KVM_ARCH_HOST_CP0_WIRED(a1)
+
+/* inject exception handlers*/
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a1,	vcpu_mips_global(a2)
+	CPU_ID_MFC0	a0, CPU_ID_REG
+	LONG_SRL	a0, PTEBASE_SHIFT
+	jal		kvmmips_inject_exception
+	nop
+
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a1,	vcpu_mips_global(a2)
+
+/* TODO: restore wired, entryhi and pagemask of vcpu */
+	LONG_L	t0,	KVM_ARCH_CP0(a1)
+	LONG_L	t0,	KVM_ARCH_CP0_ENTRYHI(t0)
+	ori		t0, 0x80 #cww!!!
+	dmtc0	t0,	CP0_ENTRYHI
+	#li		t0, 0x0
+	li		t0, 0x1e000
+	mtc0	t0,	CP0_PAGEMASK
+	li		t0, 0x0
+	mtc0	t0,	CP0_WIRED
+
+/* enable cache instruction user mode */
+	mfc0	t0, CP0_DIAGNOSTIC
+	ori	t0, 0x100
+	mtc0	t0, CP0_DIAGNOSTIC
+
+/* #ifndef CONFIG_EASY_TLB */
+#ifdef CONFIG_KVM_MULTICLIENT
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a0,	vcpu_mips_global(a2)
+	jal		kvmmips_finish_tlbload
+	nop
+#endif
+
+/* load kvm_vcpu to global variable*/
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a1,	vcpu_mips_global(a2)
+
+/* restore guest fpu registers */
+	lw		t1, KVM_ARCH_SAVE_FPR(a1)
+	beqz	t1,	2f
+	nop
+
+	mfc0	t0,	CP0_STATUS
+	li	t1,	ST0_CU1
+	or	t0,	t1
+	LONG_L	t1,	KVM_ARCH_CP0(a1)
+	LONG_L  t1, KVM_ARCH_CP0_STATUS(t1)
+	li		t2,	ST0_FR
+	and		t1, t2
+	or		t0, t1
+	mtc0	t0,	CP0_STATUS
+
+	mfc0	t1,	CP0_STATUS
+	kvm_fpu_restore_double a1 t1 t0
+	li		t1,	0x0
+	sw		t1, KVM_ARCH_SAVE_FPR(a1)
+2:
+
+/* set guest CP0_STATUS
+ * unset CU0; restore guest CP0_STATUS:CU1 and KSU; set EXL and IE for eret
+ */
+	mfc0	t0,	CP0_STATUS
+	li		t1,	~(ST0_CU0 | ST0_CU1 | ST0_FR)
+	and		t0, t1
+	LONG_L	t1,	KVM_ARCH_CP0(a1)
+	LONG_L  t1, KVM_ARCH_CP0_STATUS(t1)
+	li		t2,	ST0_CU1 | ST0_FR
+	and		t2, t1
+	or		t0, t2
+#ifdef CONFIG_KVM64_SUPPORT
+	ori		t0, 0x4b /*supervisor mode*/
+#else
+	ori		t0, 0xb
+#endif
+	mtc0	t0, CP0_STATUS
+
+/* set epc = entry address of guest OS */
+	LONG_L	t0,	KVM_ARCH_PC(a1)
+	dmtc0	t0,	CP0_EPC
+
+/* restore guest general registers */
+	LONG_L	t0, KVM_ARCH_HI(a1)
+	mthi	t0
+	LONG_L	t0, KVM_ARCH_LO(a1)
+	mtlo	t0
+	LONG_L	$0,	KVM_ARCH_R0(a1)
+	LONG_L	$2,	KVM_ARCH_R2(a1)
+	LONG_L	$3,	KVM_ARCH_R3(a1)
+	LONG_L	$8,	KVM_ARCH_R8(a1)
+	LONG_L	$9,	KVM_ARCH_R9(a1)
+	LONG_L	$10,	KVM_ARCH_R10(a1)
+	LONG_L	$11,	KVM_ARCH_R11(a1)
+	LONG_L	$12,	KVM_ARCH_R12(a1)
+	LONG_L	$13,	KVM_ARCH_R13(a1)
+	LONG_L	$14,	KVM_ARCH_R14(a1)
+	LONG_L	$15,	KVM_ARCH_R15(a1)
+	LONG_L	$16,	KVM_ARCH_R16(a1)
+	LONG_L	$17,	KVM_ARCH_R17(a1)
+	LONG_L	$18,	KVM_ARCH_R18(a1)
+	LONG_L	$19,	KVM_ARCH_R19(a1)
+	LONG_L	$20,	KVM_ARCH_R20(a1)
+	LONG_L	$21,	KVM_ARCH_R21(a1)
+	LONG_L	$22,	KVM_ARCH_R22(a1)
+	LONG_L	$23,	KVM_ARCH_R23(a1)
+	LONG_L	$24,	KVM_ARCH_R24(a1)
+	LONG_L	$25,	KVM_ARCH_R25(a1)
+	LONG_L	$26,	KVM_ARCH_R26(a1)
+	LONG_L	$27,	KVM_ARCH_R27(a1)
+	LONG_L	$28,	KVM_ARCH_R28(a1)
+	LONG_L	$29,	KVM_ARCH_R29(a1)
+	LONG_L	$30,	KVM_ARCH_R30(a1)
+	LONG_L	$6,	KVM_ARCH_R6(a1)
+	LONG_L	$7,	KVM_ARCH_R7(a1)
+	LONG_L	$31,	KVM_ARCH_R31(a1)
+	.set noat
+	LONG_L	$1,	KVM_ARCH_R1(a1)
+	.set at
+
+/* begin counting */
+	mfc0	a0,	CP0_COUNT
+	sw		a0, KVM_ARCH_COUNT_START(a1)
+
+	LONG_L	$4,	KVM_ARCH_R4(a1)
+	LONG_L	$5,	KVM_ARCH_R5(a1)
+
+/* enter guest OS */
+	eret
+	nop
+	nop
+
+END(__kvmmips_vcpu_run)
+
+
+	.macro  __build_kvm_clear_none
+	.endm
+
+	.macro  __build_kvm_fpr_save
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a1,	vcpu_mips_global(a2)
+
+	mfc0	t0,	CP0_STATUS
+	mfc0	t2,	CP0_STATUS
+	li	t1,	ST0_CU1
+	or	t0,	t1
+	mtc0	t0,	CP0_STATUS
+
+	/* discard the fpe info here, or it will be wrong */
+	cfc1	t1, fcr31
+	li		t0, 0x3f000
+	and		t0, t1
+	beqz	t0, 1f
+	nop
+	LONG_L	t0,	KVM_ARCH_CP0(a1)
+	LONG_S  t1, KVM_ARCH_CP1_FCR(t0)
+1:
+	li		t0, ~0x3f000
+	and		t1,	t0
+	ctc1	t1, fcr31
+
+	mfc0	t1,	CP0_STATUS
+	kvm_fpu_save_double a1 t1 t0
+	mtc0	t2,	CP0_STATUS
+	li		t1,	0x1
+	sw		t1, KVM_ARCH_SAVE_FPR(a1)
+	.endm
+
+	.macro  __build_kvm_fpr_none
+	.endm
+
+	.macro  __build_kvm_clear_sti
+/* local_irq_enable */
+	mfc0	t0,	CP0_STATUS
+	ori		t0,	0x1
+	mtc0	t0,	CP0_STATUS
+	.endm
+
+	.macro  __build_kvm_clear_cli
+/* local_irq_disable */
+	mfc0	t0,	CP0_STATUS
+	ori		t0,	0x1
+	xori	t0,	0x1
+	mtc0	t0,	CP0_STATUS
+	.endm
+
+/* ade is not consider now */
+	.macro  __build_kvm_clear_ade
+	.endm
+
+	.macro	BUILD_KVMMIPS_HANDLER exception  handler clear restore save
+	.align	5
+	NESTED(handle_kvm_\exception, PT_SIZE, sp)
+/* store vcpu general registers except at, k0, k1 */
+	move	k0,	a1
+	CPU_ID_MFC0	k1, CPU_ID_REG
+	LONG_SRL	k1, PTEBASE_SHIFT
+	LONG_L	a1,	vcpu_mips_global(k1)
+	LONG_S	$4,	KVM_ARCH_R4(a1)
+
+	dmfc0	k1,	$24
+	LONG_S	k1,	KVM_ARCH_R27(a1)
+	dmfc0	k1,	$30
+	LONG_S	k1,	KVM_ARCH_R26(a1)
+
+
+/* finish counting */
+	mfc0	a0, CP0_COUNT
+	sw		a0, KVM_ARCH_COUNT_END(a1)
+
+	LONG_S	$0,	KVM_ARCH_R0(a1)
+#	LONG_S	$1,	KVM_ARCH_R1(a1)
+	LONG_S	$2,	KVM_ARCH_R2(a1)
+	LONG_S	$3,	KVM_ARCH_R3(a1)
+	LONG_S	$8,	KVM_ARCH_R8(a1)
+	LONG_S	$9,	KVM_ARCH_R9(a1)
+	LONG_S	$10,	KVM_ARCH_R10(a1)
+	LONG_S	$11,	KVM_ARCH_R11(a1)
+	LONG_S	$12,	KVM_ARCH_R12(a1)
+	LONG_S	$13,	KVM_ARCH_R13(a1)
+	LONG_S	$14,	KVM_ARCH_R14(a1)
+	LONG_S	$15,	KVM_ARCH_R15(a1)
+	LONG_S	$16,	KVM_ARCH_R16(a1)
+	LONG_S	$17,	KVM_ARCH_R17(a1)
+	LONG_S	$18,	KVM_ARCH_R18(a1)
+	LONG_S	$19,	KVM_ARCH_R19(a1)
+	LONG_S	$20,	KVM_ARCH_R20(a1)
+	LONG_S	$21,	KVM_ARCH_R21(a1)
+	LONG_S	$22,	KVM_ARCH_R22(a1)
+	LONG_S	$23,	KVM_ARCH_R23(a1)
+	LONG_S	$24,	KVM_ARCH_R24(a1)
+	LONG_S	$25,	KVM_ARCH_R25(a1)
+#	LONG_S	$26,	KVM_ARCH_R26(a1)
+#	LONG_S	$27,	KVM_ARCH_R27(a1)
+	LONG_S	$28,	KVM_ARCH_R28(a1)
+	LONG_S	$29,	KVM_ARCH_R29(a1)
+	LONG_S	$30,	KVM_ARCH_R30(a1)
+	LONG_S	$6,	KVM_ARCH_R6(a1)
+	LONG_S	$7,	KVM_ARCH_R7(a1)
+	LONG_S	$31,	KVM_ARCH_R31(a1)
+	move	a0,	k0
+	LONG_S	a0,	KVM_ARCH_R5(a1)
+
+	mfhi	t0
+	LONG_S	t0,	KVM_ARCH_HI(a1)
+	mflo	t0
+	LONG_S	t0,	KVM_ARCH_LO(a1)
+
+/* store vcpu pc */
+	dmfc0	t0,	CP0_EPC
+	LONG_S	t0,	KVM_ARCH_PC(a1)
+
+/* TODO: store guest wired, entryhi and pagemask */
+
+/* TODO:store some cpu info when guest OS running.*/
+	mfc0	t0,	CP0_CAUSE
+	LONG_S	t0,	KVM_ARCH_TEMP_CP0_CAUSE(a1)
+	dmfc0	t0,	CP0_EPC
+	LONG_S	t0,	KVM_ARCH_TEMP_CP0_EPC(a1)
+	dmfc0	t0,	CP0_BADVADDR
+	LONG_S	t0,	KVM_ARCH_TEMP_CP0_BADVADDR(a1)
+	dmfc0	t0,	CP0_ENTRYHI
+	LONG_S	t0,	KVM_ARCH_TEMP_CP0_ENTRYHI(a1)
+	mfc0	t0,	CP0_PAGEMASK
+	LONG_S	t0,	KVM_ARCH_TEMP_CP0_PAGEMASK(a1)
+	mfc0	t0,	CP0_CONTEXT
+	LONG_S	t0,	KVM_ARCH_TEMP_CP0_CONTEXT(a1)
+
+	__build_kvm_fpr_\save
+
+/* restore the host sp and gp */
+	LONG_L	sp,	KVM_ARCH_HOST_STACK(a1)
+	ori		$28, sp, _THREAD_MASK
+	xori	$28, _THREAD_MASK
+
+/* restore host CP0_STATUS
+ * set CU0, set KSU to kernel mode, clear EXL and ERL, and restore host CU1 set
+ */
+	mfc0	t0,	CP0_STATUS
+	li		t1,	~(ST0_CU0 | ST0_CU1 | ST0_FR)
+	and		t0, t1
+	ori	t0,	0x1f
+	xori	t0, 0x1f
+	li		t1, ST0_CU0
+	or		t0, t1
+	LONG_L  t1, PT_STATUS(sp)
+	li		t2,	ST0_CU1 | ST0_FR
+	and		t2, t1
+	or		t0, t2
+	ori	t0,	0x1
+	xori	t0,	0x1
+	mtc0	t0, CP0_STATUS
+
+/* TODO: restore host wired, entryhi and pagemask */
+	LONG_L	t0, KVM_ARCH_HOST_CP0_ENTRYHI(a1)
+	dmtc0	t0, CP0_ENTRYHI
+	LONG_L	t0, KVM_ARCH_HOST_CP0_PAGEMASK(a1)
+	mtc0	t0, CP0_PAGEMASK
+	LONG_L	t0, KVM_ARCH_HOST_CP0_WIRED(a1)
+	mtc0	t0, CP0_WIRED
+
+/* restore CP0_DIAGNOSTIC */
+	li		t0, 0
+	mtc0	t0, CP0_DIAGNOSTIC
+
+/* TODO: flush guest tlb entry */
+#ifdef CONFIG_KVM_MULTICLIENT
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a0,	vcpu_mips_global(a2)
+#	jal		kvmmips_finish_tlbstore
+	jal		kvmmips_tlbsave
+	nop
+#endif
+
+/* restore host exception handler*/
+	jal		kvmmips_restore_host
+	nop
+
+/*  load vcpu_mips_global to a0 */
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a0,	vcpu_mips_global(a2)
+	jal		kvmmips_update_timing_stats
+	nop
+
+/* load run_mips_global to a0, load vcpu_mips_global to a1 */
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_L	a0,	run_mips_global(a2)
+	LONG_L	a1,	vcpu_mips_global(a2)
+
+/* store run_mips_global and vcpu_mips_global for it will changed*/
+	dsubu	sp,	16
+	sd		a0,	0(sp)
+	sd		a1,	8(sp)
+
+	__build_kvm_clear_\clear
+
+	jal		do_kvm_\handler
+	nop
+	move	s0, v0
+
+	__build_kvm_clear_\restore
+
+/* restore run_mips_global and vcpu_mips_global*/
+	ld		a0,	0(sp)
+	ld		a1,	8(sp)
+	daddu	sp,	16
+	CPU_ID_MFC0	a2, CPU_ID_REG
+	LONG_SRL	a2, PTEBASE_SHIFT
+	LONG_S	a0,	run_mips_global(a2)
+	LONG_S	a1,	vcpu_mips_global(a2)
+
+/* kvmmips_deliver_exceptions */
+	LONG_L	a0,	vcpu_mips_global(a2)
+	jal		kvmmips_deliver_exceptions
+	nop
+
+/* branch here to switch */
+	li		a0,	1  /** RETURN_TO_GUEST*/
+	beq		s0,	a0,	lightweight_exit
+	nop
+
+/* restore to host */
+	RESTORE_ALL
+
+	li		v0, 0
+	jr		ra
+	nop
+
+	END(handle_kvm_\exception)
+	.endm
+
+
+	BUILD_KVMMIPS_HANDLER int int sti cli save		/* #0  */
+	BUILD_KVMMIPS_HANDLER mod mod cli cli none		/* #1  */
+	BUILD_KVMMIPS_HANDLER tlbl tlbl sti cli save		/* #2  */
+	BUILD_KVMMIPS_HANDLER tlbs tlbs sti cli save		/* #3  */
+	BUILD_KVMMIPS_HANDLER adel adel sti cli save		/* #4  */
+	BUILD_KVMMIPS_HANDLER ades ades sti cli save		/* #5  */
+	BUILD_KVMMIPS_HANDLER ibe ibe cli cli none		/* #6  */
+	BUILD_KVMMIPS_HANDLER dbe dbe cli cli none		/* #7  */
+	BUILD_KVMMIPS_HANDLER syscall syscall sti cli save	/* #8 */
+	BUILD_KVMMIPS_HANDLER bp bp cli cli none		/* #9  */
+	BUILD_KVMMIPS_HANDLER ri ri cli cli none		/* #10 */
+	BUILD_KVMMIPS_HANDLER cpu cpu sti cli save		/* #11 */
+	BUILD_KVMMIPS_HANDLER ov ov cli cli none		/* #12 */
+	BUILD_KVMMIPS_HANDLER tr tr sti cli save		/* #13 */
+	BUILD_KVMMIPS_HANDLER fpe fpe cli cli save		/* #15 */
+	BUILD_KVMMIPS_HANDLER c2e c2e cli cli none		/* #18 */
+	BUILD_KVMMIPS_HANDLER mdmx mdmx cli cli none		/* #22 */
+#ifdef 	CONFIG_HARDWARE_WATCHPOINTS
+	/*
+	 * For watch, interrupts will be enabled after the watch
+	 * registers are read.
+	 */
+	BUILD_KVMMIPS_HANDLER watch watch cli cli none		/* #23 */
+#else
+	BUILD_KVMMIPS_HANDLER watch watch sti cli none		/* #23 */
+#endif
+	BUILD_KVMMIPS_HANDLER mcheck mcheck cli cli none	/* #24 */
+	BUILD_KVMMIPS_HANDLER mt mt cli cli none		/* #25 */
+	BUILD_KVMMIPS_HANDLER dsp dsp cli cli none		/* #26 */
+	BUILD_KVMMIPS_HANDLER tlbmiss tlbmiss sti cli save	/* #tlbmiss */
+	BUILD_KVMMIPS_HANDLER reserved reserved none none none	/* others */
+
+#endif /* CONFIG_KVM_MIPS_LOONGSON3 */

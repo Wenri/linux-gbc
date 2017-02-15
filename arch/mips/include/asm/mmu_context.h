@@ -87,7 +87,11 @@ extern unsigned long smtc_asid_mask;
 #else /* FIXME: not correct for R6000 */
 
 #define ASID_INC	0x1
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+#define ASID_MASK	0x7f
+#else
 #define ASID_MASK	0xff
+#endif
 
 #endif
 
@@ -118,7 +122,11 @@ get_new_mmu_context(struct mm_struct *mm, unsigned long cpu)
 		if (cpu_has_vtag_icache)
 			flush_icache_all();
 #ifdef CONFIG_KVM
+#ifndef CONFIG_KVM_MIPS_LOONGSON3
 		kvm_local_flush_tlb_all();      /* start new asid cycle */
+#else
+		local_flush_tlb_all();	/* start new asid cycle */
+#endif
 #else
 		local_flush_tlb_all();	/* start new asid cycle */
 #endif

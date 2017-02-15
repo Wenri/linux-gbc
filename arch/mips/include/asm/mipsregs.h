@@ -870,6 +870,11 @@ do {									\
 	local_irq_restore(__flags);					\
 } while (0)
 
+#ifdef CONFIG_KVM_MIPS_LOONGSON3
+#define read_c0_desave()	__read_64bit_c0_register($31, 0)
+#define write_c0_desave(val)	__write_64bit_c0_register($31, 0, val)
+#endif
+
 #define read_c0_index()		__read_32bit_c0_register($0, 0)
 #define write_c0_index(val)	__write_32bit_c0_register($0, 0, val)
 
