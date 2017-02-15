@@ -183,16 +183,20 @@ static int remove_temp(struct platform_device *pdev)
 
 static int __init platform_temp_init(void)
 {
-	platform_device_register(&temp_device);
-	platform_driver_register(&temp_driver);
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000){
+		platform_device_register(&temp_device);
+		platform_driver_register(&temp_driver);
+	}
 
 	return 0;
 }
 
 static void __exit platform_temp_exit(void)
 {
-	platform_device_unregister(&temp_device);
-	platform_driver_unregister(&temp_driver);
+	if ((read_c0_prid() & 0xf) != PRID_REV_LOONGSON3A2000){
+		platform_device_unregister(&temp_device);
+		platform_driver_unregister(&temp_driver);
+	}
 }
 
 MODULE_LICENSE("GPL");
