@@ -123,6 +123,9 @@ void __arch_local_irq_restore(unsigned long flags);
 
 extern void smtc_ipi_replay(void);
 
+#ifdef CONFIG_PARA_VIRT
+extern struct paravirt_cp0_reg paravirt_cp0;
+#endif
 static inline void arch_local_irq_enable(void)
 {
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -144,10 +147,25 @@ static inline void arch_local_irq_enable(void)
 #elif defined(CONFIG_CPU_MIPSR2)
 	"	ei							\n"
 #else
+#ifdef CONFIG_PARA_VIRT
+	"	.set noat						\n"
+	"	dla	$12, 	paravirt_cp0				\n"
+	"	daddiu	$12,	104					\n"	//STATUS
+	"	ld	$1,	0($12)					\n"
+#else
 	"	mfc0	$1,$12						\n"
+#endif
 	"	ori	$1,0x1f						\n"
 	"	xori	$1,0x1e						\n"
-	"	mtc0	$1,$12						\n"
+#ifdef CONFIG_PARA_VIRT
+	"	.set noat						\n"
+	//using $8 should be correct
+	"	dla	$12,	paravirt_cp0				\n"
+	"	daddiu	$12,	104					\n"
+	"	sd	$1,	0($12)					\n"
+#else
+	"	mtc0	$1, $12						\n"
+#endif
 #endif
 	"	" __stringify(__irq_enable_hazard) "			\n"
 	"	.set	pop						\n"
@@ -166,7 +184,14 @@ static inline unsigned long arch_local_save_flags(void)
 #ifdef CONFIG_MIPS_MT_SMTC
 	"	mfc0	%[flags], $2, 1					\n"
 #else
-	"	mfc0	%[flags], $12					\n"
+#ifdef CONFIG_PARA_VIRT
+	"	.set noat						\n"
+	"	dla	$12, 	paravirt_cp0				\n"
+	"	daddiu	$12,	104					\n"	//STATUS
+	"	ld	%[flags],	0($12)				\n"
+#else
+	"	mfc0	%[flags],$12					\n"
+#endif
 #endif
 	"	.set	pop						\n"
 	: [flags] "=r" (flags));

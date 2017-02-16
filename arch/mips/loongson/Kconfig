@@ -24,6 +24,8 @@ config LEMOTE_FULOONG2E
 	select GENERIC_ISA_DMA_SUPPORT_BROKEN
 	select CPU_HAS_WB
 	select LOONGSON_MC146818
+	select LOONGSON_GUEST_OS
+	select PARA_VIRT
 	help
 	  Lemote Fuloong(2e) mini-PC board based on the Chinese Loongson-2E CPU and
 	  an FPGA northbridge
@@ -64,6 +66,9 @@ endchoice
 config CS5536
 	bool
 
+config PARA_VIRT
+	bool
+
 config CS5536_MFGPT
 	bool "CS5536 MFGPT Timer"
 	depends on CS5536
@@ -87,6 +92,22 @@ config LOONGSON_UART_BASE
 	depends on EARLY_PRINTK || SERIAL_8250
 
 config LOONGSON_MC146818
+	bool
+	default n
+
+config ARCH_SPARSEMEM_ENABLE
+	bool
+	select SPARSEMEM_STATIC
+
+config LOONGSON_GUEST_OS
+	bool
+	default n
+
+config ARCH_SPARSEMEM_ENABLE
+	bool
+	select SPARSEMEM_STATIC
+
+config LOONGSON_GUEST_OS
 	bool
 	default n
 

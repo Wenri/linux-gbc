@@ -443,7 +443,9 @@ struct mem_size_stats {
 	u64 pss;
 };
 
-
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static void smaps_pte_entry(pte_t ptent, unsigned long addr,
 		unsigned long ptent_size, struct mm_walk *walk)
 {
@@ -505,7 +507,11 @@ static int smaps_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 	spinlock_t *ptl;
 
 	if (pmd_trans_huge_lock(pmd, vma) == 1) {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		smaps_pte_entry(kvmmips_get_guest_pte(*pte), addr, PAGE_SIZE, walk);
+#else
 		smaps_pte_entry(*(pte_t *)pmd, addr, HPAGE_PMD_SIZE, walk);
+#endif
 		spin_unlock(&walk->mm->page_table_lock);
 		mss->anonymous_thp += HPAGE_PMD_SIZE;
 		return 0;
@@ -702,7 +708,11 @@ static int clear_refs_pte_range(pmd_t *pmd, unsigned long addr,
 
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	for (; addr != end; pte++, addr += PAGE_SIZE) {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		ptent = kvmmips_get_guest_pte(*pte);
+#else
 		ptent = *pte;
+#endif
 		if (!pte_present(ptent))
 			continue;
 
@@ -940,7 +950,11 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 		if (vma && (vma->vm_start <= addr) &&
 		    !is_vm_hugetlb_page(vma)) {
 			pte = pte_offset_map(pmd, addr);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			pte_to_pagemap_entry(&pme,vma,addr,kvmmips_get_guest_pte(*pte));
+#else
 			pte_to_pagemap_entry(&pme, vma, addr, *pte);
+#endif
 			/* unmap before userspace copy */
 			pte_unmap(pte);
 		}
@@ -976,7 +990,11 @@ static int pagemap_hugetlb_range(pte_t *pte, unsigned long hmask,
 
 	for (; addr != end; addr += PAGE_SIZE) {
 		int offset = (addr & ~hmask) >> PAGE_SHIFT;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		huge_pte_to_pagemap_entry(&pme, kvmmips_get_guest_pte(*pte), offset);
+#else
 		huge_pte_to_pagemap_entry(&pme, *pte, offset);
+#endif
 		err = add_to_pagemap(addr, &pme, pm);
 		if (err)
 			return err;
@@ -1207,7 +1225,11 @@ static int gather_pte_stats(pmd_t *pmd, unsigned long addr,
 
 	if (pmd_trans_huge_lock(pmd, md->vma) == 1) {
 		pte_t huge_pte = *(pte_t *)pmd;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		struct page *page = can_gather_numa_stats(kvmmips_get_guest_pte(*pte), md->vma, addr);
+#else
 		struct page *page;
+#endif
 
 		page = can_gather_numa_stats(huge_pte, md->vma, addr);
 		if (page)

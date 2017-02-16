@@ -856,7 +856,11 @@ copy_one_pte(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 		unsigned long addr, int *rss)
 {
 	unsigned long vm_flags = vma->vm_flags;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t pte = kvmmips_get_guest_pte(*src_pte);
+#else
 	pte_t pte = *src_pte;
+#endif
 	struct page *page;
 
 	/* pte contains position in swap or file, so copy. */
@@ -1119,6 +1123,9 @@ int copy_page_range(struct mm_struct *dst_mm, struct mm_struct *src_mm,
 	return ret;
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static unsigned long zap_pte_range(struct mmu_gather *tlb,
 				struct vm_area_struct *vma, pmd_t *pmd,
 				unsigned long addr, unsigned long end,
@@ -1137,7 +1144,11 @@ again:
 	pte = start_pte;
 	arch_enter_lazy_mmu_mode();
 	do {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		pte_t ptent = kvmmips_get_guest_pte(*pte);
+#else
 		pte_t ptent = *pte;
+#endif
 		if (pte_none(ptent)) {
 			continue;
 		}
@@ -1578,7 +1589,11 @@ split_fallthrough:
 
 	ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte = *ptep;
+#endif
 	if (!pte_present(pte)) {
 		swp_entry_t entry;
 		/*
@@ -1800,11 +1815,20 @@ long __get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 			if (pages) {
 				struct page *page;
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+				page = vm_normal_page(vma, start, kvmmips_get_guest_pte(*pte));
+#else
 				page = vm_normal_page(vma, start, *pte);
+#endif
 				if (!page) {
 					if (!(gup_flags & FOLL_DUMP) &&
+#ifdef CONFIG_LOONGSON_GUEST_OS
+					     is_zero_pfn(pte_pfn(kvmmips_get_guest_pte(*pte))))
+						page = pte_page(kvmmips_get_guest_pte(*pte));
+#else
 					     is_zero_pfn(pte_pfn(*pte)))
 						page = pte_page(*pte);
+#endif
 					else {
 						pte_unmap(pte);
 						return i ? : -EFAULT;
@@ -2594,7 +2618,11 @@ static inline int pte_unmap_same(struct mm_struct *mm, pmd_t *pmd,
 	if (sizeof(pte_t) > sizeof(unsigned long)) {
 		spinlock_t *ptl = pte_lockptr(mm, pmd);
 		spin_lock(ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		same = pte_same(kvmmips_get_guest_pte(*page_table), orig_pte);
+#else
 		same = pte_same(*page_table, orig_pte);
+#endif
 		spin_unlock(ptl);
 	}
 #endif
@@ -2685,7 +2713,11 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			lock_page(old_page);
 			page_table = pte_offset_map_lock(mm, pmd, address,
 							 &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			if (!pte_same(kvmmips_get_guest_pte(*page_table), orig_pte)) {
+#else
 			if (!pte_same(*page_table, orig_pte)) {
+#endif
 				unlock_page(old_page);
 				goto unlock;
 			}
@@ -2754,7 +2786,11 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			 */
 			page_table = pte_offset_map_lock(mm, pmd, address,
 							 &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			if (!pte_same(kvmmips_get_guest_pte(*page_table), orig_pte)) {
+#else
 			if (!pte_same(*page_table, orig_pte)) {
+#endif
 				unlock_page(old_page);
 				goto unlock;
 			}
@@ -2843,7 +2879,11 @@ gotten:
 	 * Re-check the pte - we dropped the lock
 	 */
 	page_table = pte_offset_map_lock(mm, pmd, address, &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (likely(pte_same(kvmmips_get_guest_pte(*page_table), orig_pte))) {
+#else
 	if (likely(pte_same(*page_table, orig_pte))) {
+#endif
 		if (old_page) {
 			if (!PageAnon(old_page)) {
 				dec_mm_counter_fast(mm, MM_FILEPAGES);
@@ -3072,7 +3112,11 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			 * while we released the pte lock.
 			 */
 			page_table = pte_offset_map_lock(mm, pmd, address, &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			if (likely(pte_same(kvmmips_get_guest_pte(*page_table), orig_pte)))
+#else
 			if (likely(pte_same(*page_table, orig_pte)))
+#endif
 				ret = VM_FAULT_OOM;
 			delayacct_clear_flag(DELAYACCT_PF_SWAPIN);
 			goto unlock;
@@ -3127,7 +3171,11 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	 * Back out if somebody else already faulted in this pte.
 	 */
 	page_table = pte_offset_map_lock(mm, pmd, address, &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (unlikely(!pte_same(kvmmips_get_guest_pte(*page_table), orig_pte)))
+#else
 	if (unlikely(!pte_same(*page_table, orig_pte)))
+#endif
 		goto out_nomap;
 
 	if (unlikely(!PageUptodate(page))) {
@@ -3447,7 +3495,11 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 	 * handle that later.
 	 */
 	/* Only go through if we didn't race with anybody else... */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (likely(pte_same(kvmmips_get_guest_pte(*page_table), orig_pte))) {
+#else
 	if (likely(pte_same(*page_table, orig_pte))) {
+#endif
 		flush_icache_page(vma, page);
 		entry = mk_pte(page, vma->vm_page_prot);
 		if (flags & FAULT_FLAG_WRITE)
@@ -3592,7 +3644,11 @@ int do_numa_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	*/
 	ptl = pte_lockptr(mm, pmd);
 	spin_lock(ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (unlikely(!pte_same(kvmmips_get_guest_pte(*ptep), pte))) {
+#else
 	if (unlikely(!pte_same(*ptep, pte))) {
+#endif
 		pte_unmap_unlock(ptep, ptl);
 		goto out;
 	}
@@ -3733,7 +3789,11 @@ int handle_pte_fault(struct mm_struct *mm,
 	pte_t entry;
 	spinlock_t *ptl;
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	entry = kvmmips_get_guest_pte(*pte);
+#else
 	entry = *pte;
+#endif
 	if (!pte_present(entry)) {
 		if (pte_none(entry)) {
 			if (vma->vm_ops) {
@@ -3756,7 +3816,11 @@ int handle_pte_fault(struct mm_struct *mm,
 
 	ptl = pte_lockptr(mm, pmd);
 	spin_lock(ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (unlikely(!pte_same(kvmmips_get_guest_pte(*pte), entry)))
+#else
 	if (unlikely(!pte_same(*pte, entry)))
+#endif
 		goto unlock;
 	if (flags & FAULT_FLAG_WRITE) {
 		if (!pte_write(entry))
@@ -4029,7 +4093,11 @@ static int __follow_pte(struct mm_struct *mm, unsigned long address,
 	ptep = pte_offset_map_lock(mm, pmd, address, ptlp);
 	if (!ptep)
 		goto out;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (!pte_present(kvmmips_get_guest_pte(*ptep)))
+#else
 	if (!pte_present(*ptep))
+#endif
 		goto unlock;
 	*ptepp = ptep;
 	return 0;
@@ -4073,7 +4141,11 @@ int follow_pfn(struct vm_area_struct *vma, unsigned long address,
 	ret = follow_pte(vma->vm_mm, address, &ptep, &ptl);
 	if (ret)
 		return ret;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	*pfn = pte_pfn(kvmmips_get_guest_pte(*ptep));
+#else
 	*pfn = pte_pfn(*ptep);
+#endif
 	pte_unmap_unlock(ptep, ptl);
 	return 0;
 }
@@ -4093,7 +4165,11 @@ int follow_phys(struct vm_area_struct *vma,
 
 	if (follow_pte(vma->vm_mm, address, &ptep, &ptl))
 		goto out;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte = *ptep;
+#endif
 
 	if ((flags & FOLL_WRITE) && !pte_write(pte))
 		goto unlock;

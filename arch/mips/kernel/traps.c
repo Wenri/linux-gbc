@@ -713,6 +713,9 @@ int process_fpemu_return(int sig, void __user *fault_addr)
 /*
  * XXX Delayed fp exceptions when doing a lazy ctx switch XXX
  */
+#ifdef CONFIG_PARA_VIRT
+extern struct paravirt_cp0_reg paravirt_cp0;
+#endif
 asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
 	siginfo_t info = {0};
@@ -722,6 +725,9 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		return;
 	die_if_kernel("FP exception in kernel code", regs);
 
+#ifdef CONFIG_PARA_VIRT
+	fcr31 = paravirt_cp0.cp1_fcr;
+#endif
 	if (fcr31 & FPU_CSR_UNI_X) {
 		int sig;
 		void __user *fault_addr = NULL;

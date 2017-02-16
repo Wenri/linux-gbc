@@ -47,6 +47,30 @@
 
 #ifdef CONFIG_64BIT
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#ifndef CAC_BASE
+#ifdef CONFIG_DMA_NONCOHERENT
+#define CAC_BASE		_AC(0x4000000100000000, UL)
+#else
+#define CAC_BASE		_AC(0x4000000100000000, UL)
+#endif
+#endif
+
+#ifndef IO_BASE
+#define IO_BASE			_AC(0xffffffffa0000000, UL)
+#endif
+
+#ifndef UNCAC_BASE
+/*#define UNCAC_BASE		_AC(0xffffffffa0000000, UL)*/
+#define UNCAC_BASE		_AC(0x4000000200000000, UL)
+#endif
+
+#ifndef MAP_BASE
+#define MAP_BASE		_AC(0x4000000400000000, UL)
+#endif
+
+#else /* CONFIG_LOONGSON_GUEST_OS */
+
 #ifndef CAC_BASE
 #ifdef CONFIG_DMA_NONCOHERENT
 #define CAC_BASE		_AC(0x9800000000000000, UL)
@@ -66,6 +90,7 @@
 #ifndef MAP_BASE
 #define MAP_BASE		_AC(0xc000000000000000, UL)
 #endif
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 
 /*
  * Memory above this physical address will be considered highmem.

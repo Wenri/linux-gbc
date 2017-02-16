@@ -26,3 +26,8 @@ obj-$(CONFIG_CS5536) += cs5536/
 #
 
 obj-$(CONFIG_LOONGSON_SUSPEND) += pm.o
+
+#
+# KVM Paravirt Support
+#
+obj-$(CONFIG_PARA_VIRT) += kvm_paravirt.o

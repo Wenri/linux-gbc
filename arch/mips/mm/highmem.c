@@ -115,6 +115,9 @@ void *kmap_atomic_pfn(unsigned long pfn)
 	return (void*) vaddr;
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 struct page *kmap_atomic_to_page(void *ptr)
 {
 	unsigned long idx, vaddr = (unsigned long)ptr;
@@ -125,7 +128,11 @@ struct page *kmap_atomic_to_page(void *ptr)
 
 	idx = virt_to_fix(vaddr);
 	pte = kmap_pte - (idx - FIX_KMAP_BEGIN);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	return pte_page(kvmmips_get_guest_pte(*pte));
+#else
 	return pte_page(*pte);
+#endif
 }
 
 void __init kmap_init(void)

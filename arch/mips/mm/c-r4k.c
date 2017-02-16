@@ -1403,7 +1403,9 @@ static void __cpuinit r4k_cache_error_setup(void)
 		break;
 
 	default:
+#ifndef CONFIG_LOONGSON_GUEST_OS
 		set_uncached_handler(0x100, &except_vec2_generic, 0x80);
+#endif
 		break;
 	}
 }

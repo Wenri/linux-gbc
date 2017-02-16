@@ -80,7 +80,11 @@ pmd_t mk_pmd(struct page *page, pgprot_t prot)
 {
 	pmd_t pmd;
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pmd_val_left(pmd) = (page_to_pfn(page) << _PFN_SHIFT) | pgprot_val(prot);
+#else
 	pmd_val(pmd) = (page_to_pfn(page) << _PFN_SHIFT) | pgprot_val(prot);
+#endif
 
 	return pmd;
 }
@@ -92,12 +96,20 @@ void set_pmd_at(struct mm_struct *mm, unsigned long addr,
 	flush_tlb_all();
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern void kvmmips_insert_swpd(unsigned long kvmmips_swapper_pg_dir);
+extern unsigned long kvmmips_get_host_vaddr(unsigned long guest_vaddr);
+#endif
 void __init pagetable_init(void)
 {
 	unsigned long vaddr;
 	pgd_t *pgd_base;
 
 	/* Initialize the entire pgd.  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	kvmmips_insert_swpd((unsigned long)swapper_pg_dir);
+	invalid_pte_table = (pte_t *)kvmmips_get_host_vaddr((unsigned long)kvm_invalid_pte_table);
+#endif
 	pgd_init((unsigned long)swapper_pg_dir);
 #ifndef __PAGETABLE_PMD_FOLDED
 	pmd_init((unsigned long)invalid_pmd_table, (unsigned long)invalid_pte_table);

@@ -15,6 +15,9 @@
 #include <asm/smtc_ipi.h>
 #include <asm/time.h>
 #include <asm/cevt-r4k.h>
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+#endif
 #include <asm/gic.h>
 
 /*
@@ -72,9 +75,16 @@ irqreturn_t c0_compare_interrupt(int irq, void *dev_id)
 	 * above we now know that the reason we got here must be a timer
 	 * interrupt.  Being the paranoiacs we are we check anyway.
 	 */
+#ifdef CONFIG_PARA_VIRT
+	if (!r2 || (paravirt_cp0.cp0_cause & (1 << 30))) {
+		/* Clear Count/Compare Interrupt */
+		//write_c0_compare(paravirt_cp0.cp0_compare);
+		paravirt_cp0.cp0_compare = paravirt_cp0.cp0_compare;
+#else
 	if (!r2 || (read_c0_cause() & (1 << 30))) {
 		/* Clear Count/Compare Interrupt */
 		write_c0_compare(read_c0_compare());
+#endif
 		cd = &per_cpu(mips_clockevent_device, cpu);
 #ifdef CONFIG_CEVT_GIC
 		if (!gic_present)
@@ -135,8 +145,12 @@ int c0_compare_int_usable(void)
 	 * IP7 already pending?	 Try to clear it by acking the timer.
 	 */
 	if (c0_compare_int_pending()) {
+#ifdef CONFIG_PARA_VIRT
+		write_c0_compare(paravirt_cp0.cp0_count);
+#else
 		cnt = read_c0_count();
 		write_c0_compare(cnt);
+#endif
 		back_to_back_c0_hazard();
 		while (read_c0_count() < (cnt  + COMPARE_INT_SEEN_TICKS))
 			if (!c0_compare_int_pending())

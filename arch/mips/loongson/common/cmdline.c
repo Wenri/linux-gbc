@@ -25,7 +25,11 @@ void __init prom_init_cmdline(void)
 {
 	int prom_argc;
 	/* pmon passes arguments in 32bit pointers */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	long *_prom_argv;
+#else
 	int *_prom_argv;
+#endif
 	int i;
 	long l;
 

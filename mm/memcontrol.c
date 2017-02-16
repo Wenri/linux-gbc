@@ -6627,6 +6627,9 @@ static inline enum mc_target_type get_mctgt_type_thp(struct vm_area_struct *vma,
 }
 #endif
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static int mem_cgroup_count_precharge_pte_range(pmd_t *pmd,
 					unsigned long addr, unsigned long end,
 					struct mm_walk *walk)
@@ -6646,7 +6649,11 @@ static int mem_cgroup_count_precharge_pte_range(pmd_t *pmd,
 		return 0;
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	for (; addr != end; pte++, addr += PAGE_SIZE)
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		if (get_mctgt_type(vma, addr, kvmmips_get_guest_pte(*pte), NULL))
+#else
 		if (get_mctgt_type(vma, addr, *pte, NULL))
+#endif
 			mc.precharge++;	/* increment precharge temporarily */
 	pte_unmap_unlock(pte - 1, ptl);
 	cond_resched();
@@ -6852,7 +6859,11 @@ static int mem_cgroup_move_charge_pte_range(pmd_t *pmd,
 retry:
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	for (; addr != end; addr += PAGE_SIZE) {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		pte_t ptent = kvmmips_get_guest_pte(*(pte++));
+#else
 		pte_t ptent = *(pte++);
+#endif
 		swp_entry_t ent;
 
 		if (!mc.precharge)

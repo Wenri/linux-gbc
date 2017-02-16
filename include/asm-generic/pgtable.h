@@ -17,6 +17,9 @@
 #define USER_PGTABLES_CEILING	0UL
 #endif
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 #ifndef __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
 extern int ptep_set_access_flags(struct vm_area_struct *vma,
 				 unsigned long address, pte_t *ptep,
@@ -34,7 +37,11 @@ static inline int ptep_test_and_clear_young(struct vm_area_struct *vma,
 					    unsigned long address,
 					    pte_t *ptep)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte_t pte = *ptep;
+#endif
 	int r = 1;
 	if (!pte_young(pte))
 		r = 0;
@@ -110,6 +117,9 @@ static inline pte_t ptep_get_and_clear_full(struct mm_struct *mm,
 {
 	pte_t pte;
 	pte = ptep_get_and_clear(mm, address, ptep);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte = kvmmips_get_guest_pte(pte);
+#endif
 	return pte;
 }
 #endif
@@ -145,7 +155,11 @@ extern pmd_t pmdp_clear_flush(struct vm_area_struct *vma,
 struct mm_struct;
 static inline void ptep_set_wrprotect(struct mm_struct *mm, unsigned long address, pte_t *ptep)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t old_pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte_t old_pte = *ptep;
+#endif
 	set_pte_at(mm, address, ptep, pte_wrprotect(old_pte));
 }
 #endif
@@ -311,7 +325,13 @@ static inline pte_t __ptep_modify_prot_start(struct mm_struct *mm,
 	 * non-present, preventing the hardware from asynchronously
 	 * updating it.
 	 */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t pte = ptep_get_and_clear(mm, addr, ptep);
+	pte = kvmmips_get_guest_pte(pte);
+	return pte;
+#else
 	return ptep_get_and_clear(mm, addr, ptep);
+#endif
 }
 
 static inline void __ptep_modify_prot_commit(struct mm_struct *mm,

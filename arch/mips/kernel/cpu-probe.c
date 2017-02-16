@@ -127,10 +127,15 @@ static inline int __cpu_has_fpu(void)
 
 static inline void cpu_probe_vmbits(struct cpuinfo_mips *c)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	//TODO: this bit is configured when run in qeum without kvm
+	c->vmbits = 0x28;
+#else
 #ifdef __NEED_VMBITS_PROBE
 	write_c0_entryhi(0x3fffffffffffe000ULL);
 	back_to_back_c0_hazard();
 	c->vmbits = fls64(read_c0_entryhi() & 0x3fffffffffffe000ULL);
+#endif
 #endif
 }
 

@@ -86,10 +86,17 @@ void * __meminit vmemmap_alloc_block_buf(unsigned long size, int node)
 	return ptr;
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 void __meminit vmemmap_verify(pte_t *pte, int node,
 				unsigned long start, unsigned long end)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	unsigned long pfn = pte_pfn(kvmmips_get_guest_pte(*pte));
+#else
 	unsigned long pfn = pte_pfn(*pte);
+#endif
 	int actual_node = early_pfn_to_nid(pfn);
 
 	if (node_distance(actual_node, node) > LOCAL_DISTANCE)

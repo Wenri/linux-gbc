@@ -2,7 +2,9 @@
 # -Werror can be disabled for specific files using:
 # CFLAGS_<file.o> := -Wno-error
 ifndef CONFIG_KVM_MIPS_LOONGSON3
+ifndef CONFIG_LOONGSON_GUEST_OS
 subdir-ccflags-y := -Werror
+endif
 endif
 
 # platform specific definitions

@@ -57,11 +57,18 @@ static inline void set_huge_pte_at(struct mm_struct *mm, unsigned long addr,
 	set_pte_at(mm, addr, ptep, pte);
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static inline pte_t huge_ptep_get_and_clear(struct mm_struct *mm,
 					    unsigned long addr, pte_t *ptep)
 {
 	pte_t clear;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte_t pte = *ptep;
+#endif
 
 	pte_val(clear) = (unsigned long)invalid_pte_table;
 	set_pte_at(mm, addr, ptep, clear);
@@ -96,7 +103,11 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
 					     pte_t *ptep, pte_t pte,
 					     int dirty)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	int changed = !pte_same(kvmmips_get_guest_pte(*ptep), pte);
+#else
 	int changed = !pte_same(*ptep, pte);
+#endif
 
 	if (changed) {
 		set_pte_at(vma->vm_mm, addr, ptep, pte);
@@ -111,7 +122,11 @@ static inline int huge_ptep_set_access_flags(struct vm_area_struct *vma,
 
 static inline pte_t huge_ptep_get(pte_t *ptep)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	return kvmmips_get_guest_pte(*ptep);
+#else
 	return *ptep;
+#endif
 }
 
 static inline int arch_prepare_hugepage(struct page *page)

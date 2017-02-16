@@ -35,6 +35,9 @@ static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
 }
 #endif
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long addr, unsigned long end, pgprot_t newprot,
 		int dirty_accountable, int prot_numa, bool *ret_all_same_node)
@@ -49,7 +52,11 @@ static unsigned long change_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 	pte = pte_offset_map_lock(mm, pmd, addr, &ptl);
 	arch_enter_lazy_mmu_mode();
 	do {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		oldpte = kvmmips_get_guest_pte(*pte);
+#else
 		oldpte = *pte;
+#endif
 		if (pte_present(oldpte)) {
 			pte_t ptent;
 			bool updated = false;

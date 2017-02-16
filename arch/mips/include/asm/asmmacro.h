@@ -46,18 +46,52 @@
 	irq_disable_hazard
 	.endm
 #else
+#ifdef CONFIG_PARA_VIRT
+	.macro	local_irq_enable reg=t0 temp=t1
+	.set noat
+	PTR_LA	\reg,	paravirt_cp0
+	LONG_ADDIU	\reg,	PV_CP0_STATUS
+	LONG_L	\reg,	0(\reg)
+	.set at
+#else
 	.macro	local_irq_enable reg=t0
 	mfc0	\reg, CP0_STATUS
+#endif
 	ori	\reg, \reg, 1
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	\temp,	paravirt_cp0
+	LONG_ADDIU	\temp,	PV_CP0_STATUS
+	LONG_S	\reg,	0(\temp)
+	.set at
+#else
 	mtc0	\reg, CP0_STATUS
+#endif
 	irq_enable_hazard
 	.endm
 
+#ifdef CONFIG_PARA_VIRT
+	.macro	local_irq_disable reg=t0 temp=t1
+	.set noat
+	PTR_LA	\reg,	paravirt_cp0
+	LONG_ADDIU	\reg,	PV_CP0_STATUS
+	LONG_L	\reg,	0(\reg)
+	.set at
+#else
 	.macro	local_irq_disable reg=t0
 	mfc0	\reg, CP0_STATUS
+#endif
 	ori	\reg, \reg, 1
 	xori	\reg, \reg, 1
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	\temp,	paravirt_cp0
+	LONG_ADDIU	\temp,	PV_CP0_STATUS
+	LONG_S	\reg,	0(\temp)
+	.set at
+#else
 	mtc0	\reg, CP0_STATUS
+#endif
 	irq_disable_hazard
 	.endm
 #endif /* CONFIG_MIPS_MT_SMTC */

@@ -325,7 +325,11 @@ int __uasminit ISAFUNC(uasm_in_compat_space_p)(long addr)
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_in_compat_space_p));
 
+#ifdef CONFIG_PARA_VIRT
+int __uasminit uasm_rel_highest(long val)
+#else
 static int __uasminit uasm_rel_highest(long val)
+#endif
 {
 #ifdef CONFIG_64BIT
 	return ((((val + 0x800080008000L) >> 48) & 0xffff) ^ 0x8000) - 0x8000;
@@ -334,7 +338,11 @@ static int __uasminit uasm_rel_highest(long val)
 #endif
 }
 
+#ifdef CONFIG_PARA_VIRT
+int __uasminit uasm_rel_higher(long val)
+#else
 static int __uasminit uasm_rel_higher(long val)
+#endif
 {
 #ifdef CONFIG_64BIT
 	return ((((val + 0x80008000L) >> 32) & 0xffff) ^ 0x8000) - 0x8000;
@@ -342,6 +350,11 @@ static int __uasminit uasm_rel_higher(long val)
 	return 0;
 #endif
 }
+
+#ifdef CONFIG_PARA_VIRT
+UASM_EXPORT_SYMBOL(uasm_rel_highest);
+UASM_EXPORT_SYMBOL(uasm_rel_higher);
+#endif
 
 int __uasminit ISAFUNC(uasm_rel_hi)(long val)
 {

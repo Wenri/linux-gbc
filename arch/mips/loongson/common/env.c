@@ -38,7 +38,11 @@ do {									\
 void __init prom_init_env(void)
 {
 	/* pmon passes arguments in 32bit pointers */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	long *_prom_envp;
+#else
 	int *_prom_envp;
+#endif
 	unsigned long bus_clock;
 	unsigned int processor_id;
 	long l;
@@ -57,6 +61,14 @@ void __init prom_init_env(void)
 	}
 	if (memsize == 0)
 		memsize = 256;
+
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (memsize > 256) {
+		highmemsize = memsize - 256;
+		memsize = 256;
+	}
+#endif
+
 	if (bus_clock == 0)
 		bus_clock = 66000000;
 	if (cpu_clock_freq == 0) {

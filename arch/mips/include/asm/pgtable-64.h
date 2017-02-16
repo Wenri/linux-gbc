@@ -152,7 +152,13 @@
 #define pgd_ERROR(e) \
 	printk("%s:%d: bad pgd %016lx.\n", __FILE__, __LINE__, pgd_val(e))
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvm_invalid_pte_table[PTRS_PER_PTE];
+extern pte_t *invalid_pte_table;
+extern unsigned long kvmmips_get_guest_vaddr(unsigned long host_vaddr);
+#else
 extern pte_t invalid_pte_table[PTRS_PER_PTE];
+#endif
 extern pte_t empty_bad_page_table[PTRS_PER_PTE];
 
 
@@ -174,7 +180,11 @@ extern pmd_t invalid_pmd_table[PTRS_PER_PMD];
  */
 static inline int pmd_none(pmd_t pmd)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	return pmd_val(pmd) == kvmmips_get_guest_vaddr((unsigned long) invalid_pte_table);
+#else
 	return pmd_val(pmd) == (unsigned long) invalid_pte_table;
+#endif
 }
 
 static inline int pmd_bad(pmd_t pmd)
@@ -193,12 +203,20 @@ static inline int pmd_bad(pmd_t pmd)
 
 static inline int pmd_present(pmd_t pmd)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	return pmd_val(pmd) != kvmmips_get_guest_vaddr((unsigned long) invalid_pte_table);
+#else
 	return pmd_val(pmd) != (unsigned long) invalid_pte_table;
+#endif
 }
 
 static inline void pmd_clear(pmd_t *pmdp)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pmd_val_left(*pmdp) = ((unsigned long) invalid_pte_table);
+#else
 	pmd_val(*pmdp) = ((unsigned long) invalid_pte_table);
+#endif
 }
 #ifndef __PAGETABLE_PMD_FOLDED
 

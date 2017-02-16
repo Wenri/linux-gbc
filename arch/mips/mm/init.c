@@ -171,7 +171,11 @@ void *kmap_coherent(struct page *page, unsigned long addr)
 	return (void*) vaddr;
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define UNIQUE_ENTRYHI(idx) (0xffffffff80000000 + ((idx) << (PAGE_SHIFT + 1)))
+#else
 #define UNIQUE_ENTRYHI(idx) (CKSEG0 + ((idx) << (PAGE_SHIFT + 1)))
+#endif
 
 void kunmap_coherent(void)
 {
@@ -475,4 +479,9 @@ unsigned long kvmmips_pgd_current[NR_CPUS];
 #ifndef __PAGETABLE_PMD_FOLDED
 pmd_t invalid_pmd_table[PTRS_PER_PMD] __page_aligned_bss;
 #endif
+#ifdef CONFIG_LOONGSON_GUEST_OS
+pte_t kvm_invalid_pte_table[PTRS_PER_PTE] __page_aligned_bss;
+pte_t *invalid_pte_table;
+#else
 pte_t invalid_pte_table[PTRS_PER_PTE] __page_aligned_bss;
+#endif

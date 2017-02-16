@@ -13,7 +13,11 @@
  *	access the videoram directly without any black magic.
  */
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define VGA_MAP_MEM(x, s)	(0xd0000000L + (unsigned long)(x))
+#else
 #define VGA_MAP_MEM(x, s)	(0xb0000000L + (unsigned long)(x))
+#endif
 
 #define vga_readb(x)	(*(x))
 #define vga_writeb(x, y)	(*(y) = (x))

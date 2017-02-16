@@ -594,6 +594,9 @@ out:
  *
  * On success returns with pte mapped and locked.
  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 pte_t *__page_check_address(struct page *page, struct mm_struct *mm,
 			  unsigned long address, spinlock_t **ptlp, int sync)
 {
@@ -628,7 +631,11 @@ pte_t *__page_check_address(struct page *page, struct mm_struct *mm,
 	ptl = pte_lockptr(mm, pmd);
 check:
 	spin_lock(ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (pte_present(*pte) && page_to_pfn(page) == pte_pfn(kvmmips_get_guest_pte(*pte))) {
+#else
 	if (pte_present(*pte) && page_to_pfn(page) == pte_pfn(*pte)) {
+#endif
 		*ptlp = ptl;
 		return pte;
 	}
@@ -902,7 +909,11 @@ static int page_mkclean_one(struct page *page, struct vm_area_struct *vma,
 	if (pte_dirty(*pte) || pte_write(*pte)) {
 		pte_t entry;
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		flush_cache_page(vma, address, pte_pfn(kvmmips_get_guest_pte(*pte)));
+#else
 		flush_cache_page(vma, address, pte_pfn(*pte));
+#endif
 		entry = ptep_clear_flush(vma, address, pte);
 		entry = pte_wrprotect(entry);
 		entry = pte_mkclean(entry);
@@ -1388,7 +1399,11 @@ static int try_to_unmap_cluster(unsigned long cursor, unsigned int *mapcount,
 	for (; address < end; pte++, address += PAGE_SIZE) {
 		if (!pte_present(*pte))
 			continue;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		page = vm_normal_page(vma, address, kvmmips_get_guest_pte(*pte));
+#else
 		page = vm_normal_page(vma, address, *pte);
+#endif
 		BUG_ON(!page || PageAnon(page));
 
 		if (locked_vma) {
@@ -1412,7 +1427,11 @@ static int try_to_unmap_cluster(unsigned long cursor, unsigned int *mapcount,
 			continue;
 
 		/* Nuke the page table entry. */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		flush_cache_page(vma, address, pte_pfn(kvmmips_get_guest_pte(*pte)));
+#else
 		flush_cache_page(vma, address, pte_pfn(*pte));
+#endif
 		pteval = ptep_clear_flush(vma, address, pte);
 
 		/* If nonlinear, store the file page offset in the pte. */

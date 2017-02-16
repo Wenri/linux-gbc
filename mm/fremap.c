@@ -23,10 +23,17 @@
 
 #include "internal.h"
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static void zap_pte(struct mm_struct *mm, struct vm_area_struct *vma,
 			unsigned long addr, pte_t *ptep)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte_t pte = *ptep;
+#endif
 
 	if (pte_present(pte)) {
 		struct page *page;

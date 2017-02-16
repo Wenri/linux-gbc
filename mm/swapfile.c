@@ -871,6 +871,9 @@ unsigned int count_swap_pages(int type, int free)
  * just let do_wp_page work it out if a write is requested later - to
  * force COW, vm_page_prot omits write permission from any private vma.
  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static int unuse_pte(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long addr, swp_entry_t entry, struct page *page)
 {
@@ -892,7 +895,11 @@ static int unuse_pte(struct vm_area_struct *vma, pmd_t *pmd,
 	}
 
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (unlikely(!pte_same(kvmmips_get_guest_pte(*pte), swp_entry_to_pte(entry)))) {
+#else
 	if (unlikely(!pte_same(*pte, swp_entry_to_pte(entry)))) {
+#endif
 		mem_cgroup_cancel_charge_swapin(memcg);
 		ret = 0;
 		goto out;
@@ -947,7 +954,11 @@ static int unuse_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 		 * swapoff spends a _lot_ of time in this loop!
 		 * Test inline before going to call unuse_pte.
 		 */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		if (unlikely(pte_same(kvmmips_get_guest_pte(*pte), swp_pte))) {
+#else
 		if (unlikely(pte_same(*pte, swp_pte))) {
+#endif
 			pte_unmap(pte);
 			ret = unuse_pte(vma, pmd, addr, entry, page);
 			if (ret)

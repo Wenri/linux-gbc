@@ -28,12 +28,15 @@ static inline struct dma_map_ops *get_dma_ops(struct device *dev)
 {
 	struct mips_dma_map_ops *ops;
 
+#ifndef CONFIG_LOONGSON_GUEST_OS
 	if (board_type == LS2H) {
 		if (dev && dev->archdata.dma_ops && !special_dev(dev))
 			ops = dev->archdata.dma_ops;
 		else
 			ops = loongson_dma_map_ops;
-	} else {
+	} else
+#endif
+	{
 		if (dev && dev->archdata.dma_ops)
 			ops = dev->archdata.dma_ops;
 		else
@@ -47,13 +50,16 @@ static inline struct dma_map_ops *get_special_dma_ops(struct device *dev, dma_ad
 {
 	struct mips_dma_map_ops *ops;
 
+#ifndef CONFIG_LOONGSON_GUEST_OS
 	if (board_type == LS2H) {
 		if ((special_dev(dev) && (io_tlb_start_addr <= addr) && (addr < io_tlb_end_addr))
 				|| (dev && dev->archdata.dma_ops && !special_dev(dev)))
 			ops = dev->archdata.dma_ops;
 		else
 			ops = loongson_dma_map_ops;
-	} else {
+	} else
+#endif
+	{
 		if (dev && dev->archdata.dma_ops)
 			ops = dev->archdata.dma_ops;
 		else
@@ -68,6 +74,7 @@ static inline struct dma_map_ops *get_dev_dma_ops(struct device *dev,
 {
 	struct mips_dma_map_ops *ops;
 
+#ifndef CONFIG_LOONGSON_GUEST_OS
 	if (board_type == LS2H) {
 		if ((dev && dev->archdata.dma_ops && !special_dev(dev))
 				|| ((((io_tlb_start_addr <= addr) && (addr < io_tlb_end_addr)) || (addr & 0xf))
@@ -75,7 +82,9 @@ static inline struct dma_map_ops *get_dev_dma_ops(struct device *dev,
 			ops = dev->archdata.dma_ops;
 		else
 			ops = loongson_dma_map_ops;
-	} else {
+	} else
+#endif
+	{
 		if (dev && dev->archdata.dma_ops)
 			ops = dev->archdata.dma_ops;
 		else

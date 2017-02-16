@@ -99,7 +99,13 @@
 #define CPU_ID_MFC0 MFC0
 #endif
 		.macro	get_saved_sp	/* SMP variation */
+#ifdef CONFIG_PARA_VIRT
+		PTR_LA		k0,	paravirt_cp0
+		LONG_ADDIU	k0,	PV_CP0_CONTEXT
+		LONG_L		k0,	0(k0)
+#else
 		CPU_ID_MFC0	k0, CPU_ID_REG
+#endif
 #if defined(CONFIG_32BIT) || defined(KBUILD_64BIT_SYM32)
 		lui	k1, %hi(kernelsp)
 #else
@@ -115,7 +121,15 @@
 		.endm
 
 		.macro	set_saved_sp stackp temp temp2
+#ifdef CONFIG_PARA_VIRT
+		.set noat
+		PTR_LA			\temp,	paravirt_cp0
+		LONG_ADDIU		\temp,	PV_CP0_CONTEXT
+		LONG_L			\temp,	0(\temp)
+		.set at
+#else
 		CPU_ID_MFC0	\temp, CPU_ID_REG
+#endif
 		LONG_SRL	\temp, PTEBASE_SHIFT
 		LONG_S	\stackp, kernelsp(\temp)
 		.endm
@@ -161,7 +175,13 @@
 		.set	push
 		.set	noat
 		.set	reorder
+#ifdef CONFIG_PARA_VIRT
+		PTR_LA		k0,	paravirt_cp0
+		LONG_ADDIU	k0,	PV_CP0_STATUS
+		LONG_L		k0,	0(k0)
+#else
 		mfc0	k0, CP0_STATUS
+#endif
 		sll	k0, 3		/* extract cu0 bit */
 		.set	noreorder
 		bltz	k0, 8f
@@ -187,7 +207,13 @@
 		 * need it to operate correctly
 		 */
 		LONG_S	$0, PT_R0(sp)
+#ifdef CONFIG_PARA_VIRT
+		PTR_LA		v1,	paravirt_cp0
+		LONG_ADDIU	v1,	PV_CP0_STATUS
+		LONG_L		v1,	0(v1)
+#else
 		mfc0	v1, CP0_STATUS
+#endif
 		LONG_S	$2, PT_R2(sp)
 		LONG_S	v1, PT_STATUS(sp)
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -201,11 +227,23 @@
 		LONG_S	k0, PT_TCSTATUS(sp)
 #endif /* CONFIG_MIPS_MT_SMTC */
 		LONG_S	$4, PT_R4(sp)
+#ifdef CONFIG_PARA_VIRT
+		PTR_LA		v1,	paravirt_cp0
+		LONG_ADDIU	v1,	PV_CP0_CAUSE
+		LONG_L		v1,	0(v1)
+#else
 		mfc0	v1, CP0_CAUSE
+#endif
 		LONG_S	$5, PT_R5(sp)
 		LONG_S	v1, PT_CAUSE(sp)
 		LONG_S	$6, PT_R6(sp)
+#ifdef CONFIG_PARA_VIRT
+		PTR_LA		v1,	paravirt_cp0
+		LONG_ADDIU	v1,	PV_CP0_EPC
+		LONG_L		v1,	0(v1)
+#else
 		MFC0	v1, CP0_EPC
+#endif
 		LONG_S	$7, PT_R7(sp)
 #ifdef CONFIG_64BIT
 		LONG_S	$8, PT_R8(sp)
@@ -364,17 +402,38 @@
 		/* Restore the Octeon multiplier state */
 		jal	octeon_mult_restore
 #endif
+#ifdef	CONFIG_PARA_VIRT
+		PTR_LA		a0,	paravirt_cp0
+		LONG_ADDIU	a0,	PV_CP0_STATUS
+		LONG_L		a0,	0(a0)
+#else
 		mfc0	a0, CP0_STATUS
+#endif
 		ori	a0, STATMASK
 		xori	a0, STATMASK
+#ifdef	CONFIG_PARA_VIRT
+		//use v1 because it was used after
+		PTR_LA		v1,	paravirt_cp0
+		LONG_ADDIU	v1,	PV_CP0_STATUS
+		LONG_S		a0,	0(v1)
+#else
 		mtc0	a0, CP0_STATUS
+#endif
 		li	v1, 0xff00
 		and	a0, v1
 		LONG_L	v0, PT_STATUS(sp)
 		nor	v1, $0, v1
 		and	v0, v1
 		or	v0, a0
+#ifdef	CONFIG_PARA_VIRT
+		//use v1 because it was used after
+		PTR_LA		v1,	paravirt_cp0
+		LONG_ADDIU	v1,	PV_CP0_STATUS
+		LONG_S		v0,	0(v1)
+		//mtc0	v0, CP0_STATUS
+#else
 		mtc0	v0, CP0_STATUS
+#endif
 #ifdef CONFIG_MIPS_MT_SMTC
 /*
  * Only after EXL/ERL have been restored to status can we
@@ -429,7 +488,15 @@
 		.set	mips0
 #endif /* CONFIG_MIPS_MT_SMTC */
 		LONG_L	v1, PT_EPC(sp)
+#ifdef	CONFIG_PARA_VIRT
+		//use v0 because it was used later
+		//CONFIG_PARA_VIRT_TEST
+		PTR_LA		v0,	paravirt_cp0
+		LONG_ADDIU	v0,	PV_CP0_EPC
+		LONG_S		v1,	0(v0)
+#else
 		MTC0	v1, CP0_EPC
+#endif
 		LONG_L	$31, PT_R31(sp)
 		LONG_L	$28, PT_R28(sp)
 		LONG_L	$25, PT_R25(sp)
@@ -481,7 +548,13 @@
  */
 		.macro	CLI
 #if !defined(CONFIG_MIPS_MT_SMTC)
+#ifdef	CONFIG_PARA_VIRT
+		PTR_LA		t0,	paravirt_cp0
+		LONG_ADDIU	t0,	PV_CP0_STATUS
+		LONG_L		t0,	0(t0)
+#else
 		mfc0	t0, CP0_STATUS
+#endif
 #ifdef CONFIG_CPU_LOONGSON3
 		li	t1, ST0_CU0 | ST0_MM | STATMASK
 #else
@@ -489,7 +562,14 @@
 #endif
 		or	t0, t1
 		xori	t0, STATMASK
+#ifdef	CONFIG_PARA_VIRT
+		//use t1 because it can be used
+		PTR_LA		t1,	paravirt_cp0
+		LONG_ADDIU	t1,	PV_CP0_STATUS
+		LONG_S		t0,	0(t1)
+#else
 		mtc0	t0, CP0_STATUS
+#endif
 #else /* CONFIG_MIPS_MT_SMTC */
 		/*
 		 * For SMTC, we need to set privilege
@@ -520,7 +600,13 @@
  */
 		.macro	STI
 #if !defined(CONFIG_MIPS_MT_SMTC)
+#ifdef	CONFIG_PARA_VIRT
+		PTR_LA		t0,	paravirt_cp0
+		LONG_ADDIU	t0,	PV_CP0_STATUS
+		LONG_L		t0,	0(t0)
+#else
 		mfc0	t0, CP0_STATUS
+#endif
 #ifdef CONFIG_CPU_LOONGSON3
 		li	t1, ST0_CU0 | ST0_MM | STATMASK
 #else
@@ -528,7 +614,14 @@
 #endif
 		or	t0, t1
 		xori	t0, STATMASK & ~1
+#ifdef	CONFIG_PARA_VIRT
+		//use t1 because it can be used
+		PTR_LA		t1,	paravirt_cp0
+		LONG_ADDIU	t1,	PV_CP0_STATUS
+		LONG_S		t0,	0(t1)
+#else
 		mtc0	t0, CP0_STATUS
+#endif
 #else /* CONFIG_MIPS_MT_SMTC */
 		/*
 		 * For SMTC, we need to set privilege
@@ -600,7 +693,14 @@
 #endif
 		or	t0, t1
 		xori	t0, STATMASK & ~1
+#ifdef	CONFIG_PARA_VIRT
+		//use t1 because it can be used
+		PTR_LA		t1,	paravirt_cp0
+		LONG_ADDIU	t1,	PV_CP0_STATUS
+		LONG_S		t0,	0(t1)
+#else
 		mtc0	t0, CP0_STATUS
+#endif
 #ifdef CONFIG_MIPS_MT_SMTC
 		_ehb
 		andi	v0, v0, VPECONTROL_TE

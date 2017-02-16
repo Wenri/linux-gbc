@@ -45,7 +45,11 @@ void pci_acc_write_reg(int reg, u32 value)
 			_wrmsr(GLCP_MSR_REG(GLCP_SOFT_COM), hi, lo);
 		} else if (value & 0x01) {
 			value &= 0xfffffffc;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			hi = 0xC0000000 | ((value & 0x000ff000) >> 12);
+#else
 			hi = 0xA0000000 | ((value & 0x000ff000) >> 12);
+#endif
 			lo = 0x000fff80 | ((value & 0x00000fff) << 20);
 			_wrmsr(GLIU_MSR_REG(GLIU_IOD_BM1), hi, lo);
 		}

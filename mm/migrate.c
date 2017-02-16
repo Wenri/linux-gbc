@@ -113,6 +113,9 @@ void putback_movable_pages(struct list_head *l)
 /*
  * Restore a potential migration pte to a working pte entry
  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static int remove_migration_pte(struct page *new, struct vm_area_struct *vma,
 				 unsigned long addr, void *old)
 {
@@ -145,7 +148,11 @@ static int remove_migration_pte(struct page *new, struct vm_area_struct *vma,
 	}
 
  	spin_lock(ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte = *ptep;
+#endif
 	if (!is_swap_pte(pte))
 		goto unlock;
 
@@ -208,7 +215,11 @@ static void __migration_entry_wait(struct mm_struct *mm, pte_t *ptep,
 	struct page *page;
 
 	spin_lock(ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte = *ptep;
+#endif
 	if (!is_swap_pte(pte))
 		goto out;
 

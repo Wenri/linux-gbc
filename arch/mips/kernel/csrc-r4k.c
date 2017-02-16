@@ -10,6 +10,9 @@
 
 #include <asm/time.h>
 
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+#endif
 static cycle_t c0_hpt_read(struct clocksource *cs)
 {
 	return read_c0_count();

@@ -140,8 +140,15 @@ static inline void pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *pt
  * within a page table are directly modified.  Thus, the following
  * hook is made available.
  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern unsigned long kvmmips_get_host_vaddr(unsigned long guest_vaddr);
+extern pte_t kvmmips_get_host_pte(pte_t guest_pte);
+#endif
 static inline void set_pte(pte_t *ptep, pte_t pteval)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pteval = kvmmips_get_host_pte(pteval);
+#endif
 	*ptep = pteval;
 #if !defined(CONFIG_CPU_R3000) && !defined(CONFIG_CPU_TX39XX)
 	if (pte_val(pteval) & _PAGE_GLOBAL) {
@@ -368,11 +375,18 @@ extern void __update_tlb(struct vm_area_struct *vma, unsigned long address,
 extern void __update_cache(struct vm_area_struct *vma, unsigned long address,
 	pte_t pte);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static inline void update_mmu_cache(struct vm_area_struct *vma,
 	unsigned long address, pte_t *ptep)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte_t pte = kvmmips_get_guest_pte(*ptep);
+#else
 	pte_t pte = *ptep;
 	__update_tlb(vma, address, pte);
+#endif
 	__update_cache(vma, address, pte);
 }
 

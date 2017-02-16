@@ -2879,7 +2879,9 @@ static void __init futex_detect_cmpxchg(void)
 	 * implementation, the non-functional ones will return
 	 * -ENOSYS.
 	 */
+#ifndef CONFIG_LOONGSON_GUEST_OS
 	if (cmpxchg_futex_value_locked(&curval, NULL, 0, 0) == -EFAULT)
+#endif
 		futex_cmpxchg_enabled = 1;
 #endif
 }

@@ -473,6 +473,9 @@ static const struct mempolicy_operations mpol_ops[MPOL_MAX] = {
 static void migrate_page_add(struct page *page, struct list_head *pagelist,
 				unsigned long flags);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 /* Scan through pages checking if pages follow certain conditions. */
 static int check_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 		unsigned long addr, unsigned long end,
@@ -490,7 +493,11 @@ static int check_pte_range(struct vm_area_struct *vma, pmd_t *pmd,
 
 		if (!pte_present(*pte))
 			continue;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		page = vm_normal_page(vma, addr, kvmmips_get_guest_pte(*pte));
+#else
 		page = vm_normal_page(vma, addr, *pte);
+#endif
 		if (!page)
 			continue;
 		/*

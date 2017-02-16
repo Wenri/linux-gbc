@@ -381,6 +381,11 @@ static int vp_request_intx(struct virtio_device *vdev)
 	int err;
 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	vp_dev->pci_dev->irq = 6;
+	printk("%s: set virtio-blk and virtio-net irq = %d\n",
+		__func__, vp_dev->pci_dev->irq);
+#endif
 	err = request_irq(vp_dev->pci_dev->irq, vp_interrupt,
 			  IRQF_SHARED, dev_name(&vdev->dev), vp_dev);
 	if (!err)

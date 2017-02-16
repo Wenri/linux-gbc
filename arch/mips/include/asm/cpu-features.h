@@ -292,4 +292,54 @@
 #define cpu_has_vz		(cpu_data[0].ases & MIPS_ASE_VZ)
 #endif
 
+#ifdef CONFIG_PARA_VIRT
+struct paravirt_cp0_reg {
+	u64 cp0_index;
+	u64 cp0_random;
+	u64 cp0_entrylo0;
+	u64 cp0_entrylo1;
+	u64 cp0_context;
+	u64 cp0_pagemask;
+	u64 cp0_pagegrain;
+	u64 cp0_wired;
+	u64 cp0_hwrena;
+	u64 cp0_badvaddr;
+	u64 cp0_count;
+	u64 cp0_entryhi;
+	u64 cp0_compare;
+	u64 cp0_status;
+	u64 cp0_intctl;
+	u64 cp0_srsctl;
+	u64 cp0_srsmap;
+	u64 cp0_cause;
+	u64 cp0_epc;
+	u64 cp0_prid;
+	u64 cp0_ebase;
+	u64 cp0_config;
+	u64 cp0_config1;
+	u64 cp0_config2;
+	u64 cp0_config3;
+	u64 cp0_lladdr;
+	u64 cp0_watchlo;
+	u64 cp0_watchhi;
+	u64 cp0_xcontext;
+	u64 cp0_diagnostic;
+	u64 cp0_debug;
+	u64 cp0_depc;
+	u64 cp0_perfcnt;
+	u64 cp0_perfctl;
+	u64 cp0_ecc;
+	u64 cp0_cacheerr;
+	u64 cp0_taglo;
+	u64 cp0_datalo;
+	u64 cp0_taghi;
+	u64 cp0_datahi;
+	u64 cp0_errorepc;
+	u64 cp0_desave;
+	u64 cp1_fcr;
+	u64 xtime_sec;
+	u64 xtime_nsec;
+};
+#endif
+
 #endif /* __ASM_CPU_FEATURES_H */

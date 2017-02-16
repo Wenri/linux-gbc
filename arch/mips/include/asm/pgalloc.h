@@ -13,16 +13,27 @@
 #include <linux/mm.h>
 #include <linux/sched.h>
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern unsigned long kvmmips_get_host_vaddr(unsigned long guest_vaddr);
+#endif
 static inline void pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd,
 	pte_t *pte)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	set_pmd(pmd, __pmd(kvmmips_get_host_vaddr((unsigned long)pte)));
+#else
 	set_pmd(pmd, __pmd((unsigned long)pte));
+#endif
 }
 
 static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd,
 	pgtable_t pte)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	set_pmd(pmd, __pmd(kvmmips_get_host_vaddr((unsigned long)page_address(pte))));
+#else
 	set_pmd(pmd, __pmd((unsigned long)page_address(pte)));
+#endif
 }
 #define pmd_pgtable(pmd) pmd_page(pmd)
 

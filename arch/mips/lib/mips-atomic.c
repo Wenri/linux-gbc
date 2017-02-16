@@ -39,6 +39,9 @@ notrace void arch_local_irq_disable(void)
 {
 	preempt_disable();
 
+#ifdef CONFIG_PARA_VIRT
+	paravirt_cp0.cp0_status &= ~0x1f;
+#else
 	__asm__ __volatile__(
 	"	.set	push						\n"
 	"	.set	noat						\n"
@@ -61,6 +64,7 @@ notrace void arch_local_irq_disable(void)
 	: /* no outputs */
 	: /* no inputs */
 	: "memory");
+#endif
 
 	preempt_enable();
 }
@@ -71,6 +75,12 @@ notrace unsigned long arch_local_irq_save(void)
 {
 	unsigned long flags;
 
+#ifdef CONFIG_PARA_VIRT
+{
+	flags = paravirt_cp0.cp0_status;
+	paravirt_cp0.cp0_status &= ~0x1f;
+}
+#else
 	preempt_disable();
 
 	__asm__ __volatile__(
@@ -78,7 +88,7 @@ notrace unsigned long arch_local_irq_save(void)
 	"	.set	reorder						\n"
 	"	.set	noat						\n"
 #ifdef CONFIG_MIPS_MT_SMTC
-	"	mfc0	%[flags], $2, 1				\n"
+	"	mfc0	%[flags], $2, 1					\n"
 	"	ori	$1, %[flags], 0x400				\n"
 	"	.set	noreorder					\n"
 	"	mtc0	$1, $2, 1					\n"
@@ -97,6 +107,7 @@ notrace unsigned long arch_local_irq_save(void)
 	: [flags] "=r" (flags)
 	: /* no inputs */
 	: "memory");
+#endif
 
 	preempt_enable();
 
@@ -119,6 +130,10 @@ notrace void arch_local_irq_restore(unsigned long flags)
 #endif
 	preempt_disable();
 
+#ifdef CONFIG_PARA_VIRT
+	paravirt_cp0.cp0_status &= ~0x1f;
+	paravirt_cp0.cp0_status |= flags & 0x1;
+#else
 	__asm__ __volatile__(
 	"	.set	push						\n"
 	"	.set	noreorder					\n"
@@ -157,6 +172,7 @@ notrace void arch_local_irq_restore(unsigned long flags)
 	: [flags] "=r" (__tmp1)
 	: "0" (flags)
 	: "memory");
+#endif
 
 	preempt_enable();
 }
@@ -169,6 +185,10 @@ notrace void __arch_local_irq_restore(unsigned long flags)
 
 	preempt_disable();
 
+#ifdef CONFIG_PARA_VIRT
+	paravirt_cp0.cp0_status &= ~0x1f;
+	paravirt_cp0.cp0_status |= flags & 0x1;
+#else
 	__asm__ __volatile__(
 	"	.set	push						\n"
 	"	.set	noreorder					\n"
@@ -207,6 +227,7 @@ notrace void __arch_local_irq_restore(unsigned long flags)
 	: [flags] "=r" (__tmp1)
 	: "0" (flags)
 	: "memory");
+#endif
 
 	preempt_enable();
 }

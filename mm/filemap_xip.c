@@ -154,6 +154,9 @@ xip_file_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 }
 EXPORT_SYMBOL_GPL(xip_file_read);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 /*
  * __xip_unmap is invoked from xip_unmap and
  * xip_write
@@ -191,7 +194,11 @@ retry:
 		pte = page_check_address(page, mm, address, &ptl, 1);
 		if (pte) {
 			/* Nuke the page table entry. */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			flush_cache_page(vma, address, pte_pfn(kvmmips_get_guest_pte(*pte)));
+#else
 			flush_cache_page(vma, address, pte_pfn(*pte));
+#endif
 			pteval = ptep_clear_flush(vma, address, pte);
 			page_remove_rmap(page);
 			dec_mm_counter(mm, MM_FILEPAGES);

@@ -51,7 +51,13 @@ NESTED(except_vec3_generic, 0, sp)
 #if R5432_CP0_INTERRUPT_WAR
 	mfc0	k0, CP0_INDEX
 #endif
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k1,	paravirt_cp0
+	LONG_ADDIU	k1,	PV_CP0_CAUSE
+	LONG_L	k1,	0(k1)
+#else
 	mfc0	k1, CP0_CAUSE
+#endif
 	andi	k1, k1, 0x7c
 #ifdef CONFIG_64BIT
 	dsll	k1, k1, 1
@@ -154,12 +160,25 @@ LEAF(__r4k_wait)
 	FEXPORT(rollback_\handler)
 	.set	push
 	.set	noat
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k0,	paravirt_cp0
+	LONG_ADDIU	k0,	PV_CP0_EPC
+	LONG_L	k0, 0(k0)
+#else
 	MFC0	k0, CP0_EPC
+#endif
 	PTR_LA	k1, __r4k_wait
 	ori	k0, 0x1f	/* 32 byte rollback region */
 	xori	k0, 0x1f
 	bne	k0, k1, 9f
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	k1,	paravirt_cp0
+	LONG_ADDIU	k1,	PV_CP0_EPC
+	LONG_S	k0,	0(k1)
+#else
 	MTC0	k0, CP0_EPC
+#endif
 9:
 	.set pop
 	.endm
@@ -180,7 +199,13 @@ NESTED(handle_int, PT_SIZE, sp)
 	 */
 	.set	push
 	.set	noat
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k0,	paravirt_cp0
+	LONG_ADDIU	k0,	PV_CP0_STATUS
+	LONG_L	k0,	0(k0)
+#else
 	mfc0	k0, CP0_STATUS
+#endif
 #if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
 	and	k0, ST0_IEP
 	bnez	k0, 1f
@@ -412,7 +437,13 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.endm
 
 	.macro	__build_clear_ade
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	t0,	paravirt_cp0
+	LONG_ADDIU	t0,	PV_CP0_BADVADDR
+	LONG_L	t0,	0(t0)
+#else
 	MFC0	t0, CP0_BADVADDR
+#endif
 	PTR_S	t0, PT_BVADDR(sp)
 	KMODE
 	.endm
@@ -495,17 +526,42 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.set	noat
 	.set	noreorder
 	/* check if TLB contains a entry for EPC */
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k1,	paravirt_cp0
+	LONG_ADDIU	k1, PV_CP0_ENTRYHI
+	LONG_L	k1,	0(k1)
+#else
 	MFC0	k1, CP0_ENTRYHI
+#endif
 	andi	k1, 0xff	/* ASID_MASK */
+#ifdef CONFIG_PARA_VIRT
+	PTR_L	k0,	paravirt_cp0
+	LONG_ADDIU	k0, PV_CP0_EPC
+	LONG_L	k0,	0(k0)
+#else
 	MFC0	k0, CP0_EPC
+#endif
 	PTR_SRL k0, _PAGE_SHIFT + 1
 	PTR_SLL k0, _PAGE_SHIFT + 1
 	or	k1, k0
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	k1,	paravirt_cp0
+	LONG_ADDIU	k1,	PV_CP0_ENTRYHI
+	LONG_S	k1,	0(k1)
+#else
 	MTC0	k1, CP0_ENTRYHI
+#endif
 	mtc0_tlbw_hazard
 	tlbp
 	tlb_probe_hazard
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k1,	paravirt_cp0
+	LONG_ADDIU	k1,	PV_CP0_INDEX
+	LONG_L	k1,	0(k1)
+#else
 	mfc0	k1, CP0_INDEX
+#endif
 	.set	pop
 	bltz	k1, handle_ri	/* slow path */
 	/* fall thru */
@@ -518,7 +574,13 @@ NESTED(nmi_handler, PT_SIZE, sp)
 	.set	noreorder
 	/* MIPS32:    0x7c03e83b: rdhwr v1,$29 */
 	/* microMIPS: 0x007d6b3c: rdhwr v1,$29 */
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k1,	paravirt_cp0
+	LONG_ADDIU	k1,	PV_CP0_EPC
+	LONG_L	k1,	0(k1)
+#else
 	MFC0	k1, CP0_EPC
+#endif
 #if defined(CONFIG_CPU_MICROMIPS) || defined(CONFIG_CPU_MIPS32_R2) || defined(CONFIG_CPU_MIPS64_R2)
 	and     k0, k1, 1
 	beqz    k0, 1f
@@ -548,7 +610,13 @@ isrdhwr:
 	/* The insn is rdhwr.  No need to check CAUSE.BD here. */
 	get_saved_sp	/* k1 := current_thread_info */
 	.set	noreorder
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	k0,	paravirt_cp0
+	LONG_ADDIU	k0,	PV_CP0_EPC
+	LONG_L	k0,	0(k0)
+#else
 	MFC0	k0, CP0_EPC
+#endif
 #if defined(CONFIG_CPU_R3000) || defined(CONFIG_CPU_TX39XX)
 	ori	k1, _THREAD_MASK
 	xori	k1, _THREAD_MASK
@@ -564,14 +632,38 @@ isrdhwr:
 	LONG_ADDIU	k0, 4
 	.set	noat
 #endif
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	v1,	paravirt_cp0
+	LONG_ADDIU	v1,	PV_CP0_EPC
+	LONG_S	k0,	0(v1)
+#else
 	MTC0	k0, CP0_EPC
+#endif
 	/* I hope three instructions between MTC0 and ERET are enough... */
 	ori	k1, _THREAD_MASK
 	xori	k1, _THREAD_MASK
 	LONG_L	v1, TI_TP_VALUE(k1)
+#ifdef CONFIG_PARA_VIRT
+	.set	noreorder
+	PTR_LA	k0,	paravirt_cp0
+	LONG_ADDIU	k0, PV_CP0_EPC
+	LONG_L	k1,	0(k0)
+
+	PTR_LA	k0,	paravirt_cp0
+	LONG_ADDIU	k0, PV_CP0_STATUS
+	LONG_L	k0,	0(k0)
+	ori		k0,	0x6
+	xori	k0,	0x6
+	PTR_LA	$1,	paravirt_cp0
+	LONG_ADDIU	$1, PV_CP0_STATUS
+	jr		k1
+	LONG_S	k0,	0($1)
+#else
 	.set	mips3
 	eret
 	.set	mips0
+#endif
 #endif
 	.set	pop
 	END(handle_ri_rdhwr)

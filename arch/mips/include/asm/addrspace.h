@@ -52,6 +52,15 @@
  */
 #define CPHYSADDR(a)		((_ACAST32_(a)) & 0x1fffffff)
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#ifndef CONFIG_NUMA
+#define XPHYSADDR(a)		((_ACAST64_(a)) &			\
+				 _CONST64_(0x00000000ffffffff))
+#else
+#define XPHYSADDR(a)		((_ACAST64_(a)) &			\
+				 _CONST64_(0x00000000ffffffff))
+#endif
+#else
 #ifndef CONFIG_NUMA
 #define XPHYSADDR(a)		((_ACAST64_(a)) &			\
 				 _CONST64_(0x000000ffffffffff))
@@ -59,6 +68,7 @@
 #define XPHYSADDR(a)		((_ACAST64_(a)) &			\
 				 _CONST64_(0x0000ffffffffffff))
 #endif
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 
 #ifdef CONFIG_64BIT
 
@@ -71,10 +81,17 @@
 #define XKSSEG			_CONST64_(0x4000000000000000)
 #define XKPHYS			_CONST64_(0x8000000000000000)
 #define XKSEG			_CONST64_(0xc000000000000000)
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define CKSEG0			_CONST64_(0x4000000080000000)
+#define CKSEG1			_CONST64_(0xffffffffa0000000)
+#define CKSSEG			_CONST64_(0x40000000c0000000)
+#define CKSEG3			_CONST64_(0x40000000e0000000)
+#else
 #define CKSEG0			_CONST64_(0xffffffff80000000)
 #define CKSEG1			_CONST64_(0xffffffffa0000000)
 #define CKSSEG			_CONST64_(0xffffffffc0000000)
 #define CKSEG3			_CONST64_(0xffffffffe0000000)
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 
 #define CKSEG0ADDR(a)		(CPHYSADDR(a) | CKSEG0)
 #define CKSEG1ADDR(a)		(CPHYSADDR(a) | CKSEG1)
@@ -100,6 +117,19 @@
  * Memory segments (32bit kernel mode addresses)
  * These are the traditional names used in the 32-bit universe.
  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define KUSEG			0x00000000
+#define KSEG0			0xc0000000
+#define KSEG1			0xc0000000
+#define KSEG2			0xc0000000
+#define KSEG3			0xe0000000
+
+#define CKUSEG			0x00000000
+#define CKSEG0			0xc0000000
+#define CKSEG1			0xc0000000
+#define CKSEG2			0xc0000000
+#define CKSEG3			0xe0000000
+#else
 #define KUSEG			0x00000000
 #define KSEG0			0x80000000
 #define KSEG1			0xa0000000
@@ -111,6 +141,7 @@
 #define CKSEG1			0xa0000000
 #define CKSEG2			0xc0000000
 #define CKSEG3			0xe0000000
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 
 #endif
 

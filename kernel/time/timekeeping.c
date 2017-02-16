@@ -290,6 +290,9 @@ static void timekeeping_forward_now(struct timekeeper *tk)
  * Updates the time of day in the timespec.
  * Returns 0 on success, or -ve when suspended (timespec will be undefined).
  */
+#ifdef CONFIG_PARA_VIRT
+extern struct paravirt_cp0_reg paravirt_cp0;
+#endif
 int __getnstimeofday(struct timespec *ts)
 {
 	struct timekeeper *tk = &timekeeper;
@@ -299,12 +302,20 @@ int __getnstimeofday(struct timespec *ts)
 	do {
 		seq = read_seqcount_begin(&timekeeper_seq);
 
+#ifdef CONFIG_PARA_VIRT
+		/* sync with host */
+		ts->tv_sec = paravirt_cp0.xtime_sec;
+		ts->tv_nsec = paravirt_cp0.xtime_nsec;
+#else
 		ts->tv_sec = tk->xtime_sec;
 		nsecs = timekeeping_get_ns(tk);
+#endif
 
 	} while (read_seqcount_retry(&timekeeper_seq, seq));
 
+#ifndef CONFIG_PARA_VIRT
 	ts->tv_nsec = 0;
+#endif
 	timespec_add_ns(ts, nsecs);
 
 	/*
@@ -363,7 +374,9 @@ void ktime_get_ts(struct timespec *ts)
 {
 	struct timekeeper *tk = &timekeeper;
 	struct timespec tomono;
+#ifndef CONFIG_PARA_VIRT
 	s64 nsec;
+#endif
 	unsigned int seq;
 
 	WARN_ON(timekeeping_suspended);
@@ -371,14 +384,23 @@ void ktime_get_ts(struct timespec *ts)
 	do {
 		seq = read_seqcount_begin(&timekeeper_seq);
 		ts->tv_sec = tk->xtime_sec;
+#ifdef CONFIG_PARA_VIRT
+		ts->tv_nsec = timekeeping_get_ns(tk);
+#else
 		nsec = timekeeping_get_ns(tk);
+#endif
 		tomono = tk->wall_to_monotonic;
 
 	} while (read_seqcount_retry(&timekeeper_seq, seq));
 
+#ifdef CONFIG_PARA_VIRT
+	set_normalized_timespec(ts, ts->tv_sec + tomono.tv_sec,
+				ts->tv_nsec + tomono.tv_nsec);
+#else
 	ts->tv_sec += tomono.tv_sec;
 	ts->tv_nsec = 0;
 	timespec_add_ns(ts, nsec + tomono.tv_nsec);
+#endif
 }
 EXPORT_SYMBOL_GPL(ktime_get_ts);
 
@@ -1471,7 +1493,9 @@ void get_monotonic_boottime(struct timespec *ts)
 {
 	struct timekeeper *tk = &timekeeper;
 	struct timespec tomono, sleep;
+#ifndef CONFIG_PARA_VIRT
 	s64 nsec;
+#endif
 	unsigned int seq;
 
 	WARN_ON(timekeeping_suspended);
@@ -1479,15 +1503,24 @@ void get_monotonic_boottime(struct timespec *ts)
 	do {
 		seq = read_seqcount_begin(&timekeeper_seq);
 		ts->tv_sec = tk->xtime_sec;
+#ifdef CONFIG_PARA_VIRT
+		ts->tv_nsec = timekeeping_get_ns(tk);
+#else
 		nsec = timekeeping_get_ns(tk);
+#endif
 		tomono = tk->wall_to_monotonic;
 		sleep = tk->total_sleep_time;
 
 	} while (read_seqcount_retry(&timekeeper_seq, seq));
 
+#ifdef CONFIG_PARA_VIRT
+	set_normalized_timespec(ts, ts->tv_sec + tomono.tv_sec + sleep.tv_sec,
+			ts->tv_nsec + tomono.tv_nsec + sleep.tv_nsec);
+#else
 	ts->tv_sec += tomono.tv_sec + sleep.tv_sec;
 	ts->tv_nsec = 0;
 	timespec_add_ns(ts, nsec + tomono.tv_nsec + sleep.tv_nsec);
+#endif
 }
 EXPORT_SYMBOL_GPL(get_monotonic_boottime);
 

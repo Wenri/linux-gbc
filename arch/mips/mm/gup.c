@@ -33,12 +33,18 @@ retry:
 #endif
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static int gup_pte_range(pmd_t pmd, unsigned long addr, unsigned long end,
 			int write, struct page **pages, int *nr)
 {
 	pte_t *ptep = pte_offset_map(&pmd, addr);
 	do {
 		pte_t pte = gup_get_pte(ptep);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		pte = kvmmips_get_guest_pte(pte);
+#endif
 		struct page *page;
 
 		if (!pte_present(pte) ||

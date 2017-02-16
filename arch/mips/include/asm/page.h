@@ -140,11 +140,19 @@ typedef struct { unsigned long pgprot; } pgprot_t;
  * __pa()/__va() should be used only during mem init.
  */
 #ifdef CONFIG_64BIT
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define __pa(x)								\
+({									\
+    unsigned long __x = (unsigned long)(x);				\
+    __x > CAC_BASE ? XPHYSADDR(__x) : CPHYSADDR(__x);			\
+})
+#else
 #define __pa(x)								\
 ({									\
     unsigned long __x = (unsigned long)(x);				\
     __x < CKSEG0 ? XPHYSADDR(__x) : CPHYSADDR(__x);			\
 })
+#endif
 #else
 #define __pa(x)								\
     ((unsigned long)(x) - PAGE_OFFSET + PHYS_OFFSET)

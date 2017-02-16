@@ -76,7 +76,11 @@ static inline int r4k_250MHZhwbug(void)
 
 static inline int __maybe_unused loongson3_llsc_war(void)
 {
-       return LOONGSON3_LLSC_WAR;
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	return 0;
+#else
+	return LOONGSON3_LLSC_WAR;
+#endif
 }
 
 static inline int __maybe_unused bcm1250_m3_war(void)
@@ -842,10 +846,26 @@ build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 #ifndef CONFIG_MIPS_PGD_C0_CONTEXT
 	long pgdc = (long)pgd_current;
 #endif
+
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+	long temp_addr = (long)&paravirt_cp0;
+#endif
+
 	/*
 	 * The vmalloc handling is not in the hotpath.
 	 */
+
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_lui(p, tmp, uasm_rel_highest(temp_addr));
+	UASM_i_ADDIU(p, tmp, tmp, uasm_rel_higher(temp_addr));
+	uasm_i_dsll_safe(p, tmp, tmp, 16);
+	UASM_i_ADDIU(p, tmp, tmp, uasm_rel_hi(temp_addr));
+	uasm_i_dsll_safe(p, tmp, tmp, 16);
+	UASM_i_LW(p, tmp, uasm_rel_lo(temp_addr)+72, tmp);
+#else
 	uasm_i_dmfc0(p, tmp, C0_BADVADDR);
+#endif
 
 	if (check_for_high_segbits) {
 		/*
@@ -1198,6 +1218,10 @@ static void __cpuinit build_adjust_context(u32 **p, unsigned int ctx)
 
 static void __cpuinit build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
 {
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+	long temp_addr = (long)&paravirt_cp0;
+#endif
 	/*
 	 * Bug workaround for the Nevada. It seems as if under certain
 	 * circumstances the move from cp0_context might produce a
@@ -1212,7 +1236,16 @@ static void __cpuinit build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr
 		break;
 
 	default:
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_lui(p, tmp, uasm_rel_highest(temp_addr));
+	UASM_i_ADDIU(p, tmp, tmp, uasm_rel_higher(temp_addr));
+	uasm_i_dsll_safe(p, tmp, tmp, 16);
+	UASM_i_ADDIU(p, tmp, tmp, uasm_rel_hi(temp_addr));
+	uasm_i_dsll_safe(p, tmp, tmp, 16);
+	UASM_i_LW(p, tmp, uasm_rel_lo(temp_addr) + 32, tmp);
+#else
 		GET_CONTEXT(p, tmp); /* get context reg */
+#endif
 		UASM_i_LW(p, ptr, 0, ptr);
 		break;
 	}
@@ -1224,6 +1257,10 @@ static void __cpuinit build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr
 static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 					unsigned int ptep)
 {
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+	long temp_addr = (long)&paravirt_cp0;
+#endif
 	/*
 	 * 64bit address support (36bit on a 32bit CPU) in a 32bit
 	 * Kernel is a special case. Only a few CPUs use it.
@@ -1274,7 +1311,16 @@ static void __cpuinit build_update_entries(u32 **p, unsigned int tmp,
 	}
 	if (r4k_250MHZhwbug())
 		UASM_i_MTC0(p, 0, C0_ENTRYLO1);
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_lui(p, tmp, uasm_rel_highest(temp_addr));
+	UASM_i_ADDIU(p, tmp, tmp, uasm_rel_higher(temp_addr));
+	uasm_i_dsll_safe(p, tmp, tmp, 16);
+	UASM_i_ADDIU(p, tmp, tmp, uasm_rel_hi(temp_addr));
+	uasm_i_dsll_safe(p, tmp, tmp, 16);
+	UASM_i_SW(p, ptep, uasm_rel_lo(temp_addr) + 24, tmp);
+#else
 	UASM_i_MTC0(p, ptep, C0_ENTRYLO1); /* load it */
+#endif
 #endif
 }
 
@@ -1917,6 +1963,10 @@ iPTE_SW(u32 **p, struct uasm_reloc **r, unsigned int pte, unsigned int ptr,
 #ifdef CONFIG_64BIT_PHYS_ADDR
 	unsigned int hwmode = mode & (_PAGE_VALID | _PAGE_DIRTY);
 #endif
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+	long temp_addr = (long)&paravirt_cp0;
+#endif
 
 	uasm_i_ori(p, pte, pte, mode);
 #ifdef CONFIG_SMP
@@ -2233,6 +2283,10 @@ build_r4000_tlbchange_handler_head(u32 **p, struct uasm_label **l,
 #else
 	build_get_pgde32(p, wr.r1, wr.r2); /* get pgd in ptr */
 #endif
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+	long temp_addr = (long)&paravirt_cp0;
+#endif
 
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 	/*
@@ -2243,7 +2297,16 @@ build_r4000_tlbchange_handler_head(u32 **p, struct uasm_label **l,
 	build_is_huge_pte(p, r, wr.r1, wr.r2, label_tlb_huge_update);
 #endif
 
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_lui(p, wr.r1, uasm_rel_highest(temp_addr));
+	UASM_i_ADDIU(p, wr.r1, wr.r1, uasm_rel_higher(temp_addr));
+	uasm_i_dsll_safe(p, wr.r1, wr.r1, 16);
+	UASM_i_ADDIU(p, wr.r1, wr.r1, uasm_rel_hi(temp_addr));
+	uasm_i_dsll_safe(p, wr.r1, wr.r1, 16);
+	UASM_i_LW(p, wr.r1, uasm_rel_lo(temp_addr)+72, wr.r1);
+#else
 	UASM_i_MFC0(p, wr.r1, C0_BADVADDR);
+#endif
 	UASM_i_LW(p, wr.r2, 0, wr.r2);
 	UASM_i_SRL(p, wr.r1, wr.r1, PAGE_SHIFT + PTE_ORDER - PTE_T_LOG2);
 	uasm_i_andi(p, wr.r1, wr.r1, (PTRS_PER_PTE - 1) << PTE_T_LOG2);
@@ -2294,6 +2357,10 @@ static void __cpuinit build_r4000_tlb_load_handler(void)
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
 
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_0 & 0x0fffffff);
+	uasm_i_nop(&p);
+#else
 	if (bcm1250_m3_war()) {
 		unsigned int segbits = 44;
 
@@ -2430,6 +2497,7 @@ static void __cpuinit build_r4000_tlb_load_handler(void)
 #endif
 	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_0 & 0x0fffffff);
 	uasm_i_nop(&p);
+#endif
 
 	if ((p - handle_tlbl) > FASTPATH_SIZE)
 		panic("TLB load handler fastpath space exceeded");
@@ -2452,6 +2520,10 @@ static void __cpuinit build_r4000_tlb_store_handler(void)
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
 
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
+	uasm_i_nop(&p);
+#else
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
 	build_pte_writable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbs);
 	if (m4kc_tlbp_war())
@@ -2486,6 +2558,7 @@ static void __cpuinit build_r4000_tlb_store_handler(void)
 #endif
 	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
 	uasm_i_nop(&p);
+#endif
 
 	if ((p - handle_tlbs) > FASTPATH_SIZE)
 		panic("TLB store handler fastpath space exceeded");
@@ -2508,6 +2581,10 @@ static void __cpuinit build_r4000_tlb_modify_handler(void)
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
 
+#ifdef CONFIG_PARA_VIRT
+	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
+	uasm_i_nop(&p);
+#else
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
 	build_pte_modifiable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbm);
 	if (m4kc_tlbp_war())
@@ -2543,6 +2620,7 @@ static void __cpuinit build_r4000_tlb_modify_handler(void)
 #endif
 	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
 	uasm_i_nop(&p);
+#endif
 
 	if ((p - handle_tlbm) > FASTPATH_SIZE)
 		panic("TLB modify handler fastpath space exceeded");
@@ -2718,8 +2796,10 @@ void __cpuinit build_tlb_refill_handler(void)
 			build_r4000_tlb_store_handler();
 			build_r4000_tlb_modify_handler();
 			if (!cpu_has_local_ebase)
+#ifndef CONFIG_PARA_VIRT
 				if(!cpu_has_fasttlb)
 					build_r4000_tlb_refill_handler();
+#endif
 			run_once++;
 		}
 		if (cpu_has_local_ebase)

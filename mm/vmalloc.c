@@ -107,6 +107,9 @@ static void vunmap_page_range(unsigned long addr, unsigned long end)
 	} while (pgd++, addr = next, addr != end);
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static int vmap_pte_range(pmd_t *pmd, unsigned long addr,
 		unsigned long end, pgprot_t prot, struct page **pages, int *nr)
 {
@@ -242,7 +245,11 @@ struct page *vmalloc_to_page(const void *vmalloc_addr)
 				pte_t *ptep, pte;
 
 				ptep = pte_offset_map(pmd, addr);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+				pte = kvmmips_get_guest_pte(*ptep);
+#else
 				pte = *ptep;
+#endif
 				if (pte_present(pte))
 					page = pte_page(pte);
 				pte_unmap(ptep);

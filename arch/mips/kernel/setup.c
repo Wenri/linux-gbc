@@ -753,6 +753,11 @@ void __init setup_arch(char **cmdline_p)
 unsigned long kernelsp[NR_CPUS];
 unsigned long fw_arg0, fw_arg1, fw_arg2, fw_arg3;
 
+#ifdef CONFIG_PARA_VIRT
+struct paravirt_cp0_reg paravirt_cp0;
+EXPORT_SYMBOL(paravirt_cp0);
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 struct dentry *mips_debugfs_dir;
 static int __init debugfs_mips(void)

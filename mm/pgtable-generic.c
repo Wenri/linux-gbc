@@ -10,6 +10,9 @@
 #include <asm/tlb.h>
 #include <asm-generic/pgtable.h>
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 #ifndef __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
 /*
  * Only sets the access flags (dirty, accessed), as well as write 
@@ -24,7 +27,11 @@ int ptep_set_access_flags(struct vm_area_struct *vma,
 			  unsigned long address, pte_t *ptep,
 			  pte_t entry, int dirty)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	int changed = !pte_same(kvmmips_get_guest_pte(*ptep), entry);
+#else
 	int changed = !pte_same(*ptep, entry);
+#endif
 	if (changed) {
 		set_pte_at(vma->vm_mm, address, ptep, entry);
 		flush_tlb_fix_spurious_fault(vma, address);
@@ -89,6 +96,9 @@ pte_t ptep_clear_flush(struct vm_area_struct *vma, unsigned long address,
 	struct mm_struct *mm = (vma)->vm_mm;
 	pte_t pte;
 	pte = ptep_get_and_clear(mm, address, ptep);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	pte = kvmmips_get_guest_pte(pte);
+#endif
 	if (pte_accessible(mm, pte))
 		flush_tlb_page(vma, address);
 	return pte;

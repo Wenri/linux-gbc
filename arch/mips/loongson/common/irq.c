@@ -35,11 +35,18 @@ void bonito_irqdispatch(void)
 	}
 }
 
+#ifdef CONFIG_PARA_VIRT
+extern  struct paravirt_cp0_reg paravirt_cp0;
+#endif
 asmlinkage void plat_irq_dispatch(void)
 {
 	unsigned int pending;
 
+#ifdef CONFIG_PARA_VIRT
+	pending = paravirt_cp0.cp0_cause & paravirt_cp0.cp0_status & ST0_IM;
+#else
 	pending = read_c0_cause() & read_c0_status() & ST0_IM;
+#endif
 
 	/* machine-specific plat_irq_dispatch */
 	mach_irq_dispatch(pending);

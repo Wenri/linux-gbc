@@ -170,6 +170,10 @@ void __uasminit ISAFUNC(uasm_build_label)(struct uasm_label **lab, u32 *addr,
 #ifdef CONFIG_64BIT
 int ISAFUNC(uasm_in_compat_space_p)(long addr);
 #endif
+#ifdef CONFIG_PARA_VIRT
+int ISAFUNC(uasm_rel_highest)(long val);
+int ISAFUNC(uasm_rel_higher)(long val);
+#endif
 int ISAFUNC(uasm_rel_hi)(long val);
 int ISAFUNC(uasm_rel_lo)(long val);
 void ISAFUNC(UASM_i_LA_mostly)(u32 **buf, unsigned int rs, long addr);

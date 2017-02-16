@@ -50,9 +50,18 @@ do {									\
  * into the context register.
  */
 extern unsigned long pgd_current[];
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern void kvmmips_insert_pgcurrent(unsigned long kvmmips_pg_current);
+#endif
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define TLBMISS_HANDLER_SETUP_PGD(pgd) \
+	pgd_current[smp_processor_id()] = (unsigned long)(pgd);		\
+	kvmmips_insert_pgcurrent((unsigned long)pgd)
+#else
 #define TLBMISS_HANDLER_SETUP_PGD(pgd) \
 	pgd_current[smp_processor_id()] = (unsigned long)(pgd)
+#endif
 
 #ifdef CONFIG_32BIT
 #define TLBMISS_HANDLER_SETUP()						\
@@ -118,7 +127,13 @@ get_new_mmu_context(struct mm_struct *mm, unsigned long cpu)
 	extern void kvm_local_flush_tlb_all(void);
 	unsigned long asid = asid_cache(cpu);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	asid |= (ASID_FIRST_VERSION >> 1);
+	if (! ((asid += ASID_INC) & (ASID_MASK >> 1)) ) {
+		asid |= (ASID_FIRST_VERSION >> 1);
+#else
 	if (! ((asid += ASID_INC) & ASID_MASK) ) {
+#endif
 		if (cpu_has_vtag_icache)
 			flush_icache_all();
 #ifdef CONFIG_KVM
@@ -130,8 +145,13 @@ get_new_mmu_context(struct mm_struct *mm, unsigned long cpu)
 #else
 		local_flush_tlb_all();	/* start new asid cycle */
 #endif
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		if (asid == (ASID_FIRST_VERSION >> 1))		/* fix version if needed */
+			asid |= ASID_FIRST_VERSION;
+#else
 		if (!asid)		/* fix version if needed */
 			asid = ASID_FIRST_VERSION;
+#endif
 	}
 
 	cpu_context(cpu, mm) = asid_cache(cpu) = asid;

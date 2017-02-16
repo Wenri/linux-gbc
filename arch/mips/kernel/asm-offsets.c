@@ -72,6 +72,53 @@ void output_ptreg_defines(void)
 	OFFSET(PT_MTP, pt_regs, mtp);
 #endif /* CONFIG_CPU_CAVIUM_OCTEON */
 	DEFINE(PT_SIZE, sizeof(struct pt_regs));
+
+#ifdef	CONFIG_PARA_VIRT
+	COMMENT("mips paravirt cp0 regs offset");
+	OFFSET(PV_CP0_INDEX, paravirt_cp0_reg, cp0_index);
+	OFFSET(PV_CP0_RANDOM, paravirt_cp0_reg, cp0_random);
+	OFFSET(PV_CP0_ENTRYLO0, paravirt_cp0_reg, cp0_entrylo0);
+	OFFSET(PV_CP0_ENTRYLO1, paravirt_cp0_reg, cp0_entrylo1);
+	OFFSET(PV_CP0_CONTEXT, paravirt_cp0_reg, cp0_context);
+	OFFSET(PV_CP0_PAGEMASK, paravirt_cp0_reg, cp0_pagemask);
+	OFFSET(PV_CP0_PAGEGRAIN, paravirt_cp0_reg, cp0_pagegrain);
+	OFFSET(PV_CP0_WIRED, paravirt_cp0_reg, cp0_wired);
+	OFFSET(PV_CP0_HWRENA, paravirt_cp0_reg, cp0_hwrena);
+	OFFSET(PV_CP0_BADVADDR, paravirt_cp0_reg, cp0_badvaddr);
+	OFFSET(PV_CP0_COUNT, paravirt_cp0_reg, cp0_count);
+	OFFSET(PV_CP0_ENTRYHI, paravirt_cp0_reg, cp0_entryhi);
+	OFFSET(PV_CP0_COMPARE, paravirt_cp0_reg, cp0_compare);
+	OFFSET(PV_CP0_STATUS, paravirt_cp0_reg, cp0_status);
+	OFFSET(PV_CP0_INTCTL, paravirt_cp0_reg, cp0_intctl);
+	OFFSET(PV_CP0_SRSCTL, paravirt_cp0_reg, cp0_srsctl);
+	OFFSET(PV_CP0_SRSMAP, paravirt_cp0_reg, cp0_srsmap);
+	OFFSET(PV_CP0_CAUSE, paravirt_cp0_reg, cp0_cause);
+	OFFSET(PV_CP0_EPC, paravirt_cp0_reg, cp0_epc);
+	OFFSET(PV_CP0_EBASE, paravirt_cp0_reg, cp0_ebase);
+	OFFSET(PV_CP0_PRID, paravirt_cp0_reg, cp0_prid);
+	OFFSET(PV_CP0_CONFIG, paravirt_cp0_reg, cp0_config);
+	OFFSET(PV_CP0_CONFIG1, paravirt_cp0_reg, cp0_config1);
+	OFFSET(PV_CP0_CONFIG2, paravirt_cp0_reg, cp0_config2);
+	OFFSET(PV_CP0_CONFIG3, paravirt_cp0_reg, cp0_config3);
+	OFFSET(PV_CP0_LLADDR, paravirt_cp0_reg, cp0_lladdr);
+	OFFSET(PV_CP0_WATCHLO, paravirt_cp0_reg, cp0_watchlo);
+	OFFSET(PV_CP0_WATCHHI, paravirt_cp0_reg, cp0_watchhi);
+	OFFSET(PV_CP0_XCONTEXT, paravirt_cp0_reg, cp0_xcontext);
+	OFFSET(PV_CP0_DIAGNOSTIC, paravirt_cp0_reg, cp0_diagnostic);
+	OFFSET(PV_CP0_DEBUG, paravirt_cp0_reg, cp0_debug);
+	OFFSET(PV_CP0_DEPC, paravirt_cp0_reg, cp0_depc);
+	OFFSET(PV_CP0_PERFCNT, paravirt_cp0_reg, cp0_perfcnt);
+	OFFSET(PV_CP0_PERFCTL, paravirt_cp0_reg, cp0_perfctl);
+	OFFSET(PV_CP0_ECC, paravirt_cp0_reg, cp0_ecc);
+	OFFSET(PV_CP0_CACHEERR, paravirt_cp0_reg, cp0_cacheerr);
+	OFFSET(PV_CP0_TAGLO, paravirt_cp0_reg, cp0_taglo);
+	OFFSET(PV_CP0_DATALO, paravirt_cp0_reg, cp0_datalo);
+	OFFSET(PV_CP0_TAGHI, paravirt_cp0_reg, cp0_taghi);
+	OFFSET(PV_CP0_DATAHI, paravirt_cp0_reg, cp0_datahi);
+	OFFSET(PV_CP0_ERROREPC, paravirt_cp0_reg, cp0_errorepc);
+	OFFSET(PV_CP0_DESAVE, paravirt_cp0_reg, cp0_desave);
+#endif
+
 	BLANK();
 }
 

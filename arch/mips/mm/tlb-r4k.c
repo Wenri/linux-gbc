@@ -25,14 +25,23 @@
 #endif
 
 extern void build_tlb_refill_handler(void);
+#ifdef CONFIG_PARA_VIRT
+	extern struct paravirt_cp0_reg paravirt_cp0;
+#endif
 
 /*
  * Make sure all entries differ.  If they're not different
  * MIPS32 will take revenge ...
  */
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define UNIQUE_ENTRYHI(idx)						\
+		((0xffffffff80000000 + ((idx) << (PAGE_SHIFT + 1))) |		\
+		 (cpu_has_tlbinv ? MIPS_ENTRYHI_EHINV : 0))
+#else
 #define UNIQUE_ENTRYHI(idx)						\
 		((CKSEG0 + ((idx) << (PAGE_SHIFT + 1))) |		\
 		 (cpu_has_tlbinv ? MIPS_ENTRYHI_EHINV : 0))
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 
 /* Atomicity and interruptability */
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -72,12 +81,21 @@ extern void build_tlb_refill_handler(void);
 
 #endif
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern void kvmmips_local_flush_tlb_all(void);
+extern void kvmmips_local_flush_tlb_page(unsigned long entryhi);
+#endif
 void local_flush_tlb_all(void)
 {
 	unsigned long flags;
 	unsigned long old_ctx;
 	int entry, loongson_tmp;
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	kvmmips_local_flush_tlb_all();
+
+	return;
+#endif
 	ENTER_CRITICAL(flags);
 	/* Save old context and create impossible VPN2 value */
 	old_ctx = read_c0_entryhi();
@@ -149,10 +167,16 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 		if (size <= (current_cpu_data.tlbsizeftlbsets ?
 			     current_cpu_data.tlbsize / 16 :
 			     current_cpu_data.tlbsize / 2)) {
+#ifndef CONFIG_LOONGSON_GUEST_OS
 			int oldpid = read_c0_entryhi();
+#endif
 			int newpid = cpu_asid(cpu, mm);
 
 			while (start < end) {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+				kvmmips_local_flush_tlb_page(start | newpid);
+				start += (PAGE_SIZE << 1);
+#else
 				int idx;
 
 				write_c0_entryhi(start | newpid);
@@ -169,9 +193,12 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 				write_c0_entryhi(UNIQUE_ENTRYHI(idx));
 				mtc0_tlbw_hazard();
 				tlb_write_indexed();
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 			}
+#ifndef CONFIG_LOONGSON_GUEST_OS
 			tlbw_use_hazard();
 			write_c0_entryhi(oldpid);
+#endif
 		} else {
 			drop_mmu_context(mm, cpu);
 		}
@@ -197,6 +224,10 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 		end &= (PAGE_MASK << 1);
 
 		while (start < end) {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+			kvmmips_local_flush_tlb_page(start);
+			start += (PAGE_SIZE << 1);
+#else
 			int idx;
 
 			write_c0_entryhi(start);
@@ -213,9 +244,12 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 			write_c0_entryhi(UNIQUE_ENTRYHI(idx));
 			mtc0_tlbw_hazard();
 			tlb_write_indexed();
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 		}
+#ifndef CONFIG_LOONGSON_GUEST_OS
 		tlbw_use_hazard();
 		write_c0_entryhi(pid);
+#endif
 	} else {
 		local_flush_tlb_all();
 	}
@@ -234,6 +268,9 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 		newpid = cpu_asid(cpu, vma->vm_mm);
 		page &= (PAGE_MASK << 1);
 		ENTER_CRITICAL(flags);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+		kvmmips_local_flush_tlb_page(page | newpid);
+#else
 		oldpid = read_c0_entryhi();
 		write_c0_entryhi(page | newpid);
 		mtc0_tlbw_hazard();
@@ -252,6 +289,7 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 
 	finish:
 		write_c0_entryhi(oldpid);
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 		FLUSH_ITLB_VM(vma);
 		EXIT_CRITICAL(flags);
 	}
@@ -263,6 +301,11 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
  */
 void local_flush_tlb_one(unsigned long page)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	page &= (PAGE_MASK << 1);
+	kvmmips_local_flush_tlb_page(page);
+	return;
+#endif
 	unsigned long flags;
 	int oldpid, idx;
 
@@ -326,6 +369,10 @@ finish:
  */
 void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 {
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	FLUSH_ITLB_VM(vma);
+	return;
+#else
 	unsigned long flags;
 	pgd_t *pgdp;
 	pud_t *pudp;
@@ -390,6 +437,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	tlbw_use_hazard();
 	FLUSH_ITLB_VM(vma);
 	EXIT_CRITICAL(flags);
+#endif /* CONFIG_LOONGSON_GUEST_OS */
 }
 
 #ifdef CONFIG_KVM_MIPS_LOONGSON3

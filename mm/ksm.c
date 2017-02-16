@@ -852,6 +852,9 @@ static inline int pages_identical(struct page *page1, struct page *page2)
 	return !memcmp_pages(page1, page2);
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+extern pte_t kvmmips_get_guest_pte(pte_t host_pte);
+#endif
 static int write_protect_page(struct vm_area_struct *vma, struct page *page,
 			      pte_t *orig_pte)
 {
@@ -906,7 +909,11 @@ static int write_protect_page(struct vm_area_struct *vma, struct page *page,
 		entry = pte_mkclean(pte_wrprotect(entry));
 		set_pte_at_notify(mm, addr, ptep, entry);
 	}
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	*orig_pte = kvmmips_get_guest_pte(*ptep);
+#else
 	*orig_pte = *ptep;
+#endif
 	err = 0;
 
 out_unlock:
@@ -952,7 +959,11 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 	mmu_notifier_invalidate_range_start(mm, mmun_start, mmun_end);
 
 	ptep = pte_offset_map_lock(mm, pmd, addr, &ptl);
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	if (!pte_same(kvmmips_get_guest_pte(*ptep), orig_pte)) {
+#else
 	if (!pte_same(*ptep, orig_pte)) {
+#endif
 		pte_unmap_unlock(ptep, ptl);
 		goto out_mn;
 	}
@@ -960,7 +971,11 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 	get_page(kpage);
 	page_add_anon_rmap(kpage, vma, addr);
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+	flush_cache_page(vma, addr, pte_pfn(kvmmips_get_guest_pte(*ptep)));
+#else
 	flush_cache_page(vma, addr, pte_pfn(*ptep));
+#endif
 	ptep_clear_flush(vma, addr, ptep);
 	set_pte_at_notify(mm, addr, ptep, mk_pte(kpage, vma->vm_page_prot));
 

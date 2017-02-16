@@ -44,7 +44,13 @@
  */
 	.align	5
 	LEAF(resume)
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	t1,	paravirt_cp0
+	LONG_ADDIU	t1,	PV_CP0_STATUS
+	LONG_L	t1,	0(t1)
+#else
 	mfc0	t1, CP0_STATUS
+#endif
 	LONG_S	t1, THREAD_STATUS(a0)
 	cpu_save_nonscratch a0
 	LONG_S	ra, THREAD_REG31(a0)
@@ -89,7 +95,13 @@
 	jal	mips_ihb
 	move	ra,t1
 #endif /* CONFIG_MIPS_MT_SMTC */
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	t1,	paravirt_cp0
+	LONG_ADDIU	t1,	PV_CP0_STATUS
+	LONG_L	t1,	0(t1)
+#else
 	mfc0	t1, CP0_STATUS		/* Do we really need this? */
+#endif
 	li	a3, 0xff01
 	and	t1, a3
 	LONG_L	a2, THREAD_STATUS(a1)
@@ -121,7 +133,13 @@
  */
 LEAF(_save_fp)
 #ifdef CONFIG_64BIT
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	t0,	paravirt_cp0
+	LONG_ADDIU	t0,	PV_CP0_STATUS
+	LONG_L	t0,	0(t0)
+#else
 	mfc0	t0, CP0_STATUS
+#endif
 #endif
 	fpu_save_double a0 t0 t1		# clobbers t1
 	jr	ra
@@ -132,7 +150,13 @@ LEAF(_save_fp)
  */
 LEAF(_restore_fp)
 #ifdef CONFIG_64BIT
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	t0,	paravirt_cp0
+	LONG_ADDIU	t0,	PV_CP0_STATUS
+	LONG_L	t0,	0(t0)
+#else
 	mfc0	t0, CP0_STATUS
+#endif
 #endif
 	fpu_restore_double a0 t0 t1		# clobbers t1
 	jr	ra
@@ -157,7 +181,13 @@ LEAF(_init_fpu)
 	or	t0, t1
 	mtc0	t0, CP0_TCSTATUS
 #else /* Normal MIPS CU1 enable */
+#ifdef CONFIG_PARA_VIRT
+	PTR_LA	t0,	paravirt_cp0
+	LONG_ADDIU	t0,	PV_CP0_STATUS
+	LONG_L	t0,	0(t0)
+#else
 	mfc0	t0, CP0_STATUS
+#endif
 	li	t1, ST0_CU1
 	or	t0, t1
 	mtc0	t0, CP0_STATUS

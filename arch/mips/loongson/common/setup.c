@@ -18,8 +18,10 @@
 #include <linux/screen_info.h>
 #endif
 
+#ifndef CONFIG_LOONGSON_GUEST_OS
 void (*__wbflush)(void);
 EXPORT_SYMBOL(__wbflush);
+#endif
 
 static void wbflush_loongson(void)
 {
@@ -31,6 +33,11 @@ static void wbflush_loongson(void)
 	    ".set\tpop\n\t"
 	    ".set mips0\n\t");
 }
+
+#ifdef CONFIG_LOONGSON_GUEST_OS
+void (*__wbflush)(void) = wbflush_loongson;
+EXPORT_SYMBOL(__wbflush);
+#endif
 
 void __init plat_mem_setup(void)
 {

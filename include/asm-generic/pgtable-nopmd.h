@@ -45,7 +45,12 @@ static inline pmd_t * pmd_offset(pud_t * pud, unsigned long address)
 	return (pmd_t *)pud;
 }
 
+#ifdef CONFIG_LOONGSON_GUEST_OS
+#define pmd_val(x)				kvmmips_get_guest_vaddr(pud_val((x).pud))
+#define pmd_val_left(x)				(pud_val((x).pud))
+#else
 #define pmd_val(x)				(pud_val((x).pud))
+#endif
 #define __pmd(x)				((pmd_t) { __pud(x) } )
 
 #define pud_page(pud)				(pmd_page((pmd_t){ pud }))

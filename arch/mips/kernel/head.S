@@ -62,7 +62,15 @@
 	mtc0	t0, CP0_WIRED
 	tlbwi
 #else
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	t0,	paravirt_cp0
+	LONG_ADDIU	t0,	PV_CP0_WIRED
+	LONG_S	zero,	0(t0)
+	.set at
+#else
 	mtc0	zero, CP0_WIRED
+#endif
 #endif
 	.endm
 
@@ -201,7 +209,28 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	LONG_S		a2, fw_arg2
 	LONG_S		a3, fw_arg3
 
+#ifdef CONFIG_PARA_VIRT
+	move	t0,	v0
+	move	t1,	a0
+	PTR_LA  a0,	paravirt_cp0
+	PTR_LA  v0,	10001
+	#syscall
+	tgei	v0, 0
+	nop
+	move	v0,	t0
+	move	a0,	t1
+#endif
+
+#ifdef CONFIG_PARA_VIRT
+	.set noat
+	PTR_LA	t0,	paravirt_cp0
+	LONG_ADDIU	t0,	PV_CP0_CONTEXT
+	LONG_S	zero,	0(t0)
+	.set at
+#else
 	MTC0		zero, CP0_CONTEXT	# clear context register
+#endif
+
 	PTR_LA		$28, init_thread_union
 	/* Set the SP after an empty pt_regs.  */
 	PTR_LI		sp, _THREAD_SIZE - 32 - PT_SIZE
