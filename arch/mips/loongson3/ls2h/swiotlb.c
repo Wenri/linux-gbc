@@ -21,8 +21,13 @@
 extern void __dma_sync(unsigned long addr, size_t size,
 	enum dma_data_direction direction);
 
-extern unsigned long dma_addr_to_virt(struct device *dev,
-	dma_addr_t dma_addr);
+static inline void *dma_addr_to_virt(struct device *dev,
+	dma_addr_t dma_addr)
+{
+	unsigned long addr = plat_dma_addr_to_phys(dev, dma_addr);
+
+	return phys_to_virt(addr);
+}
 
 static dma_addr_t pcie_dma_map_page(struct device *dev, struct page *page,
 	unsigned long offset, size_t size, enum dma_data_direction direction,
@@ -36,26 +41,94 @@ static dma_addr_t pcie_dma_map_page(struct device *dev, struct page *page,
 						direction, attrs);
 
 	if (!plat_device_is_coherent(dev)) {
-		__dma_sync(dma_addr_to_virt(dev, daddr), size, direction);
+		dma_cache_sync(NULL, phys_to_virt(plat_dma_addr_to_phys(dev,
+				daddr)), size, direction);
 	}
 
 	mb();
 	return daddr;
 }
 
-static int pcie_dma_map_sg(struct device *dev, struct scatterlist *sg,
+void pcie_dma_unmap_page(struct device *hwdev, dma_addr_t dev_addr,
+			size_t size, enum dma_data_direction dir,
+			struct dma_attrs *attrs)
+{
+	if (!plat_device_is_coherent(hwdev))
+		dma_cache_sync(NULL, dma_addr_to_virt(hwdev, dev_addr), size,
+				dir);
+	swiotlb_unmap_page(hwdev, dev_addr, size, dir, attrs);
+}
+
+static int pcie_dma_map_sg(struct device *dev, struct scatterlist *sgl,
 	int nents, enum dma_data_direction direction, struct dma_attrs *attrs)
 {
-	int r = swiotlb_map_sg_attrs(dev, sg, nents, direction, NULL);
+	struct scatterlist *sg;
+	int i;
+	int r = swiotlb_map_sg_attrs(dev, sgl, nents, direction, NULL);
+	if (!plat_device_is_coherent(dev))
+	{
+		for_each_sg(sgl, sg, nents, i) {
+			dma_cache_sync(NULL, dma_addr_to_virt(dev,
+					sg->dma_address), sg->length, direction);
+		}
+	}
 	mb();
 	return r;
+}
+
+static void
+pcie_dma_unmap_sg_attrs(struct device *hwdev, struct scatterlist *sgl,
+			int nelems, enum dma_data_direction dir,
+			struct dma_attrs *attrs)
+{
+	struct scatterlist *sg;
+	int i;
+	void *addr;
+	if (!plat_device_is_coherent(hwdev) &&
+			dir != DMA_TO_DEVICE) {
+		for_each_sg(sgl, sg, nelems, i) {
+			addr = sg_virt(sg);
+			if (addr)
+				dma_cache_sync(NULL, addr, sg->length, dir);
+		}
+	}
+	swiotlb_unmap_sg_attrs(hwdev, sgl, nelems, dir, attrs);
+}
+
+static void
+pcie_dma_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+				size_t size, enum dma_data_direction dir)
+{
+	if (!plat_device_is_coherent(hwdev))
+		dma_cache_sync(NULL, dma_addr_to_virt(hwdev, dev_addr), size, dir);
+	swiotlb_sync_single_for_cpu(hwdev, dev_addr, size, dir);
 }
 
 static void pcie_dma_sync_single_for_device(struct device *dev,
 	dma_addr_t dma_handle, size_t size, enum dma_data_direction direction)
 {
+	if (!plat_device_is_coherent(dev))
+		dma_cache_sync(NULL, dma_addr_to_virt(dev, dma_handle), size, direction);
 	swiotlb_sync_single_for_device(dev, dma_handle, size, direction);
 	mb();
+}
+
+static void
+pcie_dma_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sgl,
+			int nelems, enum dma_data_direction dir)
+{
+	struct scatterlist *sg;
+	int i;
+
+	swiotlb_sync_sg_for_cpu(hwdev, sgl, nelems, dir);
+
+	if (!plat_device_is_coherent(hwdev))
+	{
+		for_each_sg(sgl, sg, nelems, i) {
+			dma_cache_sync(NULL, dma_addr_to_virt(hwdev,
+					sg->dma_address), sg->length, dir);
+		}
+	}
 }
 
 static void pcie_dma_sync_sg_for_device(struct device *dev,
@@ -146,12 +219,12 @@ struct mips_dma_map_ops ls2h_pcie_dma_map_ops = {
 		.alloc		= pcie_dma_alloc_coherent,
 		.free		= pcie_dma_free_coherent,
 		.map_page		= pcie_dma_map_page,
-		.unmap_page		= swiotlb_unmap_page,
+		.unmap_page		= pcie_dma_unmap_page,
 		.map_sg			= pcie_dma_map_sg,
-		.unmap_sg		= swiotlb_unmap_sg_attrs,
-		.sync_single_for_cpu	= swiotlb_sync_single_for_cpu,
+		.unmap_sg		= pcie_dma_unmap_sg_attrs,
+		.sync_single_for_cpu	= pcie_dma_sync_single_for_cpu,
 		.sync_single_for_device	= pcie_dma_sync_single_for_device,
-		.sync_sg_for_cpu	= swiotlb_sync_sg_for_cpu,
+		.sync_sg_for_cpu	= pcie_dma_sync_sg_for_cpu,
 		.sync_sg_for_device	= pcie_dma_sync_sg_for_device,
 		.mapping_error		= swiotlb_dma_mapping_error,
 		.dma_supported		= swiotlb_dma_supported,
