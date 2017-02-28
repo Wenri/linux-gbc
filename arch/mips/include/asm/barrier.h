@@ -158,7 +158,11 @@
 #endif
 
 #if defined(CONFIG_WEAK_REORDERING_BEYOND_LLSC) && defined(CONFIG_SMP)
+# ifdef CONFIG_CPU_LOONGSON3
+# define __WEAK_LLSC_MB		"	.set mips64r2\nsync\nsynci 0\n"
+# else
 #define __WEAK_LLSC_MB		"	sync	\n"
+# endif
 #else
 #define __WEAK_LLSC_MB		"		\n"
 #endif
