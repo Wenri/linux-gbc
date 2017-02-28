@@ -354,4 +354,54 @@ extern unsigned long _loongson_addrwincfg_base;
 
 void loongson_suspend_lowlevel(void);
 
+#define HT_control_regs_base	ht_control_base
+#define HT_uncache_enable_reg0	*(volatile unsigned int *)(HT_control_regs_base + 0xF0)
+#define HT_uncache_base_reg0	*(volatile unsigned int *)(HT_control_regs_base + 0xF4)
+#define HT_uncache_enable_reg1	*(volatile unsigned int *)(HT_control_regs_base + 0xF8)
+#define HT_uncache_base_reg1	*(volatile unsigned int *)(HT_control_regs_base + 0xFC)
+#define HT_uncache_enable_reg2	*(volatile unsigned int *)(HT_control_regs_base + 0x168)
+#define HT_uncache_base_reg2	*(volatile unsigned int *)(HT_control_regs_base + 0x16C)
+#define HT_uncache_enable_reg3	*(volatile unsigned int *)(HT_control_regs_base + 0x170)
+#define HT_uncache_base_reg3	*(volatile unsigned int *)(HT_control_regs_base + 0x174)
+
+#define HT_rx_win_enable_reg0	*(volatile unsigned int *)(HT_control_regs_base + 0x60)
+#define HT_rx_win_base_reg0	*(volatile unsigned int *)(HT_control_regs_base + 0x64)
+#define HT_rx_win_enable_reg1	*(volatile unsigned int *)(HT_control_regs_base + 0x68)
+#define HT_rx_win_base_reg1	*(volatile unsigned int *)(HT_control_regs_base + 0x6c)
+#define HT_rx_win_enable_reg2	*(volatile unsigned int *)(HT_control_regs_base + 0x70)
+#define HT_rx_win_base_reg2	*(volatile unsigned int *)(HT_control_regs_base + 0x74)
+#define HT_rx_win_enable_reg3	*(volatile unsigned int *)(HT_control_regs_base + 0x148)
+#define HT_rx_win_base_reg3	*(volatile unsigned int *)(HT_control_regs_base + 0x14c)
+#define HT_rx_win_enable_reg4	*(volatile unsigned int *)(HT_control_regs_base + 0x150)
+#define HT_rx_win_base_reg4	*(volatile unsigned int *)(HT_control_regs_base + 0x154)
+
+#define IO_base_regs_addr			io_base_regs_addr
+#define North_win0_base				*(volatile u64 *)(IO_base_regs_addr + 0x2700)
+#define North_win1_base				*(volatile u64 *)(IO_base_regs_addr + 0x2708)
+#define North_win2_base				*(volatile u64 *)(IO_base_regs_addr + 0x2710)
+#define North_win3_base				*(volatile u64 *)(IO_base_regs_addr + 0x2718)
+#define North_win4_base				*(volatile u64 *)(IO_base_regs_addr + 0x2720)
+#define North_win5_base				*(volatile u64 *)(IO_base_regs_addr + 0x2728)
+#define North_win6_base				*(volatile u64 *)(IO_base_regs_addr + 0x2730)
+#define North_win7_base				*(volatile u64 *)(IO_base_regs_addr + 0x2738)
+
+#define North_win0_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2740)
+#define North_win1_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2748)
+#define North_win2_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2750)
+#define North_win3_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2758)
+#define North_win4_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2760)
+#define North_win5_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2768)
+#define North_win6_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2770)
+#define North_win7_mask				*(volatile u64 *)(IO_base_regs_addr + 0x2778)
+
+#define North_win0_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x2780)
+#define North_win1_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x2788)
+#define North_win2_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x2790)
+#define North_win3_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x2798)
+#define North_win4_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x27a0)
+#define North_win5_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x27a8)
+#define North_win6_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x27b0)
+#define North_win7_mmap				*(volatile u64 *)(IO_base_regs_addr + 0x27b8)
+
+
 #endif /* __ASM_MACH_LOONGSON3_LOONGSON_H */

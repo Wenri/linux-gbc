@@ -52,7 +52,10 @@ void __init prom_init(void)
 
 	prom_init_cmdline();
 	prom_init_env();
-
+#ifdef CONFIG_DMA_NONCOHERENT
+	if(ls_south_bridge->sb_early_config)
+		ls_south_bridge->sb_early_config();
+#endif
 	/* init base address of io space */
 	set_io_port_base((unsigned long)
 		ioremap(LOONGSON_PCIIO_BASE, LOONGSON_PCIIO_SIZE));

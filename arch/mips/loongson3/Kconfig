@@ -99,4 +99,9 @@ config PHASE_LOCK
 config LS2H_SB
 	bool
 
+config LOONGSON_DMA_NONCOHERENT
+	bool "Loongson dma noncoherent"
+	select DMA_NONCOHERENT
+	default n
+
 endif # MACH_LOONGSON3

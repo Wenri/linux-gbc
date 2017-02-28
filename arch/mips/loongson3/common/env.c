@@ -33,6 +33,7 @@ struct system_loongson *esys;
 struct irq_source_routing_table *eirq_source;
 
 u64 ht_control_base;
+u64 io_base_regs_addr;
 u64 pci_mem_start_addr, pci_mem_end_addr;
 u64 loongson_pciio_base;
 u64 vgabios_addr;
@@ -140,6 +141,7 @@ void __init prom_init_env(void)
 		smp_group[2] = 0x900020003ff01000;
 		smp_group[3] = 0x900030003ff01000;
 		ht_control_base = 0x90000EFDFB000000;
+		io_base_regs_addr = 0x900000003ff00000;
 		loongson_chipcfg[0] = 0x900000001fe00180;
 		loongson_chipcfg[1] = 0x900010001fe00180;
 		loongson_chipcfg[2] = 0x900020001fe00180;
