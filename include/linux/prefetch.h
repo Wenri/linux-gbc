@@ -35,11 +35,15 @@
 */
 
 #ifndef ARCH_HAS_PREFETCH
+# if !defined(CONFIG_CPU_LOONGSON3)||!defined(CONFIG_DMA_NONCOHERENT)
 #define prefetch(x) __builtin_prefetch(x)
+# endif
 #endif
 
 #ifndef ARCH_HAS_PREFETCHW
+# if !defined(CONFIG_CPU_LOONGSON3)||!defined(CONFIG_DMA_NONCOHERENT)
 #define prefetchw(x) __builtin_prefetch(x,1)
+# endif
 #endif
 
 #ifndef ARCH_HAS_SPINLOCK_PREFETCH
