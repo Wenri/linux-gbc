@@ -107,9 +107,9 @@ pcie_dma_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
 static void pcie_dma_sync_single_for_device(struct device *dev,
 	dma_addr_t dma_handle, size_t size, enum dma_data_direction direction)
 {
+	swiotlb_sync_single_for_device(dev, dma_handle, size, direction);
 	if (!plat_device_is_coherent(dev))
 		dma_cache_sync(NULL, dma_addr_to_virt(dev, dma_handle), size, direction);
-	swiotlb_sync_single_for_device(dev, dma_handle, size, direction);
 	mb();
 }
 
@@ -120,8 +120,6 @@ pcie_dma_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sgl,
 	struct scatterlist *sg;
 	int i;
 
-	swiotlb_sync_sg_for_cpu(hwdev, sgl, nelems, dir);
-
 	if (!plat_device_is_coherent(hwdev))
 	{
 		for_each_sg(sgl, sg, nelems, i) {
@@ -129,12 +127,25 @@ pcie_dma_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sgl,
 					sg->dma_address), sg->length, dir);
 		}
 	}
+
+	swiotlb_sync_sg_for_cpu(hwdev, sgl, nelems, dir);
 }
 
 static void pcie_dma_sync_sg_for_device(struct device *dev,
-	struct scatterlist *sg, int nelems, enum dma_data_direction direction)
+	struct scatterlist *sgl, int nelems, enum dma_data_direction direction)
 {
-	swiotlb_sync_sg_for_device(dev, sg, nelems, direction);
+	struct scatterlist *sg;
+	int i;
+
+	swiotlb_sync_sg_for_device(dev, sgl, nelems, direction);
+
+	if (!plat_device_is_coherent(dev))
+	{
+		for_each_sg(sgl, sg, nelems, i) {
+			dma_cache_sync(NULL, dma_addr_to_virt(dev,
+					sg->dma_address), sg->length, direction);
+		}
+	}
 	mb();
 }
 
