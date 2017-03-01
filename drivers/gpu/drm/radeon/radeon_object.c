@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include <drm/drmP.h>
 #include <drm/radeon_drm.h>
+#include <dma-coherence.h>
 #include "radeon.h"
 #include "radeon_trace.h"
 
@@ -113,22 +114,41 @@ void radeon_ttm_placement_from_domain(struct radeon_bo *rbo, u32 domain)
 	if (domain & RADEON_GEM_DOMAIN_VRAM)
 		rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_UNCACHED |
 					TTM_PL_FLAG_VRAM;
-	if (domain & RADEON_GEM_DOMAIN_GTT) {
-		if (rbo->rdev->flags & RADEON_IS_AGP) {
-			rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_TT;
-		} else {
-			rbo->placements[c++] = TTM_PL_FLAG_CACHED | TTM_PL_FLAG_TT;
+	if (plat_device_is_coherent(NULL)) {
+		if (domain & RADEON_GEM_DOMAIN_GTT) {
+			if (rbo->rdev->flags & RADEON_IS_AGP) {
+				rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_TT;
+			} else {
+				rbo->placements[c++] = TTM_PL_FLAG_CACHED | TTM_PL_FLAG_TT;
+			}
 		}
-	}
-	if (domain & RADEON_GEM_DOMAIN_CPU) {
-		if (rbo->rdev->flags & RADEON_IS_AGP) {
-			rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_SYSTEM;
-		} else {
-			rbo->placements[c++] = TTM_PL_FLAG_CACHED | TTM_PL_FLAG_SYSTEM;
+		if (domain & RADEON_GEM_DOMAIN_CPU) {
+			if (rbo->rdev->flags & RADEON_IS_AGP) {
+				rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_SYSTEM;
+			} else {
+				rbo->placements[c++] = TTM_PL_FLAG_CACHED | TTM_PL_FLAG_SYSTEM;
+			}
 		}
+		if (!c)
+			rbo->placements[c++] = TTM_PL_MASK_CACHING | TTM_PL_FLAG_SYSTEM;
+	} else {
+		if (domain & RADEON_GEM_DOMAIN_GTT) {
+			if (rbo->rdev->flags & RADEON_IS_AGP) {
+				rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_TT;
+			} else {
+				rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_TT;
+			}
+		}
+		if (domain & RADEON_GEM_DOMAIN_CPU) {
+			if (rbo->rdev->flags & RADEON_IS_AGP) {
+				rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_SYSTEM;
+			} else {
+				rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_SYSTEM;
+			}
+		}
+		if (!c)
+			rbo->placements[c++] = TTM_PL_FLAG_WC | TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_SYSTEM;
 	}
-	if (!c)
-		rbo->placements[c++] = TTM_PL_MASK_CACHING | TTM_PL_FLAG_SYSTEM;
 	rbo->placement.num_placement = c;
 	rbo->placement.num_busy_placement = c;
 
