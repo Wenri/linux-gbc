@@ -327,21 +327,37 @@ static void __cpuinit r4k_blast_scache_page_indexed_setup(void)
 }
 
 static void (* r4k_blast_scache)(void);
+static void (* r4k_blast_scache_node_indexed)(unsigned long node);
 
 static void __cpuinit r4k_blast_scache_setup(void)
 {
 	unsigned long sc_lsize = cpu_scache_line_size();
 
 	if (scache_size == 0)
+	{
 		r4k_blast_scache = (void *)cache_noop;
+		r4k_blast_scache_node_indexed = (void *)cache_noop;
+	}
 	else if (sc_lsize == 16)
+	{
 		r4k_blast_scache = blast_scache16;
+		r4k_blast_scache_node_indexed = blast_scache16_node_indexed;
+	}
 	else if (sc_lsize == 32)
+	{
 		r4k_blast_scache = blast_scache32;
+		r4k_blast_scache_node_indexed = blast_scache32_node_indexed;
+	}
 	else if (sc_lsize == 64)
+	{
 		r4k_blast_scache = blast_scache64;
+		r4k_blast_scache_node_indexed = blast_scache64_node_indexed;
+	}
 	else if (sc_lsize == 128)
+	{
 		r4k_blast_scache = blast_scache128;
+		r4k_blast_scache_node_indexed = blast_scache128_node_indexed;
+	}
 }
 
 static inline void local_r4k___flush_cache_all(void * args)
@@ -362,6 +378,10 @@ static inline void local_r4k___flush_cache_all(void * args)
 	case CPU_R12000:
 	case CPU_R14000:
 		r4k_blast_scache();
+		break;
+	case CPU_LOONGSON3:
+		r4k_blast_scache_node_indexed((read_c0_ebase() & 0x3FF) >> 2);
+		break;
 	}
 }
 
@@ -608,7 +628,11 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 
 	if (cpu_has_inclusive_pcaches) {
 		if (size >= scache_size)
+#ifdef CONFIG_CPU_LOONGSON3
+			r4k_blast_scache_node_indexed((addr >> 44) & 0xF);
+#else
 			r4k_blast_scache();
+#endif
 		else
 			blast_scache_range(addr, addr + size);
 		__sync();
@@ -638,7 +662,11 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 
 	if (cpu_has_inclusive_pcaches) {
 		if (size >= scache_size)
+#ifdef CONFIG_CPU_LOONGSON3
+			r4k_blast_scache_node_indexed((addr >> 44) & 0xF);
+#else
 			r4k_blast_scache();
+#endif
 		else {
 			/*
 			 * There is no clearly documented alignment requirement
