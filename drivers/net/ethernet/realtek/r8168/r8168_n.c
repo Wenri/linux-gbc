@@ -24374,8 +24374,10 @@ rtl8168_unmap_tx_skb(struct pci_dev *pdev,
                      struct TxDesc *desc)
 {
         unsigned int len = tx_skb->len;
-
-        pci_unmap_single(pdev, le64_to_cpu(desc->addr), len, PCI_DMA_TODEVICE);
+#ifdef CONFIG_DMA_NONCOHERENT
+	if (len != 0)
+#endif
+		pci_unmap_single(pdev, le64_to_cpu(desc->addr), len, PCI_DMA_TODEVICE);
         desc->opts1 = 0x00;
         desc->opts2 = 0x00;
         desc->addr = 0x00;
