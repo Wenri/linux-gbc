@@ -387,7 +387,7 @@ void efuse_read_phymap_from_txpktbuf(
 	}
 
 	rtw_write8(adapter, REG_PKT_BUFF_ACCESS_CTRL, DISABLE_TRXPKT_BUF_ACCESS);
-	
+
 	DBG_871X("%s read count:%u\n", __FUNCTION__, count);
 	*size = count;
 
@@ -441,7 +441,7 @@ static s32 iol_read_efuse(
 s32 rtl8188e_iol_efuse_patch(PADAPTER padapter)
 {
 	s32	result = _SUCCESS;
-	printk("==> %s \n",__FUNCTION__);
+	//printk("==> %s \n",__FUNCTION__);
 	
 	if(rtw_IOL_applied(padapter)){
 		iol_mode_enable(padapter, 1);
@@ -1017,7 +1017,7 @@ s32 rtl8188e_FirmwareDownload(PADAPTER padapter, BOOLEAN  bUsedWoWLANFw)
 	DBG_871X("%s: fw_ver=%x fw_subver=%04x sig=0x%x, Month=%02x, Date=%02x, Hour=%02x, Minute=%02x\n",
 		  __FUNCTION__, pHalData->FirmwareVersion, pHalData->FirmwareSubVersion, pHalData->FirmwareSignature
 		  ,pFwHdr->Month,pFwHdr->Date,pFwHdr->Hour,pFwHdr->Minute);
-		
+
 	if (IS_FW_HEADER_EXIST_88E(pFwHdr))
 	{
 		// Shift 32 bytes for FW header

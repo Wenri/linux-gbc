@@ -190,11 +190,13 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 	#define _seqdump(sel, fmt, arg...) _dbgdump(fmt, ##arg)
 #endif
 
+#define DBG_871X_EXP(level, EXP) do { if (level <= GlobalDebugLevel) EXP; } while (0)
+
+#ifdef CONFIG_DEBUG /*kyo add*/
 #define DRIVER_PREFIX "RTL871X: "
 
 #if defined(_dbgdump)
-
-#define DBG_871X_EXP(level, EXP) do { if (level <= GlobalDebugLevel) EXP; } while (0)
+//#define DBG_871X_EXP(level, EXP) do { if (level <= GlobalDebugLevel) EXP; } while (0)
 
 /* with driver-defined prefix */
 #undef DBG_871X_LEVEL
@@ -208,6 +210,8 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		}\
 	}while(0)
 
+#endif /* defined(_dbgdump) */
+#endif /* CONFIG_DEBUG */
 /* without driver-defined prefix */
 #undef _DBG_871X_LEVEL
 #define _DBG_871X_LEVEL(level, fmt, arg...)	   \
@@ -220,6 +224,8 @@ extern void rtl871x_cedbg(const char *fmt, ...);
 		}\
 	}while(0)
 
+
+#if defined(_dbgdump)
 #if defined(_seqdump)
 #define RTW_DBGDUMP 0 /* 'stream' for _dbgdump */
 
