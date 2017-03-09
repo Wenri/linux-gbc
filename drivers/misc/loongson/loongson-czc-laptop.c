@@ -339,7 +339,7 @@ static irqreturn_t loongson_sci_int_routine(int irq, void *dev_id)
 
 exit_event_action:
 	clean_ec_event_status();
-	return IRQ_NONE;
+	return IRQ_HANDLED;
 }
 
 /* SCI driver pci driver init */
