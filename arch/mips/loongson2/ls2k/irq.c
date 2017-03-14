@@ -99,7 +99,7 @@ asmlinkage void plat_irq_dispatch(void)
 	if (pending & CAUSEF_IP5) {
 		_ls2k_irq_dispatch();
 	}
-	if (pending & (~(CAUSEF_IP7 | CAUSEF_IP6 | CAUSEF_IP2 | CAUSEF_IP3))) {
+	if (pending & (~(CAUSEF_IP7 | CAUSEF_IP6 | CAUSEF_IP2 | CAUSEF_IP3 | CAUSEF_IP5))) {
 		spurious_interrupt();
 	}
 }
