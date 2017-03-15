@@ -83,13 +83,11 @@ pcie_dma_unmap_sg_attrs(struct device *hwdev, struct scatterlist *sgl,
 {
 	struct scatterlist *sg;
 	int i;
-	void *addr;
 	if (!plat_device_is_coherent(hwdev) &&
 			dir != DMA_TO_DEVICE) {
 		for_each_sg(sgl, sg, nelems, i) {
-			addr = sg_virt(sg);
-			if (addr)
-				dma_cache_sync(NULL, addr, sg->length, dir);
+				dma_cache_sync(NULL, dma_addr_to_virt(hwdev,
+						sg->dma_address),sg->length, dir);
 		}
 	}
 	swiotlb_unmap_sg_attrs(hwdev, sgl, nelems, dir, attrs);
@@ -181,6 +179,14 @@ static void *pcie_dma_alloc_coherent(struct device *dev, size_t size,
 	gfp |= __GFP_NORETRY;
 
 	ret = swiotlb_alloc_coherent(dev, size, dma_handle, gfp);
+	if(ret)
+	{
+		if (!plat_device_is_coherent(dev)) {
+			dma_cache_sync(NULL, dma_addr_to_virt(dev,
+					*dma_handle), size, DMA_TO_DEVICE);
+			ret = UNCAC_ADDR(ret);
+		}
+	}
 
 	mb();
 	return ret;
@@ -193,6 +199,12 @@ static void pcie_dma_free_coherent(struct device *dev, size_t size,
 
 	if (dma_release_from_coherent(dev, order, vaddr))
 		return;
+
+	if (!plat_device_is_coherent(dev)) {
+		vaddr = CAC_ADDR(vaddr);
+		dma_cache_sync(NULL, dma_addr_to_virt(dev,
+				dma_handle), size, DMA_FROM_DEVICE);
+	}
 
 	swiotlb_free_coherent(dev, size, vaddr, dma_handle);
 }

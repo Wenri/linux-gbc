@@ -127,13 +127,11 @@ static void loongson_dma_unmap_sg_attrs(struct device *hwdev, struct scatterlist
 {
 	struct scatterlist *sg;
 	int i;
-	void *addr;
 	if (!plat_device_is_coherent(hwdev) &&
 			dir != DMA_TO_DEVICE) {
 		for_each_sg(sgl, sg, nelems, i) {
-			addr = sg_virt(sg);
-			if (addr)
-				dma_cache_sync(NULL, addr, sg->length, dir);
+				dma_cache_sync(NULL, dma_addr_to_virt(hwdev,
+						sg->dma_address),sg->length, dir);
 		}
 	}
 
