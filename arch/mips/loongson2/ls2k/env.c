@@ -172,7 +172,7 @@ void __init prom_init_env(void)
 #endif
 
 	board_type = LS2K;
-	dma64_supported = 1;
+	dma64_supported = 0;
 	pcidev_max_func_num = 1;
 
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
