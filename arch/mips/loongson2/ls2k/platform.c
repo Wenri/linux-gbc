@@ -140,6 +140,7 @@ static struct ls2k_nand_plat_data ls2k_nand_parts = {
         .nr_parts       = ARRAY_SIZE(ls2k_nand_partitions),
 	.chip_ver	= LS2K_VER3,
 	.cs = 2,
+	.csrdy = 0x11<<(2*9),
 };
 
 static struct resource ls2k_nand_resources[] = {
