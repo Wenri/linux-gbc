@@ -220,6 +220,7 @@ static const struct ata_port_info ahci_port_info[] = {
 };
 
 static const struct pci_device_id ahci_pci_tbl[] = {
+	{ PCI_VDEVICE(LOONGSON, PCI_DEVICE_ID_LOONGSON_SATA), board_ahci },
 	/* Intel */
 	{ PCI_VDEVICE(INTEL, 0x2652), board_ahci }, /* ICH6 */
 	{ PCI_VDEVICE(INTEL, 0x2653), board_ahci }, /* ICH6M */
