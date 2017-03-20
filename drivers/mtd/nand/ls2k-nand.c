@@ -118,6 +118,7 @@ struct ls2k_nand_info {
 	unsigned int		seqin_page_addr;
 	u32			chip_version;
 	int			cs;
+	u32			csrdy;
 };
 
 static int ls2k_nand_init_buff(struct ls2k_nand_info *info)
@@ -514,7 +515,7 @@ static void ls2k_nand_init_info(struct ls2k_nand_info *info)
 	info->seqin_page_addr = 0;
 	spin_lock_init(&info->nand_lock);
 	writel(0x412, REG(NAND_TIM_REG));
-	writel(info->cs?(0x11<<info->cs*9):0, REG(NAND_CS_RDY_REG));
+	writel(info->csrdy, REG(NAND_CS_RDY_REG));
 
 	init_timer(&info->test_timer);
 	info->test_timer.function = test_handler;
@@ -560,6 +561,7 @@ static int ls2k_nand_probe(struct platform_device *pdev)
 	info->pdev = pdev;
 	info->chip_version = pdata->chip_ver;
 	info->cs = pdata->cs;
+	info->csrdy = pdata->csrdy;
 
 	this = &info->nand_chip;
 	mtd->priv = info;
