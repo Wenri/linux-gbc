@@ -139,12 +139,13 @@ static struct ls2k_nand_plat_data ls2k_nand_parts = {
         .parts          = ls2k_nand_partitions,
         .nr_parts       = ARRAY_SIZE(ls2k_nand_partitions),
 	.chip_ver	= LS2K_VER3,
+	.cs = 2,
 };
 
 static struct resource ls2k_nand_resources[] = {
 	[0] = {
-		.start      = 0,
-		.end        = 0,
+		.start      = LS2K_NAND_DMA_ACC_REG,
+		.end        = LS2K_NAND_DMA_ACC_REG,
 		.flags      = IORESOURCE_DMA,
 	},
 	[1] = {
@@ -264,9 +265,9 @@ static struct platform_device ls2k_gpio_i2c_device = {
 
 static struct platform_device *ls2k_platform_devices[] = {
 	&uart8250_device,
+	&ls2k_nand_device,
 	&ls2k_i2c0_device,
 	&ls2k_i2c1_device,
-	&ls2k_nand_device,
 	&ls2k_rtc_device,
 };
 
@@ -306,7 +307,7 @@ if(0)
 			ARRAY_SIZE(ls2k_i2c_gpio_platform_devices));
 }
 	return platform_add_devices(ls2k_platform_devices,
-			/*ARRAY_SIZE(ls2k_platform_devices)*/1);
+			/*ARRAY_SIZE(ls2k_platform_devices)*/2);
 }
 
 device_initcall(ls2k_platform_init);
