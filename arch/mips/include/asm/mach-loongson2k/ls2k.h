@@ -41,7 +41,7 @@
 #define LS2K_GPIO1_INT_REG		(LS2K_CHIP_CFG_REG_BASE + 0x0538)
 
 
-#define LS2K_DMA_ORDER_REG		(LS2K_CHIP_CFG_REG_BASE + 0x0100)
+#define LS2K_DMA_ORDER_REG		(LS2K_CHIP_CFG_REG_BASE + 0x0c00)
 #define LS2K_CHIP_CFG0_REG		(LS2K_CHIP_CFG_REG_BASE + 0x0200)
 #define LS2K_CHIP_CFG1_REG		(LS2K_CHIP_CFG_REG_BASE + 0x0204)
 #define LS2K_CHIP_CFG2_REG		(LS2K_CHIP_CFG_REG_BASE + 0x0208)
@@ -349,6 +349,7 @@ struct ls2k_nand_plat_data {
 	u32	nr_parts;
 	u32	chip_ver;
 	struct mtd_partition *parts;
+	int cs;
 };
 
 struct ls2k_gpu_plat_data {
