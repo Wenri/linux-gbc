@@ -350,6 +350,7 @@ struct ls2k_nand_plat_data {
 	u32	chip_ver;
 	struct mtd_partition *parts;
 	int cs;
+	u32 csrdy;
 };
 
 struct ls2k_gpu_plat_data {
