@@ -3,7 +3,7 @@
 #
 
 obj-y += setup.o init.o cmdline.o env.o time.o reset.o irq.o \
-    ls2k-irq.o mem.o machtype.o platform.o efi.o boardinfo.o cpu.o 
+    ls2k-irq.o mem.o machtype.o platform.o efi.o boardinfo.o cpu.o ls2k-be.o
 #obj-$(CONFIG_GPIOLIB) += gpio.o
 
 #
