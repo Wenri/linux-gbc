@@ -27,8 +27,19 @@
 #include <asm/clock.h>
 #include <asm/tlbflush.h>
 #include <loongson.h>
+#include <ls2k.h>
 
-#include "smp.h"
+#define	LOONGSON2K_TO_BASE(cpu)	\
+	CKSEG1ADDR(LS2K_CHIP_CFG_REG_BASE| (((long)(cpu) & 0x01) << 8))
+
+#define IPI_OFF_STATUS 		0x1000
+#define IPI_OFF_ENABLE 		0x1004
+#define IPI_OFF_SET	 	0x1008
+#define IPI_OFF_CLEAR		0x100c
+#define IPI_OFF_MAILBOX0	0x1020
+#define IPI_OFF_MAILBOX1	0x1028
+#define IPI_OFF_MAILBOX2	0x1030
+#define IPI_OFF_MAILBOX3	0x1038
 
 DEFINE_PER_CPU(int, cpu_state);
 static uint32_t core0_c0count[NR_CPUS];
@@ -70,7 +81,7 @@ void loongson3_ipi_write32(uint32_t action, void * addr)
  */
 static void loongson3_send_ipi_single(int cpu, unsigned int action)
 {
-	unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(cpu));
+	unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(cpu));
 	loongson3_ipi_write32((u32)action, (void *)(base + IPI_OFF_SET));
 }
 
@@ -78,7 +89,7 @@ static void loongson3_send_ipi_mask(const struct cpumask *mask, unsigned int act
 {
 	unsigned int i;
 	for_each_cpu(i, mask){
-	unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(i));
+	unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(i));
 		loongson3_ipi_write32((u32)action, (void *)(base + IPI_OFF_SET));
 	}
 }
@@ -87,14 +98,14 @@ static void loongson3_send_ipi_mask(const struct cpumask *mask, unsigned int act
 
 void loongson3_send_irq_by_ipi(int cpu, int irqs)
 {
-        unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(cpu));
+        unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(cpu));
         loongson3_ipi_write32((u32)(irqs << IPI_IRQ_OFFSET), (void *)(base + IPI_OFF_SET));
 }
 
 void loongson3_ipi_interrupt(struct pt_regs *regs)
 {
 	int i, cpu = smp_processor_id();
-	unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(cpu));
+	unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(cpu));
 	unsigned int action, c0count, irqs, irq;
 
 	/* Load the ipi register to figure out what we're supposed to do */
@@ -154,7 +165,7 @@ void __cpuinit loongson3_init_secondary(void)
 	change_c0_status(ST0_IM, imask);
 
 	for (i = 0; i < num_possible_cpus(); i++) {
-		unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(i));
+		unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(i));
 		loongson3_ipi_write32(0xffffffff,(void *)(base + IPI_OFF_ENABLE));
 	}
 
@@ -182,7 +193,7 @@ void __cpuinit loongson3_init_secondary(void)
 void __cpuinit loongson3_smp_finish(void)
 {
 	int cpu = smp_processor_id();
-	unsigned long base = LOONGSON3_TO_BASE(cpu_logical_map(cpu));
+	unsigned long base = LOONGSON2K_TO_BASE(cpu_logical_map(cpu));
 	write_c0_compare(read_c0_count() + mips_hpt_frequency/HZ);
 	local_irq_enable();
 	loongson3_ipi_write64(0, (void *)(base + IPI_OFF_MAILBOX0));
@@ -236,7 +247,7 @@ void __cpuinit loongson3_boot_secondary(int cpu, struct task_struct *idle)
 {
 	volatile unsigned long startargs[4];
 	unsigned long coreid = cpu_logical_map(cpu);
-	unsigned long base = LOONGSON3_TO_BASE(coreid);
+	unsigned long base = LOONGSON2K_TO_BASE(coreid);
 
 	if (verbose || system_state == SYSTEM_BOOTING)
 		printk("Booting CPU#%d...\n", cpu);
@@ -263,6 +274,14 @@ void __cpuinit loongson3_boot_secondary(int cpu, struct task_struct *idle)
 
 extern void fixup_irqs(void);
 extern void (*flush_cache_all)(void);
+
+
+void fixup_irqs(void)
+{
+	irq_cpu_offline();
+	clear_c0_status(ST0_IM);
+}
+
 
 static int loongson3_cpu_disable(void)
 {
@@ -522,58 +541,10 @@ void play_dead(void)
 
 void loongson3_disable_clock(int cpu)
 {
-	uint64_t core_id = cpu_data[cpu].core;
-	uint64_t package_id = cpu_data[cpu].package;
-
-	if (cputype == Loongson_3A) {
-		switch (read_c0_prid() & 0xf) {
-			case PRID_REV_LOONGSON3A:
-				LOONGSON_CHIPCFG(package_id) &= ~(1 << (12 + core_id));
-				break;
-			case PRID_REV_LOONGSON3A2000:
-			case PRID_REV_LOONGSON3A3000:
-				LOONGSON_CHIPCFG(package_id) &= ~(1 << (core_id * 4 + 3));
-				break;
-		}
-	}
-	else if (cputype == Loongson_3B) {
-		switch (read_c0_prid() & 0xf) {
-			case PRID_REV_LOONGSON3B_R1:
-			case PRID_REV_LOONGSON3B_R2:
-				break;
-			default:
-				LOONGSON_CHIPCFG(package_id) &= ~(1 << (core_id * 4 + 3));
-				break;
-		}
-	}
 }
 
 void loongson3_enable_clock(int cpu)
 {
-	uint64_t core_id = cpu_data[cpu].core;
-	uint64_t package_id = cpu_data[cpu].package;
-
-	if (cputype == Loongson_3A) {
-		switch (read_c0_prid() & 0xf) {
-			case PRID_REV_LOONGSON3A:
-				LOONGSON_CHIPCFG(package_id) |= 1 << (12 + core_id);
-				break;
-			case PRID_REV_LOONGSON3A2000:
-			case PRID_REV_LOONGSON3A3000:
-				LOONGSON_CHIPCFG(package_id) |= 1 << (core_id * 4 + 3);
-				break;
-		}
-	}
-	else if (cputype == Loongson_3B) {
-		switch (read_c0_prid() & 0xf) {
-			case PRID_REV_LOONGSON3B_R1:
-			case PRID_REV_LOONGSON3B_R2:
-				break;
-			default:
-				LOONGSON_CHIPCFG(package_id) |= 1 << (cpu * 4 + 3);
-				break;
-		}
-	}
 }
 
 #define CPU_POST_DEAD_FROZEN	(CPU_POST_DEAD | CPU_TASKS_FROZEN)
@@ -606,7 +577,7 @@ static int __cpuinit register_loongson3_notifier(void)
 }
 early_initcall(register_loongson3_notifier);
 
-#if defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
+#if defined(CONFIG_SUSPEND)
 void __cpuinit disable_unused_cpus(void)
 {
 	int cpu;
