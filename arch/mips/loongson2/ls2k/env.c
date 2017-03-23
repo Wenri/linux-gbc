@@ -93,6 +93,9 @@ void __init prom_init_env(void)
 	/* pmon passes arguments in 32bit pointers */
 	char *bios_info;
 	char *board_info;
+#ifdef CONFIG_SMP
+	int cpu, tmp, i = 0, num = 0;
+#endif
 
 #ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
 	int *_prom_envp;
@@ -138,7 +141,6 @@ void __init prom_init_env(void)
 			boot_cpu_id, reserved_cpus_mask);
 
 #ifdef CONFIG_SMP
-	int cpu, tmp, i = 0, num = 0;
 	if (nr_cpus_loongson > NR_CPUS || nr_cpus_loongson == 0)
 		nr_cpus_loongson = NR_CPUS;
 
