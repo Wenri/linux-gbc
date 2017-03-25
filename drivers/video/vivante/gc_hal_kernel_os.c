@@ -1631,6 +1631,12 @@ gckOS_MapMemory(
 	        mdlMap->vma->vm_flags |= VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED;
 	#endif
 	}
+
+#ifdef CONFIG_DMA_NONCOHERENT
+        	mdlMap->vma->vm_page_prot = pgprot_noncached(mdlMap->vma->vm_page_prot);
+	        mdlMap->vma->vm_flags |= VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED;
+#endif
+
         mdlMap->vma->vm_pgoff = 0;
 	if(LS2H_SOC_GPU == board_kind)
 	{
@@ -2022,8 +2028,10 @@ gckOS_AllocateNonPagedMemory(
        /*add by hb, add hardware cache coherent mod*/
 	if(LS2H_SOC_GPU  == board_kind || LS2H_VRAM_3A_DDR == vram_kind)
 	{
+#ifndef CONFIG_DMA_NONCOHERENT
       		 if(addr != gcvNULL)
       		         addr = (gctSTRING)((gctUINT64)addr | 0x9800000000000000ULL);
+#endif
 	}
     }
 #else
@@ -2171,6 +2179,11 @@ gckOS_AllocateNonPagedMemory(
 	    mdlMap->vma->vm_page_prot = gcmkNONPAGED_MEMROY_PROT(mdlMap->vma->vm_page_prot);
             mdlMap->vma->vm_flags |= VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED;
 	}
+
+#ifdef CONFIG_DMA_NONCOHERENT
+	    mdlMap->vma->vm_page_prot = gcmkNONPAGED_MEMROY_PROT(mdlMap->vma->vm_page_prot);
+            mdlMap->vma->vm_flags |= VM_IO | VM_DONTCOPY | VM_DONTEXPAND | VM_RESERVED;
+#endif
 
         mdlMap->vma->vm_pgoff = 0;
 
