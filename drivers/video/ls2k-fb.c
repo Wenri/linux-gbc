@@ -49,6 +49,14 @@
 #define DEFAULT_PHY_ADDR	0x0e000000
 #define DEFAULT_FB_DMA		0x0e000000
 
+#define LO_OFF	0
+#define HI_OFF	8
+struct pix_pll {
+	unsigned int l2_div;
+	unsigned int l1_loopc;
+	unsigned int l1_frefc;
+};
+
 struct ls2k_fb_par {
 	struct platform_device *pdev;
 	struct fb_info *fb_info;
@@ -68,6 +76,7 @@ static dma_addr_t cursor_dma;
 static u_long videomemorysize = 0;
 module_param(videomemorysize, ulong, 0);
 DEFINE_SPINLOCK(fb_lock);
+static void config_pll(unsigned long pll_base, struct pix_pll *pll_cfg);
 #if 0 
 static struct fb_var_screeninfo ls2k_fb_default __initdata = {
 	.xres		= 640,
@@ -272,51 +281,64 @@ static int ls2k_fb_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
-static unsigned int cal_freq(unsigned int pixclock)
+static unsigned int cal_freq(unsigned int pixclock, struct pix_pll * pll_config)
 {
-	unsigned int pstdiv, pll_ldf, pll_odf, pll_idf;
-	unsigned int div = 0, ldf = 0, odf = 0, idf = 0, fref = 0;
-	unsigned int min = 100000, a, fvco, fvcof, b;
+	unsigned int pstdiv, loopc, frefc;
+	unsigned long a, b;
+	unsigned long min = 100000;
+	int found = 0;
 
-	for (pstdiv = 1; pstdiv < 32; pstdiv++) {
+	for (pstdiv = 1; pstdiv < 64; pstdiv++) {
 		a = pixclock * pstdiv;
-		for (pll_odf = 1; pll_odf <= 8; pll_odf *= 2) {
-			fvco = a * pll_odf;
-			if((fvco < 600000) || (fvco > 1800000))
-				continue;
-			for ( pll_idf = 1; pll_idf < 8; pll_idf++) {
-				fref = 100000 / pll_idf;
-				for ( pll_ldf = 8; pll_ldf < 256;
-						pll_ldf++) {
-					fvcof = fref * 2 * pll_ldf;
-					if ((fvcof < 600000) ||
-						(fvcof > 1800000))
-						continue;
-					b = (fvcof > fvco)?
-						(fvcof - fvco):
-						(fvco -fvcof);
-					if (b < min) {
-						min = b;
-						div = pstdiv;
-						ldf = pll_ldf;
-						odf = pll_odf;
-						idf = pll_idf;
-					}
+		for (frefc = 3; frefc < 6; frefc++) {
+			for (loopc = 24; loopc < 161; loopc++) {
+
+				if ((loopc < 12 * frefc) || 
+						(loopc > 32 * frefc))
+					continue;
+
+				b = 10000 * frefc / loopc;
+				a = (a > b) ? (a - b) : (b - a);
+				if (a < min) {
+
+					found = 1;
+					break;
 				}
-			}
+			}	
+
 		}
 	}
 
-	pll_odf = (odf == 8)? 3 : (odf == 4)? 2 : (odf == 2)? 1 : 0;
+	pr_info("found = %d, pix = %x; min = %lx; pstdiv = %x;"
+			"loopc = %x; frefc = %d\n", found, pixclock, 
+			min, pstdiv, loopc, frefc);
 
-	LS2K_DEBUG("pixclock = %d; min = %d; div = %d;"
-			"ldf = %d; odf = %d; idf = %d\n",
-			pixclock, min, div, ldf, odf, idf);
+	pll_config->l2_div = pstdiv;
+	pll_config->l1_loopc = loopc;
+	pll_config->l1_frefc = frefc;
 
-	a = (div << 24) | (ldf << 16) | (pll_odf << 5) | (idf << 2);
-	return a;
+	return found;
 }
 
+static void config_pll(unsigned long pll_base, struct pix_pll *pll_cfg)
+{
+	unsigned long out;
+
+	out = (1 << 7) | (1L << 42) | (3 << 10) | 
+		((unsigned long)(pll_cfg->l1_loopc) << 32) | 
+		((unsigned long)(pll_cfg->l1_frefc) << 26); 
+
+	ls2k_writeq(0, pll_base + LO_OFF);
+	ls2k_writeq(1 << 19, pll_base + LO_OFF);
+	ls2k_writeq(out, pll_base + LO_OFF);
+	ls2k_writeq(pll_cfg->l2_div, pll_base + HI_OFF);
+	out = (out | (1 << 2));
+	ls2k_writeq(out, pll_base + LO_OFF);
+
+	while (!(ls2k_readq(pll_base + LO_OFF) & 0x10000)) ;
+
+	ls2k_writeq((out | 1), pll_base + LO_OFF);
+}
 static void ls2k_reset_cursor_image(void)
 {
 	u8 __iomem *addr = (u8 *)DEFAULT_CURSOR_MEM;
@@ -326,9 +348,11 @@ static void ls2k_reset_cursor_image(void)
 static int ls2k_init_regs(struct fb_info *info)
 {
 	unsigned int pix_freq;
-	unsigned int out, depth;
+	unsigned int depth;
 	unsigned int hr, hss, hse, hfl;
 	unsigned int vr, vss, vse, vfl;
+	int ret;
+	struct pix_pll pll_cfg;
 	struct fb_var_screeninfo *var = &info->var;
 	struct ls2k_fb_par *par = (struct ls2k_fb_par *)info->par;
 	unsigned long base = par->reg_base;
@@ -346,10 +370,13 @@ static int ls2k_init_regs(struct fb_info *info)
 	depth = var->bits_per_pixel;
 	pix_freq = PICOS2KHZ(var->pixclock);
 
-	out = cal_freq(pix_freq);
-	/* change to refclk */
+	ret = cal_freq(pix_freq, &pll_cfg);
+	if (ret) {
+		config_pll(LS2K_PIX0_PLL, &pll_cfg);
+		config_pll(LS2K_PIX1_PLL, &pll_cfg);
+	}
 
-/* VGA */
+
 	ls2k_writel(dma_A, base + LS2K_FB_ADDR0_DVO0_REG);
 	ls2k_writel(dma_A, base + LS2K_FB_ADDR0_DVO1_REG);
 	ls2k_writel(dma_A, base + LS2K_FB_ADDR1_DVO0_REG);
@@ -846,7 +873,7 @@ static int ls2k_fb_probe(struct platform_device *dev)
 		goto release_par;
 	}
 
-	par->reg_base = CKSEG1ADDR(r->start);
+	par->reg_base = r->start;
 	ls2k_find_init_mode(info);
 
 	if (!videomemorysize) {

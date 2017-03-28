@@ -19,6 +19,9 @@
 /* CHIP CONFIG regs */
 #define LS2K_CHIP_CFG_REG_BASE		(LS2K_IO_REG_BASE + 0x00e10000)
 
+#define LS2K_PIX0_PLL			(LS2K_CHIP_CFG_REG_BASE + 0x4b0)
+#define LS2K_PIX1_PLL			(LS2K_CHIP_CFG_REG_BASE + 0x4c0)
+
 #define LS2K_INT_REG_BASE		(LS2K_CHIP_CFG_REG_BASE + 0x1420)
 
 #define LS2K_INT_ISR0_REG		(LS2K_CHIP_CFG_REG_BASE + 0x1420)
@@ -257,9 +260,11 @@
 #define ls2k_readb(addr)		(*(volatile unsigned char *)CKSEG1ADDR(addr))
 #define ls2k_readw(addr)		(*(volatile unsigned short *)CKSEG1ADDR(addr))
 #define ls2k_readl(addr)		(*(volatile unsigned int *)CKSEG1ADDR(addr))
+#define ls2k_readq(addr)		(*(volatile unsigned long *)CKSEG1ADDR(addr))
 #define ls2k_writeb(val, addr)		*(volatile unsigned char *)CKSEG1ADDR(addr) = (val)
 #define ls2k_writew(val, addr)		*(volatile unsigned short *)CKSEG1ADDR(addr) = (val)
 #define ls2k_writel(val, addr)		*(volatile unsigned int *)CKSEG1ADDR(addr) = (val)
+#define ls2k_writeq(val, addr)		*(volatile unsigned long *)CKSEG1ADDR(addr) = (val)
 
 /* Board Version Number */
 enum {
