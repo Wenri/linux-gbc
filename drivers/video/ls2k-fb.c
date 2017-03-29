@@ -281,15 +281,14 @@ static int ls2k_fb_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 
-static unsigned int cal_freq(unsigned int pixclock, struct pix_pll * pll_config)
+static unsigned int cal_freq(unsigned int pixclock_khz, struct pix_pll * pll_config)
 {
 	unsigned int pstdiv, loopc, frefc;
-	unsigned long a, b;
-	unsigned long min = 100000;
-	int found = 0;
+	unsigned long a, b, c;
+	unsigned long min = 1000;
 
 	for (pstdiv = 1; pstdiv < 64; pstdiv++) {
-		a = pixclock * pstdiv;
+		a = (unsigned long)pixclock_khz * pstdiv;
 		for (frefc = 3; frefc < 6; frefc++) {
 			for (loopc = 24; loopc < 161; loopc++) {
 
@@ -297,27 +296,27 @@ static unsigned int cal_freq(unsigned int pixclock, struct pix_pll * pll_config)
 						(loopc > 32 * frefc))
 					continue;
 
-				b = 10000 * frefc / loopc;
-				a = (a > b) ? (a - b) : (b - a);
-				if (a < min) {
+				b = 100000L * loopc / frefc;
+				c = (a > b) ? (a - b) : (b - a);
+				if (c < min) {
 
-					found = 1;
-					break;
+					pll_config->l2_div = pstdiv;
+					pll_config->l1_loopc = loopc;
+					pll_config->l1_frefc = frefc;
+					/*printk("found = %d, pix = %d khz; min = %ld; pstdiv = %x;"*/
+							/*"loopc = %x; frefc = %x\n", found, pixclock_khz, */
+							/*min, pll_config->l2_div, pll_config->l1_loopc, */
+							/*pll_config->l1_frefc);*/
+
+
+					return 1;
 				}
 			}	
 
 		}
 	}
 
-	pr_info("found = %d, pix = %x; min = %lx; pstdiv = %x;"
-			"loopc = %x; frefc = %d\n", found, pixclock, 
-			min, pstdiv, loopc, frefc);
-
-	pll_config->l2_div = pstdiv;
-	pll_config->l1_loopc = loopc;
-	pll_config->l1_frefc = frefc;
-
-	return found;
+	return 0;
 }
 
 static void config_pll(unsigned long pll_base, struct pix_pll *pll_cfg)
