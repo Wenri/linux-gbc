@@ -77,33 +77,6 @@ static u_long videomemorysize = 0;
 module_param(videomemorysize, ulong, 0);
 DEFINE_SPINLOCK(fb_lock);
 static void config_pll(unsigned long pll_base, struct pix_pll *pll_cfg);
-#if 0 
-static struct fb_var_screeninfo ls2k_fb_default __initdata = {
-	.xres		= 640,
-	.yres		= 480,
-	.xres_virtual	= 640,
-	.yres_virtual	= 480,
-	.xoffset	= 0,
-	.yoffset	= 0,
-	.bits_per_pixel = DEFAULT_BITS_PER_PIXEL,
-	.red		= { 11, 5 ,0},
-	.green		= { 5, 6, 0 },
-	.blue		= { 0, 5, 0 },
-	.activate	= FB_ACTIVATE_NOW,
-	.height		= -1,
-	.width		= -1,
-	.pixclock	= 41900,
-	.left_margin	= 88,
-	.right_margin	= 24,
-	.upper_margin	= 16,
-	.lower_margin	= 1,
-	.hsync_len	= 64,
-	.vsync_len	= 3,
-	.sync		= 3,
-	.vmode =	FB_VMODE_NONINTERLACED,
-};
-
-#else 
 static struct fb_var_screeninfo ls2k_fb_default __initdata = {
 	.xres		= 1280,
 	.yres		= 1024,
@@ -128,7 +101,6 @@ static struct fb_var_screeninfo ls2k_fb_default __initdata = {
 	.sync		= 4,
 	.vmode =	FB_VMODE_NONINTERLACED,
 };
-#endif
 static struct fb_fix_screeninfo ls2k_fb_fix __initdata = {
 	.id =		"Virtual FB",
 	.type =		FB_TYPE_PACKED_PIXELS,
@@ -567,7 +539,7 @@ static int ls2k_fb_blank (int blank_mode, struct fb_info *info)
  */
 static void ls2k_enable_cursor(int mode, unsigned long base)
 {
-	unsigned int tmp = ls2k_readl(LS2K_FB_CUR_CFG_REG);
+	unsigned int tmp = ls2k_readl(base + LS2K_FB_CUR_CFG_REG);
 	tmp &= ~0xff;
 	ls2k_writel(mode ? (tmp | 0x12) : (tmp | 0x10),
 			base + LS2K_FB_CUR_CFG_REG);
@@ -611,7 +583,7 @@ static int ls2k_fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 
 		tmp = (cursor->image.dx - info->var.xoffset) & 0xffff;
 		tmp |= (cursor->image.dy - info->var.yoffset) << 16;
-		ls2k_writel(tmp, LS2K_FB_CUR_LOC_ADDR_REG);
+		ls2k_writel(tmp, base + LS2K_FB_CUR_LOC_ADDR_REG);
 	}
 
 	if (cursor->set & FB_CUR_SETSIZE)
