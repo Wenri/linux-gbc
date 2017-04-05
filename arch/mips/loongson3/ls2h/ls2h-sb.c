@@ -36,7 +36,7 @@ extern int ls2h_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin);
 extern int ls2h_init_pcie_bios(struct pci_dev *pdev);
 #endif /* CONFIG_LS2H_PCIE */
 
-static void __init ls2h_early_config(void)
+static void ls2h_early_config(void)
 {
 #ifdef CONFIG_DMA_NONCOHERENT
 	switch(nr_cpus_loongson){

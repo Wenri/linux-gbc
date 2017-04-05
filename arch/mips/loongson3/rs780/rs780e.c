@@ -22,7 +22,7 @@ static void __init rs780_device_initcall(void)
 	loongson_rtc_platform_init();
 }
 
-void __init rs780_early_config(void)
+void rs780_early_config(void)
 {
 	if (cputype == Loongson_3A) {
 		switch (nr_cpus_loongson) {

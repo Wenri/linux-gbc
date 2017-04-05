@@ -12,6 +12,7 @@
 #include <asm/mipsregs.h>
 #include <asm/bootinfo.h>
 #include <boot_param.h>
+#include <south-bridge.h>
 extern void prom_printf(char *fmt, ...);
 extern void mach_resume_rs780(suspend_state_t state);
 extern void mach_suspend_rs780(suspend_state_t state);
@@ -47,6 +48,11 @@ static inline void CMOS_WRITE(unsigned char data, unsigned long addr)
 #define HT_uncache_base_reg0	*(volatile unsigned int *)(ht_control_base + 0xF4)
 #define HT_uncache_enable_reg1	*(volatile unsigned int *)(ht_control_base + 0xF8)
 #define HT_uncache_base_reg1	*(volatile unsigned int *)(ht_control_base + 0xFC)
+
+#define HT_rx_win_enable_reg0	*(volatile unsigned int *)(ht_control_base + 0x60)
+#define HT_rx_win_base_reg0	*(volatile unsigned int *)(ht_control_base + 0x64)
+#define HT_rx_win_enable_reg1	*(volatile unsigned int *)(ht_control_base + 0x68)
+#define HT_rx_win_base_reg1	*(volatile unsigned int *)(ht_control_base + 0x6C)
 
 extern enum loongson_cpu_type cputype;
 static unsigned int __maybe_unused cached_autoplug_enabled;
@@ -205,7 +211,6 @@ static int loongson_pm_enter(suspend_state_t state)
 			break;
 	}
 	if (state == PM_SUSPEND_MEM) {
-
 		tmp = (read_c0_prid() & 0xf);
 		if (((tmp == PRID_REV_LOONGSON3A2000) || (tmp == PRID_REV_LOONGSON3A3000))) {
 			mach_resume_register();
@@ -216,6 +221,10 @@ static int loongson_pm_enter(suspend_state_t state)
 		}
 		else if (board_type == LS2H)
 			mach_resume_ls2h(state);
+#ifdef CONFIG_DMA_NONCOHERENT
+		if(ls_south_bridge->sb_early_config)
+			ls_south_bridge->sb_early_config();
+#endif
 	}
 	return 0;
 }
