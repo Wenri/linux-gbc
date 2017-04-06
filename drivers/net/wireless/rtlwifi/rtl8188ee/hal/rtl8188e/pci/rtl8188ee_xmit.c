@@ -270,7 +270,6 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz)
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	HAL_DATA_TYPE		*pHalData = GET_HAL_DATA(padapter);
-	//struct dm_priv		*pdmpriv = &pHalData->dmpriv;
 	struct tx_desc		*ptxdesc = (struct tx_desc *)pmem;
 	sint	bmcst = IS_MCAST(pattrib->ra);
 #ifdef CONFIG_P2P
@@ -410,6 +409,12 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz)
 		ptxdesc->txdw3 |= cpu_to_le32((pattrib->seqnum<<SEQ_SHT)&0x0fff0000);	
 
 		//offset 20
+		ptxdesc->txdw5 |= cpu_to_le32(RTY_LMT_EN);/* retry limit enable */
+		if (pattrib->retry_ctrl == _TRUE)
+			ptxdesc->txdw5 |= cpu_to_le32(0x00180000);/* retry limit = 6 */
+		else
+			ptxdesc->txdw5 |= cpu_to_le32(0x00300000);/* retry limit = 12 */
+
 #ifdef CONFIG_INTEL_PROXIM
 		if((padapter->proximity.proxim_on==_TRUE)&&(pattrib->intel_proxim==_TRUE)){
 			DBG_871X("\n %s pattrib->rate=%d\n",__FUNCTION__,pattrib->rate);
@@ -440,15 +445,13 @@ static s32 update_txdesc(struct xmit_frame *pxmitframe, u8 *pmem, s32 sz)
 		ptxdesc->txdw1 |= cpu_to_le32((4)&0x3f);	//CAM_ID(MAC_ID)
 		ptxdesc->txdw1 |= cpu_to_le32((6<< RATE_ID_SHT) & 0x000f0000);//raid
 		
-		//offset 8		
-
 		//offset 12
 		ptxdesc->txdw3 |= cpu_to_le32((pattrib->seqnum<<RATE_ID_SHT)&0x0fff0000);		
 	
+		/* offset 16 */
+		ptxdesc->txdw4 |= cpu_to_le32(USERATE);/* driver uses rate	 */
 		
 		//offset 20
-		ptxdesc->txdw5 |= cpu_to_le32(BIT(17));//retry limit enable
-		ptxdesc->txdw5 |= cpu_to_le32(0x00180000);//retry limit = 6
 		ptxdesc->txdw5 |= cpu_to_le32(MRateToHwRate(pmlmeext->tx_rate));
 	}
 
@@ -638,9 +641,8 @@ void rtl8188ee_xmitframe_resume(_adapter *padapter)
 
 	while(1)
 	{
-		if ((padapter->bDriverStopped == _TRUE)||(padapter->bSurpriseRemoved== _TRUE))
-		{
-			DBG_8192C("rtl8188ee_xmitframe_resume => bDriverStopped or bSurpriseRemoved \n");
+		if (RTW_CANNOT_RUN(padapter)) {
+			DBG_8192C("rtl8188ee_xmitframe_resume => bDriverStopped or bSurpriseRemoved\n");
 			break;
 		}
 
@@ -766,12 +768,8 @@ static s32 pre_xmitframe(_adapter *padapter, struct xmit_frame *pxmitframe)
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
 	struct pkt_attrib *pattrib = &pxmitframe->attrib;
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
+	u8 lg_sta_num;
 
-#ifdef CONFIG_CONCURRENT_MODE
-	PADAPTER pbuddy_adapter = padapter->pbuddy_adapter;
-	struct mlme_priv *pbuddy_mlmepriv = &(pbuddy_adapter->mlmepriv);	
-#endif // CONFIG_CONCURRENT_MODE
-	
 	_enter_critical_bh(&pxmitpriv->lock, &irqL);
 
 	if ( (rtw_txframes_sta_ac_pending(padapter, pattrib) > 0) ||
@@ -781,19 +779,17 @@ static s32 pre_xmitframe(_adapter *padapter, struct xmit_frame *pxmitframe)
 		goto enqueue;
 	}
 
-	if (check_fwstate(pmlmepriv, _FW_UNDER_SURVEY) == _TRUE)
-	{
+	if (rtw_xmit_ac_blocked(padapter) == _TRUE) {
 		DBG_COUNTER(padapter->tx_logs.intf_tx_pending_fw_under_survey);
 		goto enqueue;
 	}
 
-#ifdef CONFIG_CONCURRENT_MODE
-	if (check_fwstate(pbuddy_mlmepriv, _FW_UNDER_SURVEY|_FW_UNDER_LINKING) == _TRUE)
-	{
+	rtw_dev_iface_status(padapter, NULL, NULL , &lg_sta_num, NULL, NULL);
+	if (lg_sta_num) {
 		DBG_COUNTER(padapter->tx_logs.intf_tx_pending_fw_under_linking);
 		goto enqueue;
 	}
-#endif // CONFIG_CONCURRENT_MODE
+
 	pxmitbuf = rtw_alloc_xmitbuf(pxmitpriv);
 	if (pxmitbuf == NULL)
 	{

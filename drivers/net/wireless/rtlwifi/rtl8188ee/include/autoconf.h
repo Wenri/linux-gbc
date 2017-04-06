@@ -50,7 +50,7 @@
 	//#define CONFIG_DEBUG_CFG80211 
 	//#define CONFIG_DRV_ISSUE_PROV_REQ // IOT FOR S2
 	#define CONFIG_SET_SCAN_DENY_TIMER
-
+	#define CONFIG_RFKILL_POLL
 #endif
 
 /*
@@ -89,10 +89,6 @@
 	//#define CONFIG_LPS_LCLK	
 	#endif
 
-	#if defined(CONFIG_LPS)
-	#define CONFIG_LPS_SLOW_TRANSITION
-	#endif
-
 	#ifdef CONFIG_LPS_LCLK
 	#define CONFIG_XMIT_THREAD_MODE
 	#endif
@@ -111,7 +107,7 @@
 		//#define CONFIG_HWPORT_SWAP				//Port0->Sec , Port1 -> Pri
 		#define CONFIG_RUNTIME_PORT_SWITCH
 		//#define DBG_RUNTIME_PORT_SWITCH
-		#define CONFIG_STA_MODE_SCAN_UNDER_AP_MODE
+		#define CONFIG_SCAN_BACKOP
 		#define CONFIG_TSF_RESET_OFFLOAD 			// For 2 PORT TSF SYNC.
 	#endif
 
@@ -136,17 +132,15 @@
 		#define CONFIG_HOSTAPD_MLME	
 	#endif			
 	#define CONFIG_FIND_BEST_CHANNEL	
-	//#define CONFIG_NO_WIRELESS_HANDLERS	
 #endif
 
 #define CONFIG_P2P	
 #ifdef CONFIG_P2P
 	//The CONFIG_WFD is for supporting the Wi-Fi display
 	#define CONFIG_WFD
-	
-	#ifndef CONFIG_WIFI_TEST
-		#define CONFIG_P2P_REMOVE_GROUP_INFO
-	#endif
+
+	#define CONFIG_P2P_REMOVE_GROUP_INFO
+
 	//#define CONFIG_DBG_P2P
 
 	#define CONFIG_P2P_PS
@@ -157,13 +151,14 @@
 #endif
 
 //	Added by Kurt 20110511
-//#define CONFIG_TDLS	
 #ifdef CONFIG_TDLS
+	#define CONFIG_TDLS_DRIVER_SETUP
 //	#ifndef CONFIG_WFD
-//		#define CONFIG_WFD	
+//		#define CONFIG_WFD
 //	#endif
-//	#define CONFIG_TDLS_AUTOSETUP			
-//	#define CONFIG_TDLS_AUTOCHECKALIVE		
+//	#define CONFIG_TDLS_AUTOSETUP
+	#define CONFIG_TDLS_AUTOCHECKALIVE
+	#define CONFIG_TDLS_CH_SW		/* Enable "CONFIG_TDLS_CH_SW" by default, however limit it to only work in wifi logo test mode but not in normal mode currently */
 #endif
 
 
@@ -227,9 +222,13 @@
 //#define ENABLE_USB_DROP_INCORRECT_OUT
 
 
-//#define RTL8192CU_ADHOC_WORKAROUND_SETTING	
-
 #define DISABLE_BB_RF	0
+
+#ifdef CONFIG_GPIO_WAKEUP
+	#ifndef WAKEUP_GPIO_IDX
+	    #define WAKEUP_GPIO_IDX 7
+	#endif
+#endif
 
 //#define RTL8188E_FPGA_NETWORKTYPE_ADHOC	0
 
@@ -276,38 +275,6 @@
 #endif
 
 
-/*
- * Outsource  Related Config
- */
-#define TESTCHIP_SUPPORT				0
-
-#define 	RTL8192CE_SUPPORT 				0
-#define 	RTL8192CU_SUPPORT 			0
-#define 	RTL8192C_SUPPORT 				(RTL8192CE_SUPPORT|RTL8192CU_SUPPORT)	
-
-#define 	RTL8192DE_SUPPORT 				0
-#define 	RTL8192DU_SUPPORT 			0
-#define 	RTL8192D_SUPPORT 				(RTL8192DE_SUPPORT|RTL8192DU_SUPPORT)	
-
-#define 	RTL8723AU_SUPPORT				0
-#define 	RTL8723AS_SUPPORT				0
-#define 	RTL8723AE_SUPPORT				0
-#define 	RTL8723A_SUPPORT				(RTL8723AU_SUPPORT|RTL8723AS_SUPPORT|RTL8723AE_SUPPORT)
-#define 	RTL8723_FPGA_VERIFICATION		0
-
-#define RTL8188E_SUPPORT				1
-#define RTL8812A_SUPPORT				0
-#define RTL8821A_SUPPORT				0
-#define RTL8723B_SUPPORT				0
-#define RTL8192E_SUPPORT				0
-#define RTL8814A_SUPPORT				0
-#define RTL8195A_SUPPORT				0
-
-//#if (RTL8188E_SUPPORT==1)
-#define RATE_ADAPTIVE_SUPPORT 			1
-#define POWER_TRAINING_ACTIVE			1
-
-
 #ifdef CONFIG_USB_TX_AGGREGATION
 //#define 	CONFIG_TX_EARLY_MODE
 #endif
@@ -325,7 +292,7 @@
  */
 #define DBG	1
 
-//#define CONFIG_DEBUG /* DBG_871X, etc... */  /*kyo del*/
+//#define CONFIG_DEBUG /* DBG_871X, etc... */
 //#define CONFIG_DEBUG_RTL871X /* RT_TRACE, RT_PRINT_DATA, _func_enter_, _func_exit_ */
 
 #define CONFIG_PROC_DEBUG

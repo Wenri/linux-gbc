@@ -20,6 +20,8 @@
 #define _HCI_INTF_C_
 
 #include <drv_types.h>
+#include <hal_data.h>
+
 #include <linux/pci_regs.h>
 
 #ifndef CONFIG_PCI_HCI
@@ -64,27 +66,22 @@ static struct specific_device_id specific_device_id_tbl[] = {
 
 struct pci_device_id rtw_pci_id_tbl[] = {
 #ifdef CONFIG_RTL8188E
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8179),.driver_data = RTL8188E},
-#endif
-#ifdef CONFIG_RTL8192C
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8178),.driver_data = RTL8188C_8192C},
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8177),.driver_data = RTL8188C_8192C},
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8176),.driver_data = RTL8188C_8192C},
-#endif
-#ifdef CONFIG_RTL8192D
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8193),.driver_data = RTL8192D},
-#endif
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8179), .driver_data = RTL8188E},
+#endif 
 #ifdef CONFIG_RTL8812A
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8812),.driver_data = RTL8812},
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8812), .driver_data = RTL8812},
 #endif
 #ifdef CONFIG_RTL8821A
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8821),.driver_data = RTL8821},
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8821), .driver_data = RTL8821},
 #endif
 #ifdef CONFIG_RTL8192E
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x818B),.driver_data = RTL8192E},
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x818B), .driver_data = RTL8192E},
 #endif
 #ifdef CONFIG_RTL8723B
-	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xb723),.driver_data = RTL8723B},
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xb723), .driver_data = RTL8723B},
+#endif
+#ifdef CONFIG_RTL8814A
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x8813), .driver_data = RTL8814A},
 #endif
 	{},
 };
@@ -99,6 +96,7 @@ static struct pci_drv_priv pci_drvpriv = {
 	.rtw_pci_drv.name = (char*)DRV_NAME,
 	.rtw_pci_drv.probe = rtw_drv_init,
 	.rtw_pci_drv.remove = rtw_dev_remove,
+	.rtw_pci_drv.shutdown = rtw_dev_remove,
 	.rtw_pci_drv.id_table = rtw_pci_id_tbl,
 #ifdef CONFIG_PM	
 	.rtw_pci_drv.suspend = rtw_pci_suspend,
@@ -232,7 +230,7 @@ static u8 rtw_pci_switch_clk_req(_adapter *padapter, u8 value)
 
 	buffer = value;
 
-	if(!padapter->hw_init_completed)
+	if (!rtw_is_hw_init_completed(padapter))
 		return bResult;
 
 	// the clock request is located at offset 0x81, suppose the PCIE Capability register is located at offset 0x70
@@ -266,7 +264,7 @@ void rtw_pci_disable_aspm(_adapter *padapter)
 	if(!(pwrpriv->reg_rfps_level & (RT_RF_LPS_LEVEL_ASPM|RT_RF_PS_LEVEL_ALWAYS_ASPM)) )
 		return;
 
-	if(!padapter->hw_init_completed)
+	if (!rtw_is_hw_init_completed(padapter))
 		return;
 
 	if (pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_UNKNOWN) {
@@ -352,8 +350,7 @@ void rtw_pci_enable_aspm(_adapter *padapter)
 
 //Get Bridge ASPM Support
 //not to enable bridge aspm if bridge does not support
-//Added by sherry 20100803
-	//if (IS_HARDWARE_TYPE_8192DE(padapter))
+//Added by sherry 20100803	
 	{
 		// Get the Link Capability, it ls located at offset 0x0c from the PCIE Capability
 		pci_read_config_dword(bridge_pdev, (pcipriv->pcibridge_pciehdr_offset+0x0C), &u_device_aspmsupportsetting);
@@ -768,6 +765,7 @@ static void rtw_pci_update_default_setting(_adapter *padapter)
 	struct dvobj_priv	*pdvobjpriv = adapter_to_dvobj(padapter);
 	struct pci_priv	*pcipriv = &(pdvobjpriv->pcipriv);
 	struct pwrctrl_priv	*pwrpriv = dvobj_to_pwrctl(pdvobjpriv);
+	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 
 	//reset pPSC->reg_rfps_level & priv->b_support_aspm
 	pwrpriv->reg_rfps_level = 0;
@@ -834,7 +832,7 @@ static void rtw_pci_update_default_setting(_adapter *padapter)
 
 				rtw_hal_get_def_var(padapter, HAL_DEF_PCI_AMD_L1_SUPPORT, &b_support_l1_on_amd);
 
-				if(padapter->eeprompriv.CustomerID == RT_CID_TOSHIBA &&
+				if(pHalData->CustomerID == RT_CID_TOSHIBA &&
 					pcipriv->pcibridge_vendor == PCI_BRIDGE_VENDOR_AMD && 
 					!pcipriv->amd_l1_patch && !b_support_l1_on_amd)
 				{
@@ -894,7 +892,7 @@ u8 PlatformEnableDMA64(PADAPTER Adapter)
 static irqreturn_t rtw_pci_interrupt(int irq, void *priv, struct pt_regs *regs)
 {
 	struct dvobj_priv *dvobj = (struct dvobj_priv *)priv;
-	_adapter *adapter = dvobj->if1;
+	_adapter *adapter = dvobj->padapters[IFACE_ID0];
 
 	if (dvobj->irq_enabled == 0) {
 		return IRQ_HANDLED;
@@ -930,13 +928,60 @@ int pci_alloc_irq(struct dvobj_priv *dvobj)
 		DBG_871X("Error allocating IRQ %d",pdev->irq);
 	} else {
 		dvobj->irq_alloc = 1;
+		dvobj->irq = pdev->irq;
 		DBG_871X("Request_irq OK, IRQ %d\n",pdev->irq);
 	}
 
 	return err?_FAIL:_SUCCESS;
 }
 
-static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev)
+static void rtw_decide_chip_type_by_pci_driver_data(struct dvobj_priv *pdvobj, const struct pci_device_id *pdid)
+{
+	pdvobj->chip_type = pdid->driver_data;
+	
+	#ifdef CONFIG_RTL8188E
+	if (pdvobj->chip_type == RTL8188E) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8188EE;
+		DBG_871X("CHIP TYPE: RTL8188E\n");
+	}
+	#endif
+
+	#ifdef CONFIG_RTL8812A
+	if (pdvobj->chip_type == RTL8812) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8812E;
+		DBG_871X("CHIP TYPE: RTL8812AE\n");
+	}
+	#endif
+
+	#ifdef CONFIG_RTL8821A
+	if (pdvobj->chip_type == RTL8821) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8821E;
+		DBG_871X("CHIP TYPE: RTL8821AE\n");
+	}
+	#endif
+
+	#ifdef CONFIG_RTL8723B
+	if (pdvobj->chip_type == RTL8723B) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8723BE;
+		DBG_871X("CHIP TYPE: RTL8723BE\n");
+	}
+	#endif
+	#ifdef CONFIG_RTL8192E
+	if (pdvobj->chip_type == RTL8192E) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8192EE;
+		DBG_871X("CHIP TYPE: RTL8192EE\n");
+	}
+	#endif
+
+	#ifdef CONFIG_RTL8814A
+	if (pdvobj->chip_type == RTL8814A) {
+		pdvobj->HardwareType = HARDWARE_TYPE_RTL8814AE;
+		DBG_871X("CHIP TYPE: RTL8814AE\n");
+	}
+	#endif
+}
+
+static struct dvobj_priv	*pci_dvobj_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 {
 	int err;
 	u32	status = _FAIL;
@@ -1042,6 +1087,11 @@ _func_enter_;
 		pci_read_config_dword(pdev, (i<<2), &pci_cfg_space[i]);
 #endif
 
+	/*step 1-1., decide the chip_type via device info*/
+	dvobj->interface_type = RTW_PCIE;
+	rtw_decide_chip_type_by_pci_driver_data(dvobj, pdid);
+
+
 	//rtw_pci_parse_configuration(pdev, dvobj, (u8 *)&pci_cfg_space);
 	rtw_pci_parse_configuration(pdev, dvobj);
 
@@ -1120,272 +1170,68 @@ _func_exit_;
 }
 
 
-static void decide_chip_type_by_pci_device_id(_adapter *padapter, struct pci_dev *pdev)
-{
-	u16	venderid, deviceid, irqline;
-	u8	revisionid;
-	struct dvobj_priv	*pdvobjpriv=adapter_to_dvobj(padapter);
-
-
-	venderid = pdev->vendor;
-	deviceid = pdev->device;
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23))
-	pci_read_config_byte(pdev, PCI_REVISION_ID, &revisionid); // PCI_REVISION_ID 0x08
-#else
-	revisionid = pdev->revision;
-#endif
-	pci_read_config_word(pdev, PCI_INTERRUPT_LINE, &irqline); // PCI_INTERRUPT_LINE 0x3c
-	pdvobjpriv->irqline = irqline;
-
-
-	//
-	// Decide hardware type here. 
-	//
-	if( deviceid == HAL_HW_PCI_8185_DEVICE_ID ||
-	    deviceid == HAL_HW_PCI_8188_DEVICE_ID ||
-	    deviceid == HAL_HW_PCI_8198_DEVICE_ID)
-	{
-		DBG_871X("Adapter (8185/8185B) is found- VendorID/DeviceID=%x/%x\n", venderid, deviceid);
-		padapter->HardwareType=HARDWARE_TYPE_RTL8185;
-	}
-	else if (deviceid == HAL_HW_PCI_8190_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_0045_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_0046_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_DLINK_DEVICE_ID)
-	{
-		DBG_871X("Adapter(8190 PCI) is found - vendorid/deviceid=%x/%x\n", venderid, deviceid);
-		padapter->HardwareType = HARDWARE_TYPE_RTL8190P;
-	}
-	else if (deviceid == HAL_HW_PCI_8192_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_0044_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_0047_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8192SE_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8174_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8173_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8172_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8171_DEVICE_ID)
-	{
-		// 8192e and and 8192se may have the same device ID 8192. However, their Revision
-		// ID is different
-		// Added for 92DE. We deferentiate it from SVID,SDID.
-		if( pdev->subsystem_vendor == 0x10EC && pdev->subsystem_device == 0xE020){
-			padapter->HardwareType = HARDWARE_TYPE_RTL8192DE;
-			DBG_871X("Adapter(8192DE) is found - VendorID/DeviceID/RID=%X/%X/%X\n", venderid, deviceid, revisionid);
-		}else{
-			switch (revisionid) {
-				case HAL_HW_PCI_REVISION_ID_8192PCIE:
-					DBG_871X("Adapter(8192 PCI-E) is found - vendorid/deviceid=%x/%x\n", venderid, deviceid);
-					padapter->HardwareType = HARDWARE_TYPE_RTL8192E;
-					break;
-				case HAL_HW_PCI_REVISION_ID_8192SE:
-					DBG_871X("Adapter(8192SE) is found - vendorid/deviceid=%x/%x\n", venderid, deviceid);
-					padapter->HardwareType = HARDWARE_TYPE_RTL8192SE;
-					break;
-				default:
-					DBG_871X("Err: Unknown device - vendorid/deviceid=%x/%x\n", venderid, deviceid);
-					padapter->HardwareType = HARDWARE_TYPE_RTL8192SE;
-					break;
-			}
-		}
-	}
-	else if(deviceid==HAL_HW_PCI_8723E_DEVICE_ID )
-	{//RTL8723E may have the same device ID with RTL8192CET
-		padapter->HardwareType = HARDWARE_TYPE_RTL8723AE;
-		DBG_871X("Adapter(8723 PCI-E) is found - VendorID/DeviceID=%x/%x\n", venderid, deviceid);
-	}
-	else if (deviceid == HAL_HW_PCI_8192CET_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8192CE_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8191CE_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_8188CE_DEVICE_ID) 
-	{
-		DBG_871X("Adapter(8192C PCI-E) is found - vendorid/deviceid=%x/%x\n", venderid, deviceid);
-		padapter->HardwareType = HARDWARE_TYPE_RTL8192CE;
-	}
-	else if (deviceid == HAL_HW_PCI_8192DE_DEVICE_ID ||
-		deviceid == HAL_HW_PCI_002B_DEVICE_ID ){
-		padapter->HardwareType = HARDWARE_TYPE_RTL8192DE;
-		DBG_871X("Adapter(8192DE) is found - VendorID/DeviceID/RID=%X/%X/%X\n", venderid, deviceid, revisionid);
-	}
-	else if (deviceid == HAL_HW_PCI_8188EE_DEVICE_ID){
-		padapter->HardwareType = HARDWARE_TYPE_RTL8188EE;
-		padapter->chip_type = RTL8188E;
-		DBG_871X("Adapter(8188EE) is found - VendorID/DeviceID/RID=%X/%X/%X\n", venderid, deviceid, revisionid);
-	}
-	
-	else
-	{
-		DBG_871X("Err: Unknown device - vendorid/deviceid=%x/%x\n", venderid, deviceid);
-		//padapter->HardwareType = HAL_DEFAULT_HARDWARE_TYPE;
-	}
-
-
-	padapter->chip_type = NULL_CHIP_TYPE;
-
-	//TODO:
-#ifdef CONFIG_RTL8192C
-	padapter->chip_type = RTL8188C_8192C;
-	padapter->HardwareType = HARDWARE_TYPE_RTL8192CE;
-#endif
-#ifdef CONFIG_RTL8192D
-	pdvobjpriv->InterfaceNumber = revisionid;
-
-	padapter->chip_type = RTL8192D;
-	padapter->HardwareType = HARDWARE_TYPE_RTL8192DE;
-#endif
-
-}
-
-static void rtw_decide_chip_type_by_pci_driver_data(_adapter *padapter, struct pci_dev *pdev, const struct pci_device_id *pdid)
-{
-	padapter->chip_type = pdid->driver_data;
-
-	#ifdef CONFIG_RTL8192C
-	if(padapter->chip_type == RTL8188C_8192C){	
-		padapter->HardwareType = HARDWARE_TYPE_RTL8192CE;
-		DBG_871X("CHIP TYPE: RTL8188C_8192C\n");
-	}
-	#endif
-
-	#ifdef CONFIG_RTL8192D
-	if(padapter->chip_type == RTL8192D){
-		u8	revisionid;
-		struct dvobj_priv	*pdvobjpriv=adapter_to_dvobj(padapter);
-
-	#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23))
-		pci_read_config_byte(pdev, PCI_REVISION_ID, &revisionid); // PCI_REVISION_ID 0x08
-	#else
-		revisionid = pdev->revision;
-	#endif
-		pdvobjpriv->InterfaceNumber = revisionid;
-
-		padapter->HardwareType = HARDWARE_TYPE_RTL8192DE;
-		DBG_871X("CHIP TYPE: RTL8192D\n");
-	}
-	#endif	
-	
-	#ifdef CONFIG_RTL8188E
-	if(padapter->chip_type == RTL8188E){	
-		padapter->HardwareType = HARDWARE_TYPE_RTL8188EE;
-		DBG_871X("CHIP TYPE: RTL8188E\n");
-	}
-	#endif	
-
-	#ifdef CONFIG_RTL8812A
-	if(padapter->chip_type == RTL8812){
-		padapter->HardwareType = HARDWARE_TYPE_RTL8812E;
-		DBG_871X("CHIP TYPE: RTL8812E\n");
-	}
-	#endif
-
-	#ifdef CONFIG_RTL8821A
-	if(padapter->chip_type == RTL8821){
-		padapter->HardwareType = HARDWARE_TYPE_RTL8821E;
-		DBG_871X("CHIP TYPE: RTL8821AE\n");
-	}
-	#endif
-
-	#ifdef CONFIG_RTL8723B
-	if(padapter->chip_type == RTL8723B){
-		padapter->HardwareType = HARDWARE_TYPE_RTL8723BE;
-		DBG_871X("CHIP TYPE: RTL8723BE\n");
-	}
-	#endif
-
-/*
-	#ifdef CONFIG_RTL8723A
-	if(padapter->chip_type == RTL8723A){	
-		padapter->HardwareType = HARDWARE_TYPE_RTL8723AE;
-	}
-	#endif
-*/	
-	#ifdef CONFIG_RTL8192E
-	if(padapter->chip_type == RTL8192E){	
-		padapter->HardwareType = HARDWARE_TYPE_RTL8192EE;
-		DBG_871X("CHIP TYPE: RTL8192EE\n");
-	}
-	#endif
-
-}
-
-void rtw_set_hal_ops(_adapter *padapter)
+u8 rtw_set_hal_ops(_adapter *padapter)
 {
 	//alloc memory for HAL DATA
-	rtw_hal_data_init(padapter);
-	
-	#ifdef CONFIG_RTL8192C
-	if(padapter->chip_type == RTL8188C_8192C)	
-		rtl8192ce_set_hal_ops(padapter);
-	#endif
-
-	#ifdef CONFIG_RTL8192D
-	if(padapter->chip_type == RTL8192D)	
-		rtl8192de_set_hal_ops(padapter);
-	#endif
+	if (rtw_hal_data_init(padapter) == _FAIL)
+		return _FAIL;
 
 	#ifdef CONFIG_RTL8188E
-	if(padapter->chip_type == RTL8188E)	
+	if (rtw_get_chip_type(padapter) == RTL8188E)
 		rtl8188ee_set_hal_ops(padapter);
 	#endif
 
 	#if defined(CONFIG_RTL8812A) || defined(CONFIG_RTL8821A)
-	if((padapter->chip_type == RTL8812)||(padapter->chip_type == RTL8821))
+	if ((rtw_get_chip_type(padapter) == RTL8812) || (rtw_get_chip_type(padapter) == RTL8821))
 		rtl8812ae_set_hal_ops(padapter);
 	#endif
 
 	#ifdef CONFIG_RTL8723B
-	if(padapter->chip_type == RTL8723B)
+	if (rtw_get_chip_type(padapter) == RTL8723B)
 		rtl8723be_set_hal_ops(padapter);
 	#endif
 	
-/*	
-	#ifdef CONFIG_RTL8723A
-	if(padapter->chip_type == RTL8723A)	
-		rtl8723ae_set_hal_ops(padapter);
-	#endif
-*/	
 	#ifdef CONFIG_RTL8192E
-	if(padapter->chip_type == RTL8192E)	
+	if (rtw_get_chip_type(padapter) == RTL8192E)
 		rtl8192ee_set_hal_ops(padapter);
 	#endif
 
+	#ifdef CONFIG_RTL8814A
+	if (rtw_get_chip_type(padapter) == RTL8814A)
+		rtl8814ae_set_hal_ops(padapter);
+	#endif
+
+	if (rtw_hal_ops_check(padapter) == _FAIL )
+		return _FAIL;
+
+	return _SUCCESS;
 }
 
 void pci_set_intf_ops(_adapter *padapter,struct _io_ops *pops)
 {
-	#ifdef CONFIG_RTL8192C
-	if(padapter->chip_type == RTL8188C_8192C)	
-		rtl8192ce_set_intf_ops(pops);
-	#endif
-
-	#ifdef CONFIG_RTL8192D
-	if(padapter->chip_type == RTL8192D)	
-		rtl8192de_set_intf_ops(pops);
-	#endif
-
 	#ifdef CONFIG_RTL8188E
-	if(padapter->chip_type == RTL8188E)	
+	if (rtw_get_chip_type(padapter) == RTL8188E)
 		rtl8188ee_set_intf_ops(pops);
 	#endif
 
 	#if defined(CONFIG_RTL8812A) || defined(CONFIG_RTL8821A)
-	if((padapter->chip_type == RTL8812)||(padapter->chip_type == RTL8821))
+	if ((rtw_get_chip_type(padapter) == RTL8812) || (rtw_get_chip_type(padapter) == RTL8821))
 		rtl8812ae_set_intf_ops(pops);
 	#endif
 
 	#ifdef CONFIG_RTL8723B
-	if(padapter->chip_type == RTL8723B)
+	if (rtw_get_chip_type(padapter) == RTL8723B)
 		rtl8723be_set_intf_ops(pops);
 	#endif
 	
-/*
-	#ifdef CONFIG_RTL8723A
-	if(padapter->chip_type == RTL8723A)	
-		
-	#endif
-*/
 	#ifdef CONFIG_RTL8192E
-	if(padapter->chip_type == RTL8192E)	
+	if (rtw_get_chip_type(padapter) == RTL8192E)
 		rtl8192ee_set_intf_ops(pops);
+	#endif
+		
+	#ifdef CONFIG_RTL8814A
+	if (rtw_get_chip_type(padapter) == RTL8814A)
+		rtl8814ae_set_intf_ops(pops);
 	#endif
 		
 }
@@ -1408,7 +1254,7 @@ static void pci_intf_stop(_adapter *padapter)
 	RT_TRACE(_module_hci_intfs_c_,_drv_err_,("+pci_intf_stop\n"));
 
 	//Disable hw interrupt
-	if(padapter->bSurpriseRemoved == _FALSE)
+	if (!rtw_is_surprise_removed(padapter))
 	{
 		//device still exists, so driver can do i/o operation
 		rtw_hal_disable_interrupt(padapter);
@@ -1473,7 +1319,7 @@ static int rtw_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 {
 	int ret = 0;
 	struct dvobj_priv *dvobj = pci_get_drvdata(pdev);
-	_adapter *padapter = dvobj->if1;
+	_adapter *padapter = dvobj->padapters[IFACE_ID0];
 
 	ret = rtw_suspend_common(padapter);
 	if ( (ret = pci_save_state(pdev)) != 0) {
@@ -1481,10 +1327,18 @@ static int rtw_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 		goto exit;
 	}
 
+#ifdef CONFIG_WOWLAN
+	device_set_wakeup_enable(&pdev->dev, true);
+#endif	
 	pci_disable_device(pdev);
 
+#ifdef CONFIG_WOWLAN
+	ret = pci_enable_wake(pdev, pci_choose_state(pdev, state), true);
+	if (ret != 0) 
+		DBG_871X("%s Failed on pci_enable_wake (%d)\n", __FUNCTION__, ret);
+#endif
 	if ( (ret = pci_set_power_state(pdev, pci_choose_state(pdev, state))) != 0) {
-		DBG_871X("%s Failed on pci_set_power_state (%d)\n",__FUNCTION__,ret);
+		DBG_871X("%s Failed on pci_set_power_state (%d)\n", __FUNCTION__, ret);
 	}
 	
 exit:	
@@ -1500,28 +1354,40 @@ int rtw_resume_process(_adapter *padapter)
 static int rtw_pci_resume(struct pci_dev *pdev)
 {
 	struct dvobj_priv *dvobj = pci_get_drvdata(pdev);
-	_adapter *padapter = dvobj->if1;
+	_adapter *padapter = dvobj->padapters[IFACE_ID0];
 	struct net_device *pnetdev = padapter->pnetdev;
 	struct pwrctrl_priv *pwrpriv = dvobj_to_pwrctl(dvobj);
 	int	err = 0;
 
 	if ( (err = pci_set_power_state(pdev, PCI_D0)) != 0) {
-		DBG_871X("%s Failed on pci_set_power_state (%d)\n",__FUNCTION__,err);
+		DBG_871X("%s Failed on pci_set_power_state (%d)\n", __FUNCTION__, err);
 		goto exit;
 	}
 
 	if ( (err = pci_enable_device(pdev)) != 0) {
-		DBG_871X("%s Failed on pci_enable_device (%d)\n",__FUNCTION__,err);
+		DBG_871X("%s Failed on pci_enable_device (%d)\n", __FUNCTION__, err);
 		goto exit;
 	}
 
+	
+#ifdef CONFIG_WOWLAN
+	err =  pci_enable_wake(pdev, PCI_D0, 0);
+	if (err != 0) {
+		DBG_871X("%s Failed on pci_enable_wake (%d)\n", __FUNCTION__, err);
+		goto exit;
+	}
+#endif
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,37))
 	pci_restore_state(pdev);
 #else
 	if ( (err = pci_restore_state(pdev)) != 0) {
-		DBG_871X("%s Failed on pci_restore_state (%d)\n",__FUNCTION__,err);
+		DBG_871X("%s Failed on pci_restore_state (%d)\n", __FUNCTION__, err);
 		goto exit;
 	}
+#endif
+
+#ifdef CONFIG_WOWLAN
+	device_set_wakeup_enable(&pdev->dev, false);
 #endif
 
 	if(pwrpriv->bInternalAutoSuspend)
@@ -1562,24 +1428,26 @@ exit:
 }
 #endif//CONFIG_PM
 
-_adapter *rtw_pci_if1_init(struct dvobj_priv * dvobj, struct pci_dev *pdev, const struct pci_device_id *pdid)
+_adapter *rtw_pci_if1_init(struct dvobj_priv *dvobj, struct pci_dev *pdev)
 {
 	_adapter *padapter = NULL;
-	struct net_device *pnetdev = NULL;
 	int status = _FAIL;
-	
-	if ((padapter = (_adapter *)rtw_zvmalloc(sizeof(*padapter))) == NULL) {
+
+	padapter = (_adapter *)rtw_zvmalloc(sizeof(*padapter));
+	if (padapter == NULL)
 		goto exit;
-	}
+
+	if (loadparam(padapter) != _SUCCESS)
+		goto free_adapter;
+
 	padapter->dvobj = dvobj;
-	dvobj->if1 = padapter;
 	
-	padapter->bDriverStopped=_TRUE;
+	rtw_set_drv_stopped(padapter);/*init*/
 
 	dvobj->padapters[dvobj->iface_nums++] = padapter;
 	padapter->iface_id = IFACE_ID0;
 
-#if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
+#if defined(CONFIG_CONCURRENT_MODE)
 	//set adapter_type/iface type for primary padapter
 	padapter->isprimary = _TRUE;
 	padapter->adapter_type = PRIMARY_ADAPTER;
@@ -1590,33 +1458,12 @@ _adapter *rtw_pci_if1_init(struct dvobj_priv * dvobj, struct pci_dev *pdev, cons
 	#endif
 #endif
 
-	//step 1-1., decide the chip_type via device info	
-	padapter->interface_type = RTW_PCIE;
-	rtw_decide_chip_type_by_pci_driver_data(padapter, pdev, pdid);
-	
-	if((pnetdev = rtw_init_netdev(padapter)) == NULL) {
-		goto free_adapter;
-	}
-
-	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)
-	SET_NETDEV_DEV(pnetdev, dvobj_to_dev(dvobj));
-	#endif
-	if (dvobj->bdma64)
-		pnetdev->features |= NETIF_F_HIGHDMA;
-	pnetdev->irq = pdev->irq;
-	
-	padapter = rtw_netdev_priv(pnetdev);
-
-#ifdef CONFIG_IOCTL_CFG80211
-	if(rtw_wdev_alloc(padapter, dvobj_to_dev(dvobj)) != 0) {
-		goto free_adapter;
-	}
-#endif //CONFIG_IOCTL_CFG80211
-
-
 	//step 2.	hook HalFunc, allocate HalData
 	//hal_set_hal_ops(padapter);
-	rtw_set_hal_ops(padapter);
+	if(rtw_set_hal_ops(padapter) ==_FAIL) {
+		RT_TRACE(_module_hci_intfs_c_,_drv_err_,("Initialize hal resource Failed!\n"));
+		goto free_hal_data;
+	}
 
 	//step 3.
 	padapter->intf_start=&pci_intf_start;
@@ -1624,7 +1471,8 @@ _adapter *rtw_pci_if1_init(struct dvobj_priv * dvobj, struct pci_dev *pdev, cons
 
 
 	//.2
-	rtw_init_io_priv(padapter, pci_set_intf_ops);
+	if( rtw_init_io_priv(padapter, pci_set_intf_ops) ==_FAIL)
+		goto free_hal_data;
 
 	//.3
 	rtw_hal_read_chip_version(padapter);
@@ -1649,41 +1497,30 @@ _adapter *rtw_pci_if1_init(struct dvobj_priv * dvobj, struct pci_dev *pdev, cons
 		RT_TRACE(_module_hci_intfs_c_,_drv_err_,("Initialize PCI desc ring Failed!\n"));
 		goto free_hal_data;
 	}
-	rtw_macaddr_cfg(padapter->eeprompriv.mac_addr);
-	rtw_init_wifidirect_addrs(padapter, padapter->eeprompriv.mac_addr, padapter->eeprompriv.mac_addr);
+	rtw_macaddr_cfg(adapter_mac_addr(padapter),  get_hal_mac_addr(padapter));
+	rtw_init_wifidirect_addrs(padapter, adapter_mac_addr(padapter), adapter_mac_addr(padapter));
 
 	rtw_hal_disable_interrupt(padapter);
 
 	//step 6. Init pci related configuration
 	rtw_pci_initialize_adapter_common(padapter);
 
-	DBG_871X("bDriverStopped:%d, bSurpriseRemoved:%d, bup:%d, hw_init_completed:%d\n"
-		,padapter->bDriverStopped
-		,padapter->bSurpriseRemoved
-		,padapter->bup
-		,padapter->hw_init_completed
+	DBG_871X("bDriverStopped:%s, bSurpriseRemoved:%s, bup:%d, hw_init_completed:%s\n"
+		, rtw_is_drv_stopped(padapter)?"True":"False"
+		, rtw_is_surprise_removed(padapter)?"True":"False"
+		, padapter->bup
+		, rtw_is_hw_init_completed(padapter)?"True":"False"
 	);
 
 	status = _SUCCESS;
 
 free_hal_data:
-	if(status != _SUCCESS && padapter->HalData)
-		rtw_mfree(padapter->HalData, sizeof(*(padapter->HalData)));
-
-free_wdev:
-	if(status != _SUCCESS) {
-		#ifdef CONFIG_IOCTL_CFG80211
-		rtw_wdev_unregister(padapter->rtw_wdev);
-		rtw_wdev_free(padapter->rtw_wdev);
-		#endif
-	}
+	if (status != _SUCCESS && padapter->HalData)
+		rtw_hal_free_data(padapter);
 
 free_adapter:
-	if (status != _SUCCESS) {
-		if (pnetdev)
-			rtw_free_netdev(pnetdev);
-		else
-			rtw_vmfree((u8*)padapter, sizeof(*padapter));
+	if (status != _SUCCESS && padapter) {
+		rtw_vmfree((u8 *)padapter, sizeof(*padapter));
 		padapter = NULL;
 	}
 exit:
@@ -1692,7 +1529,6 @@ exit:
 
 static void rtw_pci_if1_deinit(_adapter *if1)
 {
-	struct net_device *pnetdev = if1->pnetdev;
 	struct mlme_priv *pmlmepriv= &if1->mlmepriv;
 
 	//	padapter->intf_stop(padapter);
@@ -1713,23 +1549,16 @@ static void rtw_pci_if1_deinit(_adapter *if1)
 #endif //CONFIG_WOWLAN
 	rtw_dev_unload(if1);
 
-	DBG_871X("%s, hw_init_completed=%d\n", __func__, if1->hw_init_completed);
-
-	//s6.
-	rtw_handle_dualmac(if1, 0);
-
-#ifdef CONFIG_IOCTL_CFG80211
-	if(if1->rtw_wdev) {
-		rtw_wdev_free(if1->rtw_wdev);
-	}
-#endif //CONFIG_IOCTL_CFG80211
+	DBG_871X("%s, hw_init_completed=%s\n", __func__, rtw_is_hw_init_completed(if1)?"_TRUE":"_FALSE");
 
 	rtw_hal_inirp_deinit(if1);
-	rtw_free_drv_sw(if1);	
+	rtw_free_drv_sw(if1);
 
-	if(pnetdev)
-		rtw_free_netdev(pnetdev);
-	
+	/* TODO: use rtw_os_ndevs_deinit instead at the first stage of driver's dev deinit function */
+	rtw_os_ndev_free(if1);
+
+	rtw_vmfree((u8 *)if1, sizeof(_adapter));
+
 #ifdef CONFIG_PLATFORM_RTD2880B
 	DBG_871X("wlan link down\n");
 	rtd2885_wlan_netlink_sendMsg("linkdown", "8712");
@@ -1758,13 +1587,13 @@ static int rtw_drv_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 	disable_ht_for_spec_devid(pdid);
 
 	/* Initialize dvobj_priv */
-	if ((dvobj = pci_dvobj_init(pdev)) == NULL) {
+	if ((dvobj = pci_dvobj_init(pdev, pdid)) == NULL) {
 		RT_TRACE(_module_hci_intfs_c_, _drv_err_, ("initialize device object priv Failed!\n"));
 		goto exit;
 	}
 
 	/* Initialize if1 */
-	if ((if1 = rtw_pci_if1_init(dvobj, pdev, pdid)) == NULL) {
+	if ((if1 = rtw_pci_if1_init(dvobj, pdev)) == NULL) {
 		DBG_871X("rtw_pci_if1_init Failed!\n");
 		goto free_dvobj;
 	}
@@ -1784,9 +1613,8 @@ static int rtw_drv_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 #endif
 
 	//dev_alloc_name && register_netdev
-	if((status = rtw_drv_register_netdev(if1)) != _SUCCESS) {
+	if (rtw_os_ndevs_init(dvobj) != _SUCCESS)
 		goto free_if2;
-	}
 
 #ifdef CONFIG_HOSTAPD_MLME
 	hostapd_mode_init(if1);
@@ -1799,13 +1627,23 @@ static int rtw_drv_init(struct pci_dev *pdev, const struct pci_device_id *pdid)
 
 	/* alloc irq */
 	if (pci_alloc_irq(dvobj) != _SUCCESS)
-		goto free_if2;
+		goto os_ndevs_deinit;
 
 	RT_TRACE(_module_hci_intfs_c_,_drv_err_,("-871x_drv - drv_init, success!\n"));
 	//DBG_871X("-871x_drv - drv_init, success!\n");
 
+#ifdef CONFIG_RFKILL_POLL
+	rtw_cfg80211_init_rfkill(if1);
+#ifdef CONFIG_CONCURRENT_MODE
+	rtw_cfg80211_init_rfkill(if2);
+#endif
+#endif
+
 	status = _SUCCESS;
 
+os_ndevs_deinit:
+	if (status != _SUCCESS)
+		rtw_os_ndevs_deinit(dvobj);
 free_if2:
 	if(status != _SUCCESS && if2) {
 		#ifdef CONFIG_CONCURRENT_MODE
@@ -1831,10 +1669,15 @@ exit:
 static void rtw_dev_remove(struct pci_dev *pdev)
 {
 	struct dvobj_priv *pdvobjpriv = pci_get_drvdata(pdev);
-	_adapter *padapter = pdvobjpriv->if1;
+	_adapter *padapter = pdvobjpriv->padapters[IFACE_ID0];
 	struct net_device *pnetdev = padapter->pnetdev;
 
 _func_exit_;
+
+	if (pdvobjpriv->processing_dev_remove == _TRUE) {
+		DBG_871X("%s-line%d: Warning! device has been removed!\n", __FUNCTION__, __LINE__);
+		return;
+	}
 
 	DBG_871X("+rtw_dev_remove\n");
 
@@ -1844,22 +1687,31 @@ _func_exit_;
 		return;
 	}
 
-	rtw_unregister_netdevs(pdvobjpriv);
+#ifdef CONFIG_RFKILL_POLL
+	rtw_cfg80211_deinit_rfkill(padapter);
+#ifdef CONFIG_CONCURRENT_MODE
+	rtw_cfg80211_deinit_rfkill(pdvobjpriv->padapters[IFACE_ID1]);
+#endif
+#endif
+
+	/* TODO: use rtw_os_ndevs_deinit instead at the first stage of driver's dev deinit function */
+	rtw_os_ndevs_unregister(pdvobjpriv);
 
 	#if 0
 #ifdef RTK_DMP_PLATFORM
-	padapter->bSurpriseRemoved = _FALSE;	// always trate as device exists
+	rtw_clr_surprise_removed(padapter);	/* always trate as device exists*/
 											// this will let the driver to disable it's interrupt
 #else
 	if(pci_drvpriv.drv_registered == _TRUE)
 	{
 		//DBG_871X("r871xu_dev_remove():padapter->bSurpriseRemoved == _TRUE\n");
-		padapter->bSurpriseRemoved = _TRUE;
+		rtw_set_surprise_removed(padapter);
 	}
 	/*else
 	{
 		//DBG_871X("r871xu_dev_remove():module removed\n");
-		padapter->hw_init_completed = _FALSE;
+		GET_HAL_DATA(padapter)->hw_init_completed = _FALSE;
+
 	}*/
 #endif
 	#endif
@@ -1868,13 +1720,15 @@ _func_exit_;
 	rtw_unregister_early_suspend(dvobj_to_pwrctl(pdvobjpriv));
 #endif
 
-	rtw_pm_set_ips(padapter, IPS_NONE);
-	rtw_pm_set_lps(padapter, PS_MODE_ACTIVE);
+	if (padapter->bFWReady == _TRUE) {
+		rtw_pm_set_ips(padapter, IPS_NONE);
+		rtw_pm_set_lps(padapter, PS_MODE_ACTIVE);
+		LeaveAllPowerSaveMode(padapter);
+	}
 
-	LeaveAllPowerSaveMode(padapter);
-
+	rtw_set_drv_stopped(padapter);	/*for stop thread*/
 #ifdef CONFIG_CONCURRENT_MODE
-	rtw_drv_if2_stop(pdvobjpriv->if2);
+	rtw_drv_if2_stop(pdvobjpriv->padapters[IFACE_ID1]);
 #endif
 
 	#ifdef CONFIG_BT_COEXIST
@@ -1884,7 +1738,7 @@ _func_exit_;
 	rtw_pci_if1_deinit(padapter);
 
 #ifdef CONFIG_CONCURRENT_MODE
-	rtw_drv_if2_free(pdvobjpriv->if2);
+	rtw_drv_if2_free(pdvobjpriv->padapters[IFACE_ID1]);
 #endif
 
 	pci_dvobj_deinit(pdev);

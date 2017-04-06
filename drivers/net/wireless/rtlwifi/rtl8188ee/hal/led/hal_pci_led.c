@@ -885,10 +885,8 @@ void BlinkHandler(PLED_PCIE pLed)
 	_adapter			*padapter = pLed->padapter;
 	struct led_priv	*ledpriv = &(padapter->ledpriv);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))
-       {
-             return;
-       }
+	if (RTW_CANNOT_RUN(padapter))
+		return;
 
 	if(IS_HARDWARE_TYPE_8188E(padapter) || 
 		IS_HARDWARE_TYPE_JAGUAR(padapter) || 
@@ -954,9 +952,12 @@ void BlinkTimerCallback(void *data)
 
 	//DBG_871X("%s\n", __FUNCTION__);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))	
-	{
-		//DBG_871X("%s bSurpriseRemoved:%d, bDriverStopped:%d\n", __FUNCTION__, padapter->bSurpriseRemoved, padapter->bDriverStopped);
+	 if (RTW_CANNOT_RUN(padapter) || (!rtw_is_hw_init_completed(padapter))) {		
+		/*DBG_871X("%s bDriverStopped:%s, bSurpriseRemoved:%s\n"
+			, __func__
+			, rtw_is_drv_stopped(padapter)?"True":"False"
+			, rtw_is_surprise_removed(padapter)?"True":"False" );
+		*/		
 		return;
 	}
 
@@ -1788,12 +1789,6 @@ SwLedControlMode10(
 	PLED_PCIE 	pLed1 = &(ledpriv->SwLed1);		
 	struct mlme_priv	*pmlmepriv = &(Adapter->mlmepriv);
 
-	if(IS_92C_SERIAL(pHalData->VersionID))
-	{
-		pLed0 = &(ledpriv->SwLed1);	
-		pLed1 = &(ledpriv->SwLed0);			
-	}
-
 	// Decide led state
 	switch(LedAction)
 	{	
@@ -2253,10 +2248,8 @@ LedControlPCIE(
 		return;
 #endif
 
-       if( (padapter->bSurpriseRemoved == _TRUE) ||(padapter->hw_init_completed == _FALSE) )
-       {
-             return;
-       }
+	if (RTW_CANNOT_RUN(padapter) || (!rtw_is_hw_init_completed(padapter)))
+		return;
 
 	//if(priv->bInHctTest)
 	//	return;

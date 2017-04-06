@@ -201,7 +201,7 @@ static void init_desc_ring_var(_adapter * padapter)
 	u8 i = 0;
 
 	for (i = 0; i < HW_QUEUE_ENTRY; i++) {
-		pxmitpriv->txringcount[i] = TXDESC_NUM;
+		pxmitpriv->txringcount[i] = TX_DESC_NUM_8188EE;
 	}
 
 	//we just alloc 2 desc for beacon queue,
@@ -213,6 +213,7 @@ static void init_desc_ring_var(_adapter * padapter)
 	//if(!padapter->registrypriv.wifi_spec)
 	//	pxmitpriv->txringcount[BE_QUEUE_INX] = TXDESC_NUM_BE_QUEUE;
 
+	pxmitpriv->txringcount[BE_QUEUE_INX]  = BE_QUEUE_TX_DESC_NUM_8188EE;
 	pxmitpriv->txringcount[TXCMD_QUEUE_INX] = 1;
 
 	precvpriv->rxbuffersize = MAX_RECVBUF_SZ;	//2048;//1024;
@@ -383,18 +384,16 @@ static void rtl8188ee_tx_isr(PADAPTER Adapter, int prio)
 		rtw_free_xmitbuf(&(pxmitbuf->padapter->xmitpriv), pxmitbuf);
 	}
 
-	if (check_tx_desc_resource(Adapter, prio)) {
-		if ((check_fwstate(&Adapter->mlmepriv, _FW_UNDER_SURVEY) != _TRUE)
-			&& rtw_txframes_pending(Adapter))
-		{
-			// try to deal with the pending packets
+	if (check_tx_desc_resource(Adapter, prio)
+		&& rtw_xmit_ac_blocked(Adapter) != _TRUE
+	) {
+		if (rtw_txframes_pending(Adapter)) {
+			/* try to deal with the pending packets */
 			tasklet_hi_schedule(&(Adapter->xmitpriv.xmit_tasklet));
 		}
 #ifdef CONFIG_CONCURRENT_MODE
-		if ((check_fwstate(&pbuddy_adapter->mlmepriv, _FW_UNDER_SURVEY) != _TRUE)
-			&& rtw_txframes_pending(pbuddy_adapter))
-		{
-			// try to deal with the pending packets
+		if (rtw_txframes_pending(pbuddy_adapter)) {
+			/* try to deal with the pending packets */
 			tasklet_hi_schedule(&(pbuddy_adapter->xmitpriv.xmit_tasklet));
 		}
 #endif
@@ -552,7 +551,7 @@ done:
 	clone another recvframe and associate with secondary_adapter.
 */
 #ifdef CONFIG_CONCURRENT_MODE
-static int rtl8188ee_if2_clone_recvframe(_adapter *sec_padapter, union recv_frame *precvframe, union recv_frame *precvframe_if2, struct  sk_buff *clone_pkt, struct phy_stat *pphy_info)
+static int rtl8188ee_if2_clone_recvframe(_adapter *sec_padapter, union recv_frame *precvframe, union recv_frame *precvframe_if2, struct  sk_buff *clone_pkt, u8 *pphy_info)
 {
 	struct rx_pkt_attrib	*pattrib = NULL;
 
@@ -579,7 +578,7 @@ static int rtl8188ee_if2_clone_recvframe(_adapter *sec_padapter, union recv_fram
 	recvframe_put(precvframe_if2, clone_pkt->len);
 
 	if( (pattrib->physt) && (pattrib->pkt_rpt_type == NORMAL_RX))
-		update_recvframe_phyinfo_88e(precvframe_if2, pphy_info);	
+		rx_query_phy_status(precvframe_if2, pphy_info);
 	
 	return _SUCCESS;
 }
@@ -592,7 +591,7 @@ static void rtl8188ee_rx_mpdu(_adapter *padapter)
 	_queue			*pfree_recv_queue = &precvpriv->free_recv_queue;
 	HAL_DATA_TYPE		*pHalData = GET_HAL_DATA(padapter);
 	union recv_frame	*precvframe = NULL;
-	struct phy_stat	*pphy_info = NULL;
+	u8 *pphy_info = NULL;
 	struct rx_pkt_attrib	*pattrib = NULL;
 	u8	qos_shift_sz = 0;
 	u32	skb_len, alloc_sz;
@@ -639,13 +638,11 @@ static void rtl8188ee_rx_mpdu(_adapter *padapter)
 					precvpriv->rxbuffersize, 
 					PCI_DMA_FROMDEVICE);
 
-			//rtl8192c_query_rx_desc_status(precvframe, prxstat);
-
-			update_recvframe_attrib_88e(precvframe, prxstat);
+			rtl8188e_query_rx_desc_status(precvframe, prxstat);
 			pattrib = &precvframe->u.hdr.attrib;
 			if(pattrib->physt)
 			{
-				pphy_info = (struct phy_stat *)(skb->data);
+				pphy_info = skb->data;
 			}
 
 			//	Modified by Albert 20101213
@@ -707,7 +704,7 @@ static void rtl8188ee_rx_mpdu(_adapter *padapter)
 
 			paddr1 = GetAddr1Ptr(precvframe->u.hdr.rx_data);
 			if(IS_MCAST(paddr1) == _FALSE) {	//unicast packets
-				secondary_myid = myid(&sec_padapter->eeprompriv);
+				secondary_myid = adapter_mac_addr(sec_padapter);
 
 				if(_rtw_memcmp(paddr1, secondary_myid, ETH_ALEN)) {
 					pkt_copy->dev = sec_padapter->pnetdev;
@@ -738,7 +735,7 @@ skip_if2_recv:
 			if(pattrib->pkt_rpt_type == NORMAL_RX)//Normal rx packet
 			{
 				if (pattrib->physt)
-					update_recvframe_phyinfo_88e(precvframe, pphy_info);
+					rx_query_phy_status(precvframe, pphy_info);
 				if(rtw_recv_entry(precvframe) != _SUCCESS)
 					RT_TRACE(_module_hci_ops_os_c_,_drv_err_,("recvbuf2recvframe: rtw_recv_entry(precvframe) != _SUCCESS\n"));
 			}

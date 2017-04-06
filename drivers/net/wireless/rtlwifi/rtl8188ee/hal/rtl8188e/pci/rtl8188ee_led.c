@@ -43,10 +43,8 @@ SwLedOn_8188EE(
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 	struct led_priv	*ledpriv = &(padapter->ledpriv);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))
-	{
+	if (RTW_CANNOT_RUN(padapter))
 		return;
-	}
 	
 	// 2009/10/26 MH Issau if tyhe device is 8c DID is 0x8176, we need to enable bit6 to
 	// enable GPIO8 for controlling LED.	
@@ -102,10 +100,8 @@ SwLedOff_8188EE(
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(padapter);
 	struct led_priv	*ledpriv = &(padapter->ledpriv);
 
-	if(padapter->bSurpriseRemoved == _TRUE)
-	{
-             return;
-	}
+	if (RTW_CANNOT_RUN(padapter))
+		return;
 
 	//
 	// 2009/10/23 MH Issau eed to move the LED GPIO from bit  0 to bit3.
