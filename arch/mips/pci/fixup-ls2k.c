@@ -141,7 +141,9 @@ int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 		  bus = bus->parent;
 
                 slot = bus->self->devfn >> 3;
-		irq = (slot == 13)? 32+pin-1:36+pin-1;
+		/* for non bridge single function dev  */
+		pin = slot - 9;
+		irq = 32 + pin;
 		
 	}
 
