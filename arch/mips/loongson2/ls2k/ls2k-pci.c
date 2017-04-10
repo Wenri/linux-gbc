@@ -29,7 +29,7 @@ static struct resource ls2k_pcie_mem_resource0 = {
 
 static struct resource ls2k_pcie_io_resource0 = {
 	.name	= "LS2H PCIE0 IO MEM",
-	.start	= 0x00000000UL,
+	.start	= 0x00004000UL,
 	.end	= 0x1ffffffUL,
 	.flags	= IORESOURCE_IO,
 };
