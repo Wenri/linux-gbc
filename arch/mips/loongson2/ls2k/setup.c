@@ -34,6 +34,26 @@ EXPORT_SYMBOL(__wbflush);
 
 void __init plat_mem_setup(void)
 {
+#ifdef CONFIG_DMA_NONCOHERENT
+	unsigned long val;
+	unsigned long addr = CKSEG1ADDR(0x1fe10000);
+
+	val = readq((void*)(addr + 0x0420));
+	val &= 0xffffff8fffffffe; //pcie, usb, hda, gmac
+	writeq(val, (void *)(addr + 0x0420));
+
+	val = readq((void*)(addr + 0x0430));
+	val &= 0xffffffffffffff9; //dc, gpu
+	writeq(val, (void *)(addr + 0x0430));
+
+	val = readq((void *)(addr + 0x0450));
+	val &= 0xffffffffffffbff; //sata
+	writeq(val, (void *)(addr + 0x0450));
+#endif
+
+	
+
+
 #ifdef CONFIG_VT
 #if defined(CONFIG_VGA_CONSOLE)
 	conswitchp = &vga_con;
