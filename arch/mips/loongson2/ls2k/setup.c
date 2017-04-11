@@ -43,7 +43,7 @@ void __init plat_mem_setup(void)
 	writeq(val, (void *)(addr + 0x0420));
 
 	val = readq((void*)(addr + 0x0430));
-	val &= 0xffffffffffffff9; //dc, gpu
+	val &= 0xffffffffffffff3; //dc, gpu
 	writeq(val, (void *)(addr + 0x0430));
 
 	val = readq((void *)(addr + 0x0450));
