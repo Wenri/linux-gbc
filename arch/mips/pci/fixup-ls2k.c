@@ -154,5 +154,45 @@ int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 int pcibios_plat_dev_init(struct pci_dev *dev)
 {
 
+	int pos;
+	u16 max_payload_spt, cur_payload_spt, control;
+
+	/**
+	 * fixup settings of MPS & MRRS during fixing irq
+	 * check whether MPSSPT is smaller than parents',
+	 * keep the smaller MPSSPT in the child's register
+	 */
+	if (!(dev->bus->parent)) {
+		pos = pci_find_capability(dev, PCI_CAP_ID_EXP);
+		if (!pos) return 0;
+		pci_read_config_word(dev, pos + PCI_EXP_DEVCAP,
+				     &max_payload_spt);
+		max_payload_spt &= PCI_EXP_DEVCAP_PAYLOAD;
+	} else {
+		pos = pci_find_capability(dev->bus->self, PCI_CAP_ID_EXP);
+		if (!pos) return 0;
+		pci_read_config_word(dev->bus->self, pos + PCI_EXP_DEVCAP,
+				     &max_payload_spt);
+		max_payload_spt &= PCI_EXP_DEVCAP_PAYLOAD;
+
+		pos = pci_find_capability(dev, PCI_CAP_ID_EXP);
+		pci_read_config_word(dev, pos + PCI_EXP_DEVCAP,
+				     &cur_payload_spt);
+		cur_payload_spt &= PCI_EXP_DEVCAP_PAYLOAD;
+
+		if (max_payload_spt > cur_payload_spt)
+			max_payload_spt = cur_payload_spt;
+	}
+
+	max_payload_spt = 1;
+
+	pci_read_config_word(dev, pos + PCI_EXP_DEVCTL, &control);
+	control &= (~PCI_EXP_DEVCTL_PAYLOAD & ~PCI_EXP_DEVCTL_READRQ);
+	control |= ((max_payload_spt << 5) | (max_payload_spt << 12));
+	pci_write_config_word(dev, pos + PCI_EXP_DEVCTL, control);
+	pr_info("pci %s: set Max_Payload_Size & Max_Read_Request_Size to %03x\n",
+	       pci_name(dev), max_payload_spt);
+
+
 	return 0;
 }
