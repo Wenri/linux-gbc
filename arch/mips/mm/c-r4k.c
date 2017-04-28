@@ -364,7 +364,7 @@ static void __cpuinit r4k_blast_scache_node_setup(void)
 
 static inline void local_r4k___flush_cache_all(void * args)
 {
-#if defined(CONFIG_CPU_LOONGSON2)
+#if defined(CONFIG_CPU_LOONGSON2) || defined(CONFIG_CPU_LOONGSON2K)
 	r4k_blast_scache();
 	return;
 #endif
@@ -1006,6 +1006,7 @@ static void __cpuinit probe_pcache(void)
 		break;
 
 	case CPU_LOONGSON3:
+	case CPU_LOONGSON2K:
 		config1 = read_c0_config1();
 		if ((lsize = ((config1 >> 19) & 7)))
 			c->icache.linesz = 2 << lsize;
@@ -1302,7 +1303,13 @@ static void __init loongson3_sc_init(void)
 				  c->scache.ways *
 				  c->scache.linesz;
 	/* Loongson-3 has 4 cores, 1MB scache for each. scaches are shared */
+#ifdef CONFIG_CPU_LOONGSON3
 	scache_size *= 4;
+#endif
+
+#ifdef CONFIG_CPU_LOONGSON2K
+	scache_size *= 2;
+#endif
 	c->scache.waybit = 0;
 	c->scache.waysize = scache_size / c->scache.ways;
 	if (system_state == SYSTEM_BOOTING)
@@ -1371,9 +1378,13 @@ static void __cpuinit setup_scache(void)
 	case CPU_LOONGSON3:
 #if defined(CONFIG_CPU_LOONGSON3)
 		loongson3_sc_init();
-#endif
 		return;
-
+#endif
+#if defined(CONFIG_CPU_LOONGSON2K)
+	case CPU_LOONGSON2K:
+		loongson3_sc_init();
+		return;
+#endif
 	case CPU_XLP:
 		/* don't need to worry about L2, fully coherent */
 		return;

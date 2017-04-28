@@ -170,6 +170,7 @@ void __init check_wait(void)
 	case CPU_LOONGSON1:
 	case CPU_XLR:
 	case CPU_XLP:
+	case CPU_LOONGSON2K:
 		cpu_wait = r4k_wait;
 		break;
 
