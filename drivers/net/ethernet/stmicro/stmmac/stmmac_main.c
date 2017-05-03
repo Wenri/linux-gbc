@@ -1847,6 +1847,8 @@ static int stmmac_open(struct net_device *dev)
 
 	/* Request the IRQ lines */
 	if (priv->lpi_irq != -ENXIO) {
+		if(!priv->lpi_irq)
+			priv->lpi_irq = dev->irq + 1;
 		ret = request_irq(priv->lpi_irq, stmmac_interrupt, IRQF_SHARED,
 				  dev->name, dev);
 		if (unlikely(ret < 0)) {

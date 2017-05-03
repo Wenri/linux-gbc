@@ -34,11 +34,12 @@ static void stmmac_default_data(void)
 {
 	memset(&plat_dat, 0, sizeof(struct plat_stmmacenet_data));
 	plat_dat.bus_id = 1;
-	plat_dat.phy_addr = 0;
+	plat_dat.phy_addr = -1;
 	plat_dat.interface = PHY_INTERFACE_MODE_GMII;
 	plat_dat.clk_csr = 2;	/* clk_csr_i = 20-35MHz & MDC = clk_csr_i/16 */
 	plat_dat.has_gmac = 1;
-	plat_dat.force_sf_dma_mode = 1;
+	/*plat_dat.force_sf_dma_mode = 1;*/
+	plat_dat->enh_desc = 1;
 
 	mdio_data.phy_reset = NULL;
 	mdio_data.phy_mask = 0;
@@ -174,6 +175,7 @@ static int stmmac_pci_resume(struct pci_dev *pdev)
 static const struct pci_device_id stmmac_id_table[] = {
 	{PCI_DEVICE(STMMAC_VENDOR_ID, STMMAC_DEVICE_ID)},
 	{PCI_DEVICE(PCI_VENDOR_ID_STMICRO, PCI_DEVICE_ID_STMICRO_MAC)},
+	{PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, 0x7a03)},
 	{}
 };
 
