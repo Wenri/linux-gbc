@@ -92,6 +92,13 @@ config MTD_NAND_LS2H
 	help
           Support for NAND flash on Loongson-2H Platform-Bridge.
 
+config MTD_NAND_LS2K
+	tristate "NAND Flash device on Loongson2K"
+	depends on MACH_LOONGSON2K
+	help
+          Support for NAND flash on Loongson2H SouthBridge and SoC.
+
+
 config MTD_NAND_OMAP2
 	tristate "NAND Flash device on OMAP2, OMAP3 and OMAP4"
 	depends on ARCH_OMAP2PLUS
