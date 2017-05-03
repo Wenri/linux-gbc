@@ -59,7 +59,7 @@
 #else
 
 #if IS_BUILTIN(CONFIG_RH_KABI_SIZE_ALIGN_CHECKS)
-#ifndef CONFIG_MACH_LOONGSON
+#if !defined(CONFIG_MACH_LOONGSON) && !defined(CONFIG_MACH_LOONGSON2K)
 #define __RH_KABI_CHECK_SIZE_ALIGN(_orig, _new)				\
 	union {								\
 		_Static_assert(sizeof(struct{_new;}) <= sizeof(struct{_orig;}), \
@@ -72,7 +72,7 @@
 #define __RH_KABI_CHECK_SIZE_ALIGN(_orig, _new)
 #endif
 
-#ifdef CONFIG_MACH_LOONGSON
+#if defined(CONFIG_MACH_LOONGSON) || defined(CONFIG_MACH_LOONGSON2K)
 # define _RH_KABI_REPLACE(_orig, _new)		_new
 # define _RH_KABI_REPLACE_UNSAFE(_orig, _new)	_new
 # define _RH_KABI_DEPRECATE(_type, _orig)	_type rh_reserved_##_orig

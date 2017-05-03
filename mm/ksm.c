@@ -629,7 +629,7 @@ static void remove_node_from_stable_tree(struct stable_node *stable_node)
 	 * from &migrate_nodes. This will verify that future list.h changes
 	 * don't break STABLE_NODE_DUP_HEAD.
 	 */
-#ifndef CONFIG_MACH_LOONGSON
+#if !defined(CONFIG_MACH_LOONGSON) && !defined(CONFIG_MACH_LOONGSON2K)
 	BUILD_BUG_ON(STABLE_NODE_DUP_HEAD <= &migrate_nodes);
 	BUILD_BUG_ON(STABLE_NODE_DUP_HEAD >= &migrate_nodes + 1);
 #endif
