@@ -868,6 +868,7 @@ source "arch/mips/vr41xx/Kconfig"
 source "arch/mips/cavium-octeon/Kconfig"
 source "arch/mips/loongson/Kconfig"
 source "arch/mips/loongson1/Kconfig"
+source "arch/mips/loongson2/ls2k/Kconfig"
 source "arch/mips/netlogic/Kconfig"
 
 endmenu
@@ -2529,6 +2530,12 @@ config HT_PCI
 config PCI_DOMAINS
 	bool
 
+config LS2K_PCIE
+	bool "Loongson2K PCI-Express Controller"
+	depends on PCI && CPU_LOONGSON2K
+	default y
+	help
+	  Make use of the Loongson2H PCI-Express Controller.
 source "drivers/pci/Kconfig"
 
 source "drivers/pci/pcie/Kconfig"

@@ -1,0 +1,44 @@
+if MACH_LOONGSON2K
+
+choice
+	prompt "Machine Type"
+
+config LOONGSON_MACH2K
+	bool "Generic Loongson 2k family machines"
+	select ARCH_SPARSEMEM_ENABLE
+	select GENERIC_ISA_DMA_SUPPORT_BROKEN
+	select BOOT_ELF32
+	select BOARD_SCACHE
+	select CSRC_R4K
+	select CEVT_R4K
+	select CPU_HAS_WB
+	select HW_HAS_PCI
+	select IRQ_CPU
+	select SYS_HAS_CPU_LOONGSON2K
+	select SYS_HAS_EARLY_PRINTK
+	select SYS_SUPPORTS_SMP
+	select SYS_SUPPORTS_64BIT_KERNEL
+	select SYS_SUPPORTS_HIGHMEM
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select ZONE_DMA32
+	select UEFI_FIRMWARE_INTERFACE
+	select SYS_SUPPORTS_HOTPLUG_CPU
+	select SYNC_R4K
+	#select ARCH_REQUIRE_GPIOLIB
+	select NEED_SG_DMA_LENGTH
+	help
+		Generic Loongson 2K family machines utilize the 3A/3B revision of
+		Loongson processor and RS780/SBX00/2H chipset.
+endchoice
+
+config NEED_SG_DMA_LENGTH
+	bool
+
+config ARCH_SPARSEMEM_ENABLE
+	bool
+	select SPARSEMEM_STATIC
+
+config UEFI_FIRMWARE_INTERFACE
+	bool
+
+endif # MACH_LOONGSON2K

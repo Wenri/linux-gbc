@@ -343,6 +343,7 @@ static void __cpuinit r4k_blast_scache_setup(void)
 		r4k_blast_scache = blast_scache128;
 }
 
+#ifdef CONFIG_CPU_LOONGSON3
 static void (* r4k_blast_scache_node)(long node);
 
 static void __cpuinit r4k_blast_scache_node_setup(void)
@@ -350,7 +351,6 @@ static void __cpuinit r4k_blast_scache_node_setup(void)
 	unsigned long sc_lsize = cpu_scache_line_size();
 
 	r4k_blast_scache_node = (void *)cache_noop;
-#ifdef CONFIG_CPU_LOONGSON3
 	if (sc_lsize == 16)
 		r4k_blast_scache_node = blast_scache16_node;
 	else if (sc_lsize == 32)
@@ -359,8 +359,8 @@ static void __cpuinit r4k_blast_scache_node_setup(void)
 		r4k_blast_scache_node = blast_scache64_node;
 	else if (sc_lsize == 128)
 		r4k_blast_scache_node = blast_scache128_node;
-#endif
 }
+#endif
 
 static inline void local_r4k___flush_cache_all(void * args)
 {
@@ -1285,7 +1285,7 @@ static void __init loongson2_sc_init(void)
 }
 #endif
 
-#if defined(CONFIG_CPU_LOONGSON3)
+#if defined(CONFIG_CPU_LOONGSON3) || defined(CONFIG_CPU_LOONGSON2K)
 static void __init loongson3_sc_init(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
@@ -1557,7 +1557,9 @@ void __cpuinit r4k_cache_init(void)
 	r4k_blast_scache_page_setup();
 	r4k_blast_scache_page_indexed_setup();
 	r4k_blast_scache_setup();
+#ifdef CONFIG_CPU_LOONGSON3
 	r4k_blast_scache_node_setup();
+#endif
 
 	/*
 	 * Some MIPS32 and MIPS64 processors have physically indexed caches.
