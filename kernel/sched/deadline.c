@@ -1674,8 +1674,10 @@ static void switched_from_dl(struct rq *rq, struct task_struct *p)
 	if (!p->on_rq || rq->dl.dl_nr_running)
 		return;
 
+#ifdef CONFIG_SMP
 	if (pull_dl_task(rq))
 		resched_task(rq->curr);
+#endif
 }
 
 /*
