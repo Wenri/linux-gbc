@@ -2773,7 +2773,7 @@ int copy_siginfo_to_user(siginfo_t __user *to, siginfo_t *from)
 			err |= __put_user(from->si_addr_lsb, &to->si_addr_lsb);
 #endif
 #ifdef SEGV_BNDERR
-#ifndef CONFIG_MACH_LOONGSON
+#if !defined(CONFIG_MACH_LOONGSON) && !defined(CONFIG_MACH_LOONGSON2K)
 		err |= __put_user(from->si_lower, &to->si_lower);
 		err |= __put_user(from->si_upper, &to->si_upper);
 #endif
