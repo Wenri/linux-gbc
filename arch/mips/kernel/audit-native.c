@@ -42,7 +42,7 @@ extern int audit_classify_syscall_n32(int abi, unsigned syscall);
 
 int audit_classify_syscall(int abi, unsigned syscall)
 {
-	int res;
+	int res = 0;
 
 	switch (syscall) {
 	case __NR_open:
