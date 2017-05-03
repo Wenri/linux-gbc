@@ -26,28 +26,34 @@
 #include <linux/pci.h>
 #include "stmmac.h"
 
-struct plat_stmmacenet_data plat_dat;
-struct stmmac_mdio_bus_data mdio_data;
-struct stmmac_dma_cfg dma_cfg;
 
-static void stmmac_default_data(void)
+static struct plat_stmmacenet_data *stmmac_default_data(void)
 {
-	memset(&plat_dat, 0, sizeof(struct plat_stmmacenet_data));
-	plat_dat.bus_id = 1;
-	plat_dat.phy_addr = -1;
-	plat_dat.interface = PHY_INTERFACE_MODE_GMII;
-	plat_dat.clk_csr = 2;	/* clk_csr_i = 20-35MHz & MDC = clk_csr_i/16 */
-	plat_dat.has_gmac = 1;
-	/*plat_dat.force_sf_dma_mode = 1;*/
+struct plat_stmmacenet_data *plat_dat;
+struct stmmac_mdio_bus_data *mdio_data;
+struct stmmac_dma_cfg *dma_cfg;
+static int bus_id = 1;
+
+	plat_dat = kzalloc(sizeof(struct plat_stmmacenet_data), GFP_KERNEL);
+	mdio_data = kzalloc(sizeof(*mdio_data), GFP_KERNEL);
+	dma_cfg = kzalloc(sizeof(*dma_cfg), GFP_KERNEL);
+
+	plat_dat->bus_id = bus_id++;
+	plat_dat->phy_addr = -1;
+	plat_dat->interface = PHY_INTERFACE_MODE_GMII;
+	plat_dat->clk_csr = 2;	/* clk_csr_i = 20-35MHz & MDC = clk_csr_i/16 */
+	plat_dat->has_gmac = 1;
+	//plat_dat->force_sf_dma_mode = 1;
 	plat_dat->enh_desc = 1;
 
-	mdio_data.phy_reset = NULL;
-	mdio_data.phy_mask = 0;
-	plat_dat.mdio_bus_data = &mdio_data;
+	mdio_data->phy_reset = NULL;
+	mdio_data->phy_mask = 0;
+	plat_dat->mdio_bus_data = mdio_data;
 
-	dma_cfg.pbl = 32;
-	dma_cfg.burst_len = DMA_AXI_BLEN_256;
-	plat_dat.dma_cfg = &dma_cfg;
+	dma_cfg->pbl = 32;
+	dma_cfg->burst_len = DMA_AXI_BLEN_256;
+	plat_dat->dma_cfg = dma_cfg;
+	return plat_dat;
 }
 
 /**
@@ -98,9 +104,8 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
 	}
 	pci_set_master(pdev);
 
-	stmmac_default_data();
 
-	priv = stmmac_dvr_probe(&(pdev->dev), &plat_dat, addr);
+	priv = stmmac_dvr_probe(&(pdev->dev), stmmac_default_data(), addr);
 	if (!priv) {
 		pr_err("%s: main driver probe failed", __func__);
 		ret = -ENODEV;
@@ -172,7 +177,7 @@ static int stmmac_pci_resume(struct pci_dev *pdev)
 #define STMMAC_VENDOR_ID 0x700
 #define STMMAC_DEVICE_ID 0x1108
 
-static const struct pci_device_id stmmac_id_table[] = {
+static DEFINE_PCI_DEVICE_TABLE(stmmac_id_table) = {
 	{PCI_DEVICE(STMMAC_VENDOR_ID, STMMAC_DEVICE_ID)},
 	{PCI_DEVICE(PCI_VENDOR_ID_STMICRO, PCI_DEVICE_ID_STMICRO_MAC)},
 	{PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, 0x7a03)},
