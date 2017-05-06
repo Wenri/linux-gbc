@@ -288,7 +288,7 @@ const struct i2c_board_info __initdata ls2k_dvi_fb_eep_info = {
 	I2C_BOARD_INFO("dvi-eeprom-edid", 0x50),
 };
 
-int ls2k_platform_init(void)
+int __init ls2k_platform_init(void)
 {
 
 #define I2C_BUS_0 0
