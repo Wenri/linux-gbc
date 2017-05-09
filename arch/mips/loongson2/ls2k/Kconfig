@@ -5,7 +5,8 @@ choice
 
 config LOONGSON_MACH2K
 	bool "Generic Loongson 2k family machines"
-	select ARCH_SPARSEMEM_ENABLE
+	#select ARCH_SPARSEMEM_ENABLE
+#select ARCH_SELECT_MEMORY_MODEL
 	select GENERIC_ISA_DMA_SUPPORT_BROKEN
 	select BOOT_ELF32
 	select BOARD_SCACHE
