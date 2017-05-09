@@ -278,6 +278,7 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 			: "Ir" (i));
 		} while (unlikely(!result));
 
+		result = temp - i;
 	} else {
 		unsigned long flags;
 

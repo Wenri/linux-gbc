@@ -31,6 +31,7 @@
 #define cpu_has_ic_fills_f_dc	0
 #define cpu_has_inclusive_pcaches	1
 #define cpu_has_llsc		1
+#define kernel_uses_llsc	1
 #define cpu_has_mcheck		0
 #define cpu_has_mdmx		0
 #define cpu_has_mips16		0
