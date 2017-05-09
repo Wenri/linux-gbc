@@ -519,7 +519,7 @@ void play_dead(void)
 	idle_task_exit();
 	switch (cputype) {
 	case Loongson_3A:
-		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A)
+		if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A_R1)
 			play_dead_at_ckseg1 =
 				(void *)CKSEG1ADDR((unsigned long)loongson3a_play_dead);
 		else
