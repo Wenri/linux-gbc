@@ -73,6 +73,9 @@
 #define DMA_RD_STU_SHIF		4		/* dma read data status */
 #define DMA_WR_STU_SHIF		8		/* dma write data status */
 
+int parse_mtd_partitions(struct mtd_info *master, const char *const *types,
+			 struct mtd_partition **pparts,
+			 struct mtd_part_parser_data *data);
 /* DMA Descripter */
 struct ls2k_nand_dma_desc {
 	uint32_t orderad;
