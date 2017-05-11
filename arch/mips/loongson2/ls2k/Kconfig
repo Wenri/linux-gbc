@@ -5,8 +5,6 @@ choice
 
 config LOONGSON_MACH2K
 	bool "Generic Loongson 2k family machines"
-	#select ARCH_SPARSEMEM_ENABLE
-#select ARCH_SELECT_MEMORY_MODEL
 	select GENERIC_ISA_DMA_SUPPORT_BROKEN
 	select BOOT_ELF32
 	select BOARD_SCACHE
@@ -25,9 +23,9 @@ config LOONGSON_MACH2K
 	select UEFI_FIRMWARE_INTERFACE
 	select SYS_SUPPORTS_HOTPLUG_CPU
 	select SYNC_R4K
-	select DMA_NONCOHERENT
+	#select DMA_MAYBE_COHERENT
+	select DMA_COHERENT
 	#select ARCH_REQUIRE_GPIOLIB
-	select NEED_SG_DMA_LENGTH
 	help
 		Generic Loongson 2K family machines utilize the 3A/3B revision of
 		Loongson processor and RS780/SBX00/2H chipset.
@@ -43,9 +41,8 @@ config SWIOTLB
 config NEED_SG_DMA_LENGTH
 	bool
 
-config ARCH_SPARSEMEM_ENABLE
+config NEED_DMA_MAP_STATE
 	bool
-	select SPARSEMEM_STATIC
 
 config UEFI_FIRMWARE_INTERFACE
 	bool
