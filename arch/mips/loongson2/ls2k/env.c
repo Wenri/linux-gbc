@@ -33,6 +33,7 @@ struct efi_memory_map_loongson *emap;
 struct system_loongson *esys;
 struct irq_source_routing_table *eirq_source;
 
+u32 loongson_dma_mask_bits;
 u64 io_base_regs_addr;
 u64 pci_mem_start_addr, pci_mem_end_addr;
 u64 loongson_pciio_base;
@@ -182,6 +183,10 @@ void __init prom_init_env(void)
 	loongson_pciio_base = eirq_source->pci_io_start_addr;
 	pr_info("BIOS loongson_pci_io_base:0x%llx\n", loongson_pciio_base);
 
+	loongson_dma_mask_bits = eirq_source->dma_mask_bits;
+	if (loongson_dma_mask_bits < 32 || loongson_dma_mask_bits > 64)
+		loongson_dma_mask_bits = 32;
+	
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;
 #if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
