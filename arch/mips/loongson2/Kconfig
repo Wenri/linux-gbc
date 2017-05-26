@@ -8,7 +8,6 @@ config 2K1000_SBC
 	select BOOT_ELF32
 	select CSRC_R4K
 	select CEVT_R4K
-	select CPU_HAS_WB
 	select SYNC_R4K
 	select ZONE_DMA32
 	select HW_HAS_PCI
