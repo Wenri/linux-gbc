@@ -857,8 +857,9 @@ static inline void cpu_probe_mips(struct cpuinfo_mips *c, unsigned int cpu)
 	}
 
 	decode_configs(c);
-
+#if !defined(CONFIG_MACH_LOONGSON2)
 	spram_config();
+#endif
 }
 
 static inline void cpu_probe_alchemy(struct cpuinfo_mips *c, unsigned int cpu)
