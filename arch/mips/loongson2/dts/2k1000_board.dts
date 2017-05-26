@@ -1,0 +1,22 @@
+/*
+ * 2K1000 Device Tree Source for LS2K1000 boards
+ */
+
+/dts-v1/;
+/ {
+	model = "loongson,LS2k1000-EVP";
+	compatible = "loongson,ls2k";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	memory {
+		device_type = "memory";
+		reg =  <0 0x00200000 0 0x09800000	// 152MiB at 2MiB
+			0 0x90000000 0 0x70000000>;	// 1792MiB at 2304MiB
+	};
+
+
+	chosen {
+		bootargs = "console=ttyS0,115200 rdinit=/sbin/init";
+	};
+};

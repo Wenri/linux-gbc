@@ -49,7 +49,15 @@ int __init early_init_dt_scan_memory_arch(unsigned long node,
 
 void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 {
-	return add_memory_region(base, size, BOOT_MEM_RAM);
+#if defined(CONFIG_MACH_LOONGSON2) && !defined(CONFIG_SWIOTLB)
+	if (base >= 0x100000000)  {
+		pr_info("W/O CONFIG_SWIOTLB, CAN NOT support beyond 4GiB");
+	} else if (base + size >= 0x100000000) {
+		pr_info("W/O CONFIG_SWIOTLB, support upto 4GiB\n");
+		add_memory_region(base, 0x100000000 - base, BOOT_MEM_RAM);
+	} else
+#endif
+		return add_memory_region(base, size, BOOT_MEM_RAM);
 }
 
 void * __init early_init_dt_alloc_memory_arch(u64 size, u64 align)
