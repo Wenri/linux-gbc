@@ -1040,6 +1040,20 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		decode_configs(c);
 		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
 		break;
+	case PRID_IMP_LOONGSON2K:
+		switch (c->processor_id & PRID_REV_MASK) {
+			case PRID_REV_LOONGSON2K:
+				c->isa_level = MIPS_CPU_ISA_M64R2;
+				c->options = R4K_OPTS |
+					MIPS_CPU_FPU | MIPS_CPU_LLSC |
+					MIPS_CPU_32FPR |
+					MIPS_CPU_PREFETCH;
+				c->cputype = CPU_LOONGSON2K;
+				__cpu_name[cpu] = "Loongson-2K";
+				decode_configs(c);
+				break;
+		}
+		break;
 	default:
 		panic("Unknown Loongson Processor ID!");
 		break;
