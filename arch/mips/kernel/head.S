@@ -24,6 +24,7 @@
 #include <asm/pgtable-bits.h>
 #include <asm/mipsregs.h>
 #include <asm/stackframe.h>
+#include <asm/thread_info.h>
 
 #include <kernel-entry-init.h>
 
@@ -201,7 +202,7 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	LONG_S		a2, fw_arg2
 	LONG_S		a3, fw_arg3
 
-	MTC0		zero, CP0_CONTEXT	# clear context register
+	MTC0		zero, ASM_SMP_CPUID_REG	# clear context register
 	PTR_LA		$28, init_thread_union
 	/* Set the SP after an empty pt_regs.  */
 	PTR_LI		sp, _THREAD_SIZE - 32 - PT_SIZE
