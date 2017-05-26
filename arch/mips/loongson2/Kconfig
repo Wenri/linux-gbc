@@ -1,0 +1,23 @@
+if MACH_LOONGSON2
+choice
+	prompt "Machine Type"
+
+config 2K1000_SBC
+	bool "Loongson 2K1000 Single Board Computer"
+	select GENERIC_ISA_DMA_SUPPORT_BROKEN
+	select BOOT_ELF32
+	select CSRC_R4K
+	select CEVT_R4K
+	select CPU_HAS_WB
+	select SYNC_R4K
+	select ZONE_DMA32
+	select HW_HAS_PCI
+	select SYS_HAS_CPU_LOONGSON2K
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_64BIT_KERNEL
+	select SYS_SUPPORTS_SMP
+	help
+		Loongson 2K1000 SBC
+endchoice
+
+endif

@@ -291,6 +291,14 @@ config MACH_LOONGSON1
 	  the ICT (Institute of Computing Technology) and the Chinese Academy
 	  of Sciences.
 
+config MACH_LOONGSON2
+	bool "Loongson 64bit SoC"
+	help
+	  This enable the support for Loongson 2 SoC family of machines.
+
+	  Loongson 64bit family SoC
+
+
 config MIPS_MALTA
 	bool "MIPS Malta board"
 	select ARCH_MAY_HAVE_PC_FDC
@@ -858,6 +866,7 @@ source "arch/mips/vr41xx/Kconfig"
 source "arch/mips/cavium-octeon/Kconfig"
 source "arch/mips/loongson/Kconfig"
 source "arch/mips/loongson1/Kconfig"
+source "arch/mips/loongson2/Kconfig"
 source "arch/mips/netlogic/Kconfig"
 
 endmenu
@@ -1225,6 +1234,20 @@ config CPU_LOONGSON1B
 	help
 	  The Loongson 1B is a 32-bit SoC, which implements the MIPS32
 	  release 2 instruction set.
+
+config CPU_LOONGSON2K
+	bool "Loongson 2K1000"
+	depends on SYS_HAS_CPU_LOONGSON2K
+	select WEAK_ORDERING
+	select WEAK_REORDERING_BEYOND_LLSC
+	select CPU_SUPPORTS_32BIT_KERNEL
+	select CPU_SUPPORTS_64BIT_KERNEL
+	select CPU_SUPPORTS_HIGHMEM
+	select CPU_SUPPORTS_HUGEPAGES
+	select CPU_MIPSR2
+	help
+	  The Loongson 2K is a dual core 64bit SoC, which implements the MIPS64
+	  release 5 instruction set
 
 config CPU_MIPS32_R1
 	bool "MIPS32 Release 1"
@@ -1631,6 +1654,10 @@ config SYS_HAS_CPU_LOONGSON3
 config SYS_HAS_CPU_LOONGSON1B
 	bool
 
+config SYS_HAS_CPU_LOONGSON2K
+	bool
+
+
 config SYS_HAS_CPU_MIPS32_R1
 	bool
 
@@ -1773,7 +1800,7 @@ config MIPS_PGD_C0_CONTEXT
 #
 config HARDWARE_WATCHPOINTS
        bool
-       default y if CPU_MIPSR1 || CPU_MIPSR2
+       default y if (CPU_MIPSR1 || CPU_MIPSR2 ) && !CPU_LOONGSON2K
 
 menu "Kernel type"
 

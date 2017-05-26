@@ -1,0 +1,5 @@
+# Loongson 64 soc
+
+platform-$(CONFIG_MACH_LOONGSON2) += loongson2/
+cflags-$(CONFIG_MACH_LOONGSON2) += -I$(srctree)/arch/mips/include/asm/mach-loongson2 -mno-branch-likely
+load-$(CONFIG_MACH_LOONGSON2) += 0xffffffff80200000
