@@ -247,7 +247,6 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 		: "Ir" (i), "m" (v->counter)
 		: "memory");
 
-		result = temp - i;
 	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {
 		int temp;
 
@@ -278,6 +277,7 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 			: "Ir" (i));
 		} while (unlikely(!result));
 
+		result = temp - i;
 	} else {
 		unsigned long flags;
 
