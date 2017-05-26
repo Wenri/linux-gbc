@@ -364,7 +364,7 @@ static void __cpuinit r4k_blast_scache_node_setup(void)
 
 static inline void local_r4k___flush_cache_all(void * args)
 {
-#if defined(CONFIG_CPU_LOONGSON2)
+#if defined(CONFIG_CPU_LOONGSON2) || defined(CONFIG_CPU_LOONGSON2K)
 	r4k_blast_scache();
 	return;
 #endif
@@ -1284,7 +1284,6 @@ static void __init loongson2_sc_init(void)
 }
 #endif
 
-#if defined(CONFIG_CPU_LOONGSON3)
 static void __init loongson3_sc_init(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
@@ -1302,7 +1301,13 @@ static void __init loongson3_sc_init(void)
 				  c->scache.ways *
 				  c->scache.linesz;
 	/* Loongson-3 has 4 cores, 1MB scache for each. scaches are shared */
+#if defined(CONFIG_CPU_LOONGSON3)
 	scache_size *= 4;
+#endif
+
+#if defined(CONFIG_CPU_LOONGSON2K)
+	scache_size *= 2;
+#endif
 	c->scache.waybit = 0;
 	c->scache.waysize = scache_size / c->scache.ways;
 	if (system_state == SYSTEM_BOOTING)
@@ -1312,7 +1317,6 @@ static void __init loongson3_sc_init(void)
 		c->options |= MIPS_CPU_INCLUSIVE_CACHES;
 	return;
 }
-#endif
 
 extern int r5k_sc_init(void);
 extern int rm7k_sc_init(void);
@@ -1369,9 +1373,9 @@ static void __cpuinit setup_scache(void)
 		return;
 
 	case CPU_LOONGSON3:
-#if defined(CONFIG_CPU_LOONGSON3)
+	case CPU_LOONGSON2K:
+
 		loongson3_sc_init();
-#endif
 		return;
 
 	case CPU_XLP:
