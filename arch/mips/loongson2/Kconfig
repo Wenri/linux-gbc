@@ -16,6 +16,7 @@ config 2K1000_SBC
 	select SYS_SUPPORTS_64BIT_KERNEL
 	select SYS_SUPPORTS_SMP
 	select SYS_HAS_EARLY_PRINTK
+	select USE_OF
 	help
 		Loongson 2K1000 SBC
 endchoice

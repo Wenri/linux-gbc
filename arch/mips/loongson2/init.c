@@ -20,8 +20,9 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/io.h>
-#include <asm/bootinfo.h>
 #include <linux/of_fdt.h>
+#include <asm/bootinfo.h>
+#include <asm/prom.h>
 
 #ifdef CONFIG_SMP
 #include <asm/smp.h>
@@ -29,14 +30,13 @@ extern struct plat_smp_ops loongson_smp_ops;
 
 #endif
 
-extern struct boot_param_header  * __dtb_start;
-void __init early_init_devtree(void *params);
+extern struct boot_param_header  __dtb_start;
 
 void prom_init_env(void);
 
 void __init prom_init(void)
 {
-	void * fdtp;
+	struct boot_param_header * fdtp;
 	int prom_argc;
 	/* pmon passes arguments in 32bit pointers */
 	int *_prom_argv;
@@ -59,14 +59,14 @@ void __init prom_init(void)
 	}
 
 	/* firmware arguments are initialized in head.S */
-	fdtp = __dtb_start;
+	fdtp = &__dtb_start;
 
 	if (!fdtp)
-		fdtp = (void *)fw_arg2;
+		fdtp = (struct boot_param_header*)fw_arg2;
 
 	pr_info("FDT point@%p\n", fdtp);
+	__dt_setup_arch(fdtp);
 
-	/*early_init_devtree(fdtp);*/
 #if defined(CONFIG_SMP)
 	register_smp_ops(&loongson_smp_ops);
 #endif

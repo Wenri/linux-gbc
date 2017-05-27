@@ -1,1 +1,1 @@
-obj-$(CONFIG_LS2K1000_SBC) := 21000_board.dtb.o
+obj-$(CONFIG_CPU_LOONGSON2K) := 2k1000_board.dtb.o
