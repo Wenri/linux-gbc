@@ -1050,12 +1050,14 @@ static int enable_restore_fp_context(int msa)
 
 	if (!used_math()) {
 		/* First time FP context user. */
+		preempt_disable();
 		init_fpu();
 		if (msa) {
 			enable_msa();
 			set_thread_flag(TIF_USEDMSA);
 			set_thread_flag(TIF_MSA_CTX_LIVE);
 		}
+		preempt_enable();
 		set_used_math();
 
 		return 0;
@@ -1097,8 +1099,9 @@ static int enable_restore_fp_context(int msa)
 	 * This task is using or has previously used MSA. Thus we require
 	 * that Status.FR == 1.
 	 */
+	preempt_disable();
 	was_fpu_owner = is_fpu_owner();
-	own_fpu(0);
+	own_fpu_inatomic(0);
 
 	enable_msa();
 	write_msa_csr(current->thread.fpu.msacsr);
@@ -1109,8 +1112,9 @@ static int enable_restore_fp_context(int msa)
 	 * previously used scalar FP in this time slice then we already nave
 	 * FP context which we shouldn't clobber.
 	 */
-	if (!test_and_set_thread_flag(TIF_MSA_CTX_LIVE) && was_fpu_owner)
-		return 0;
+	if (!test_and_set_thread_flag(TIF_MSA_CTX_LIVE) && was_fpu_owner) {
+		goto out;
+	}
 
 	/* We need to restore the vector context. */
 	restore_msa(current);
@@ -1118,7 +1122,8 @@ static int enable_restore_fp_context(int msa)
 	/* Restore the scalar FP control & status register */
 	if (!was_fpu_owner)
 		asm volatile("ctc1 %0, $31" : : "r"(current->thread.fpu.fcr31));
-
+out:
+	preempt_enable();
 	return 0;
 }
 

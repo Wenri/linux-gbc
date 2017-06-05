@@ -117,14 +117,12 @@ static inline void lose_fpu(int save)
 
 static inline void init_fpu(void)
 {
-	preempt_disable();
 	if (cpu_has_fpu) {
 		__own_fpu();
 		_init_fpu();
 	} else {
 		fpu_emulator_init_fpu();
 	}
-	preempt_enable();
 }
 
 static inline void save_fp(struct task_struct *tsk)
