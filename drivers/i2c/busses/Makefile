@@ -57,6 +57,7 @@ obj-$(CONFIG_I2C_NUC900)	+= i2c-nuc900.o
 obj-$(CONFIG_I2C_OCORES)	+= i2c-ocores.o
 obj-$(CONFIG_I2C_OMAP)		+= i2c-omap.o
 obj-$(CONFIG_I2C_LS2H)		+= i2c-ls2h.o
+obj-$(CONFIG_I2C_LS2K)		+= i2c-ls2k.o
 obj-$(CONFIG_I2C_PASEMI)	+= i2c-pasemi.o
 obj-$(CONFIG_I2C_PCA_PLATFORM)	+= i2c-pca-platform.o
 obj-$(CONFIG_I2C_PMCMSP)	+= i2c-pmcmsp.o

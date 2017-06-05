@@ -308,7 +308,7 @@ if(0)
 			ARRAY_SIZE(ls2k_i2c_gpio_platform_devices));
 }
 	return platform_add_devices(ls2k_platform_devices,
-			/*ARRAY_SIZE(ls2k_platform_devices)*/2);
+			/*ARRAY_SIZE(ls2k_platform_devices)*/4);
 }
 
 device_initcall(ls2k_platform_init);
