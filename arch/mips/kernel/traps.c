@@ -77,6 +77,7 @@ extern asmlinkage void handle_ri_rdhwr(void);
 extern asmlinkage void handle_cpu(void);
 extern asmlinkage void handle_ov(void);
 extern asmlinkage void handle_tr(void);
+extern asmlinkage void handle_msa_fpe(void);
 extern asmlinkage void handle_fpe(void);
 extern asmlinkage void handle_ftlb(void);
 extern asmlinkage void handle_msa(void);
@@ -1211,6 +1212,16 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	force_sig(SIGILL, current);
 }
 
+asmlinkage void do_msa_fpe(struct pt_regs *regs)
+{
+	enum ctx_state prev_state;
+
+	prev_state = exception_enter();
+	die_if_kernel("do_msa_fpe invoked from kernel context!", regs);
+	force_sig(SIGFPE, current);
+	exception_exit(prev_state);
+}
+
 asmlinkage void do_msa(struct pt_regs *regs)
 {
 	enum ctx_state prev_state;
@@ -2044,6 +2055,7 @@ void __init trap_init(void)
 	set_except_vector(11, handle_cpu);
 	set_except_vector(12, handle_ov);
 	set_except_vector(13, handle_tr);
+	set_except_vector(14, handle_msa_fpe);
 
 	if (current_cpu_type() == CPU_R6000 ||
 	    current_cpu_type() == CPU_R6000A) {
