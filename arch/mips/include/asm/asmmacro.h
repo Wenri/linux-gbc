@@ -107,35 +107,35 @@
 	.set	pop
 	.endm
 
-	.macro	copy_u_w	rd, ws, n
+	.macro	copy_u_w	ws, n
 	.set	push
 	.set	mips32r2
 	.set	msa
-	copy_u.w \rd, $w\ws[\n]
+	copy_u.w $1, $w\ws[\n]
 	.set	pop
 	.endm
 
-	.macro	copy_u_d	rd, ws, n
+	.macro	copy_u_d	ws, n
 	.set	push
 	.set	mips64r2
 	.set	msa
-	copy_u.d \rd, $w\ws[\n]
+	copy_u.d $1, $w\ws[\n]
 	.set	pop
 	.endm
 
-	.macro	insert_w	wd, n, rs
+	.macro	insert_w	wd, n
 	.set	push
 	.set	mips32r2
 	.set	msa
-	insert.w $w\wd[\n], \rs
+	insert.w $w\wd[\n], $1
 	.set	pop
 	.endm
 
-	.macro	insert_d	wd, n, rs
+	.macro	insert_d	wd, n
 	.set	push
 	.set	mips64r2
 	.set	msa
-	insert.d $w\wd[\n], \rs
+	insert.d $w\wd[\n], $1
 	.set	pop
 	.endm
 #else
@@ -199,41 +199,33 @@
 	.set	pop
 	.endm
 
-	.macro	copy_u_w	rd, ws, n
+	.macro	copy_u_w	ws, n
 	.set	push
 	.set	noat
 	.insn
 	.word	COPY_UW_MSA_INSN | (\n << 16) | (\ws << 11)
-	/* move triggers an assembler bug... */
-	or	\rd, $1, zero
 	.set	pop
 	.endm
 
-	.macro	copy_u_d	rd, ws, n
+	.macro	copy_u_d	ws, n
 	.set	push
 	.set	noat
 	.insn
 	.word	COPY_UD_MSA_INSN | (\n << 16) | (\ws << 11)
-	/* move triggers an assembler bug... */
-	or	\rd, $1, zero
 	.set	pop
 	.endm
 
-	.macro	insert_w	wd, n, rs
+	.macro	insert_w	wd, n
 	.set	push
 	.set	noat
-	/* move triggers an assembler bug... */
-	or	$1, \rs, zero
 	.insn
 	.word	INSERT_W_MSA_INSN | (\n << 16) | (\wd << 6)
 	.set	pop
 	.endm
 
-	.macro	insert_d	wd, n, rs
+	.macro	insert_d	wd, n
 	.set	push
 	.set	noat
-	/* move triggers an assembler bug... */
-	or	$1, \rs, zero
 	.insn
 	.word	INSERT_D_MSA_INSN | (\n << 16) | (\wd << 6)
 	.set	pop
@@ -318,6 +310,26 @@
 	ld_d	29, THREAD_FPR29, \thread
 	ld_d	30, THREAD_FPR30, \thread
 	ld_d	31, THREAD_FPR31, \thread
+	.endm
+
+	.macro	msa_init_upper wd
+#ifdef CONFIG_64BIT
+	insert_d \wd, 1
+#else
+	insert_w \wd, 2
+	insert_w \wd, 3
+#endif
+	.if	31-\wd
+	msa_init_upper	(\wd+1)
+	.endif
+	.endm
+
+	.macro	msa_init_all_upper
+	.set	push
+	.set	noat
+	not	$1, zero
+	msa_init_upper	0
+	.set	pop
 	.endm
 
 #endif /* _ASM_ASMMACRO_H */
