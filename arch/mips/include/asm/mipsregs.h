@@ -641,6 +641,13 @@
 #define MIPS_CONF4_IE		(_ULCAST_(3) << 29)
 #define MIPS_CONF4_TLBINV	(_ULCAST_(2) << 29)
 
+#define MIPS_CONF5_NF		(_ULCAST_(1) << 0)
+#define MIPS_CONF5_UFR		(_ULCAST_(1) << 2)
+#define MIPS_CONF5_MSAEN	(_ULCAST_(1) << 27)
+#define MIPS_CONF5_EVA		(_ULCAST_(1) << 28)
+#define MIPS_CONF5_CV		(_ULCAST_(1) << 29)
+#define MIPS_CONF5_K		(_ULCAST_(1) << 30)
+
 #define MIPS_CONF6_SYND		(_ULCAST_(1) << 13)
 /* proAptiv FTLB on/off bit */
 #define MIPS_CONF6_FTLBEN	(_ULCAST_(1) << 15)
@@ -1910,6 +1917,7 @@ change_c0_##name(unsigned int change, unsigned int newbits)	\
 __BUILD_SET_C0(status)
 __BUILD_SET_C0(cause)
 __BUILD_SET_C0(config)
+__BUILD_SET_C0(config5)
 __BUILD_SET_C0(intcontrol)
 __BUILD_SET_C0(intctl)
 __BUILD_SET_C0(srsmap)
