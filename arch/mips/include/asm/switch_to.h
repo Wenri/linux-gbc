@@ -16,14 +16,21 @@
 #include <asm/watch.h>
 #include <asm/dsp.h>
 #include <asm/cop2.h>
+#include <asm/msa.h>
 
 struct task_struct;
+
+enum {
+	FP_SAVE_NONE	= 0,
+	FP_SAVE_VECTOR	= -1,
+	FP_SAVE_SCALAR	= 1,
+};
 
 /*
  * switch_to(n) should switch tasks to task nr n, first
  * checking that n isn't the current task, in which case it does nothing.
  */
-extern asmlinkage void *resume(void *last, void *next, void *next_ti, u32 __usedfpu);
+extern asmlinkage void *resume(void *last, void *next, void *next_ti, s32 fp_save);
 
 extern unsigned int ll_bit;
 extern struct task_struct *ll_task;
@@ -67,7 +74,8 @@ do {									\
 
 #define switch_to(prev, next, last)					\
 do {									\
-	u32 __usedfpu, __c0_stat;					\
+	u32 __c0_stat;                                                  \
+        s32 __fpsave = FP_SAVE_NONE;				        \
 	__mips_mt_fpaff_switch_to(prev);				\
 	if (cpu_has_dsp)						\
 		__save_dsp(prev);					\
@@ -80,8 +88,12 @@ do {									\
 		write_c0_status(__c0_stat & ~ST0_CU2);			\
 	}								\
 	__clear_software_ll_bit();					\
-	__usedfpu = test_and_clear_tsk_thread_flag(prev, TIF_USEDFPU);	\
-	(last) = resume(prev, next, task_thread_info(next), __usedfpu); \
+	if (test_and_clear_tsk_thread_flag(prev, TIF_USEDFPU))		\
+		__fpsave = FP_SAVE_SCALAR;				\
+	if (test_and_clear_tsk_thread_flag(prev, TIF_USEDMSA))		\
+		__fpsave = FP_SAVE_VECTOR;				\
+	(last) = resume(prev, next, task_thread_info(next), __fpsave);	\
+	disable_msa();							\
 } while (0)
 
 #define finish_arch_switch(prev)					\

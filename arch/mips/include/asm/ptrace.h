@@ -14,6 +14,7 @@
 #include <linux/linkage.h>
 #include <linux/types.h>
 #include <asm/isadep.h>
+#include <asm/thread_info.h>
 #include <uapi/asm/ptrace.h>
 
 /*

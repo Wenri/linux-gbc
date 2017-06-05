@@ -166,6 +166,7 @@ void output_thread_fpu_defines(void)
 	OFFSET(THREAD_FPR31, task_struct, thread.fpu.fpr[31]);
 
 	OFFSET(THREAD_FCR31, task_struct, thread.fpu.fcr31);
+	OFFSET(THREAD_MSA_CSR, task_struct, thread.fpu.msacsr);
 	BLANK();
 }
 

@@ -94,11 +94,15 @@ extern unsigned int vced_count, vcei_count;
  */
 #define TASK_UNMAPPED_BASE PAGE_ALIGN(TASK_SIZE / 3)
 
-
 #define NUM_FPU_REGS	32
 
-typedef __u64 fpureg_t;
+#ifdef CONFIG_CPU_HAS_MSA
+# define FPU_REG_WIDTH 128
+#else
+# define FPU_REG_WIDTH 64
+#endif
 
+typedef __u64 fpureg_t;
 /*
  * It would be nice to add some more fields for emulator statistics, but there
  * are a number of fixed offsets in offset.h and elsewhere that would have to
@@ -109,6 +113,7 @@ typedef __u64 fpureg_t;
 struct mips_fpu_struct {
 	fpureg_t	fpr[NUM_FPU_REGS];
 	unsigned int	fcr31;
+	unsigned int    msacsr;
 };
 
 #define NUM_DSP_REGS   6
@@ -273,6 +278,7 @@ struct thread_struct {
 	.fpu			= {				\
 		.fpr		= {0,},				\
 		.fcr31		= 0,				\
+		.msacsr         = 0,                            \
 	},							\
 	/*							\
 	 * FPU affinity state (null if not FPAFF)		\

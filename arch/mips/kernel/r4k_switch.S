@@ -43,7 +43,7 @@
 
 /*
  * task_struct *resume(task_struct *prev, task_struct *next,
- *		       struct thread_info *next_ti, int usedfpu)
+ *		       struct thread_info *next_ti, s32 fp_save)
  */
 	.align	5
 	LEAF(resume)
@@ -53,23 +53,38 @@
 	LONG_S	ra, THREAD_REG31(a0)
 
 	/*
-	 * check if we need to save FPU registers
+	 * Check whether we need to save any FP context. FP context is saved
+	 * iff the process has used the context with the scalar FPU or the MSA
+	 * ASE in the current time slice, as indicated by _TIF_USEDFPU and
+	 * _TIF_USEDMSA respectively. switch_to will have set fp_save
+	 * accordingly to an FP_SAVE_ enum value.
 	 */
+	beqz	a3, 22f
 
-	beqz	a3, 1f
-
-	PTR_L	t3, TASK_THREAD_INFO(a0)
 	/*
-	 * clear saved user stack CU1 bit
+	 * We do. Clear the saved CU1 bit for prev, such that next time it is
+	 * scheduled it will start in userland with the FPU disabled. If the
+	 * task uses the FPU then it will be enabled again via the do_cpu trap.
+	 * This allows us to lazily restore the FP context.
 	 */
+	PTR_L	t3, TASK_THREAD_INFO(a0)
 	LONG_L	t0, ST_OFF(t3)
 	li	t1, ~ST0_CU1
 	and	t0, t0, t1
 	LONG_S	t0, ST_OFF(t3)
 
+	/* Check whether we're saving scalar or vector context. */
+	bgtz	a3, 11f
+
+	/* Save 128b MSA vector context. */
+	msa_save_all	a0
+	b	22f
+
+11:	/* Save 32b/64b scalar FP context. */
+
 	fpu_save_double a0 t0 t1		# c0_status passed in t0
 						# clobbers t1
-1:
+22:
 
 	/*
 	 * The order of restoring the registers takes care of the race
@@ -140,6 +155,26 @@ LEAF(_restore_fp)
 	fpu_restore_double a0 t0 t1		# clobbers t1
 	jr	ra
 	END(_restore_fp)
+
+#ifdef CONFIG_CPU_HAS_MSA
+
+/*
+ * Save a thread's MSA vector context.
+ */
+LEAF(_save_msa)
+	msa_save_all	a0
+	jr	ra
+	END(_save_msa)
+
+/*
+ * Restore a thread's MSA vector context.
+ */
+LEAF(_restore_msa)
+	msa_restore_all	a0
+	jr	ra
+	END(_restore_msa)
+
+#endif
 
 /*
  * Load the FPU with signalling NANS.  This bit pattern we're using has
