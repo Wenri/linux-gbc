@@ -1051,8 +1051,11 @@ static int enable_restore_fp_context(int msa)
 	if (!used_math()) {
 		/* First time FP context user. */
 		init_fpu();
-		if (msa)
+		if (msa) {
 			enable_msa();
+			set_thread_flag(TIF_USEDMSA);
+			set_thread_flag(TIF_MSA_CTX_LIVE);
+		}
 		set_used_math();
 
 		return 0;
