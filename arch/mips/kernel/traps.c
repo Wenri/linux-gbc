@@ -13,10 +13,12 @@
  */
 #include <linux/bug.h>
 #include <linux/compiler.h>
+#include <linux/context_tracking.h>
 #include <linux/kexec.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <asm/msa.h>
 #include <linux/mm.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
@@ -77,6 +79,7 @@ extern asmlinkage void handle_ov(void);
 extern asmlinkage void handle_tr(void);
 extern asmlinkage void handle_fpe(void);
 extern asmlinkage void handle_ftlb(void);
+extern asmlinkage void handle_msa(void);
 extern asmlinkage void handle_mdmx(void);
 extern asmlinkage void handle_watch(void);
 extern asmlinkage void handle_mt(void);
@@ -1040,6 +1043,76 @@ static int default_cu2_call(struct notifier_block *nfb, unsigned long action,
 	return NOTIFY_OK;
 }
 
+static int enable_restore_fp_context(int msa)
+{
+	int was_fpu_owner;
+
+	if (!used_math()) {
+		/* First time FP context user. */
+		init_fpu();
+		if (msa)
+			enable_msa();
+		set_used_math();
+
+		return 0;
+	}
+
+	/*
+	 * This task has formerly used the FP context.
+	 *
+	 * If this thread has no live MSA vector context then we can simply
+	 * restore the scalar FP context. If it has live MSA vector context
+	 * (that is, it has or may have used MSA since last performing a
+	 * function call) then we'll need to restore the vector context. This
+	 * applies even if we're currently only executing a scalar FP
+	 * instruction. This is because if we were to later execute an MSA
+	 * instruction then we'd either have to:
+	 *
+	 *  - Restore the vector context & clobber any registers modified by
+	 *    scalar FP instructions between now & then.
+	 *
+	 * or
+	 *
+	 *  - Not restore the vector context & lose the most significant bits
+	 *    of all vector registers.
+	 *
+	 * Neither of those options is acceptable. We cannot restore the least
+	 * significant bits of the registers now & only restore the most
+	 * significant bits later because the most significant bits of any
+	 * vector registers whose aliased FP register is modified now will have
+	 * been zeroed. We'd have no way to know that when restoring the vector
+	 * context & thus may load an outdated value for the most significant
+	 * bits of a vector register.
+	 */
+	if (!msa && !thread_msa_context_live()){
+		own_fpu(1);
+		return 0;
+	}
+
+	/*
+	 * This task is using or has previously used MSA. Thus we require
+	 * that Status.FR == 1.
+	 */
+	was_fpu_owner = is_fpu_owner();
+	own_fpu(0);
+
+	enable_msa();
+	write_msa_csr(current->thread.fpu.msacsr);
+	set_thread_flag(TIF_USEDMSA);
+
+	/*
+	 * If this is the first time that the task is using MSA and it has
+	 * previously used scalar FP in this time slice then we already nave
+	 * FP context which we shouldn't clobber.
+	 */
+	if (!test_and_set_thread_flag(TIF_MSA_CTX_LIVE) && was_fpu_owner)
+		return 0;
+
+	/* We need to restore the vector context. */
+	restore_msa(current);
+	return 0;
+}
+
 asmlinkage void do_cpu(struct pt_regs *regs)
 {
 	unsigned int __user *epc;
@@ -1116,12 +1189,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 		/* Fall through.  */
 
 	case 1:
-		if (used_math())	/* Using the FPU again.	 */
-			own_fpu(1);
-		else {			/* First time FPU user.	 */
-			init_fpu();
-			set_used_math();
-		}
+		(void)enable_restore_fp_context(0);
 
 		if (!raw_cpu_has_fpu) {
 			int sig;
@@ -1141,6 +1209,27 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	}
 
 	force_sig(SIGILL, current);
+}
+
+asmlinkage void do_msa(struct pt_regs *regs)
+{
+	enum ctx_state prev_state;
+	int err;
+
+	prev_state = exception_enter();
+
+	if (!cpu_has_msa || test_thread_flag(TIF_32BIT_FPREGS)) {
+		force_sig(SIGILL, current);
+		goto out;
+	}
+
+	die_if_kernel("do_msa invoked from kernel context!", regs);
+
+	err = enable_restore_fp_context(1);
+	if (err)
+		force_sig(SIGILL, current);
+out:
+	exception_exit(prev_state);
 }
 
 asmlinkage void do_mdmx(struct pt_regs *regs)
@@ -1984,6 +2073,7 @@ void __init trap_init(void)
 		set_except_vector(20, tlb_do_page_fault_0);
 	}
 
+	set_except_vector(21, handle_msa);
 	set_except_vector(22, handle_mdmx);
 
 	if (cpu_has_mcheck)
