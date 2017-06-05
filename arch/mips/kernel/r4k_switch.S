@@ -76,8 +76,10 @@
 	/* Check whether we're saving scalar or vector context. */
 	bgtz	a3, 11f
 
-	/* Save 128b MSA vector context. */
+	/* Save 128b MSA vector context + scalar FP control & status. */
+	cfc1	t1, fcr31
 	msa_save_all	a0
+	sw	t1, THREAD_FCR31(a0)
 	b	22f
 
 11:	/* Save 32b/64b scalar FP context. */
