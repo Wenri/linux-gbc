@@ -111,9 +111,10 @@ int ptrace_getfpregs(struct task_struct *child, __u32 __user *data)
 		return -EIO;
 
 	if (tsk_used_math(child)) {
-		fpureg_t *fregs = get_fpu_regs(child);
+		union fpureg *fregs = get_fpu_regs(child);
 		for (i = 0; i < 32; i++)
-			__put_user(fregs[i], i + (__u64 __user *) data);
+			__put_user(-get_fpr64(&fregs[i], 0),
+					i + (__u64 __user *) data);
 	} else {
 		for (i = 0; i < 32; i++)
 			__put_user((__u64) -1, i + (__u64 __user *) data);
@@ -127,7 +128,8 @@ int ptrace_getfpregs(struct task_struct *child, __u32 __user *data)
 
 int ptrace_setfpregs(struct task_struct *child, __u32 __user *data)
 {
-	fpureg_t *fregs;
+	union fpureg *fregs;
+	u64 fpr_val;
 	int i;
 
 	if (!access_ok(VERIFY_READ, data, 33 * 8))
@@ -135,8 +137,10 @@ int ptrace_setfpregs(struct task_struct *child, __u32 __user *data)
 
 	fregs = get_fpu_regs(child);
 
-	for (i = 0; i < 32; i++)
-		__get_user(fregs[i], i + (__u64 __user *) data);
+	for (i = 0; i < 32; i++) {
+		__get_user(fpr_val, i + (__u64 __user *)data);
+		set_fpr64(&fregs[i], 0, fpr_val);
+	}
 
 	__get_user(child->thread.fpu.fcr31, data + 64);
 
@@ -261,7 +265,7 @@ long arch_ptrace(struct task_struct *child, long request,
 			break;
 		case FPR_BASE ... FPR_BASE + 31:
 			if (tsk_used_math(child)) {
-				fpureg_t *fregs = get_fpu_regs(child);
+				union fpureg *fregs = get_fpu_regs(child);
 
 #ifdef CONFIG_32BIT
 				/*
@@ -269,13 +273,11 @@ long arch_ptrace(struct task_struct *child, long request,
 				 * order bits of the values stored in the even
 				 * registers - unless we're using r2k_switch.S.
 				 */
-				if (addr & 1)
-					tmp = (unsigned long) (fregs[((addr & ~1) - 32)] >> 32);
-				else
-					tmp = (unsigned long) (fregs[(addr - 32)] & 0xffffffff);
+				tmp = get_fpr32(&fregs[(addr & ~1) - FPR_BASE],
+						addr & 1);
 #endif
 #ifdef CONFIG_64BIT
-				tmp = fregs[addr - FPR_BASE];
+				tmp = get_fpr32(&fregs[addr - FPR_BASE], 0);
 #endif
 			} else {
 				tmp = -1;	/* FP not yet used  */
@@ -353,7 +355,7 @@ long arch_ptrace(struct task_struct *child, long request,
 			regs->regs[addr] = data;
 			break;
 		case FPR_BASE ... FPR_BASE + 31: {
-			fpureg_t *fregs = get_fpu_regs(child);
+			union fpureg *fregs = get_fpu_regs(child);
 
 			if (!tsk_used_math(child)) {
 				/* FP not yet used  */
@@ -367,16 +369,11 @@ long arch_ptrace(struct task_struct *child, long request,
 			 * of the values stored in the even registers - unless
 			 * we're using r2k_switch.S.
 			 */
-			if (addr & 1) {
-				fregs[(addr & ~1) - FPR_BASE] &= 0xffffffff;
-				fregs[(addr & ~1) - FPR_BASE] |= ((unsigned long long) data) << 32;
-			} else {
-				fregs[addr - FPR_BASE] &= ~0xffffffffLL;
-				fregs[addr - FPR_BASE] |= data;
-			}
+			set_fpr32(&fregs[(addr & ~1) - FPR_BASE],
+					  addr & 1, data);
 #endif
 #ifdef CONFIG_64BIT
-			fregs[addr - FPR_BASE] = data;
+			set_fpr64(&fregs[addr - FPR_BASE], 0, data);
 #endif
 			break;
 		}

@@ -91,17 +91,15 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
 			break;
 		case FPR_BASE ... FPR_BASE + 31:
 			if (tsk_used_math(child)) {
-				fpureg_t *fregs = get_fpu_regs(child);
+				union fpureg *fregs = get_fpu_regs(child);
 
 				/*
 				 * The odd registers are actually the high
 				 * order bits of the values stored in the even
 				 * registers - unless we're using r2k_switch.S.
 				 */
-				if (addr & 1)
-					tmp = (unsigned long) (fregs[((addr & ~1) - 32)] >> 32);
-				else
-					tmp = (unsigned long) (fregs[(addr - 32)] & 0xffffffff);
+				tmp = get_fpr32(&fregs[(addr & ~1) - FPR_BASE],
+						addr & 1);
 			} else {
 				tmp = -1;	/* FP not yet used  */
 			}
@@ -192,7 +190,7 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
 			regs->regs[addr] = data;
 			break;
 		case FPR_BASE ... FPR_BASE + 31: {
-			fpureg_t *fregs = get_fpu_regs(child);
+			union fpureg *fregs = get_fpu_regs(child);
 
 			if (!tsk_used_math(child)) {
 				/* FP not yet used  */
@@ -205,15 +203,8 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
 			 * of the values stored in the even registers - unless
 			 * we're using r2k_switch.S.
 			 */
-			if (addr & 1) {
-				fregs[(addr & ~1) - FPR_BASE] &= 0xffffffff;
-				fregs[(addr & ~1) - FPR_BASE] |= ((unsigned long long) data) << 32;
-			} else {
-				fregs[addr - FPR_BASE] &= ~0xffffffffLL;
-				/* Must cast, lest sign extension fill upper
-				   bits!  */
-				fregs[addr - FPR_BASE] |= (unsigned int)data;
-			}
+			set_fpr32(&fregs[(addr & ~1) - FPR_BASE],
+					addr & 1, data);
 			break;
 		}
 		case PC:
