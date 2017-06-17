@@ -122,6 +122,7 @@ void _ls2k_init_irq(u32 irq_base)
 	(int_ctrl_regs + 1)->int_clr	= -1;
 	(int_ctrl_regs + 1)->int_auto	= 0;
 	(int_ctrl_regs + 1)->int_bounce	= 0;
+        (int_ctrl_regs + 1)->int_edge   = (0x1f << 12);
 
 
 	for (i = irq_base; i <= LS2K_LAST_IRQ; i++)

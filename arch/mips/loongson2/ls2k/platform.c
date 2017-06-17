@@ -264,9 +264,31 @@ static struct platform_device ls2k_gpio_i2c_device = {
 	},
 };
 
+/*
+ * I2S_UDA1342
+ */
+#ifdef CONFIG_SOUND_LS2K_UDA1342
+static struct resource ls2k_uda1342_resource[] = {
+       [0]={
+               .start  = LS2K_I2S_REG_BASE,
+               .end    = (LS2K_I2S_REG_BASE + 0x10),
+               .flags  = IORESOURCE_MEM,
+       },
+};
+
+static struct platform_device ls2k_audio_device = {
+       .name           = "ls2k-audio",
+       .id             = -1,
+       .num_resources  = ARRAY_SIZE(ls2k_uda1342_resource),
+       .resource       = ls2k_uda1342_resource,
+};
+#endif
+
+
 static struct platform_device *ls2k_platform_devices[] = {
 	&uart8250_device,
 	&ls2k_nand_device,
+        &ls2k_audio_device,
 	&ls2k_i2c0_device,
 	&ls2k_i2c1_device,
 	&ls2k_rtc_device,
@@ -308,7 +330,7 @@ if(0)
 			ARRAY_SIZE(ls2k_i2c_gpio_platform_devices));
 }
 	return platform_add_devices(ls2k_platform_devices,
-			/*ARRAY_SIZE(ls2k_platform_devices)*/4);
+			/*ARRAY_SIZE(ls2k_platform_devices)*/5);
 }
 
 device_initcall(ls2k_platform_init);

@@ -26,6 +26,7 @@ obj-$(CONFIG_SOUND_MSNDCLAS)	+= msnd.o msnd_classic.o
 obj-$(CONFIG_SOUND_MSNDPIN)	+= msnd.o msnd_pinnacle.o
 obj-$(CONFIG_SOUND_VWSND)	+= vwsnd.o
 obj-$(CONFIG_SOUND_BCM_CS4297A)	+= swarm_cs4297a.o
+obj-$(CONFIG_SOUND_LS2K_UDA1342)        += ls2k_uda1342.o
 
 obj-$(CONFIG_DMASOUND)		+= dmasound/
 

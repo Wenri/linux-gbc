@@ -22,6 +22,12 @@ config SOUND_VWSND
 	  <file:Documentation/sound/oss/vwsnd> for more info on this driver's
 	  capabilities.
 
+config SOUND_LS2K_UDA1342
+       tristate "Loongson2k IIS UDA1342 Sound"
+       depends on CPU_LOONGSON2K
+       help
+       Say Y or M if your board have a uda1342 Sound IC
+
 config SOUND_MSNDCLAS
 	tristate "Support for Turtle Beach MultiSound Classic, Tahiti, Monterey"
 	depends on (m || !STANDALONE) && ISA
