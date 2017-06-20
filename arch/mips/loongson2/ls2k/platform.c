@@ -120,6 +120,7 @@ static struct platform_device uart8250_device = {
 /*
  * NAND
  */
+#ifdef CONFIG_MTD_NAND_LS2K
 static struct mtd_partition ls2k_nand_partitions[]={
 	[0] = {
 		.name   = "kernel",
@@ -175,6 +176,7 @@ struct platform_device ls2k_nand_device = {
 	.num_resources  = ARRAY_SIZE(ls2k_nand_resources),
 	.resource       = ls2k_nand_resources,
 };
+#endif
 
 /*
  * I2C
@@ -287,8 +289,12 @@ static struct platform_device ls2k_audio_device = {
 
 static struct platform_device *ls2k_platform_devices[] = {
 	&uart8250_device,
+#ifdef CONFIG_MTD_NAND_LS2K
 	&ls2k_nand_device,
+#endif
+#ifdef CONFIG_SOUND_LS2K_UDA1342
         &ls2k_audio_device,
+#endif
 	&ls2k_i2c0_device,
 	&ls2k_i2c1_device,
 	&ls2k_rtc_device,
