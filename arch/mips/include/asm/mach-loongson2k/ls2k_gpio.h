@@ -22,14 +22,14 @@
 
 #undef GPIO_DEBUG
 
-#define LS2K_GPIO_MAX 16
+#define LS2K_GPIO_MAX 60
 
 #define readl(addr) (*(volatile unsigned int *)CKSEG1ADDR(addr))
 #define writel(val,addr) *(volatile unsigned int *)CKSEG1ADDR(addr) = (val)
 
 static const char *ls2k_gpio_list[LS2K_GPIO_MAX];
 
-static int ls2k_gpio_request(unsigned gpio, const char *label)
+static int gpio_request(unsigned gpio, const char *label)
 {
 	if (gpio >= LS2K_GPIO_MAX)
 		return -EINVAL;
@@ -45,20 +45,20 @@ static int ls2k_gpio_request(unsigned gpio, const char *label)
 	return 0;
 }
 
-static void ls2k_gpio_free(unsigned gpio)
+static void gpio_free(unsigned gpio)
 {
 	ls2k_gpio_list[gpio] = NULL;
 }
 
-static inline int ls2k_gpio_get_value(unsigned gpio)
+static inline int gpio_get_value(unsigned gpio)
 {
-	unsigned long gpio_in = LS2K_GPIO_IN_REG;
+	unsigned long gpio_in = LS2K_GPIO0_I_REG;
 
 	return readl(gpio_in) & (1 << gpio);
 }
-static inline void ls2k_gpio_set_value(unsigned gpio, int value)
+static inline void gpio_set_value(unsigned gpio, int value)
 {
-	unsigned long gpio_out = LS2K_GPIO_OUT_REG;
+	unsigned long gpio_out = LS2K_GPIO0_O_REG;
 	unsigned tmp;
 
 	tmp = readl(gpio_out) & ~(1 << gpio);
@@ -67,9 +67,9 @@ static inline void ls2k_gpio_set_value(unsigned gpio, int value)
 	writel(tmp, gpio_out);
 }
 
-static inline int ls2k_gpio_direction_input(unsigned gpio)
+static inline int gpio_direction_input(unsigned gpio)
 {
-	unsigned long gpio_dir = LS2K_GPIO_OE_REG;
+	unsigned long gpio_dir = LS2K_GPIO0_OEN_REG;
 
 	if (gpio >= LS2K_GPIO_MAX)
 		return -EINVAL;
@@ -79,27 +79,32 @@ static inline int ls2k_gpio_direction_input(unsigned gpio)
 	return 0;
 }
 
-static inline int ls2k_gpio_direction_output(unsigned gpio, int value)
+static inline int gpio_direction_output(unsigned gpio, int value)
 {
-	unsigned long gpio_dir = LS2K_GPIO_OE_REG;
+	unsigned long gpio_dir = LS2K_GPIO0_OEN_REG;
 
 	if (gpio >= LS2K_GPIO_MAX)
 		return -EINVAL;
 
-	gpio_set_value(gpio, value);
+//	gpio_set_value(gpio, value);
 	writel(readl(gpio_dir) & ~(1 << gpio), gpio_dir);
 
 	return 0;
 }
 
-static inline int ls2k_gpio_to_irq(unsigned gpio)
+static inline int gpio_to_irq(unsigned gpio)
 {
 	return -EINVAL;
 }
 
-static inline int ls2k_irq_to_gpio(unsigned irq)
+static inline int irq_to_gpio(unsigned irq)
 {
 	return -EINVAL;
+}
+
+static int gpio_request_one(unsigned gpio, unsigned long flags, const char *label)
+{
+	return 0;
 }
 
 #endif

@@ -247,9 +247,9 @@ static struct platform_device ls2k_rtc_device = {
  * GPIO-I2C
  */
 static struct i2c_gpio_platform_data pdata = {
-	.sda_pin                = LS2K_GPIO_PIN_5,
+	.sda_pin                = LS2K_GPIO_PIN_1,
 	.sda_is_open_drain      = 0,
-	.scl_pin                = LS2K_GPIO_PIN_4,
+	.scl_pin                = LS2K_GPIO_PIN_0,
 	.scl_is_open_drain      = 0,
 	.udelay                 = 100,
 };
@@ -319,16 +319,16 @@ int __init ls2k_platform_init(void)
 if(0)
 {
 	i2c_register_board_info(I2C_BUS_0, &ls2k_gmac_eep_info, 1);
-	i2c_register_board_info(I2C_BUS_1, &ls2k_fb_eep_info, 1);
 
-	i2c_register_board_info(2, &ls2k_dvi_fb_eep_info, 1);
 
 	/* This register is zero in 2h3, !zero in 2h2 */
 	ls2k_nand_parts.chip_ver = LS2K_VER3;
 
+}
+	i2c_register_board_info(I2C_BUS_1, &ls2k_fb_eep_info, 1);
+	i2c_register_board_info(2, &ls2k_dvi_fb_eep_info, 1);
 	platform_add_devices(ls2k_i2c_gpio_platform_devices,
 			ARRAY_SIZE(ls2k_i2c_gpio_platform_devices));
-}
 	return platform_add_devices(ls2k_platform_devices,
 			/*ARRAY_SIZE(ls2k_platform_devices)*/5);
 }

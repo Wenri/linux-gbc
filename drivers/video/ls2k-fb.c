@@ -56,6 +56,10 @@ struct pix_pll {
 	unsigned int l1_loopc;
 	unsigned int l1_frefc;
 };
+static struct eep_info{
+	struct i2c_adapter *adapter;
+	unsigned short addr;
+}eeprom_info;
 
 struct ls2k_fb_par {
 	struct platform_device *pdev;
@@ -728,6 +732,109 @@ static int __init ls2k_fb_setup(char *options)
 	return 1;
 }
 #endif	/* MODULE */
+static unsigned char *fb_do_probe_ddc_edid(struct i2c_adapter *adapter)
+{
+	unsigned char start = 0x0;
+	unsigned char *buf = kmalloc(EDID_LENGTH, GFP_KERNEL);
+	struct i2c_msg msgs[] = {
+		{
+			.addr = eeprom_info.addr,
+			.flags = 0,
+			.len = 1,
+			.buf = &start,
+		},{
+			.addr = eeprom_info.addr,
+			.flags = I2C_M_RD,
+			.len = EDID_LENGTH,
+			.buf = buf,
+		}
+	};
+	if (!buf){
+		dev_warn(&adapter->dev, "unable to allocate memory for EDID "
+			"block.\n");
+		return NULL;
+	}
+	if (i2c_transfer(adapter, msgs, 2) == 2){
+		return buf;
+	}
+	dev_warn(&adapter->dev, "unable to read EDID block.\n");
+	kfree(buf);
+	return NULL;
+}
+
+static const struct i2c_device_id dvi_eep_ids[] = {
+	{ "dvi-eeprom-edid", 0 },
+	{ /* END OF LIST */ }
+};
+
+static const struct i2c_device_id vga_eep_ids[] = {
+	{ "eeprom-edid", 2 },
+	{ /* END OF LIST */ }
+};
+MODULE_DEVICE_TABLE(i2c, eep_ids);
+
+static int eep_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	eeprom_info.adapter = client->adapter;
+	eeprom_info.addr = client->addr;
+	return 0;
+}
+
+static int eep_remove(struct i2c_client *client)
+{
+
+	i2c_unregister_device(client);
+	return 0;
+}
+static struct i2c_driver vga_eep_driver = {
+	.driver = {
+		.name = "vga_eep-edid",
+		.owner = THIS_MODULE,
+	},
+	.probe = eep_probe,
+	.remove = eep_remove,
+	.id_table = vga_eep_ids,
+};
+
+static struct i2c_driver dvi_eep_driver = {
+	.driver = {
+		.name = "dvi_eep-edid",
+		.owner = THIS_MODULE,
+	},
+	.probe = eep_probe,
+	.remove = eep_remove,
+	.id_table = dvi_eep_ids,
+};
+
+static bool edid_flag = 0;
+static unsigned char *ls2k_fb_i2c_connector(struct ls2k_fb_par *fb_par)
+{
+	unsigned char *edid = NULL;
+
+	LS2K_DEBUG("edid entry\n");
+	if (i2c_add_driver(&dvi_eep_driver)) {
+		pr_err("i2c-%d No eeprom device register!",dvi_eep_driver.id_table->driver_data);
+		return -ENODEV;
+	}
+	if (eeprom_info.adapter)
+		edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
+
+	if (!edid) {
+		if (i2c_add_driver(&vga_eep_driver)) {
+			pr_err("i2c-%d No eeprom device register!",vga_eep_driver.id_table->driver_data);
+			return -ENODEV;
+		}
+		edid_flag = 1;
+		if (eeprom_info.adapter)
+			edid = fb_do_probe_ddc_edid(eeprom_info.adapter);
+	}
+
+	if (edid){
+		fb_par->edid = edid;
+	}
+	return edid;
+}
+
 
 
 static void ls2k_find_init_mode(struct fb_info *info)
@@ -735,33 +842,54 @@ static void ls2k_find_init_mode(struct fb_info *info)
         struct fb_videomode mode;
         struct fb_var_screeninfo var;
         struct fb_monspecs *specs = &info->monspecs;
+		struct ls2k_fb_par *par = info->par;
         int found = 0;
-
+		unsigned char *edid;
         INIT_LIST_HEAD(&info->modelist);
         memset(&mode, 0, sizeof(struct fb_videomode));
         memset(&var, 0, sizeof(struct fb_var_screeninfo));
-	var.bits_per_pixel = DEFAULT_BITS_PER_PIXEL;
+		var.bits_per_pixel = DEFAULT_BITS_PER_PIXEL;
 
-
-        if (mode_option) {
-		printk("mode_option: %s\n", mode_option);
-                fb_find_mode(&var, info, mode_option, specs->modedb,
-                             specs->modedb_len, (found) ? &mode : NULL,
-                             info->var.bits_per_pixel);
-		info->var = var;
-	}
-	else
+		edid = ls2k_fb_i2c_connector(par);
+		if (!edid){
+			goto def;
+		}
+		fb_edid_to_monspecs(par->edid, specs);
+		if (specs->modedb == NULL){
+			printk("ls2k-fb: Unable to get Mode Database\n");
+			goto def;
+		}
+		fb_videomode_to_modelist(specs->modedb,specs->modedb_len,
+						&info->modelist);
+		if (specs->modedb != NULL){
+			const struct fb_videomode *m;
+			if (!found){
+				m = fb_find_best_display(&info->monspecs, &info->modelist);
+				mode = *m;
+				found= 1;
+			}
+			fb_videomode_to_var(&var,&mode);
+		}
+		if (mode_option) {
+				printk("mode_option: %s\n", mode_option);
+				fb_find_mode(&var, info, mode_option, specs->modedb,
+								specs->modedb_len, (found) ? &mode : NULL,info->var.bits_per_pixel);
+				info->var = var;
+		}
+	else{
 		info->var = ls2k_fb_default;
-
+	}
+	info->var = var;
 	fb_destroy_modedb(specs->modedb);
 	specs->modedb = NULL;
 	return;
-
+def:
+	info->var = ls2k_fb_default;
 	return;
 }
 
 /* irq */
-static irqreturn_t ls2hfb_irq(int irq, void *dev_id)
+static irqreturn_t ls2kfb_irq(int irq, void *dev_id)
 {
 	unsigned int val, cfg;
 	unsigned long flags;
@@ -882,7 +1010,7 @@ static int ls2k_fb_probe(struct platform_device *dev)
 	if (retval < 0)
 		goto release_map;
 
-	retval = request_irq(irq, ls2hfb_irq, IRQF_DISABLED, dev->name, info);
+	retval = request_irq(irq, ls2kfb_irq, IRQF_DISABLED, dev->name, info);
 	if (retval) {
 		dev_err(&dev->dev, "cannot get irq %d - err %d\n", irq, retval);
 		goto unreg_info;
