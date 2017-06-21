@@ -12,11 +12,13 @@
 #include <asm/wbflush.h>
 
 #include <loongson.h>
-
 #ifdef CONFIG_VT
 #include <linux/console.h>
 #include <linux/screen_info.h>
 #endif
+
+#include <linux/spinlock.h>
+DEFINE_SPINLOCK(ls2k_io_lock);
 
 static void wbflush_loongson(void)
 {
