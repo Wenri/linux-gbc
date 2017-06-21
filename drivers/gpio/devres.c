@@ -20,7 +20,9 @@
 #include <linux/gpio/consumer.h>
 #include <linux/device.h>
 #include <linux/gfp.h>
-
+#ifdef CONFIG_CPU_LOONGSON2K
+#include <ls2k_gpio.h>
+#endif
 static void devm_gpiod_release(struct device *dev, void *res)
 {
 	struct gpio_desc **desc = res;

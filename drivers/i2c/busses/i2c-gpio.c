@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-
+#include <asm/mach-loongson2k/ls2k_gpio.h>
 struct i2c_gpio_private_data {
 	struct i2c_adapter adap;
 	struct i2c_algo_bit_data bit_data;
@@ -42,7 +42,6 @@ static void i2c_gpio_setsda_dir(void *data, int state)
 static void i2c_gpio_setsda_val(void *data, int state)
 {
 	struct i2c_gpio_platform_data *pdata = data;
-
 	gpio_set_value(pdata->sda_pin, state);
 }
 
@@ -66,21 +65,18 @@ static void i2c_gpio_setscl_dir(void *data, int state)
 static void i2c_gpio_setscl_val(void *data, int state)
 {
 	struct i2c_gpio_platform_data *pdata = data;
-
 	gpio_set_value(pdata->scl_pin, state);
 }
 
 static int i2c_gpio_getsda(void *data)
 {
 	struct i2c_gpio_platform_data *pdata = data;
-
 	return gpio_get_value(pdata->sda_pin);
 }
 
 static int i2c_gpio_getscl(void *data)
 {
 	struct i2c_gpio_platform_data *pdata = data;
-
 	return gpio_get_value(pdata->scl_pin);
 }
 
@@ -142,7 +138,6 @@ static int i2c_gpio_probe(struct platform_device *pdev)
 		sda_pin = pdata->sda_pin;
 		scl_pin = pdata->scl_pin;
 	}
-
 	ret = gpio_request(sda_pin, "sda");
 	if (ret) {
 		if (ret == -EINVAL)
@@ -253,7 +248,6 @@ static int i2c_gpio_remove(struct platform_device *pdev)
 	i2c_del_adapter(adap);
 	gpio_free(pdata->scl_pin);
 	gpio_free(pdata->sda_pin);
-
 	return 0;
 }
 

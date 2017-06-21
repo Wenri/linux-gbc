@@ -12,24 +12,18 @@
 
 #ifndef __STLS2F_GPIO_H
 #define __STLS2F_GPIO_H
-
-#include <asm-generic/gpio.h>
-
-extern void gpio_set_value(unsigned gpio, int value);
-extern int gpio_get_value(unsigned gpio);
-extern int gpio_cansleep(unsigned gpio);
-
-/* The chip can do interrupt
- * but it has not been tested and doc not clear
- */
-static inline int gpio_to_irq(int gpio)
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/pinctrl/pinctrl.h>
+#define ARCH_NR_GPIOS 60
+static inline bool gpio_is_valid(int number)
 {
-	return -EINVAL;
+   return false;
 }
 
-static inline int irq_to_gpio(int gpio)
+static inline void
+gpiochip_remove_pin_ranges(struct gpio_chip *chip)
 {
-	return -EINVAL;
+   WARN_ON(1);
 }
-
 #endif				/* __STLS2F_GPIO_H */
