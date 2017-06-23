@@ -15,8 +15,11 @@
  *
  * =====================================================================================
  */
+#include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/of.h>
 #include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/bootmem.h>
 #include <asm/prom.h>
 
@@ -56,4 +59,19 @@ void __init plat_mem_setup(void)
 
 void __init prom_free_prom_memory(void)
 {
+
 }
+
+static struct of_device_id __initdata ls2k_ids[] = {
+	{ .compatible = "simple-bus", },
+	{},
+};
+
+int __init ls2k_publish_devices(void)
+{
+
+	/*return of_platform_bus_probe(NULL, ls2k_ids, NULL);*/
+	return of_platform_populate(NULL, ls2k_ids, NULL, NULL);
+}
+
+device_initcall(ls2k_publish_devices);

@@ -9,14 +9,38 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	// Since 2K1000 support > 4GiB DIMM, use 2 cell for and address size
 	memory {
+		name = "memory";
 		device_type = "memory";
 		reg =  <0 0x00200000 0 0x09800000	// 152MiB at 2MiB
 			0 0x90000000 0 0x70000000>;	// 1792MiB at 2304MiB
 	};
 
+	// all soc device use 32bit address
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x10000000 0 0x10000000 0x10000000>;
+
+		icu: interrupt-controller@1fe11400 {
+			compatible = "loongson,2k-icu";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			reg = <0x1fe11400 0x40>;
+		};
+
+		ahci@0x12080000 {
+			compatible = "snps,spear-ahci";
+			reg = <0x10280000 0x10000>;
+			interrupt-parent = <&icu>;
+			interrupts = <27>;
+		};
+	};
 
 	chosen {
-		bootargs = "console=ttyS0,115200 rdinit=/sbin/init";
+		bootargs = "console=ttyS0,115200 root=/dev/sda1";
 	};
 };
