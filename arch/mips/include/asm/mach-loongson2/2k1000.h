@@ -52,15 +52,31 @@ static inline void ls64_conf_write32(unsigned int val32, unsigned long addr)
 
 #define ls64_conf_read64(x) 	readq(x)
 #define ls64_conf_read32(x) 	readl(x)
+#define ls64_conf_read16(x) 	readw(x)
+#define ls64_conf_read8(x) 	readb(x)
 
 static inline void ls64_conf_write64(unsigned long val64, void * addr)
 {
+	//pr_info("write64:%p, %lx\n", addr, val64);
 	*(volatile unsigned long *)addr = val64;
 }
 
 static inline void ls64_conf_write32(unsigned int val32, void * addr)
 {
+	//pr_info("write32:%p, %x\n", addr, val32);
 	*(volatile unsigned int *)addr = val32;
+}
+
+static inline void ls64_conf_write16(unsigned short val16, void * addr)
+{
+	//pr_info("write16:%p, %x\n", addr, val16);
+	*(volatile unsigned short *)addr = val16;
+}
+
+static inline void ls64_conf_write8(unsigned char val8, void * addr)
+{
+	//pr_info("write8:%p, %x\n", addr, val8);
+	*(volatile unsigned char *)addr = val8;
 }
 #endif
 #define CONF_BASE 0x1fe10000
@@ -172,8 +188,9 @@ static inline void ls64_conf_write32(unsigned int val32, void * addr)
 #define C0_MAIL1_OFF 0x1028
 #define C0_MAIL2_OFF 0x1030
 #define C0_MAIL3_OFF 0x1038
-#define C0_INTSR0_OFF 0x1040
-#define C0_INTSR1_OFF 0x1048
+
+#define INTSR0_OFF 0x1040
+#define INTSR1_OFF 0x1048
 
 
 #define C1_IPISR_OFF 0x1100
@@ -186,37 +203,20 @@ static inline void ls64_conf_write32(unsigned int val32, void * addr)
 #define C1_MAIL1_OFF 0x1128
 #define C1_MAIL2_OFF 0x1130
 #define C1_MAIL3_OFF 0x1138
-#define C1_INTSR0_OFF 0x1140
-#define C1_INTSR1_OFF 0x1148
 
+#define INT_LO_OFF 0x1400
+#define INT_HI_OFF 0x1440
 
-#define INT_RTE0_0_OFF 0x1400
-#define INT_RTE0_8_OFF 0x1408
-#define INT_RTE0_16_OFF 0x1410
-#define INT_RTE0_24_OFF 0x1418
+#define INT_RTEBASE_OFF 0x0
+#define INT_SR_OFF 0x20
+#define INT_EN_OFF 0x24
+#define INT_SET_OFF 0x28
+#define INT_CLR_OFF 0x2c
+#define INT_PLE_OFF 0x30
+#define INT_EDG_OFF 0x34
+#define INT_BCE_OFF 0x38
+#define INT_AUTO_OFF 0x3c
 
-#define INT_SR0_OFF 0x1420
-#define INT_EN0_OFF 0x1424
-#define INT_SET0_OFF 0x1428
-#define INT_CLR0_OFF 0x142c
-#define INT_PLE0_OFF 0x1430
-#define INT_EDG0_OFF 0x1434
-#define INT_BCE0_OFF 0x1438
-#define INT_AUTO0_OFF 0x143c
-
-#define INT_RTE1_0_OFF 0x1440
-#define INT_RTE1_8_OFF 0x1448
-#define INT_RTE1_16_OFF 0x1450
-#define INT_RTE1_24_OFF 0x1458
-
-#define INT_SR1_OFF 0x1460
-#define INT_EN1_OFF 0x1464
-#define INT_SET1_OFF 0x1468
-#define INT_CLR1_OFF 0x146c
-#define INT_PLE1_OFF 0x1470
-#define INT_EDG1_OFF 0x1474
-#define INT_BCE1_OFF 0x1478
-#define INT_AUTO1_OFF 0x147c
 
 #define THSENS_INT_CTL_HI_OFF 0x1500
 #define THSENS_INT_CTL_LO_OFF 0x1508
@@ -374,8 +374,6 @@ static inline void ls64_conf_write32(unsigned int val32, void * addr)
 #define IPI_OFF_MAILBOX1	0x1028
 #define IPI_OFF_MAILBOX2	0x1030
 #define IPI_OFF_MAILBOX3	0x1038
-#define INTSR0_OFF
-#define INTSR1_OFF
 
 
 #endif  /*__2K1000_H_  */

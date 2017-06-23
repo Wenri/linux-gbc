@@ -18,6 +18,7 @@
 #include <linux/irq.h>
 #include <asm/irq_cpu.h>
 #include <asm/mach-loongson2/2k1000.h>
+#include <asm/mipsregs.h>
 #include <irq.h>
 
 /* ip7 take perf/timer */
@@ -36,9 +37,8 @@ static void unmask_icu_irq(struct irq_data * data)
 		index = data->irq - LS64_MSI_IRQ_BASE;
 	else
 		index = data->irq - LS64_IRQ_BASE;
-	base = CKSEG1ADDR(CONF_BASE) + (index > 32) * 0x40 ;
-	ls64_conf_write32((1 << index & 0x1f), (void *)(base + INT_SET0_OFF));
-
+	base = CKSEG1ADDR(CONF_BASE) + (index > 32) * 0x40 + INT_LO_OFF ;
+	ls64_conf_write32(1 << (index & 0x1f), (void *)(base + INT_SET_OFF));
 }
 
 static void mask_icu_irq(struct irq_data * data)
@@ -51,15 +51,14 @@ static void mask_icu_irq(struct irq_data * data)
 		index = data->irq - LS64_MSI_IRQ_BASE;
 	else
 		index = data->irq - LS64_IRQ_BASE;
-	base = CKSEG1ADDR(CONF_BASE) + (index > 32) * 0x40 ;
-	ls64_conf_write32((1 << index & 0x1f), (void *)(base + INT_CLR0_OFF));
-
+	base = CKSEG1ADDR(CONF_BASE) + (index > 32) * 0x40 + INT_LO_OFF;
+	ls64_conf_write32(1 << (index & 0x1f), (void *)(base + INT_CLR_OFF));
 }
 
 static struct irq_chip ls64_irq_chip = {
 	.name		= "ls64soc",
-	.irq_ack	= mask_icu_irq,
-	.irq_eoi	= unmask_icu_irq,
+	/*.irq_ack	= mask_icu_irq,*/
+	/*.irq_eoi	= unmask_icu_irq,*/
 	.irq_unmask	= unmask_icu_irq,
 	.irq_mask	= mask_icu_irq,
 };
@@ -83,12 +82,12 @@ asmlinkage void plat_irq_dispatch(void)
 	lo = ls64_conf_read32((void*)(addr + INTSR0_OFF + (i << 8)));
 	irq_status = ((hi << 32) | lo);
 
-	hi = ls64_conf_read32((void*)(addr + INT_EN1_OFF));
-	lo = ls64_conf_read32((void*)(addr + INT_EN0_OFF));
+	hi = ls64_conf_read32((void*)(addr + INT_HI_OFF + INT_EN_OFF));
+	lo = ls64_conf_read32((void*)(addr + INT_LO_OFF + INT_EN_OFF));
 	irq_masked = ((hi << 32) | lo);
 
-	hi = ls64_conf_read32((void*)(addr + INT_PLE1_OFF));
-	lo = ls64_conf_read32((void*)(addr + INT_PLE0_OFF));
+	hi = ls64_conf_read32((void*)(addr + INT_HI_OFF + INT_PLE_OFF));
+	lo = ls64_conf_read32((void*)(addr + INT_LO_OFF + INT_PLE_OFF));
 	irq_po = ((hi << 32) | lo);
 
 
@@ -114,36 +113,67 @@ asmlinkage void plat_irq_dispatch(void)
 		}
 	}
 	else if (cp0_cause & STATUSF_IP4) {
-		lo = irq_status & irq_masked;
-		irq_status ^= lo;
+		lo = (irq_status & irq_masked);
 		while ((i = __fls(lo)) != -1) {
 			do_IRQ(i + LS64_IRQ_BASE);
 			lo = (lo ^ (1 << i));
 		}
 
 	}
-	else if (irq_status) {
-		pr_info("irq not handled i:%lx, c:%x, s:%x\n", irq_status, cp0_cause_saved,
-				cp0_status);
+	/*else if (irq_status) {*/
+		/*pr_info("irq not handled i:%lx, c:%x, s:%x\n", irq_status, cp0_cause_saved,*/
+				/*cp0_status);*/
+	/*}*/
+
+}
+
+static void set_irq_attr(int irq, unsigned int imask, unsigned int core_mask, int mode)
+{
+	unsigned int index;
+	unsigned long base;
+	unsigned int ret;
+	int hi;
+	int au;
+	int bounce;
+
+	if (irq >= LS64_MSI_IRQ_BASE)
+		index = irq - LS64_MSI_IRQ_BASE;
+	else
+		index = irq - LS64_IRQ_BASE;
+
+	hi = (index >= 32);
+	index = index & 0x1f;
+	au = (mode & 0x1);
+	bounce = ((mode > 1) & 0x1);
+	base = CKSEG1ADDR(CONF_BASE) + INT_LO_OFF + hi * 0x40;
+
+	ls64_conf_write8(imask << 4 | core_mask, (void *)(base + index));
+
+	ret = ls64_conf_read32((void*)(base + INT_BCE_OFF));
+	ret |= (bounce << index);
+	ls64_conf_write32(ret, (void *)(base + INT_BCE_OFF));
+
+	ret = ls64_conf_read32((void*)(base + INT_AUTO_OFF));
+	ret |= (au << index);
+	ls64_conf_write32(ret, (void *)(base + INT_AUTO_OFF));
+}
+
+void __init setup_irq_default(void)
+{
+	unsigned int i;
+	int core_id = (read_c0_ebase() & 0x3ff);
+
+	for (i = LS64_IRQ_BASE; i < LS64_IRQ_BASE + 60; i++) {
+		irq_set_chip_and_handler(i, &ls64_irq_chip, handle_level_irq);
+		set_irq_attr(i, 1 << (STATUSB_IP4 - 10), 1 << core_id, 0);
 	}
 
 }
 
 void  __init arch_init_irq(void)
 {
+
 	mips_cpu_irq_init();
-	set_c0_status(STATUSF_IP4 | STATUSF_IP5 | STATUSF_IP6);
-}
-
-void ls2k1000_icu_init_percpu(void)
-{
-	unsigned int i;
-
-	for (i = LS64_IRQ_BASE; i < LS64_IRQ_BASE + 60; i++)
-		irq_set_chip_and_handler(i, &ls64_irq_chip, handle_level_irq);
-	/* last 4 GPIO, can be safely used at edge triggered */
-	for (i = LS64_IRQ_BASE + 60; i < LS64_IRQ_BASE + 64; i++)
-		irq_set_chip_and_handler(i, &ls64_irq_chip, handle_edge_irq);
-
 	set_c0_status(STATUSF_IP4 | STATUSF_IP5 | STATUSF_IP6 | STATUSF_IP7);
+	setup_irq_default();
 }

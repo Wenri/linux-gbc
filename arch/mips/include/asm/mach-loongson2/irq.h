@@ -35,7 +35,6 @@ enum LS2K_ICU {
 	AC97_I,
 	THEN_I,
 
-	/* 72  */
 	TOY_TICK_I,
 	RTC_TICK_I,
 	RESERVED_I0,
@@ -45,7 +44,6 @@ enum LS2K_ICU {
 	GMAC1_I0,
 	GMAC1_I1,
 
-	/* 80  */
 	CAN0_I,
 	CAN1_I,
 	BOOT_I,
@@ -55,7 +53,6 @@ enum LS2K_ICU {
 	I2C0_I,
 	I2C1_I,
 
-	/* 88  */
 	PWM0_I,
 	PWM1_I,
 	PWM2_I,
@@ -65,7 +62,6 @@ enum LS2K_ICU {
 	RESERVED_I3,
 	SDIO_I,
 
-	/* 96  */
 	PCI0_I0,
 	PCI0_I1,
 	PCI0_I2,
@@ -75,7 +71,6 @@ enum LS2K_ICU {
 	PCI1_I2,
 	PCI1_I3,
 
-	/* 104  */
 	TOY_I0,
 	TOY_I1,
 	TOY_I2,
@@ -85,7 +80,6 @@ enum LS2K_ICU {
 	DMA_I2,
 	DMA_I3,
 
-	/* 112  */
 	DMA_I4,
 	OTG_I,
 	EHCI_I,
@@ -95,7 +89,6 @@ enum LS2K_ICU {
 	RTC_I2,
 	RSA_I,
 
-	/* 120 */
 	AES_I,
 	DES_I,
 	GPIO_INT_LO_I,
