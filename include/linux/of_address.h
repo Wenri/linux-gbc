@@ -40,8 +40,11 @@ extern void __iomem *of_iomap(struct device_node *device, int index);
 extern const __be32 *of_get_address(struct device_node *dev, int index,
 			   u64 *size, unsigned int *flags);
 
-extern unsigned long pci_address_to_pio(phys_addr_t addr);
-
+extern int of_pci_range_parser_init(struct of_pci_range_parser *parser,
+			struct device_node *node);
+extern struct of_pci_range *of_pci_range_parser_one(
+					struct of_pci_range_parser *parser,
+					struct of_pci_range *range);
 #else /* CONFIG_OF_ADDRESS */
 #ifndef of_address_to_resource
 static inline int of_address_to_resource(struct device_node *dev, int index,
@@ -68,6 +71,19 @@ static inline const __be32 *of_get_address(struct device_node *dev, int index,
 {
 	return NULL;
 }
+
+static inline int of_pci_range_parser_init(struct of_pci_range_parser *parser,
+			struct device_node *node)
+{
+	return -1;
+}
+
+static inline struct of_pci_range *of_pci_range_parser_one(
+					struct of_pci_range_parser *parser,
+					struct of_pci_range *range)
+{
+	return NULL;
+}
 #endif /* CONFIG_OF_ADDRESS */
 
 
@@ -76,6 +92,9 @@ extern const __be32 *of_get_pci_address(struct device_node *dev, int bar_no,
 			       u64 *size, unsigned int *flags);
 extern int of_pci_address_to_resource(struct device_node *dev, int bar,
 				      struct resource *r);
+extern int of_pci_range_to_resource(struct of_pci_range *range,
+				    struct device_node *np,
+				    struct resource *res);
 #else /* CONFIG_OF_ADDRESS && CONFIG_PCI */
 static inline int of_pci_address_to_resource(struct device_node *dev, int bar,
 				             struct resource *r)
@@ -87,6 +106,13 @@ static inline const __be32 *of_get_pci_address(struct device_node *dev,
 		int bar_no, u64 *size, unsigned int *flags)
 {
 	return NULL;
+}
+
+static inline int of_pci_range_to_resource(struct of_pci_range *range,
+					   struct device_node *np,
+					   struct resource *res)
+{
+	return -ENOSYS;
 }
 #endif /* CONFIG_OF_ADDRESS && CONFIG_PCI */
 
