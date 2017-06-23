@@ -148,7 +148,7 @@ static struct resource ls2k_nand_resources[] = {
 	[0] = {
 		.start      = LS2K_NAND_DMA_ACC_REG,
 		.end        = LS2K_NAND_DMA_ACC_REG,
-		.flags      = IORESOURCE_DMA,
+		.flags      = IORESOURCE_MEM,
 	},
 	[1] = {
 		.start      = LS2K_NAND_REG_BASE,
@@ -156,9 +156,9 @@ static struct resource ls2k_nand_resources[] = {
 		.flags      = IORESOURCE_MEM,
 	},
 	[2] = {
-		.start      = LS2K_DMA_ORDER_REG,
-		.end        = LS2K_DMA_ORDER_REG,
-		.flags      = IORESOURCE_MEM,
+		.start      = LS2K_DMA0_REG,
+		.end        = LS2K_DMA0_REG,
+		.flags      = IORESOURCE_DMA,
 	},
 	[3] = {
 		.start      = LS2K_DMA0_IRQ,
@@ -293,7 +293,7 @@ static struct platform_device *ls2k_platform_devices[] = {
 	&ls2k_nand_device,
 #endif
 #ifdef CONFIG_SOUND_LS2K_UDA1342
-        &ls2k_audio_device,
+	&ls2k_audio_device,
 #endif
 	&ls2k_i2c0_device,
 	&ls2k_i2c1_device,
@@ -325,10 +325,6 @@ int __init ls2k_platform_init(void)
 if(0)
 {
 	i2c_register_board_info(I2C_BUS_0, &ls2k_gmac_eep_info, 1);
-
-
-	/* This register is zero in 2h3, !zero in 2h2 */
-	ls2k_nand_parts.chip_ver = LS2K_VER3;
 
 }
 	i2c_register_board_info(I2C_BUS_1, &ls2k_fb_eep_info, 1);

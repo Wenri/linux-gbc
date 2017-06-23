@@ -540,6 +540,8 @@ static int ls2k_nand_probe(struct platform_device *pdev)
 	struct mtd_info *mtd;
 	struct resource *r;
 	int ret = 0, irq;
+	unsigned int ls2k_apbdma_cfg;
+	int ls2k_apbdma_sel;
 
 #ifdef CONFIG_MTD_CMDLINE_PARTS
 	const char *part_probes[] = { "cmdlinepart", NULL };
@@ -580,7 +582,7 @@ static int ls2k_nand_probe(struct platform_device *pdev)
 		goto fail_free_mtd;
 	}
 
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (r == NULL) {
 		dev_err(&pdev->dev, "no IO memory resource defined\n");
 		ret = -ENODEV;
@@ -601,7 +603,7 @@ static int ls2k_nand_probe(struct platform_device *pdev)
 		goto fail_free_res;
 	}
 
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	r = platform_get_resource(pdev, IORESOURCE_DMA, 0);
 	if (r == NULL) {
 		dev_err(&pdev->dev, "no DMA memory resource defined\n");
 		ret = -ENODEV;
@@ -610,7 +612,13 @@ static int ls2k_nand_probe(struct platform_device *pdev)
 	info->dma_order_reg = r->start;
 	pr_info("info->dma_order_reg = %x\n", info->dma_order_reg);
 
-	r = platform_get_resource(pdev, IORESOURCE_DMA, 0);
+	ls2k_apbdma_cfg = ls2k_readl(LS2K_APBDMA_CFG_REG);
+	ls2k_apbdma_cfg &=  ~(LS2K_APBDMA_MASK << LS2K_NAND_DMA_SHIFT);
+	ls2k_apbdma_sel = (r->start - LS2K_DMA0_REG) >> 4;
+	ls2k_apbdma_cfg |= (ls2k_apbdma_sel & LS2K_APBDMA_MASK) << LS2K_NAND_DMA_SHIFT;
+	ls2k_writel(ls2k_apbdma_cfg,LS2K_APBDMA_CFG_REG);
+
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
 		dev_err(&pdev->dev, "no DMA access address\n");
 		ret = -ENODEV;
