@@ -1245,7 +1245,7 @@ config CPU_LOONGSON2K
 	select CPU_SUPPORTS_HIGHMEM
 	select CPU_SUPPORTS_HUGEPAGES
 	select CPU_SUPPORTS_MSA
-	select CPU_MIPSR2
+	#select CPU_MIPSR2
 	help
 	  The Loongson 2K is a dual core 64bit SoC, which implements the MIPS64
 	  release 5 instruction set
