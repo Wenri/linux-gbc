@@ -39,4 +39,6 @@
 #define cpu_has_perf_cntr_intr_bit	1
 #define cpu_has_ic_fills_f_dc	1
 
+#define cpu_has_mips64r2	1
+#define cpu_has_mips64r1	1
 #endif
