@@ -38,6 +38,15 @@
 			interrupt-parent = <&icu>;
 			interrupts = <27>;
 		};
+
+		serial0x@0x1fe00000{
+			device_type = "serial";
+			compatible = "ns16550";
+			reg = <0x1fe00000 0x100>;
+			clock-frequency = <125000000>;
+			interrupt-parent = <&icu>;
+			interrupts = <8>;
+		};
 	};
 
 	chosen {
