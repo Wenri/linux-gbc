@@ -16,25 +16,25 @@
 #include <south-bridge.h>
 #include <boot_param.h>
 #include <dma-coherence.h>
-#include <ls2h/ls2h.h>
+#include <ls2k/ls2k.h>
 
 #define MEMSIZE_4G 0x100000000
-extern void ls2h_init_irq(void);
-extern void ls2h_irq_dispatch(unsigned int pending);
-extern int ls2h_platform_init(void);
-extern struct mips_dma_map_ops ls2h_pcie_dma_map_ops;
+extern void ls2k_init_irq(void);
+extern void ls2k_irq_dispatch(unsigned int pending);
+extern int ls2k_platform_init(void);
+extern struct mips_dma_map_ops ls2k_pcie_dma_map_ops;
 
 #ifdef CONFIG_LS2H_PCIE
 
 #ifdef CONFIG_SWIOTLB
-extern void ls2h_init_swiotlb(void);
+extern void ls2k_init_swiotlb(void);
 #endif
-extern void ls2h_pcie_init(void);
-extern int ls2h_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin);
-extern int ls2h_init_pcie_bios(struct pci_dev *pdev);
+extern void ls2k_pcie_init(void);
+extern int ls2k_pcie_map_irq(struct pci_dev *dev, u8 slot, u8 pin);
+extern int ls2k_init_pcie_bios(struct pci_dev *pdev);
 #endif /* CONFIG_LS2H_PCIE */
 
-static dma_addr_t ls2h_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
+static dma_addr_t ls2k_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
 {
 	if (strstr(einter->description, "V3.3.1"))
 		return (paddr < 0x10000000) ? paddr : (paddr - 0x80000000);
@@ -42,7 +42,7 @@ static dma_addr_t ls2h_unity_phys_to_dma(struct device *dev, phys_addr_t paddr)
 		return paddr & 0xffffffff;
 }
 
-static phys_addr_t ls2h_unity_dma_to_phys(struct device *dev, dma_addr_t daddr)
+static phys_addr_t ls2k_unity_dma_to_phys(struct device *dev, dma_addr_t daddr)
 {
 	if (strstr(einter->description, "V3.3.1"))
 		return (daddr < 0x10000000) ? daddr : (daddr + 0x80000000);
@@ -50,10 +50,10 @@ static phys_addr_t ls2h_unity_dma_to_phys(struct device *dev, dma_addr_t daddr)
 		return (daddr < 0x10000000) ? daddr : (daddr | 0x100000000);
 }
 
-static void ls2h_dma_ops_init(void)
+static void ls2k_dma_ops_init(void)
 {
-	loongson_dma_map_ops->dma_to_phys = ls2h_unity_dma_to_phys;
-	loongson_dma_map_ops->phys_to_dma = ls2h_unity_phys_to_dma;
+	loongson_dma_map_ops->dma_to_phys = ls2k_unity_dma_to_phys;
+	loongson_dma_map_ops->phys_to_dma = ls2k_unity_phys_to_dma;
 }
 
 static void enable_south_bridge(void)
@@ -64,8 +64,8 @@ static void enable_south_bridge(void)
 	 * Loongson2H chip_config0
 	 * bit[5]: loongson2h bridge model enable. 1:enable  0:disable
 	 */
-	i = ls2h_readl(LS2H_CHIP_CFG0_REG) | (1 << 5);
-	ls2h_writel(i, LS2H_CHIP_CFG0_REG);
+	i = ls2k_readl(LS2H_CHIP_CFG0_REG) | (1 << 5);
+	ls2k_writel(i, LS2H_CHIP_CFG0_REG);
 }
 
 #ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
@@ -73,7 +73,7 @@ extern u32 memsize;
 extern u32 highmemsize;
 #endif
 
-static void __init ls2h_arch_initcall(void)
+static void __init ls2k_arch_initcall(void)
 {
 	int i;
 	unsigned long total_memsize = 0;
@@ -89,30 +89,30 @@ static void __init ls2h_arch_initcall(void)
 	}
 #endif
 	if ((total_memsize << 20) > MEMSIZE_4G)
-		loongson_dma_map_ops = &ls2h_pcie_dma_map_ops;
+		loongson_dma_map_ops = &ls2k_pcie_dma_map_ops;
 	else
-		ls2h_dma_ops_init();
+		ls2k_dma_ops_init();
 #ifdef CONFIG_LS2H_PCIE
-	ls2h_pcie_init();
+	ls2k_pcie_init();
 #endif
 }
 
-static void __init ls2h_device_initcall(void)
+static void __init ls2k_device_initcall(void)
 {
-	ls2h_platform_init();
+	ls2k_platform_init();
 }
 
-const struct south_bridge ls2h_south_bridge = {
-	.sb_init_irq		= ls2h_init_irq,
-	.sb_irq_dispatch	= ls2h_irq_dispatch,
+const struct south_bridge ls2k_south_bridge = {
+	.sb_init_irq		= ls2k_init_irq,
+	.sb_irq_dispatch	= ls2k_irq_dispatch,
 #ifdef CONFIG_LS2H_PCIE
 
 #ifdef CONFIG_SWIOTLB
-	.sb_init_swiotlb	= ls2h_init_swiotlb,
+	.sb_init_swiotlb	= ls2k_init_swiotlb,
 #endif
-	.sb_pcibios_init	= ls2h_init_pcie_bios,
-	.sb_pcibios_map_irq	= ls2h_pcie_map_irq,
+	.sb_pcibios_init	= ls2k_init_pcie_bios,
+	.sb_pcibios_map_irq	= ls2k_pcie_map_irq,
 #endif /* CONFIG_LS2H_PCIE */
-	.sb_arch_initcall	= ls2h_arch_initcall,
-	.sb_device_initcall	= ls2h_device_initcall,
+	.sb_arch_initcall	= ls2k_arch_initcall,
+	.sb_device_initcall	= ls2k_device_initcall,
 };

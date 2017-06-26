@@ -18,9 +18,9 @@
 #include <asm/branch.h>
 
 /*
- * fix loongson 2h pcie bus error
+ * fix loongson 2k pcie bus error
  */
-static int ls2h_be_handler(struct pt_regs *regs, int is_fixup)
+static int ls2k_be_handler(struct pt_regs *regs, int is_fixup)
 {
 	int action = MIPS_BE_FATAL;
 	union mips_instruction insn;
@@ -47,10 +47,10 @@ static int ls2h_be_handler(struct pt_regs *regs, int is_fixup)
 	return action;
 }
 
-static int ls2h_be_init(void)
+static int ls2k_be_init(void)
 {
-	board_be_handler = ls2h_be_handler;
+	board_be_handler = ls2k_be_handler;
 	return 0;
 }
 
-arch_initcall(ls2h_be_init);
+arch_initcall(ls2k_be_init);

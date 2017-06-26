@@ -18,17 +18,17 @@ int wakeup_loongson(void)
 {
 	return 0;
 }
-void mach_suspend_ls2h(suspend_state_t state)
+void mach_suspend_ls2k(suspend_state_t state)
 {
 
 }
-extern void ls2h_irq_router_init(void);
-extern void ls2h_early_config(void);
+extern void ls2k_irq_router_init(void);
+extern void ls2k_early_config(void);
 
-void mach_resume_ls2h(suspend_state_t state)
+void mach_resume_ls2k(suspend_state_t state)
 {
 	if (state == PM_SUSPEND_MEM) {
-		ls2h_early_config();
-		ls2h_irq_router_init();
+		ls2k_early_config();
+		ls2k_irq_router_init();
 	}
 }

@@ -1,5 +1,5 @@
 #
-# Makefile for LST loongson3 + ls2h evaluate board.
+# Makefile for LST ls2k evaluate board.
 #
 
 obj-y += setup.o init.o cmdline.o env.o time.o reset.o irq.o \

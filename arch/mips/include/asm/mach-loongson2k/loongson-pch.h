@@ -255,12 +255,12 @@
 #define LS2H_LPC_INT_CLR		LS2H_LPC_CFG3_REG
 
 /* REG ACCESS*/
-#define ls2h_readb(addr)		(*(volatile u8 *)CKSEG1ADDR(addr))
-#define ls2h_readw(addr)		(*(volatile u16 *)CKSEG1ADDR(addr))
-#define ls2h_readl(addr)		(*(volatile u32 *)CKSEG1ADDR(addr))
-#define ls2h_writeb(val, addr)		*(volatile u8 *)CKSEG1ADDR(addr) = (val)
-#define ls2h_writew(val, addr)		*(volatile u16 *)CKSEG1ADDR(addr) = (val)
-#define ls2h_writel(val, addr)		*(volatile u32 *)CKSEG1ADDR(addr) = (val)
+#define ls2k_readb(addr)		(*(volatile u8 *)CKSEG1ADDR(addr))
+#define ls2k_readw(addr)		(*(volatile u16 *)CKSEG1ADDR(addr))
+#define ls2k_readl(addr)		(*(volatile u32 *)CKSEG1ADDR(addr))
+#define ls2k_writeb(val, addr)		*(volatile u8 *)CKSEG1ADDR(addr) = (val)
+#define ls2k_writew(val, addr)		*(volatile u16 *)CKSEG1ADDR(addr) = (val)
+#define ls2k_writel(val, addr)		*(volatile u32 *)CKSEG1ADDR(addr) = (val)
 
 #define LS2H_PCIE_PORT0             0
 #define LS2H_PCIE_PORT1             1
