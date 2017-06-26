@@ -23,6 +23,7 @@
 #include <linux/bootmem.h>
 #include <asm/prom.h>
 
+void __init mips_reboot_setup(void);
 
 void __init device_tree_init(void)
 {
@@ -51,6 +52,7 @@ void __init plat_mem_setup(void)
 
 	/* assuming board has minimal memory */
 
+	mips_reboot_setup();
 	if (boot_mem_map.nr_map == 0) {
 		add_memory_region(0x200000, 0x9800000, BOOT_MEM_RAM);
 		add_memory_region(0x90000000, 0x70000000, BOOT_MEM_RAM);
