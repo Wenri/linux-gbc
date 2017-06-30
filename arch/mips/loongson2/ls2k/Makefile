@@ -21,3 +21,6 @@ obj-$(CONFIG_SMP)	+= smp.o
 obj-$(CONFIG_LS2K_PCIE) += ls2k-pci.o
 
 obj-$(CONFIG_SWIOTLB) += swiotlb.o
+
+obj-$(CONFIG_PCI_MSI) += pci_msi.o
+

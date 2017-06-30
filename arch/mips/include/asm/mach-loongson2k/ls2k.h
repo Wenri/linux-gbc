@@ -276,6 +276,12 @@
 #define LS2K_SDIO_REG_BASE		(LS2K_IO_REG_BASE + 0x00e0c000)
 #define LS2K_I2S_REG_BASE		(LS2K_IO_REG_BASE + 0x00e0d000)
 
+#define LS2K_INT_MSI_TRIGGER_0     (LS2K_CHIP_CFG_REG_BASE + 0x14b0)
+#define LS2K_INT_MSI_TRIGGER_EN_0  (LS2K_CHIP_CFG_REG_BASE + 0x14b4)
+#define LS2K_INT_MSI_TRIGGER_1     (LS2K_CHIP_CFG_REG_BASE + 0x14f0)
+#define LS2K_INT_MSI_TRIGGER_EN_1  (LS2K_CHIP_CFG_REG_BASE + 0x14f4)
+#define LS2K_IRQ_MASK              0xff8f00ffb03ff3ff
+
 /* REG ACCESS*/
 #define ls2k_readb(addr)		(*(volatile unsigned char *)CKSEG1ADDR(addr))
 #define ls2k_readw(addr)		(*(volatile unsigned short *)CKSEG1ADDR(addr))

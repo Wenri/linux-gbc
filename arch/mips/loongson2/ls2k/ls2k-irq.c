@@ -118,14 +118,22 @@ void _ls2k_init_irq(u32 irq_base)
 	(int_ctrl_regs + 0)->int_clr	= -1;
 	(int_ctrl_regs + 0)->int_auto	= 0;
 	(int_ctrl_regs + 0)->int_bounce	= 0;
+    (int_ctrl_regs + 0)->int_edge   = (~LS2K_IRQ_MASK) & 0xffffffff;
 
 	(int_ctrl_regs + 1)->int_clr	= -1;
 	(int_ctrl_regs + 1)->int_auto	= 0;
 	(int_ctrl_regs + 1)->int_bounce	= 0;
-        (int_ctrl_regs + 1)->int_edge   = (0x1f << 12);
+    (int_ctrl_regs + 1)->int_edge   = ((~LS2K_IRQ_MASK)>>32) & 0xffffffff;
 
 
-	for (i = irq_base; i <= LS2K_LAST_IRQ; i++)
+	for (i = irq_base; i <= LS2K_LAST_IRQ; i++){   
+        if((1<<(i - irq_base)) & LS2K_IRQ_MASK)
 		irq_set_chip_and_handler(i, &ls2k_board_irq_chip,
 					 handle_level_irq);
+    }
+
+    /*config msi window*/
+    writeq(0x000000001fe10000ULL, (void *)CKSEG1ADDR(0x1fe12500));
+    writeq(0xffffffffffff0000ULL, (void *)CKSEG1ADDR(0x1fe12540));
+    writeq(0x000000001fe10081ULL, (void *)CKSEG1ADDR(0x1fe12580));
 }

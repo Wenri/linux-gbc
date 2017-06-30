@@ -26,6 +26,8 @@ config LOONGSON_MACH2K
 	#select DMA_MAYBE_COHERENT
 	select DMA_COHERENT
 	#select ARCH_REQUIRE_GPIOLIB
+    select NEED_SG_DMA_LENGTH
+    select ARCH_SUPPORTS_MSI
 	help
 		Generic Loongson 2K family machines utilize the 3A/3B revision of
 		Loongson processor and RS780/SBX00/2H chipset.
