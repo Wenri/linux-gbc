@@ -26,7 +26,9 @@
 
 enum LS2K_ICU {
 	LS64_IRQ_BASE = 8,
-	UART_I0 = 8,
+
+	/* 8 */
+	UART_I0,
 	UART_I1,
 	UART_I2,
 	E1_I,
@@ -35,6 +37,7 @@ enum LS2K_ICU {
 	AC97_I,
 	THEN_I,
 
+	/* 16 */
 	TOY_TICK_I,
 	RTC_TICK_I,
 	RESERVED_I0,
@@ -44,6 +47,7 @@ enum LS2K_ICU {
 	GMAC1_I0,
 	GMAC1_I1,
 
+	/* 24 */
 	CAN0_I,
 	CAN1_I,
 	BOOT_I,
@@ -53,6 +57,7 @@ enum LS2K_ICU {
 	I2C0_I,
 	I2C1_I,
 
+	/* 32 */
 	PWM0_I,
 	PWM1_I,
 	PWM2_I,
@@ -62,6 +67,7 @@ enum LS2K_ICU {
 	RESERVED_I3,
 	SDIO_I,
 
+	/* 40 */
 	PCI0_I0,
 	PCI0_I1,
 	PCI0_I2,
@@ -71,6 +77,7 @@ enum LS2K_ICU {
 	PCI1_I2,
 	PCI1_I3,
 
+	/* 48 */
 	TOY_I0,
 	TOY_I1,
 	TOY_I2,
@@ -80,6 +87,7 @@ enum LS2K_ICU {
 	DMA_I2,
 	DMA_I3,
 
+	/* 56 */
 	DMA_I4,
 	OTG_I,
 	EHCI_I,
@@ -89,6 +97,7 @@ enum LS2K_ICU {
 	RTC_I2,
 	RSA_I,
 
+	/* 64 */
 	AES_I,
 	DES_I,
 	GPIO_INT_LO_I,
