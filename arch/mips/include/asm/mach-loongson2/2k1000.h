@@ -354,6 +354,7 @@ static inline void ls64_conf_write8(unsigned char val8, void * addr)
 #define NAND_OFF	0x6000
 
 #define ACPI_OFF	0x7000
+
 #define RTC_OFF		0x7800
 
 #define DES_OFF		0x8000
