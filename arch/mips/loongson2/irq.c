@@ -109,14 +109,14 @@ asmlinkage void plat_irq_dispatch(void)
 		irq_status ^= hi;
 		while ((i = __fls(hi)) != -1) {
 			do_IRQ(i + LS64_MSI_IRQ_BASE);
-			hi = (hi ^ (1 << i));
+			hi = (hi ^ (1UL << i));
 		}
 	}
 	else if (cp0_cause & STATUSF_IP4) {
 		lo = (irq_status & irq_masked);
 		while ((i = __fls(lo)) != -1) {
 			do_IRQ(i + LS64_IRQ_BASE);
-			lo = (lo ^ (1 << i));
+			lo = (lo ^ (1UL << i));
 		}
 
 	}
