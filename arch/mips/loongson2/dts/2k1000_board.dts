@@ -66,6 +66,7 @@
 			interrupt-parent = <&icu>;
 			interrupts = <20 21>;
 			interrupt-names = "macirq", "eth_wake_irq";
+			/*mac-address = [ 64 48 48 48 48 60 ];*/
 			phy-mode = "rgmii";
 		};
 
