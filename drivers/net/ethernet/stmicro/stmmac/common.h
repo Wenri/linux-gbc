@@ -353,7 +353,7 @@ struct stmmac_desc_ops {
 struct stmmac_dma_ops {
 	/* DMA core initialization */
 	int (*init) (void __iomem *ioaddr, int pbl, int fb, int mb,
-		     int burst_len, u32 dma_tx, u32 dma_rx, int atds);
+		     int burst_len, dma_addr_t dma_tx, dma_addr_t dma_rx, int atds);
 	/* Dump DMA registers */
 	void (*dump_regs) (void __iomem *ioaddr);
 	/* Set tx/rx threshold in the csr6 register
@@ -470,6 +470,8 @@ extern void stmmac_set_mac(void __iomem *ioaddr, bool enable);
 
 extern void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr);
 extern const struct stmmac_ring_mode_ops ring_mode_ops;
+extern const struct stmmac_ring_mode_ops ring_mode64_ops;
 extern const struct stmmac_chain_mode_ops chain_mode_ops;
+extern const struct stmmac_chain_mode_ops chain_mode64_ops;
 
 #endif /* __COMMON_H__ */

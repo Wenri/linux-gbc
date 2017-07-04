@@ -30,8 +30,11 @@
 #include "dwmac1000.h"
 #include "dwmac_dma.h"
 
+u32 stmmac_readl(const volatile void __iomem *addr);
+void stmmac_writel(u32 value, volatile void __iomem *addr);
+
 static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
-			      int burst_len, u32 dma_tx, u32 dma_rx, int atds)
+			      int burst_len, dma_addr_t dma_tx, dma_addr_t dma_rx, int atds)
 {
 	u32 value = readl(ioaddr + DMA_BUS_MODE);
 	int limit;
@@ -74,8 +77,10 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 	value |= DMA_BUS_MODE_DA;	/* Rx has priority over tx */
 #endif
 
-	if (atds)
+	if (atds&1)
 		value |= DMA_BUS_MODE_ATDS;
+	if(atds&2)
+		value |= DMA_BUS_MODE_DSL_EXTRA(16);
 
 	writel(value, ioaddr + DMA_BUS_MODE);
 
@@ -104,8 +109,21 @@ static int dwmac1000_dma_init(void __iomem *ioaddr, int pbl, int fb, int mb,
 	/* RX/TX descriptor base address lists must be written into
 	 * DMA CSR3 and CSR4, respectively
 	 */
-	writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
-	writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
+	/*extend_desc64*/
+	if(atds&2)
+	{
+		stmmac_writel(0x100, ioaddr + DMA_NEWFUNC_CONFIG);
+		stmmac_writel(dma_tx&0xffffffff, ioaddr + DMA_TX_BASE_ADDR64_LO);
+		stmmac_writel(dma_tx>>32, ioaddr + DMA_TX_BASE_ADDR64_HI);
+		stmmac_writel(dma_rx&0xffffffff, ioaddr + DMA_RCV_BASE_ADDR64_LO);
+		stmmac_writel(dma_rx>>32, ioaddr + DMA_RCV_BASE_ADDR64_HI);
+	}
+	else
+	{
+		//stmmac_writel(0x000, ioaddr + DMA_NEWFUNC_CONFIG);
+		stmmac_writel(dma_tx, ioaddr + DMA_TX_BASE_ADDR);
+		stmmac_writel(dma_rx, ioaddr + DMA_RCV_BASE_ADDR);
+	}
 
 	return 0;
 }
