@@ -611,6 +611,14 @@ config USB_OCTEON_OHCI
 	  controller.  It is needed for low-speed USB 1.0 device
 	  support.  All CN6XXX based chips with USB are supported.
 
+config USB_OHCI_HCD_LS2K
+        tristate "Support for LS2K1000 on-chip OHCI USB controller"
+        depends on USB_OHCI_HCD && MACH_LOONGSON2
+	select USB_OHCI_LITTLE_ENDIAN
+        default y
+        ---help---
+          Enables support for the on-chip OHCI controller on
+           LOONSON2K chips.
 endif # USB_OHCI_HCD
 
 config USB_UHCI_HCD
