@@ -56,6 +56,10 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
 		plat->pmt = 1;
 	}
 
+	if (of_device_is_compatible(np, "ls,ls2k-gmac")) {
+		plat->enh_desc = 1;
+	}
+
 	return 0;
 }
 #else
