@@ -2,6 +2,10 @@
  * Copyright (C) 2009 Lemote Inc.
  * Author: Wu Zhangjin, wuzhangjin@gmail.com
  *
+ * Copyright (C) 2017 Loongson Inc.
+ * Author: Yang Yinglu, yangyinglu@loongson.cn
+ * Add   : Export Variable for Loongson2k dma_64bit
+ *
  * This program is free software; you can redistribute	it and/or modify it
  * under  the terms of	the GNU General	 Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
@@ -20,12 +24,17 @@ extern void __init prom_init_numa_memory(void);
 /* Loongson CPU address windows config space base address */
 unsigned long __maybe_unused _loongson_addrwincfg_base;
 
+/*Export variable is use for Loongson2k dma_64bit*/
+struct dma_map_ops *dma_map_ops_temp;
+EXPORT_SYMBOL(dma_map_ops_temp);
 
 void __init prom_init(void)
 {
 
 	prom_init_cmdline();
 	prom_init_env();
+    /*Loongson2k use variable*/
+    dma_map_ops_temp = mips_dma_map_ops;
 	/* init base address of io space */
 	set_io_port_base((unsigned long)
 		ioremap(LOONGSON_PCIIO_BASE, LOONGSON_PCIIO_SIZE));
