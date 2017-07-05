@@ -531,6 +531,11 @@ config SPI_TLE62X0
 	  sysfs interface, with each line presented as a kind of GPIO
 	  exposing both switch control and diagnostic feedback.
 
+config SPI_LS2K
+	tristate "loongson ls2k_spi"
+	depends on LOONGSON_MACH2K
+	help
+	This is the driver for Loongson spi master controller.
 #
 # Add new SPI protocol masters in alphabetical order above this line
 #

@@ -116,7 +116,34 @@ static struct platform_device uart8250_device = {
 		.platform_data = ls2k_uart8250_data,
 	}
 };
+/*
+ * SPI
+ */
+#ifdef CONFIG_SPI_LS2K
+static struct resource ls2k_spi0_resources[]={
+	[0]={
+		.start      =   LS2K_SPI_REG_BASE,
+		.end        =   LS2K_SPI_REG_BASE+ 0x6 ,
+		.flags      =   IORESOURCE_MEM,
+	},
+};
 
+static struct platform_device ls2k_spi0_device={
+	.name   =   "ls2k-spi",
+	.id     =       0,
+	.num_resources  =ARRAY_SIZE(ls2k_spi0_resources),
+	.resource       =ls2k_spi0_resources,
+};
+
+static struct spi_board_info ls2k_spi_device[] = {
+	{
+		.modalias = "spidev",
+		.bus_num = 0,
+		.chip_select = 0,
+		.max_speed_hz = 100000000,
+	},
+};
+#endif
 /*
  * NAND
  */
@@ -289,6 +316,9 @@ static struct platform_device ls2k_audio_device = {
 
 static struct platform_device *ls2k_platform_devices[] = {
 	&uart8250_device,
+#ifdef CONFIG_SPI_LS2K
+	&ls2k_spi0_device,
+#endif
 #ifdef CONFIG_MTD_NAND_LS2K
 	&ls2k_nand_device,
 #endif
@@ -331,8 +361,11 @@ if(0)
 	i2c_register_board_info(2, &ls2k_dvi_fb_eep_info, 1);
 	platform_add_devices(ls2k_i2c_gpio_platform_devices,
 			ARRAY_SIZE(ls2k_i2c_gpio_platform_devices));
+#ifdef CONFIG_SPI_LS2K
+	spi_register_board_info(ls2k_spi_device, ARRAY_SIZE(ls2k_spi_device));
+#endif
 	return platform_add_devices(ls2k_platform_devices,
-			/*ARRAY_SIZE(ls2k_platform_devices)*/5);
+			ARRAY_SIZE(ls2k_platform_devices));
 }
 
 device_initcall(ls2k_platform_init);
