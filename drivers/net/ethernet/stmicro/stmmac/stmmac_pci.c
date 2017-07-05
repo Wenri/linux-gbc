@@ -99,7 +99,7 @@ static int stmmac_pci_probe(struct pci_dev *pdev,
 
 	stmmac_default_data();
 
-	priv = stmmac_dvr_probe(&(pdev->dev), &plat_dat, addr);
+	priv = stmmac_dvr_probe(&(pdev->dev), &plat_dat, addr, NULL);
 	if (!priv) {
 		pr_err("%s: main driver probe failed", __func__);
 		ret = -ENODEV;

@@ -117,15 +117,11 @@ static int stmmac_pltfr_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	priv = stmmac_dvr_probe(&(pdev->dev), plat_dat, addr);
+	priv = stmmac_dvr_probe(&(pdev->dev), plat_dat, addr, mac);
 	if (!priv) {
 		pr_err("%s: main driver probe failed", __func__);
 		return -ENODEV;
 	}
-
-	/* Get MAC address if available (DT) */
-	if (mac)
-		memcpy(priv->dev->dev_addr, mac, ETH_ALEN);
 
 	/* Get the MAC information */
 	priv->dev->irq = platform_get_irq_byname(pdev, "macirq");

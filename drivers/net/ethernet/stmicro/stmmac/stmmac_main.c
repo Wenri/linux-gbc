@@ -1616,12 +1616,14 @@ static int stmmac_eep_set_mac_addr(struct stmmac_priv *priv, unsigned char *buf)
  * it is to verify if the MAC address is valid, in case of failures it
  * generates a random MAC address
  */
-static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+static void stmmac_check_ether_addr(struct stmmac_priv *priv, const char *of_mac)
 {
 #if defined(CONFIG_CPU_LOONGSON3)
 	stmmac_eep_get_mac_addr(priv, priv->dev->dev_addr);
 #endif
-	if (!is_valid_ether_addr(priv->dev->dev_addr)) {
+	if (of_mac) {
+		memcpy(priv->dev->dev_addr, of_mac, ETH_ALEN);
+	} else if (!is_valid_ether_addr(priv->dev->dev_addr)) {
 		priv->hw->mac->get_umac_addr((void __iomem *)
 					     priv->dev->base_addr,
 					     priv->dev->dev_addr, 0);
@@ -2850,7 +2852,7 @@ static struct i2c_driver eep_driver = {
  */
 struct stmmac_priv *stmmac_dvr_probe(struct device *device,
 				     struct plat_stmmacenet_data *plat_dat,
-				     void __iomem *addr)
+				     void __iomem *addr, const char *mac)
 {
 	int ret = 0;
 	struct net_device *ndev = NULL;
@@ -2915,7 +2917,7 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
 
 	netif_napi_add(ndev, &priv->napi, stmmac_poll, 64);
 
-	stmmac_check_ether_addr(priv);
+	stmmac_check_ether_addr(priv, mac);
 
 	spin_lock_init(&priv->lock);
 	spin_lock_init(&priv->tx_lock);
