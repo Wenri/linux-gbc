@@ -185,6 +185,7 @@ enum inter_frame_gap {
 #define DMA_BUS_MODE_DA		0x00000002	/* Arbitration scheme */
 #define DMA_BUS_MODE_DSL_MASK	0x0000007c	/* Descriptor Skip Length */
 #define DMA_BUS_MODE_DSL_SHIFT	2		/*   (in DWORDS)      */
+#define DMA_BUS_MODE_DSL_EXTRA(x) ((x*8/128)<<DMA_BUS_MODE_DSL_SHIFT) /*bus 128bit*/
 /* Programmable burst length (passed thorugh platform)*/
 #define DMA_BUS_MODE_PBL_MASK	0x00003f00	/* Programmable Burst Len */
 #define DMA_BUS_MODE_PBL_SHIFT	8

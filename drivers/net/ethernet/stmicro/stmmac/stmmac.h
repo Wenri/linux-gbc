@@ -101,6 +101,7 @@ struct stmmac_priv {
 	int pcs;
 	unsigned int mode;
 	int extend_desc;
+	int extend_desc64;
 	struct ptp_clock *ptp_clock;
 	struct ptp_clock_info ptp_clock_ops;
 	unsigned int default_addend;
@@ -115,6 +116,7 @@ extern int stmmac_mdio_unregister(struct net_device *ndev);
 extern int stmmac_mdio_register(struct net_device *ndev);
 extern int stmmac_mdio_reset(struct mii_bus *mii);
 extern void stmmac_set_ethtool_ops(struct net_device *netdev);
+extern const struct stmmac_desc_ops enh_desc64_ops;
 extern const struct stmmac_desc_ops enh_desc_ops;
 extern const struct stmmac_desc_ops ndesc_ops;
 extern const struct stmmac_hwtimestamp stmmac_ptp;

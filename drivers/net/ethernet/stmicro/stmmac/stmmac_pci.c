@@ -44,7 +44,7 @@ static int bus_id = 1;
 	plat_dat->clk_csr = 2;	/* clk_csr_i = 20-35MHz & MDC = clk_csr_i/16 */
 	plat_dat->has_gmac = 1;
 	//plat_dat->force_sf_dma_mode = 1;
-	plat_dat->enh_desc = 1;
+	plat_dat->enh_desc = 2;
 
 	mdio_data->phy_reset = NULL;
 	mdio_data->phy_mask = 0;

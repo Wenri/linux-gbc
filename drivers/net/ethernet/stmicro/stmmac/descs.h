@@ -158,6 +158,71 @@ struct dma_desc {
 			u32 buffer2_size:13;
 			u32 reserved4:3;
 		} etx;		/* -- enhanced -- */
+
+		struct {
+			/* TDES0 */
+			u32 deferred:1;
+			u32 underflow_error:1;
+			u32 excessive_deferral:1;
+			u32 collision_count:4;
+			u32 vlan_frame:1;
+			u32 excessive_collisions:1;
+			u32 late_collision:1;
+			u32 no_carrier:1;
+			u32 loss_carrier:1;
+			u32 payload_error:1;
+			u32 frame_flushed:1;
+			u32 jabber_timeout:1;
+			u32 error_summary:1;
+			u32 ip_header_error:1;
+			u32 time_stamp_status:1;
+			u32 reserved1:2;
+			u32 second_address_chained:1;
+			u32 end_ring:1;
+			u32 checksum_insertion:2;
+			u32 reserved2:1;
+			u32 time_stamp_enable:1;
+			u32 disable_padding:1;
+			u32 crc_disable:1;
+			u32 first_segment:1;
+			u32 last_segment:1;
+			u32 interrupt:1;
+			u32 own:1;
+			/* TDES1 */
+			u32 buffer1_size:14;
+			u32 reserved3:1;
+			u32 buffer2_size:14;
+			u32 ctrl:3;
+		} etx64;		/* -- enhanced -- */
+		struct {
+			/* RDES0 */
+			u32 rx_mac_addr:1;
+			u32 crc_error:1;
+			u32 dribbling:1;
+			u32 error_gmii:1;
+			u32 receive_watchdog:1;
+			u32 frame_type:1;
+			u32 late_collision:1;
+			u32 ipc_csum_error:1;
+			u32 last_descriptor:1;
+			u32 first_descriptor:1;
+			u32 vlan_tag:1;
+			u32 overflow_error:1;
+			u32 length_error:1;
+			u32 sa_filter_fail:1;
+			u32 descriptor_error:1;
+			u32 error_summary:1;
+			u32 frame_length:14;
+			u32 da_filter_fail:1;
+			u32 own:1;
+			/* RDES1 */
+			u32 buffer1_size:14;
+			u32 second_address_chained:1;
+			u32 end_ring:1;
+			u32 buffer2_size:14;
+			u32 reserved2:1;
+			u32 disable_ic:1;
+		} erx64;		/* -- enhanced -- */
 	} des01;
 	unsigned int des2;
 	unsigned int des3;
@@ -196,6 +261,7 @@ struct dma_extended_desc {
 	unsigned int des6;	/* Tx/Rx Timestamp Low */
 	unsigned int des7;	/* Tx/Rx Timestamp High */
 };
+
 
 /* Transmit checksum insertion control */
 enum tdes_csum_insertion {

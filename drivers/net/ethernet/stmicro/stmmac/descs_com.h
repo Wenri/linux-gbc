@@ -60,6 +60,15 @@ static inline void enh_set_tx_desc_len_on_ring(struct dma_desc *p, int len)
 		p->des01.etx.buffer1_size = len;
 }
 
+static inline void enh_set_tx64_desc_len_on_ring(struct dma_desc *p, int len)
+{
+	if (unlikely(len > BUF_SIZE_4KiB)) {
+		p->des01.etx64.buffer1_size = BUF_SIZE_4KiB;
+		p->des01.etx64.buffer2_size = len - BUF_SIZE_4KiB;
+	} else
+		p->des01.etx64.buffer1_size = len;
+}
+
 /* Normal descriptors */
 static inline void ndesc_rx_set_on_ring(struct dma_desc *p, int end)
 {
@@ -109,6 +118,11 @@ static inline void enh_desc_end_tx_desc_on_chain(struct dma_desc *p, int ter)
 static inline void enh_set_tx_desc_len_on_chain(struct dma_desc *p, int len)
 {
 	p->des01.etx.buffer1_size = len;
+}
+
+static inline void enh_set_tx64_desc_len_on_chain(struct dma_desc *p, int len)
+{
+	p->des01.etx64.buffer1_size = len;
 }
 
 /* Normal descriptors */
