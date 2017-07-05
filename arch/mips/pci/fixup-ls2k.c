@@ -150,6 +150,8 @@ int __init pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	return LS2K_IRQ_BASE+irq;
 }
 
+extern struct dma_map_ops *dma_map_ops_temp;
+
 /* Do platform specific device initialization at pci_enable_device() time */
 int pcibios_plat_dev_init(struct pci_dev *dev)
 {
@@ -163,6 +165,11 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
 	 * keep the smaller MPSSPT in the child's register
 	 */
 	if (!(dev->bus->parent)) {
+         /*gmac can support 64bit dma*/
+        if(!dma_map_ops_temp)
+            return -1;
+        if(PCI_SLOT(dev->devfn) == 3) dev->dev.archdata.dma_ops = dma_map_ops_temp;
+
 		pos = pci_find_capability(dev, PCI_CAP_ID_EXP);
 		if (!pos) return 0;
 		pci_read_config_word(dev, pos + PCI_EXP_DEVCAP,
@@ -193,6 +200,7 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
 	pr_info("pci %s: set Max_Payload_Size & Max_Read_Request_Size to %03x\n",
 	       pci_name(dev), max_payload_spt);
 
+    dev->dev.archdata.dma_ops = dma_map_ops_temp;
 
 	return 0;
 }
