@@ -48,11 +48,7 @@
 #ifdef CONFIG_64BIT
 
 #ifndef CAC_BASE
-#ifdef CONFIG_DMA_NONCOHERENT
-#define CAC_BASE		_AC(0x9000000000000000, UL)
-#else
 #define CAC_BASE		_AC(0x9800000000000000, UL)
-#endif
 #endif
 
 #ifndef IO_BASE
