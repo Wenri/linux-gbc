@@ -22,6 +22,7 @@
 #include <linux/of_platform.h>
 #include <linux/bootmem.h>
 #include <asm/prom.h>
+#include <asm/dma-coherence.h>
 
 void __init mips_reboot_setup(void);
 
@@ -51,6 +52,8 @@ void __init plat_mem_setup(void)
 	/* add OF support */
 
 	/* assuming board has minimal memory */
+
+	hw_coherentio = 1;
 
 	mips_reboot_setup();
 	if (boot_mem_map.nr_map == 0) {
