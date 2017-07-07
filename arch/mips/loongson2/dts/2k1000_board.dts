@@ -20,10 +20,11 @@
 	// all soc device use 32bit address
 
 	soc {
-		compatible = "simple-bus";
+		compatible = "ls,nbus", "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x10000000 0 0x10000000 0x10000000>;
+		dma-coherent;
 
 		icu: interrupt-controller@1fe11400 {
 			compatible = "loongson,2k-icu";

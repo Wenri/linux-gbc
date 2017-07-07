@@ -46,20 +46,30 @@ void __init device_tree_init(void)
 
 }
 
+static int __init setup_dma_ops(void)
+{
+	struct device_node *np = of_find_compatible_node(NULL, NULL, "ls,nbus");
+
+	if (!np)
+		pr_err("Oops: No Loongson NBus found!\n");
+
+	if (of_property_read_bool(np, "dma-coherent")) {
+
+		hw_coherentio = 1;
+		pr_info("Hardware support coherent IO!\n");
+
+	} else {
+
+		hw_coherentio = 0;
+		pr_info("Hardware DOES NOT support coherent IO!\n");
+	}
+
+	return 0;
+}
 void __init plat_mem_setup(void)
 {
 
-	/* add OF support */
-
-	/* assuming board has minimal memory */
-
-	hw_coherentio = 1;
-
 	mips_reboot_setup();
-	if (boot_mem_map.nr_map == 0) {
-		add_memory_region(0x200000, 0x9800000, BOOT_MEM_RAM);
-		add_memory_region(0x90000000, 0x70000000, BOOT_MEM_RAM);
-	};
 }
 
 void __init prom_free_prom_memory(void)
@@ -79,4 +89,5 @@ int __init ls2k_publish_devices(void)
 	return of_platform_populate(NULL, ls2k_ids, NULL, NULL);
 }
 
+arch_initcall(setup_dma_ops);
 device_initcall(ls2k_publish_devices);
