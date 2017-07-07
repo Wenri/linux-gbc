@@ -50,8 +50,12 @@ static int __init setup_dma_ops(void)
 {
 	struct device_node *np = of_find_compatible_node(NULL, NULL, "ls,nbus");
 
-	if (!np)
+	if (!np) {
 		pr_err("Oops: No Loongson NBus found!\n");
+		hw_coherentio = 0;
+		pr_info("Assume Hardware DOES NOT support coherent IO!\n");
+		goto no_np;
+	}
 
 	if (of_property_read_bool(np, "dma-coherent")) {
 
@@ -64,8 +68,11 @@ static int __init setup_dma_ops(void)
 		pr_info("Hardware DOES NOT support coherent IO!\n");
 	}
 
+	of_node_put(np);
+no_np:
 	return 0;
 }
+
 void __init plat_mem_setup(void)
 {
 
