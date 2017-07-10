@@ -46,6 +46,25 @@ void __init device_tree_init(void)
 
 }
 
+/*static void __init set_io_noncoherent(void)*/
+/*{*/
+
+       /*unsigned long val;*/
+       /*unsigned long addr = CKSEG1ADDR(0x1fe10000);*/
+
+       /*val = readq((void*)(addr + 0x0420));*/
+       /*val &= 0xffffff8fffffffe; //pcie, usb, hda, gmac*/
+       /*writeq(val, (void *)(addr + 0x0420));*/
+
+       /*val = readq((void*)(addr + 0x0430));*/
+       /*val &= 0xffffffffffffff9; //dc, gpu*/
+       /*writeq(val, (void *)(addr + 0x0430));*/
+
+       /*val = readq((void *)(addr + 0x0450));*/
+       /*val &= 0xffffffffffffbff; //sata*/
+       /*writeq(val, (void *)(addr + 0x0450));*/
+/*}*/
+
 static int __init setup_dma_ops(void)
 {
 	struct device_node *np = of_find_compatible_node(NULL, NULL, "ls,nbus");
@@ -66,6 +85,10 @@ static int __init setup_dma_ops(void)
 
 		hw_coherentio = 0;
 		pr_info("Hardware DOES NOT support coherent IO!\n");
+
+		 /*it should not be called from any formal release kernel,*/
+		 /*since it should be called from bootloader*/
+		/*set_io_noncoherent();*/
 	}
 
 	of_node_put(np);
