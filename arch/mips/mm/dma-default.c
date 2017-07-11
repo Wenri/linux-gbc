@@ -308,11 +308,11 @@ static void mips_dma_sync_sg_for_cpu(struct device *dev,
 	int i;
 
 	/* Make sure that gcc doesn't leave the empty loop body.  */
-	for (i = 0; i < nelems; i++, sg++) {
-		if (cpu_is_noncoherent_r10000(dev))
+	if (cpu_is_noncoherent_r10000(dev))
+		for (i = 0; i < nelems; i++, sg++)
 			__dma_sync(sg_page(sg), sg->offset, sg->length,
 				   direction);
-	}
+
 }
 
 static void mips_dma_sync_sg_for_device(struct device *dev,
@@ -321,11 +321,11 @@ static void mips_dma_sync_sg_for_device(struct device *dev,
 	int i;
 
 	/* Make sure that gcc doesn't leave the empty loop body.  */
-	for (i = 0; i < nelems; i++, sg++) {
-		if (!plat_device_is_coherent(dev))
+	if (!plat_device_is_coherent(dev))
+		for (i = 0; i < nelems; i++, sg++)
 			__dma_sync(sg_page(sg), sg->offset, sg->length,
 				   direction);
-	}
+
 }
 
 int mips_dma_mapping_error(struct device *dev, dma_addr_t dma_addr)
