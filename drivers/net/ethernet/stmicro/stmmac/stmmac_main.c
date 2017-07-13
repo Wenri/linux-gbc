@@ -2892,6 +2892,8 @@ struct stmmac_priv *stmmac_dvr_probe(struct device *device,
 
 	ndev->netdev_ops = &stmmac_netdev_ops;
 
+	dma_coerce_mask_and_coherent(device, DMA_BIT_MASK(32));
+
 	ndev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
 			    NETIF_F_RXCSUM;
 	ndev->features |= ndev->hw_features | NETIF_F_HIGHDMA;
