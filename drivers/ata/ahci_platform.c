@@ -85,6 +85,7 @@ static struct scsi_host_template ahci_platform_sht = {
 	AHCI_SHT("ahci_platform"),
 };
 
+
 static int ahci_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -164,6 +165,9 @@ static int ahci_probe(struct platform_device *pdev)
 
 	if (hpriv->cap & HOST_CAP_PMP)
 		pi.flags |= ATA_FLAG_PMP;
+
+	dma_coerce_mask_and_coherent(dev, hpriv->cap & HOST_CAP_64 ?
+			DMA_BIT_MASK(64) : DMA_BIT_MASK(32));
 
 	ahci_set_em_messages(hpriv, &pi);
 
