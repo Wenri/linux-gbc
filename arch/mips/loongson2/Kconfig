@@ -19,8 +19,22 @@ config 2K1000_SBC
 	#select DMA_COHERENT
 	select DMA_MAYBE_COHERENT
 	select USE_OF
+	select ZONE_DMA32 if SWIOTLB
 	help
 		Loongson 2K1000 SBC
 endchoice
 
+config IOMMU_HELPER
+	bool
+
+config NEED_SG_DMA_LENGTH
+	bool
+
+config SWIOTLB
+	bool "Support 32bit DMA on large memory system"
+	select NEED_SG_DMA_LENGTH
+	select IOMMU_HELPER
+	help
+		If your memory address beyond 4GB and has 32bit DMA device(like ohci),
+		select it;
 endif
