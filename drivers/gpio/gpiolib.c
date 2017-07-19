@@ -1130,12 +1130,12 @@ static int __init gpiolib_sysfs_init(void)
 postcore_initcall(gpiolib_sysfs_init);
 
 #else
-static inline int gpiochip_export(struct gpio_chip *chip)
+static inline int gpiochip_sysfs_register(struct gpio_chip *chip)
 {
 	return 0;
 }
 
-static inline void gpiochip_unexport(struct gpio_chip *chip)
+static inline void gpiochip_sysfs_unregister(struct gpio_chip *chip)
 {
 }
 
