@@ -319,6 +319,4 @@ struct platform_controller_hub {
 	void	(*pch_device_initcall)(void);
 };
 
-extern struct platform_controller_hub *loongson_pch;
-
 #endif

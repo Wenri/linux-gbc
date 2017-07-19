@@ -26,6 +26,23 @@ void __init prom_init_memory(void)
 	add_memory_region(memsize << 20, LOONGSON_PCI_MEM_START - (memsize <<
 				20), BOOT_MEM_RESERVED);
 
+#ifdef CONFIG_CPU_SUPPORTS_ADDRWINCFG
+	{
+		int bit;
+
+		bit = fls(memsize + highmemsize);
+		if (bit != ffs(memsize + highmemsize))
+			bit += 20;
+		else
+			bit = bit + 20 - 1;
+
+		/* set cpu window3 to map CPU to DDR: 2G -> 2G */
+		LOONGSON_ADDRWIN_CPUTODDR(ADDRWIN_WIN3, 0x80000000ul,
+					  0x80000000ul, (1 << bit));
+		mmiowb();
+	}
+#endif /* !CONFIG_CPU_SUPPORTS_ADDRWINCFG */
+
 #ifdef CONFIG_64BIT
 	if (highmemsize > 0)
 		add_memory_region(LOONGSON_HIGHMEM_START,
@@ -56,20 +73,16 @@ void __init prom_init_memory(void)
 		if (node_id == 0) {
 			switch (mem_type) {
 			case SYSTEM_RAM_LOW:
+				low_physmem_start = emap->map[i].mem_start;
 				add_memory_region(emap->map[i].mem_start,
 					(u64)emap->map[i].mem_size << 20,
 					BOOT_MEM_RAM);
 				break;
 			case SYSTEM_RAM_HIGH:
+				high_physmem_start = emap->map[i].mem_start;
 				add_memory_region(emap->map[i].mem_start,
 					(u64)emap->map[i].mem_size << 20,
 					BOOT_MEM_RAM);
-				break;
-			case UMA_VIDEO_RAM:
-				uma_vram_addr = emap->map[i].mem_start;
-				uma_vram_size = emap->map[i].mem_size;
-				pr_info("Debug: uma_vram_addr:0x%lx, uma_vram_size:0x%lx\n",
-					uma_vram_addr, uma_vram_size);
 				break;
 			case MEM_RESERVED:
 				add_memory_region(emap->map[i].mem_start,
@@ -81,6 +94,14 @@ void __init prom_init_memory(void)
 				systab_addr = emap->map[i].mem_start;
 				add_memory_region(emap->map[i].mem_start,
 					0x2000, BOOT_MEM_RESERVED);
+				break;
+			case UMA_VIDEO_RAM:
+				vram_type = VRAM_TYPE_UMA;
+				uma_vram_addr = emap->map[i].mem_start & 0xffffffff;
+				uma_vram_size = emap->map[i].mem_size;
+				add_memory_region(emap->map[i].mem_start,
+					(u64)emap->map[i].mem_size << 20,
+					BOOT_MEM_RESERVED);
 				break;
 			}
 		}

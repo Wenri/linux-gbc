@@ -14,20 +14,18 @@
  * Override macros used in arch/mips/kernel/head.S.
  */
 	.macro	kernel_entry_setup
-#ifdef CONFIG_NUMA
 	.set	push
 	.set	mips64
-#ifdef CONFIG_CPU_LOONGSON3
+#if 0
 	/* enable stfill buffer */
 	mfc0	t0, $16, 6
 	or	t0, 0x100
 	mtc0	t0, $16, 6
-#endif
-	/* Set LPA on LOONGSON3 config3 */
+	/* Set LPA on LOONGSON2k config3 */
 	mfc0	t0, $16, 3
 	or	t0, (0x1 << 7)
 	mtc0	t0, $16, 3
-	/* Set ELPA on LOONGSON3 pagegrain */
+	/* Set ELPA on LOONGSON2k pagegrain */
 	mfc0	t0, $5, 1
 	or	t0, (0x1 << 29)
 	mtc0	t0, $5, 1
@@ -40,20 +38,18 @@
  * Do SMP slave processor setup.
  */
 	.macro	smp_slave_setup
-#ifdef CONFIG_NUMA
 	.set	push
 	.set	mips64
-#ifdef CONFIG_CPU_LOONGSON3
+#if 0
 	/* enable stfill buffer */
 	mfc0	t0, $16, 6
 	or	t0, 0x100
 	mtc0	t0, $16, 6
-#endif
-	/* Set LPA on LOONGSON3 config3 */
+	/* Set LPA on LOONGSON2k config3 */
 	mfc0	t0, $16, 3
 	or	t0, (0x1 << 7)
 	mtc0	t0, $16, 3
-	/* Set ELPA on LOONGSON3 pagegrain */
+	/* Set ELPA on LOONGSON2k pagegrain */
 	mfc0	t0, $5, 1
 	or	t0, (0x1 << 29)
 	mtc0	t0, $5, 1

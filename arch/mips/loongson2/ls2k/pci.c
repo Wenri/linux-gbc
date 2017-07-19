@@ -2,20 +2,23 @@
  * Copyright (C) 2007 Lemote, Inc. & Institute of Computing Technology
  * Author: Fuxin Zhang, zhangfx@lemote.com
  *
- * Copyright (C) 2009 Lemote Inc.
- * Author: Wu Zhangjin, wuzhangjin@gmail.com
- *
  *  This program is free software; you can redistribute	 it and/or modify it
  *  under  the terms of	 the GNU General  Public License as published by the
  *  Free Software Foundation;  either version 2 of the	License, or (at your
  *  option) any later version.
  */
-#include <asm/time.h>
-#include <loongson.h>
+#include <linux/pci.h>
 
-void __init plat_time_init(void)
+#include <pci.h>
+#include <loongson.h>
+#include <boot_param.h>
+#include <loongson-pch.h>
+
+int __init ls2k_pcie_init(void);
+
+static int __init pcibios_init(void)
 {
-	/* setup mips r4k timer */
-	mips_hpt_frequency = cpu_clock_freq / 2;
+	return ls2k_pcie_init();
 }
 
+arch_initcall(pcibios_init);

@@ -17,11 +17,7 @@
  * in loongson2e, starts from 512M
  * in loongson2f, starts from 2G 256M
  */
-#ifdef CONFIG_CPU_LOONGSON2E
-#define LOONGSON_HIGHMEM_START	0x20000000
-#else
 #define LOONGSON_HIGHMEM_START	0x90000000
-#endif
 
 /*
  * the peripheral registers(MMIO):
@@ -32,10 +28,6 @@
 
 #define LOONGSON_MMIO_MEM_START 0x10000000
 
-#ifdef CONFIG_CPU_LOONGSON2E
-#define LOONGSON_MMIO_MEM_END	0x20000000
-#else
 #define LOONGSON_MMIO_MEM_END	0x80000000
-#endif
 
 #endif /* __ASM_MACH_LOONGSON3_MEM_H */

@@ -44,9 +44,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/acpi.h>
 #include <asm/uaccess.h>
-#ifdef CONFIG_CPU_LOONGSON2K
-#include <ls2k_gpio.h>
-#endif
 #include "i2c-core.h"
 
 

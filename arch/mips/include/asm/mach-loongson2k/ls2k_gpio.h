@@ -86,7 +86,6 @@ static inline int gpio_direction_output(unsigned gpio, int value)
 	if (gpio >= LS2K_GPIO_MAX)
 		return -EINVAL;
 
-//	gpio_set_value(gpio, value);
 	writel(readl(gpio_dir) & ~(1 << gpio), gpio_dir);
 
 	return 0;

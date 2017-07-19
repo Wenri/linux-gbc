@@ -16,7 +16,6 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-#include <asm/mach-loongson2k/ls2k_gpio.h>
 struct i2c_gpio_private_data {
 	struct i2c_adapter adap;
 	struct i2c_algo_bit_data bit_data;

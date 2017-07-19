@@ -19,11 +19,10 @@
  */
 #include <linux/module.h>
 #include <asm/bootinfo.h>
+#include <asm/dma-coherence.h>
 #include <loongson.h>
 #include <boot_param.h>
-#ifdef CONFIG_SMP
-#include <asm/smp.h>
-#endif
+#include <workarounds.h>
 
 struct boot_params *boot_p;
 struct loongson_params *loongson_p;
@@ -31,55 +30,44 @@ struct loongson_params *loongson_p;
 struct efi_cpuinfo_loongson *ecpu;
 struct efi_memory_map_loongson *emap;
 struct system_loongson *esys;
+struct board_devices *eboard;
 struct irq_source_routing_table *eirq_source;
 
-u32 loongson_dma_mask_bits;
-u64 io_base_regs_addr;
 u64 pci_mem_start_addr, pci_mem_end_addr;
 u64 loongson_pciio_base;
 u64 vgabios_addr;
-#if     defined(CONFIG_CPU_LOONGSON2K)&&defined(CONFIG_SUSPEND)
-u64 suspend_addr;
-#endif
-u64 poweroff_addr, restart_addr;
-u32 nr_cpus_online;
-u32 pcidev_max_func_num;
+u64 poweroff_addr, restart_addr, suspend_addr;
+u64 low_physmem_start, high_physmem_start;
+u32 vram_type;
+u64 uma_vram_addr;
+u64 uma_vram_size;
 
-//u64 loongson_chipcfg[MAX_PACKAGES];
+u64 loongson_chipcfg[MAX_PACKAGES] = {0xffffffffbfc00180};
+u64 loongson_chiptemp[MAX_PACKAGES];
+u64 loongson_freqctrl[MAX_PACKAGES];
 
-unsigned int has_systab = 0;
-unsigned long systab_addr;
+unsigned long long smp_group[4];
 
-u16 boot_cpu_id;
-u16 reserved_cpus_mask;
-u32 dma64_supported;
 enum loongson_cpu_type cputype;
-enum board_type board_type;
-EXPORT_SYMBOL(board_type);
+u16 loongson_boot_cpu_id;
+u16 loongson_reserved_cpus_mask;
 u32 nr_cpus_loongson = NR_CPUS;
 u32 nr_nodes_loongson = MAX_NUMNODES;
 int cores_per_node;
 int cores_per_package;
-unsigned long uma_vram_addr;
-unsigned long uma_vram_size;
-EXPORT_SYMBOL(cores_per_node);
+unsigned int has_systab = 0;
+unsigned long systab_addr;
+
+u32 loongson_dma_mask_bits;
+u64 loongson_workarounds;
+char loongson_ecname[32];
+u32 loongson_nr_uarts;
+struct uart_device loongson_uarts[MAX_UARTS];
+u32 loongson_nr_sensors;
+struct sensor_device loongson_sensors[MAX_SENSORS];
 
 u32 cpu_clock_freq;
 EXPORT_SYMBOL(cpu_clock_freq);
-
-unsigned long long lpc_reg_base;
-struct interface_info *einter;
-struct board_devices *eboard;
-struct loongson_special_attribute *especial;
-extern char *bios_vendor;
-extern char *bios_release_date;
-extern char *board_manufacturer;
-extern char _bios_info[];
-extern char _board_info[];
-extern char __bios_info[];
-extern char __board_info[];
-extern char _bios_release_date[];
-extern unsigned short biosrom_size;
 
 #define parse_even_earlier(res, option, p)				\
 do {									\
@@ -92,11 +80,8 @@ do {									\
 void __init prom_init_env(void)
 {
 	/* pmon passes arguments in 32bit pointers */
-	char *bios_info;
-	char *board_info;
-#ifdef CONFIG_SMP
-	int cpu, tmp, i = 0, num = 0;
-#endif
+	unsigned int processor_id;
+	int i;
 
 #ifndef CONFIG_UEFI_FIRMWARE_INTERFACE
 	int *_prom_envp;
@@ -121,105 +106,87 @@ void __init prom_init_env(void)
 	boot_p = (struct boot_params *)fw_arg2;
 	loongson_p = &(boot_p->efi.smbios.lp);
 
+	esys	= (struct system_loongson *)((u64)loongson_p + loongson_p->system_offset);
 	ecpu	= (struct efi_cpuinfo_loongson *)((u64)loongson_p + loongson_p->cpu_offset);
 	emap	= (struct efi_memory_map_loongson *)((u64)loongson_p + loongson_p->memory_offset);
+	eboard	= (struct board_devices *)((u64)loongson_p + loongson_p->boarddev_table_offset);
 	eirq_source = (struct irq_source_routing_table *)((u64)loongson_p + loongson_p->irq_offset);
-	einter = (struct interface_info *)
-		((u64)loongson_p + loongson_p->interface_offset);
-	eboard = (struct board_devices *)
-		((u64)loongson_p + loongson_p->boarddev_table_offset);
-	especial = (struct loongson_special_attribute *)
-		((u64)loongson_p + loongson_p->special_offset);
 
 	cputype = ecpu->cputype;
-	cores_per_node = 2;
-	cores_per_package = 2;
+	cputype = Loongson_2K;
+	switch (cputype) {
+	case Loongson_2K:
+		cores_per_node = 2;
+		cores_per_package = 2;
+		smp_group[0] = 0x900000001fe11000;
+		loongson_chiptemp[0] = 0x900000001fe11520;
+		loongson_freqctrl[0] = 0x900000001fe104d0;
+		loongson_workarounds = WORKAROUND_CPUFREQ;
+		break;
+	default:
+		cores_per_node = 1;
+		cores_per_package = 1;
+		loongson_chipcfg[0] = 0x900000001fe00180;
+	}
+
 	nr_cpus_loongson = ecpu->nr_cpus;
 	cpu_clock_freq = ecpu->cpu_clock_freq;
-	boot_cpu_id = ecpu->cpu_startup_core_id;
-	reserved_cpus_mask = ecpu->reserved_cores_mask;
-	pr_info("boot_cpu_id: %d, reserved_cpus_mask: %x\n",
-			boot_cpu_id, reserved_cpus_mask);
-
-#ifdef CONFIG_SMP
+	loongson_boot_cpu_id = ecpu->cpu_startup_core_id;
+	loongson_reserved_cpus_mask = ecpu->reserved_cores_mask;
+#ifdef CONFIG_KEXEC
+	loongson_boot_cpu_id = read_c0_ebase() & 0x3ff;
+	for (i = 0; i < loongson_boot_cpu_id; i++)
+		loongson_reserved_cpus_mask |= (1<<i);
+	pr_info("Boot CPU ID is being fixed from %d to %d\n",
+		ecpu->cpu_startup_core_id, loongson_boot_cpu_id);
+#endif
 	if (nr_cpus_loongson > NR_CPUS || nr_cpus_loongson == 0)
 		nr_cpus_loongson = NR_CPUS;
-
-	for (nr_cpus_online = 0, cpu = 0; cpu < nr_cpus_loongson; cpu++) {
-		if (reserved_cpus_mask & (1<<cpu))
-			continue;
-		nr_cpus_online++;
-	}
-	pr_info("nr_cpus_online = %d\n", nr_cpus_online);
-
-	/* For unified kernel, NR_CPUS is the maximum possible value,
-	 * nr_cpus_loongson is the really present value */
-	tmp = nr_cpus_online;
-	while (i < nr_cpus_loongson) {
-		if (reserved_cpus_mask & (1<<i)) {
-			/* Reserved physical CPU cores */
-			__cpu_number_map[i] = tmp;
-			__cpu_logical_map[tmp] = i;
-			cpu_data[tmp].core = i % cores_per_package;
-			cpu_data[tmp].package = i / cores_per_package;
-			tmp++;
-		} else {
-			__cpu_number_map[i] = num;
-			__cpu_logical_map[num] = i;
-			cpu_data[num].core = i % cores_per_package;
-			cpu_data[num].package = i / cores_per_package;
-			num++;
-		}
-		i++;
-	}
-#endif
-
-	board_type = LS2K;
-	dma64_supported = 0;
-	pcidev_max_func_num = 1;
+	nr_nodes_loongson = (nr_cpus_loongson + cores_per_node - 1) / cores_per_node;
 
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
 	pci_mem_end_addr = eirq_source->pci_mem_end_addr;
 	loongson_pciio_base = eirq_source->pci_io_start_addr;
-	pr_info("BIOS loongson_pci_io_base:0x%llx\n", loongson_pciio_base);
-
 	loongson_dma_mask_bits = eirq_source->dma_mask_bits;
 	if (loongson_dma_mask_bits < 32 || loongson_dma_mask_bits > 64)
 		loongson_dma_mask_bits = 32;
-	
+#ifdef CONFIG_DMA_MAYBE_COHERENT
+	hw_coherentio = !eirq_source->dma_noncoherent;
+#endif
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;
-#if     defined(CONFIG_CPU_LOONGSON3)&&defined(CONFIG_SUSPEND)
-	suspend_addr = boot_p->reset_system.ResetCold;
-	pr_info("Shutdown Addr: %llx Reset Addr: %llx Suspend Addr: %llx\n", poweroff_addr, restart_addr,suspend_addr);
-#else
+	suspend_addr = boot_p->reset_system.DoSuspend;
 	pr_info("Shutdown Addr: %llx Reset Addr: %llx\n", poweroff_addr, restart_addr);
-#endif
-
-	/* parse bios info */
-	strcpy(_bios_info, einter->description);
-	bios_info = _bios_info;
-	bios_vendor = strsep(&bios_info, "-");
-	strsep(&bios_info, "-");
-	strsep(&bios_info, "-");
-	bios_release_date = strsep(&bios_info, "-");
-	if (!bios_release_date)
-		strcpy(_bios_release_date, especial->special_name);
-
-	/* parse board info */
-	strcpy(_board_info, eboard->name);
-	board_info = _board_info;
-	board_manufacturer = strsep(&board_info, "-");
-
-	strcpy(__bios_info, einter->description);
-	strcpy(__board_info, eboard->name);
-
-	biosrom_size = einter->size;
 
 	vgabios_addr = boot_p->efi.smbios.vga_bios;
+
+	memset(loongson_ecname, 0, 32);
+	if (esys->has_ec)
+		memcpy(loongson_ecname, esys->ec_name, 32);
+	loongson_workarounds |= esys->workarounds;
+
+	loongson_nr_uarts = esys->nr_uarts;
+	if (loongson_nr_uarts < 1 || loongson_nr_uarts > MAX_UARTS)
+		loongson_nr_uarts = 1;
+	memcpy(loongson_uarts, esys->uarts,
+		sizeof(struct uart_device) * loongson_nr_uarts);
+
+	loongson_nr_sensors = esys->nr_sensors;
+	if (loongson_nr_sensors > MAX_SENSORS)
+		loongson_nr_sensors = 0;
+	if (loongson_nr_sensors)
+		memcpy(loongson_sensors, esys->sensors,
+			sizeof(struct sensor_device) * loongson_nr_sensors);
 #endif
 	if (cpu_clock_freq == 0) {
-		cpu_clock_freq = 900000000;
+		processor_id = (&current_cpu_data)->processor_id;
+		switch (processor_id & PRID_REV_MASK) {
+		case PRID_REV_LOONGSON2K:
+			cpu_clock_freq = 900000000;
+			break;
+		default:
+			break;
+		}
 	}
 	pr_info("CpuClock = %u\n", cpu_clock_freq);
 }

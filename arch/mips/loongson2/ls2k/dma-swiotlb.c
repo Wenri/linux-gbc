@@ -185,12 +185,12 @@ static void loongson_dma_sync_sg_for_device(struct device *dev,
 
 #define SZ_4G	0x100000000ULL
 
-static dma_addr_t ls2k_phys_to_dma(struct device *dev, phys_addr_t paddr)
+static dma_addr_t loongson_ls2k_phys_to_dma(struct device *dev, phys_addr_t paddr)
 {
 	return paddr;
 }
 
-static phys_addr_t ls2k_dma_to_phys(struct device *dev, dma_addr_t daddr)
+static phys_addr_t loongson_ls2k_dma_to_phys(struct device *dev, dma_addr_t daddr)
 {
 	return daddr;
 }
@@ -247,13 +247,12 @@ static struct loongson_dma_map_ops loongson_linear_dma_map_ops = {
 		.dma_supported = swiotlb_dma_supported,
 		.set_dma_mask = loongson_dma_set_mask
 	},
-	.phys_to_dma = ls2k_phys_to_dma,
-	.dma_to_phys = ls2k_dma_to_phys
+	.phys_to_dma = loongson_ls2k_phys_to_dma,
+	.dma_to_phys = loongson_ls2k_dma_to_phys
 };
 
 void __init plat_swiotlb_setup(void)
 {
 	swiotlb_init(1);
 	mips_dma_map_ops = &loongson_linear_dma_map_ops.dma_map_ops;
-
 }

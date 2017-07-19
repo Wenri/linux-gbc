@@ -399,7 +399,7 @@ static void __cpuinit decode_configs(struct cpuinfo_mips *c)
 	int ok;
 
 	/* MIPS32 or MIPS64 compliant CPU.  */
-	c->options = MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE | MIPS_CPU_COUNTER |
+	c->options |= MIPS_CPU_4KEX | MIPS_CPU_4K_CACHE | MIPS_CPU_COUNTER |
 		     MIPS_CPU_DIVEC | MIPS_CPU_LLSC | MIPS_CPU_MCHECK;
 
 	c->scache.flags = MIPS_CACHE_NOT_PRESENT;
@@ -766,6 +766,18 @@ static inline void cpu_probe_legacy(struct cpuinfo_mips *c, unsigned int cpu)
 			     MIPS_CPU_32FPR;
 		c->tlbsize = 64;
 		break;
+	case PRID_IMP_LOONGSON2K:
+			c->cputype = CPU_LOONGSON2K;
+			__cpu_name[cpu] = "ICT Loongson-3";
+			set_elf_platform(cpu, "loongson2k");
+			set_isa(c, MIPS_CPU_ISA_M64R1);
+			__cpu_full_name[cpu] = "ICT Loongson-2K (Loongson-2K1000)";
+			c->options = R4K_OPTS |
+			     MIPS_CPU_FPU | MIPS_CPU_LLSC |
+			     MIPS_CPU_32FPR;
+			c->tlbsize = 64;
+		break;
+
 	case PRID_IMP_LOONGSON1:
 		decode_configs(c);
 
@@ -1043,16 +1055,15 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 	case PRID_IMP_LOONGSON2K:
 		switch (c->processor_id & PRID_REV_MASK) {
 			case PRID_REV_LOONGSON2K:
-				c->isa_level = MIPS_CPU_ISA_M64R2;
-				c->options = R4K_OPTS |
-					MIPS_CPU_FPU | MIPS_CPU_LLSC |
-					MIPS_CPU_32FPR |
-					MIPS_CPU_PREFETCH;
-				c->cputype = CPU_LOONGSON2K;
-				__cpu_name[cpu] = "Loongson-2K";
-				decode_configs(c);
+			c->cputype = CPU_LOONGSON2K;
+			__cpu_name[cpu] = "ICT Loongson-3";
+			set_elf_platform(cpu, "loongson3a");
+			set_isa(c, MIPS_CPU_ISA_M64R2);
+			__cpu_full_name[cpu] = "ICT Loongson-2K (Loongson-2K1000)";
+			c->options |= MIPS_CPU_PREFETCH;
 				break;
 		}
+				decode_configs(c);
 		break;
 	default:
 		panic("Unknown Loongson Processor ID!");

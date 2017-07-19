@@ -11,6 +11,7 @@ config LOONGSON_MACH2K
 	select CSRC_R4K
 	select CEVT_R4K
 	select CPU_HAS_WB
+	select HAVE_CLK
 	select HW_HAS_PCI
 	select IRQ_CPU
 	select SYS_HAS_CPU_LOONGSON2K

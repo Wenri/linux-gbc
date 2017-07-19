@@ -60,10 +60,8 @@ int __init ls2k_pcie_init(void)
 
 	register_pci_controller(&ls2k_pcie_controller0);
 
-
 	return 0;
 }
-
 static int __init disablepci_setup(char *options)
 {
 	if (!options || !*options)
@@ -77,5 +75,3 @@ static int __init disablepci_setup(char *options)
 
 
 __setup("disablepci=", disablepci_setup);
-
-arch_initcall(ls2k_pcie_init);

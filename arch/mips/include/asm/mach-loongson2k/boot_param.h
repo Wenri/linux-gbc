@@ -1,7 +1,5 @@
-#ifndef __ASM_MACH_LOONGSON2K_BOOT_PARAM_H_
-#define __ASM_MACH_LOONGSON2K_BOOT_PARAM_H_
-
-#define DMA64_SUPPORTED		0x2
+#ifndef __ASM_MACH_LOONGSON_BOOT_PARAM_H_
+#define __ASM_MACH_LOONGSON_BOOT_PARAM_H_
 
 #define SYSTEM_RAM_LOW		1
 #define SYSTEM_RAM_HIGH		2
@@ -13,8 +11,11 @@
 #define ADAPTER_ROM		8
 #define ACPI_TABLE		9
 #define SMBIOS_TABLE		10
-#define UMA_VIDEO_RAM 		11
-#define MAX_MEMORY_TYPE 	12
+#define UMA_VIDEO_RAM		11
+#define MAX_MEMORY_TYPE		12
+
+#define VRAM_TYPE_SP	0
+#define VRAM_TYPE_UMA	1
 
 #define LOONGSON3_BOOT_MEM_MAP_MAX 128
 struct efi_memory_map_loongson{
@@ -31,16 +32,23 @@ struct efi_memory_map_loongson{
 
 enum loongson_cpu_type
 {
-	Loongson_2E,
-	Loongson_2F,
-	Loongson_3A,
-	Loongson_3B,
-	Loongson_1A,
-	Loongson_1B
-};
-
-enum board_type {
-	RS780E, LS2H, LS2K
+	Legacy_2E = 0x0,
+	Legacy_2F = 0x1,
+	Legacy_3A = 0x2,
+	Legacy_3B = 0x3,
+	Legacy_1A = 0x4,
+	Legacy_1B = 0x5,
+	Legacy_2G = 0x6,
+	Legacy_2H = 0x7,
+	Loongson_1A = 0x100,
+	Loongson_1B = 0x101,
+	Loongson_2E = 0x200,
+	Loongson_2F = 0x201,
+	Loongson_2G = 0x202,
+	Loongson_2H = 0x203,
+	Loongson_3A = 0x300,
+	Loongson_3B = 0x301,
+	Loongson_2K = 0x302,
 };
 
 /*
@@ -57,10 +65,43 @@ struct efi_cpuinfo_loongson {
 	u32 nr_cpus;
 }__attribute__((packed));
 
+#define MAX_UARTS 64
+struct uart_device {
+	u32 iotype; /* see include/linux/serial_core.h */
+	u32 uartclk;
+	u32 int_offset;
+	u64 uart_base;
+}__attribute__((packed));
+
+#define MAX_SENSORS 64
+#define SENSOR_TEMPER  0x00000001
+#define SENSOR_VOLTAGE 0x00000002
+#define SENSOR_FAN     0x00000004
+struct sensor_device {
+	char name[32];  /* a formal name */
+	char label[64]; /* a flexible description */
+	u32 type;       /* SENSOR_* */
+	u32 id;         /* instance id of a sensor-class */
+	u32 fan_policy; /* see arch/mips/include/asm/mach-loongson/loongson_hwmon.h */
+	u32 fan_percent;/* only for constant speed policy */
+	u64 base_addr;  /* base address of device registers */
+}__attribute__((packed));
+
 struct system_loongson{
 	u16 vers;     /* version of system_loongson */
 	u32 ccnuma_smp; /* 0: no numa; 1: has numa */
 	u32 sing_double_channel; /* 1:single; 2:double */
+	u32 nr_uarts;
+	struct uart_device uarts[MAX_UARTS];
+	u32 nr_sensors;
+	struct sensor_device sensors[MAX_SENSORS];
+	char has_ec;
+	char ec_name[32];
+	u64 ec_base_addr;
+	char has_tcm;
+	char tcm_name[32];
+	u64 tcm_base_addr;
+	u64 workarounds; /* see workarounds.h */
 }__attribute__((packed));
 
 struct irq_source_routing_table {
@@ -79,7 +120,8 @@ struct irq_source_routing_table {
 	u64 pci_io_start_addr;
 	u64 pci_io_end_addr;
 	u64 pci_config_addr;
-	u32 dma_mask_bits;
+	u16 dma_mask_bits;
+	u16 dma_noncoherent;
 }__attribute__((packed));
 
 struct interface_info{
@@ -135,6 +177,7 @@ struct efi_reset_system_t{
 	u64 ResetWarm;
 	u64 ResetType;
 	u64 Shutdown;
+	u64 DoSuspend; /* NULL if not support */
 };
 
 struct efi_loongson {
@@ -155,20 +198,24 @@ extern u32 nr_cpus_loongson;
 extern u32 nr_nodes_loongson;
 extern int cores_per_node;
 extern int cores_per_package;
-extern unsigned long uma_vram_addr;
-extern unsigned long uma_vram_size;
-extern u16 boot_cpu_id;
-extern u16 reserved_cpus_mask;
 extern enum loongson_cpu_type cputype;
+extern u16 loongson_boot_cpu_id;
+extern u16 loongson_reserved_cpus_mask;
 extern struct efi_memory_map_loongson *emap;
-extern enum board_type board_type;
 extern u64 ht_control_base;
 extern u64 pci_mem_start_addr, pci_mem_end_addr;
 extern u64 loongson_pciio_base;
 extern u64 vgabios_addr;
-extern u32 nr_cpus_online;
-extern struct interface_info *einter;
-extern struct board_devices *eboard;
-extern uint32_t dma64_supported;
-extern struct interface_info *einter;
+extern u64 low_physmem_start;
+extern u64 high_physmem_start;
+extern u32 vram_type;
+extern u64 uma_vram_addr;
+extern u64 uma_vram_size;
+
+extern u32 loongson_nr_uarts;
+extern struct uart_device loongson_uarts[MAX_UARTS];
+extern u32 loongson_ec_sci_irq;
+extern char loongson_ecname[32];
+extern u32 loongson_nr_sensors;
+extern struct sensor_device loongson_sensors[MAX_SENSORS];
 #endif

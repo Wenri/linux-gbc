@@ -13,7 +13,6 @@
 
 #include <loongson.h>
 #include <ls2k.h>
-
 #define PORT(base, offset) (u8 *)(base + offset)
 
 static inline unsigned int serial_in(unsigned char *base, int offset)
@@ -30,7 +29,6 @@ void prom_putchar(char c)
 {
 	int timeout;
 	unsigned char *uart_base;
-
 	uart_base = (unsigned char *)CKSEG1ADDR(LS2K_UART0_REG_BASE);
 	timeout = 1024;
 
@@ -39,24 +37,4 @@ void prom_putchar(char c)
 		;
 
 	serial_out(uart_base, UART_TX, c);
-}
-
-void prom_printf(char *fmt, ...)
-{
-	va_list args;
-	static char ppbuf[1024];
-	char *bptr;
-
-	va_start(args, fmt);
-	vsprintf(ppbuf, fmt, args);
-
-	bptr = ppbuf;
-	while (*bptr != 0) {
-		if (*bptr == '\n')
-			prom_putchar('\r');
-
-		prom_putchar(*bptr++);
-	}
-
-	va_end(args);
 }

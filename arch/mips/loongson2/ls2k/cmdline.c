@@ -18,7 +18,6 @@
  * option) any later version.
  */
 #include <asm/bootinfo.h>
-
 #include <loongson.h>
 
 void __init prom_init_cmdline(void)
