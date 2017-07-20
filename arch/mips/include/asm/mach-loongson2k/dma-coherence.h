@@ -23,13 +23,13 @@ extern phys_addr_t dma_to_phys(struct device *dev, dma_addr_t daddr);
 static inline dma_addr_t plat_map_dma_mem(struct device *dev, void *addr,
 					  size_t size)
 {
-	return phys_to_dma(dev, virt_to_phys(addr));
+    return virt_to_phys(addr);
 }
 
 static inline dma_addr_t plat_map_dma_mem_page(struct device *dev,
 					       struct page *page)
 {
-	return phys_to_dma(dev, page_to_phys(page));
+     return page_to_phys(page);
 }
 
 static inline unsigned long plat_dma_addr_to_phys(struct device *dev,

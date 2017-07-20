@@ -167,6 +167,9 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
     if(!dma_map_ops_temp)
         return -1;
 	if (!(dev->bus->parent)) {
+        if(PCI_SLOT(dev->devfn) == 3)
+           dev->dev.archdata.dma_ops = dma_map_ops_temp;
+
 		pos = pci_find_capability(dev, PCI_CAP_ID_EXP);
 		if (!pos) return 0;
 		pci_read_config_word(dev, pos + PCI_EXP_DEVCAP,
