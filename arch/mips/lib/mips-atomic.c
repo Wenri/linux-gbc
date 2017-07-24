@@ -42,10 +42,10 @@ notrace void arch_local_irq_disable(void)
 	__asm__ __volatile__(
 	"	.set	push						\n"
 	"	.set	noat						\n"
+	"	.set	noreorder					\n"
 #ifdef CONFIG_MIPS_MT_SMTC
 	"	mfc0	$1, $2, 1					\n"
 	"	ori	$1, 0x400					\n"
-	"	.set	noreorder					\n"
 	"	mtc0	$1, $2, 1					\n"
 #elif defined(CONFIG_CPU_MIPSR2)
 	/* see irqflags.h for inline function */
@@ -53,7 +53,6 @@ notrace void arch_local_irq_disable(void)
 	"	mfc0	$1,$12						\n"
 	"	ori	$1,0x1f						\n"
 	"	xori	$1,0x1f						\n"
-	"	.set	noreorder					\n"
 	"	mtc0	$1,$12						\n"
 #endif
 	"	" __stringify(__irq_disable_hazard) "			\n"
@@ -75,12 +74,11 @@ notrace unsigned long arch_local_irq_save(void)
 
 	__asm__ __volatile__(
 	"	.set	push						\n"
-	"	.set	reorder						\n"
+	"	.set	noreorder					\n"
 	"	.set	noat						\n"
 #ifdef CONFIG_MIPS_MT_SMTC
 	"	mfc0	%[flags], $2, 1				\n"
 	"	ori	$1, %[flags], 0x400				\n"
-	"	.set	noreorder					\n"
 	"	mtc0	$1, $2, 1					\n"
 	"	andi	%[flags], %[flags], 0x400			\n"
 #elif defined(CONFIG_CPU_MIPSR2)
@@ -89,7 +87,6 @@ notrace unsigned long arch_local_irq_save(void)
 	"	mfc0	%[flags], $12					\n"
 	"	ori	$1, %[flags], 0x1f				\n"
 	"	xori	$1, 0x1f					\n"
-	"	.set	noreorder					\n"
 	"	mtc0	$1, $12						\n"
 #endif
 	"	" __stringify(__irq_disable_hazard) "			\n"
