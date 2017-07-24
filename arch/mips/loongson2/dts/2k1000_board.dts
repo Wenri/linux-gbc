@@ -89,6 +89,34 @@
 			interrupt-parent = <&icu>;
 			interrupts = <8>;
 		};
+
+		pioA:gpio@0x1fe00500{
+			compatible = "ls,ls2k-gpio", "ls,ls-gpio";
+			reg = <0x1fe00500 0x38>;
+			ngpios = <64>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		i2c_dvo0:i2c@0{
+			compatible = "i2c-gpio";
+			gpios = <&pioA 1 0 /* sda */
+				 &pioA 0 0 /* scl */
+				>;
+			/*i2c-gpio,sda-open-drain;*/
+			/*i2c-gpio,scl-open-drain;*/
+			i2c-gpio,delay-us = <5>;	/* ~100 kHz */
+		};
+
+		i2c_dvo1:i2c@1{
+			compatible = "i2c-gpio";
+			gpios = <&pioA 32 0 /* sda */
+				 &pioA 33 0 /* scl */
+				>;
+			/*i2c-gpio,sda-open-drain;*/
+			/*i2c-gpio,scl-open-drain;*/
+			i2c-gpio,delay-us = <5>;	/* ~100 kHz */
+		};
 	};
 
 	chosen {
