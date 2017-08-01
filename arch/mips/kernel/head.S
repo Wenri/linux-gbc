@@ -210,6 +210,9 @@ NESTED(kernel_entry, 16, sp)			# kernel entry point
 	set_saved_sp	sp, t0, t1
 	PTR_SUBU	sp, 4 * SZREG		# init stack pointer
 
+	jal       loongson3_inst_fixup
+	nop
+
 	j		start_kernel
 	END(kernel_entry)
 

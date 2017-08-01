@@ -3,9 +3,12 @@
 #include <asm/bootinfo.h>
 #include <ec_wpce775l.h>
 #include <workarounds.h>
+#include <asm/sections.h>
 
 #define GPIO_LCD_CNTL		5
 #define GPIO_BACKLIGHIT_CNTL	7
+#define SYNCI   0x041f0000
+#define SYNC    0xf
 
 void gpio_lvds_off(void)
 {
@@ -65,3 +68,29 @@ static int __init usb_fix_for_tmcs(void)
 }
 
 late_initcall(usb_fix_for_tmcs);
+
+/*
+ * for 3A1000 synci will lead to crash, so use the sync intead of synci
+ * in the vmlinux range
+ */
+void  loongson3_inst_fixup(void)
+{
+	if ((read_c0_prid() & 0xf) == PRID_REV_LOONGSON3A_R1) {
+			unsigned int *inst_ptr = (unsigned int *)&_text;
+			unsigned int *inst_ptr_init = (unsigned int *)&__init_begin;
+			while(inst_ptr <= (unsigned int *)&_etext)
+			{
+					if (*inst_ptr == SYNCI)
+							*inst_ptr = SYNC;
+					inst_ptr++;
+			}
+
+			while(inst_ptr_init <= (unsigned int *)&__init_end)
+			{
+					if (*inst_ptr_init == SYNCI)
+							*inst_ptr_init = SYNC;
+					inst_ptr_init++;
+			}
+	}
+}
+EXPORT_SYMBOL(loongson3_inst_fixup);
