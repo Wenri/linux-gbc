@@ -19,6 +19,7 @@
 #endif
 #include <linux/spinlock.h>
 DEFINE_SPINLOCK(ls2k_io_lock);
+EXPORT_SYMBOL(ls2k_io_lock);
 
 static void wbflush_loongson(void)
 {
