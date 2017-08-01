@@ -7,8 +7,8 @@
  * Copyright (C) 2005 Ralf Baechle (ralf@linux-mips.org)
  * Copyright (C) 2009 Jiajie Chen (chenjiajie@cse.buaa.edu.cn)
  */
-#ifndef __ASM_MACH_LOONGSON3_KERNEL_ENTRY_H
-#define __ASM_MACH_LOONGSON3_KERNEL_ENTRY_H
+#ifndef __ASM_MACH_LOONGSON2K_KERNEL_ENTRY_H
+#define __ASM_MACH_LOONGSON2K_KERNEL_ENTRY_H
 
 /*
  * Override macros used in arch/mips/kernel/head.S.
@@ -16,7 +16,6 @@
 	.macro	kernel_entry_setup
 	.set	push
 	.set	mips64
-#if 0
 	/* enable stfill buffer */
 	mfc0	t0, $16, 6
 	or	t0, 0x100
@@ -31,7 +30,6 @@
 	mtc0	t0, $5, 1
 	_ehb
 	.set	pop
-#endif
 	.endm
 
 /*
@@ -40,7 +38,6 @@
 	.macro	smp_slave_setup
 	.set	push
 	.set	mips64
-#if 0
 	/* enable stfill buffer */
 	mfc0	t0, $16, 6
 	or	t0, 0x100
@@ -55,7 +52,6 @@
 	mtc0	t0, $5, 1
 	_ehb
 	.set	pop
-#endif
 	.endm
 
-#endif /* __ASM_MACH_LOONGSON3_KERNEL_ENTRY_H */
+#endif /* __ASM_MACH_LOONGSON2K_KERNEL_ENTRY_H */
