@@ -56,6 +56,7 @@
 #define CP0_ENTRYHI $10
 #define CP0_COMPARE $11
 #define CP0_STATUS $12
+#define CP0_GUESTCTL0 $12, 6
 #define CP0_CAUSE $13
 #define CP0_EPC $14
 #define CP0_PRID $15
