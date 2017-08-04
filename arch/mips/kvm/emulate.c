@@ -1536,7 +1536,7 @@ int kvm_mips_sync_icache(unsigned long va, struct kvm_vcpu *vcpu)
 	pfn = kvm->arch.guest_pmap[gfn];
 	pa = (pfn << PAGE_SHIFT) | offset;
 
-	kvm_debug("%s: va: %#lx, unmapped: %#x\n", __func__, va,
+	kvm_debug("%s: va: %#lx, unmapped: %#lx\n", __func__, va,
 		  CKSEG0ADDR(pa));
 
 	local_flush_icache_range(CKSEG0ADDR(pa), 32);

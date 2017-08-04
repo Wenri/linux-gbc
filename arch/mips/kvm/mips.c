@@ -273,7 +273,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 		size = 0x4000;
 
 	/* Save Linux EBASE */
-	vcpu->arch.host_ebase = (void *)read_c0_ebase();
+	vcpu->arch.host_ebase = (void *)(unsigned long)read_c0_ebase();
 
 	gebase = kzalloc(ALIGN(size, PAGE_SIZE), GFP_KERNEL);
 
@@ -307,7 +307,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 
 	/* General handler, relocate to unmapped space for sanity's sake */
 	offset = 0x2000;
-	kvm_debug("Installing KVM Exception handlers @ %p, %#x bytes\n",
+	kvm_debug("Installing KVM Exception handlers @ %p, %#lx bytes\n",
 		  gebase + offset,
 		  mips32_GuestExceptionEnd - mips32_GuestException);
 

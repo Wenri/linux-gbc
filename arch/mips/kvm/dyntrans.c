@@ -90,7 +90,7 @@ int kvm_mips_trans_mfc0(uint32_t inst, uint32_t *opc, struct kvm_vcpu *vcpu)
 				      cop0.reg[rd][sel]);
 	}
 
-	if (KVM_GUEST_KSEGX(opc) == KVM_GUEST_KSEG0) {
+	if (KVM_GUEST_KSEGX((unsigned long)opc) == KVM_GUEST_KSEG0) {
 		kseg0_opc =
 		    CKSEG0ADDR(kvm_mips_translate_guest_kseg0_to_hpa
 			       (vcpu, (unsigned long) opc));
@@ -123,7 +123,7 @@ int kvm_mips_trans_mtc0(uint32_t inst, uint32_t *opc, struct kvm_vcpu *vcpu)
 	mtc0_inst |= ((rt & 0x1f) << 16);
 	mtc0_inst |= offsetof(struct kvm_mips_commpage, cop0.reg[rd][sel]);
 
-	if (KVM_GUEST_KSEGX(opc) == KVM_GUEST_KSEG0) {
+	if (KVM_GUEST_KSEGX((unsigned long)opc) == KVM_GUEST_KSEG0) {
 		kseg0_opc =
 		    CKSEG0ADDR(kvm_mips_translate_guest_kseg0_to_hpa
 			       (vcpu, (unsigned long) opc));
