@@ -13,6 +13,7 @@
  */
 #include <linux/bug.h>
 #include <linux/compiler.h>
+#include <linux/context_tracking.h>
 #include <linux/kexec.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -425,7 +426,9 @@ asmlinkage void do_be(struct pt_regs *regs)
 	const struct exception_table_entry *fixup = NULL;
 	int data = regs->cp0_cause & 4;
 	int action = MIPS_BE_FATAL;
+	enum ctx_state prev_state;
 
+	prev_state = exception_enter();
 	/* XXX For now.	 Fixme, this searches the wrong table ...  */
 	if (data && !user_mode(regs))
 		fixup = search_dbe_tables(exception_epc(regs));
@@ -438,11 +441,11 @@ asmlinkage void do_be(struct pt_regs *regs)
 
 	switch (action) {
 	case MIPS_BE_DISCARD:
-		return;
+		goto out;
 	case MIPS_BE_FIXUP:
 		if (fixup) {
 			regs->cp0_epc = fixup->nextinsn;
-			return;
+			goto out;
 		}
 		break;
 	default:
@@ -457,10 +460,13 @@ asmlinkage void do_be(struct pt_regs *regs)
 	       field, regs->cp0_epc, field, regs->regs[31]);
 	if (notify_die(DIE_OOPS, "bus error", regs, 0, regs_to_trapnr(regs), SIGBUS)
 	    == NOTIFY_STOP)
-		return;
+		goto out;
 
 	die_if_kernel("Oops", regs);
 	force_sig(SIGBUS, current);
+
+out:
+	exception_exit(prev_state);
 }
 
 /*
@@ -675,8 +681,10 @@ static int simulate_sync(struct pt_regs *regs, unsigned int opcode)
 
 asmlinkage void do_ov(struct pt_regs *regs)
 {
+	enum ctx_state prev_state;
 	siginfo_t info;
 
+	prev_state = exception_enter();
 	die_if_kernel("Integer overflow", regs);
 
 	info.si_code = FPE_INTOVF;
@@ -684,6 +692,7 @@ asmlinkage void do_ov(struct pt_regs *regs)
 	info.si_errno = 0;
 	info.si_addr = (void __user *) regs->cp0_epc;
 	force_sig_info(SIGFPE, &info, current);
+	exception_exit(prev_state);
 }
 
 int process_fpemu_return(int sig, void __user *fault_addr)
@@ -715,11 +724,13 @@ int process_fpemu_return(int sig, void __user *fault_addr)
  */
 asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
+	enum ctx_state prev_state;
 	siginfo_t info = {0};
 
+	prev_state = exception_enter();
 	if (notify_die(DIE_FP, "FP exception", regs, 0, regs_to_trapnr(regs), SIGFPE)
 	    == NOTIFY_STOP)
-		return;
+		goto out;
 	die_if_kernel("FP exception in kernel code", regs);
 
 	if (fcr31 & FPU_CSR_UNI_X) {
@@ -755,7 +766,7 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		/* If something went wrong, signal */
 		process_fpemu_return(sig, fault_addr);
 
-		return;
+		goto out;
 	} else if (fcr31 & FPU_CSR_INV_X)
 		info.si_code = FPE_FLTINV;
 	else if (fcr31 & FPU_CSR_DIV_X)
@@ -772,6 +783,9 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 	info.si_errno = 0;
 	info.si_addr = (void __user *) regs->cp0_epc;
 	force_sig_info(SIGFPE, &info, current);
+
+out:
+	exception_exit(prev_state);
 }
 
 static void do_trap_or_bp(struct pt_regs *regs, unsigned int code,
@@ -837,9 +851,11 @@ static void do_trap_or_bp(struct pt_regs *regs, unsigned int code,
 asmlinkage void do_bp(struct pt_regs *regs)
 {
 	unsigned int opcode, bcode;
+	enum ctx_state prev_state;
 	unsigned long epc;
 	u16 instr[2];
 
+	prev_state = exception_enter();
 	if (get_isa16_mode(regs->cp0_epc)) {
 		/* Calculate EPC. */
 		epc = exception_epc(regs);
@@ -854,7 +870,7 @@ asmlinkage void do_bp(struct pt_regs *regs)
 				goto out_sigsegv;
 		    bcode = (instr[0] >> 6) & 0x3f;
 		    do_trap_or_bp(regs, bcode, "Break");
-		    return;
+		    goto out;
 		}
 	} else {
 		if (__get_user(opcode, (unsigned int __user *) exception_epc(regs)))
@@ -878,12 +894,12 @@ asmlinkage void do_bp(struct pt_regs *regs)
 	switch (bcode) {
 	case BRK_KPROBE_BP:
 		if (notify_die(DIE_BREAK, "debug", regs, bcode, regs_to_trapnr(regs), SIGTRAP) == NOTIFY_STOP)
-			return;
+			goto out;
 		else
 			break;
 	case BRK_KPROBE_SSTEPBP:
 		if (notify_die(DIE_SSTEPBP, "single_step", regs, bcode, regs_to_trapnr(regs), SIGTRAP) == NOTIFY_STOP)
-			return;
+			goto out;
 		else
 			break;
 	default:
@@ -891,18 +907,24 @@ asmlinkage void do_bp(struct pt_regs *regs)
 	}
 
 	do_trap_or_bp(regs, bcode, "Break");
+
+out:
+	exception_exit(prev_state);
 	return;
 
 out_sigsegv:
 	force_sig(SIGSEGV, current);
+	goto out;
 }
 
 asmlinkage void do_tr(struct pt_regs *regs)
 {
 	u32 opcode, tcode = 0;
+	enum ctx_state prev_state;
 	u16 instr[2];
 	unsigned long epc = msk_isa16_mode(exception_epc(regs));
 
+	prev_state = exception_enter();
 	if (get_isa16_mode(regs->cp0_epc)) {
 		if (__get_user(instr[0], (u16 __user *)(epc + 0)) ||
 		    __get_user(instr[1], (u16 __user *)(epc + 2)))
@@ -920,10 +942,14 @@ asmlinkage void do_tr(struct pt_regs *regs)
 	}
 
 	do_trap_or_bp(regs, tcode, "Trap");
+
+out:
+	exception_exit(prev_state);
 	return;
 
 out_sigsegv:
 	force_sig(SIGSEGV, current);
+	goto out;
 }
 
 asmlinkage void do_ri(struct pt_regs *regs)
@@ -931,17 +957,19 @@ asmlinkage void do_ri(struct pt_regs *regs)
 	unsigned int __user *epc = (unsigned int __user *)exception_epc(regs);
 	unsigned long old_epc = regs->cp0_epc;
 	unsigned long old31 = regs->regs[31];
+	enum ctx_state prev_state;
 	unsigned int opcode = 0;
 	int status = -1;
 
+	prev_state = exception_enter();
 	if (notify_die(DIE_RI, "RI Fault", regs, 0, regs_to_trapnr(regs), SIGILL)
 	    == NOTIFY_STOP)
-		return;
+		goto out;
 
 	die_if_kernel("Reserved instruction in kernel code", regs);
 
 	if (unlikely(compute_return_epc(regs) < 0))
-		return;
+		goto out;
 
 	if (get_isa16_mode(regs->cp0_epc)) {
 		unsigned short mmop[2] = { 0 };
@@ -976,6 +1004,9 @@ asmlinkage void do_ri(struct pt_regs *regs)
 		regs->regs[31] = old31;
 		force_sig(status, current);
 	}
+
+out:
+	exception_exit(prev_state);
 }
 
 /*
@@ -1042,6 +1073,7 @@ static int default_cu2_call(struct notifier_block *nfb, unsigned long action,
 
 asmlinkage void do_cpu(struct pt_regs *regs)
 {
+	enum ctx_state prev_state;
 	unsigned int __user *epc;
 	unsigned long old_epc, old31;
 	unsigned int opcode;
@@ -1049,6 +1081,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	int status;
 	unsigned long __maybe_unused flags;
 
+	prev_state = exception_enter();
 	die_if_kernel("do_cpu invoked from kernel context!", regs);
 
 	cpid = (regs->cp0_cause >> CAUSEB_CE) & 3;
@@ -1062,7 +1095,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 		status = -1;
 
 		if (unlikely(compute_return_epc(regs) < 0))
-			return;
+			goto out;
 
 		if (get_isa16_mode(regs->cp0_epc)) {
 			unsigned short mmop[2] = { 0 };
@@ -1095,7 +1128,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 			force_sig(status, current);
 		}
 
-		return;
+		goto out;
 
 	case 3:
 		/*
@@ -1133,19 +1166,26 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 				mt_ase_fp_affinity();
 		}
 
-		return;
+		goto out;
 
 	case 2:
 		raw_notifier_call_chain(&cu2_chain, CU2_EXCEPTION, regs);
-		return;
+		goto out;
 	}
 
 	force_sig(SIGILL, current);
+
+out:
+	exception_exit(prev_state);
 }
 
 asmlinkage void do_mdmx(struct pt_regs *regs)
 {
+	enum ctx_state prev_state;
+
+	prev_state = exception_enter();
 	force_sig(SIGILL, current);
+	exception_exit(prev_state);
 }
 
 /*
@@ -1153,8 +1193,10 @@ asmlinkage void do_mdmx(struct pt_regs *regs)
  */
 asmlinkage void do_watch(struct pt_regs *regs)
 {
+	enum ctx_state prev_state;
 	u32 cause;
 
+	prev_state = exception_enter();
 	/*
 	 * Clear WP (bit 22) bit of cause register so we don't loop
 	 * forever.
@@ -1176,13 +1218,16 @@ asmlinkage void do_watch(struct pt_regs *regs)
 		mips_clear_watch_registers();
 		local_irq_enable();
 	}
+	exception_exit(prev_state);
 }
 
 asmlinkage void do_mcheck(struct pt_regs *regs)
 {
 	const int field = 2 * sizeof(unsigned long);
 	int multi_match = regs->cp0_status & ST0_TS;
+	enum ctx_state prev_state;
 
+	prev_state = exception_enter();
 	show_regs(regs);
 
 	if (multi_match) {
@@ -1204,6 +1249,7 @@ asmlinkage void do_mcheck(struct pt_regs *regs)
 	panic("Caught Machine Check exception - %scaused by multiple "
 	      "matching entries in the TLB.",
 	      (multi_match) ? "" : "not ");
+	exception_exit(prev_state);
 }
 
 asmlinkage void do_mt(struct pt_regs *regs)
