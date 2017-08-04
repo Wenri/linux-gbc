@@ -605,7 +605,7 @@
 #define MIPS_CONF3_RXI		(_ULCAST_(1) << 12)
 #define MIPS_CONF3_ULRI		(_ULCAST_(1) << 13)
 #define MIPS_CONF3_ISA		(_ULCAST_(3) << 14)
-#define MIPS_CONF3_ISA_OE	(_ULCAST_(3) << 16)
+#define MIPS_CONF3_ISA_OE	(_ULCAST_(1) << 16)
 #define MIPS_CONF3_MCU		(_ULCAST_(1) << 17)
 #define MIPS_CONF3_MMAR		(_ULCAST_(7) << 18)
 #define MIPS_CONF3_IPLW		(_ULCAST_(3) << 21)
