@@ -256,6 +256,8 @@
 
 #define FPIR_IMP_NONE		0x0000
 
+#if !defined(__ASSEMBLY__)
+
 enum cpu_type_enum {
 	CPU_UNKNOWN,
 
@@ -308,6 +310,7 @@ enum cpu_type_enum {
 	CPU_LAST
 };
 
+#endif /* !__ASSEMBLY */
 
 /*
  * ISA Level encodings
