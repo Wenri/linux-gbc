@@ -35,8 +35,6 @@ struct pci_controller {
 	struct resource *io_resource;
 	unsigned long io_offset;
 	unsigned long io_map_base;
-	struct resource *busn_resource;
-	unsigned long busn_offset;
 
 	unsigned int index;
 	/* For compatibility with current (as of July 2003) pciutils
@@ -54,6 +52,7 @@ struct pci_controller {
 /*
  * Used by boards to register their PCI busses before the actual scanning.
  */
+extern struct pci_controller * alloc_pci_controller(void);
 extern void register_pci_controller(struct pci_controller *hose);
 
 /*
@@ -80,18 +79,6 @@ extern void pcibios_set_master(struct pci_dev *dev);
 extern int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 	enum pci_mmap_state mmap_state, int write_combine);
 
-#define HAVE_ARCH_PCI_RESOURCE_TO_USER
-
-static inline void pci_resource_to_user(const struct pci_dev *dev, int bar,
-		const struct resource *rsrc, resource_size_t *start,
-		resource_size_t *end)
-{
-	phys_addr_t size = resource_size(rsrc);
-
-	*start = fixup_bigphys_addr(rsrc->start, size);
-	*end = rsrc->start + size;
-}
-
 /*
  * Dynamic DMA mapping stuff.
  * MIPS has everything mapped statically.
@@ -99,7 +86,7 @@ static inline void pci_resource_to_user(const struct pci_dev *dev, int bar,
 
 #include <linux/types.h>
 #include <linux/slab.h>
-#include <linux/scatterlist.h>
+#include <asm/scatterlist.h>
 #include <linux/string.h>
 #include <asm/io.h>
 #include <asm-generic/pci-bridge.h>
@@ -113,7 +100,16 @@ struct pci_dev;
  */
 extern unsigned int PCI_DMA_BUS_IS_PHYS;
 
-#ifdef CONFIG_PCI_DOMAINS
+#ifdef CONFIG_PCI
+static inline void pci_dma_burst_advice(struct pci_dev *pdev,
+					enum pci_dma_burst_strategy *strat,
+					unsigned long *strategy_parameter)
+{
+	*strat = PCI_DMA_BURST_INFINITY;
+	*strategy_parameter = ~0UL;
+}
+#endif
+
 #define pci_domain_nr(bus) ((struct pci_controller *)(bus)->sysdata)->index
 
 static inline int pci_proc_domain(struct pci_bus *bus)
@@ -121,7 +117,6 @@ static inline int pci_proc_domain(struct pci_bus *bus)
 	struct pci_controller *hose = bus->sysdata;
 	return hose->need_domain_info;
 }
-#endif /* CONFIG_PCI_DOMAINS */
 
 #endif /* __KERNEL__ */
 
@@ -136,6 +131,11 @@ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
 {
 	return channel ? 15 : 14;
 }
+
+#ifdef CONFIG_CPU_CAVIUM_OCTEON
+/* MSI arch hook for OCTEON */
+#define arch_setup_msi_irqs arch_setup_msi_irqs
+#endif
 
 extern char * (*pcibios_plat_setup)(char *str);
 
