@@ -880,6 +880,13 @@ config RTC_DRV_LS2H
          If you say yes here you get support for the RTC on the
          Loongson-2H Platform-Bridge.
 
+config RTC_DRV_LS2K
+	tristate "Loongson-2K RTC"
+	depends on CPU_LOONGSON2K
+	help
+         If you say yes here you get support for the RTC on the
+         Loongson-2K Platform-Bridge.
+
 config RTC_DRV_OMAP
 	tristate "TI OMAP1"
 	depends on ARCH_OMAP15XX || ARCH_OMAP16XX || ARCH_OMAP730 || ARCH_DAVINCI_DA8XX || SOC_AM33XX
