@@ -61,7 +61,7 @@ static inline void sigset32_to_sigset(compat_sigset_word *set32,
 	set64[0] = (unsigned long) set32[0] | ((unsigned long) set32[1] << 32);
 }
 
-int copy_siginfo_to_user32(compat_siginfo_t __user *to, siginfo_t *from)
+int copy_siginfo_to_user32(compat_siginfo_t __user *to, const siginfo_t *from)
 {
 	int err;
 
