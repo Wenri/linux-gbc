@@ -345,6 +345,9 @@ const struct i2c_board_info __initdata ls2k_fb_eep_info = {
 const struct i2c_board_info __initdata ls2k_dvi_fb_eep_info = {
 	I2C_BOARD_INFO("dvi-eeprom-edid", 0x50),
 };
+const struct i2c_board_info __initdata ls2k_ds1338_info = {
+	I2C_BOARD_INFO("ds1338", 0x68),
+};
 
 int __init ls2k_platform_init(void)
 {
@@ -357,6 +360,7 @@ if(0)
 	i2c_register_board_info(I2C_BUS_0, &ls2k_gmac_eep_info, 1);
 
 }
+	i2c_register_board_info(I2C_BUS_0, &ls2k_ds1338_info, 1);
 	i2c_register_board_info(I2C_BUS_1, &ls2k_fb_eep_info, 1);
 	i2c_register_board_info(2, &ls2k_dvi_fb_eep_info, 1);
 	platform_add_devices(ls2k_i2c_gpio_platform_devices,
