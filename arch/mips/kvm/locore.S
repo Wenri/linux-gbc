@@ -53,7 +53,7 @@
 
 FEXPORT(__kvm_mips_vcpu_run)
 	/* k0/k1 not being used in host kernel context */
-	INT_ADDIU k1, sp, -PT_SIZE
+	LONG_ADDIU k1, sp, -PT_SIZE
 	LONG_S	$0, PT_R0(k1)
 	LONG_S	$1, PT_R1(k1)
 	LONG_S	$2, PT_R2(k1)
@@ -117,7 +117,7 @@ FEXPORT(__kvm_mips_vcpu_run)
 	mtc0	a1, CP0_DDATA_LO
 
 	/* Offset into vcpu->arch */
-	INT_ADDIU k1, a1, VCPU_HOST_ARCH
+	LONG_ADDIU k1, a1, VCPU_HOST_ARCH
 
 	/*
 	 * Save the host stack to VCPU, used for exception processing
@@ -132,9 +132,11 @@ FEXPORT(__kvm_mips_vcpu_run)
 	 * Setup status register for running the guest in UM, interrupts
 	 * are disabled
 	 */
+#ifndef CONFIG_CPU_LOONGSON3
 	li	k0, (ST0_EXL | KSU_USER | ST0_BEV)
 	mtc0	k0, CP0_STATUS
 	ehb
+#endif
 
 	/* load up the new EBASE */
 	LONG_L	k0, VCPU_GUEST_EBASE(k1)
@@ -145,11 +147,38 @@ FEXPORT(__kvm_mips_vcpu_run)
 	 * interrupt mask as it was but make sure that timer interrupts
 	 * are enabled
 	 */
+#ifndef CONFIG_CPU_LOONGSON3
 	li	k0, (ST0_EXL | KSU_USER | ST0_IE)
 	andi	v0, v0, ST0_IM
 	or	k0, k0, v0
 	mtc0	k0, CP0_STATUS
 	ehb
+#endif
+
+#ifdef CONFIG_CPU_LOONGSON3
+	mfc0	k0, CP0_STATUS
+	ori	k0, k0, 0x2
+	mtc0	k0, CP0_STATUS
+
+	mfc0	k0, CP0_DIAGNOSTIC
+	lui	k1, 0x3
+	or	k0, k1, k0
+	lui	k1, 0x2
+	xor	k0, k1, k0
+	mtc0	k0, CP0_DIAGNOSTIC
+
+	mfc0	k0, CP0_STATUS
+	lui	k1, 0x1
+	or	k0, k1, k0
+	mtc0	k0, CP0_STATUS
+
+	mfc0	k0, CP0_GUESTCTL0
+	lui	k1, 0x8000
+	or	k0, k1, k0
+	mtc0	k0, CP0_GUESTCTL0
+
+#endif
+	LONG_ADDIU		k1, a1, VCPU_HOST_ARCH
 
 	/* Set Guest EPC */
 	LONG_L	t0, VCPU_PC(k1)
@@ -162,8 +191,8 @@ FEXPORT(__kvm_mips_load_asid)
 	andi	t0, KSU_USER | ST0_ERL | ST0_EXL
 	xori	t0, KSU_USER
 	bnez	t0, 1f		/* If kernel */
-	 INT_ADDIU t1, k1, VCPU_GUEST_KERNEL_ASID  /* (BD)  */
-	INT_ADDIU t1, k1, VCPU_GUEST_USER_ASID    /* else user */
+	LONG_ADDIU t1, k1, VCPU_GUEST_KERNEL_ASID  /* (BD)  */
+	LONG_ADDIU t1, k1, VCPU_GUEST_USER_ASID    /* else user */
 1:
 	/* t1: contains the base of the ASID array, need to get the cpu id */
 	LONG_L	t2, TI_CPU($28)             /* smp_processor_id */
