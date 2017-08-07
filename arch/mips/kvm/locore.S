@@ -167,11 +167,6 @@ FEXPORT(__kvm_mips_vcpu_run)
 	xor	k0, k1, k0
 	mtc0	k0, CP0_DIAGNOSTIC
 
-	mfc0	k0, CP0_STATUS
-	lui	k1, 0x1
-	or	k0, k1, k0
-	mtc0	k0, CP0_STATUS
-
 	mfc0	k0, CP0_GUESTCTL0
 	lui	k1, 0x8000
 	or	k0, k1, k0
