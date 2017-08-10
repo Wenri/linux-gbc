@@ -21,6 +21,7 @@
 #define CONFIG_KVM_MIPS_LSV
 // used by ls vz
 #define C0_DIAG		22, 0
+#define C0_GSEBASE	9, 6
 #define LS_MODE_SHIFT	16
 
 /* Register names */
@@ -342,6 +343,8 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_mfc0(&p, K0, C0_DIAG);
 	uasm_i_ins(&p, K0, V1, LS_MODE_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_DIAG);
+	uasm_i_lui(&p, K0, 0x8010);
+	uasm_i_mtc0(&p, K0, C0_GSEBASE);
 
 	/*if (cpu_has_guestid) {*/
 		/*
