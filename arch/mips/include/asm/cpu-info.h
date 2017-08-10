@@ -28,6 +28,16 @@ struct cache_desc {
 	unsigned char flags;	/* Flags describing cache properties */
 };
 
+struct guest_info {
+	unsigned long		ases;
+	unsigned long		ases_dyn;
+	unsigned long long	options;
+	unsigned long long	options_dyn;
+	int			tlbsize;
+	u8			conf;
+	u8			kscratch_mask;
+};
+
 /*
  * Flag definitions
  */
@@ -49,6 +59,8 @@ struct cpuinfo_mips {
 	unsigned int		udelay_val;
 	unsigned int		processor_id;
 	unsigned int		fpu_id;
+	unsigned int		fpu_csr31;
+	unsigned int		fpu_msk31;
 	unsigned int		msa_id;
 	unsigned int		cputype;
 	int			isa_level;
@@ -85,6 +97,11 @@ struct cpuinfo_mips {
 	 * (shifted by _CACHE_SHIFT)
 	 */
 	unsigned int		writecombine;
+	/* VZ & Guest features */
+	struct guest_info	guest;
+	unsigned int		gtoffset_mask;
+	unsigned int		guestid_mask;
+	unsigned int		guestid_cache;
 } __attribute__((aligned(SMP_CACHE_BYTES)));
 
 extern struct cpuinfo_mips cpu_data[];
@@ -126,5 +143,10 @@ struct proc_cpuinfo_notifier_args {
 #else
 # define cpu_vpe_id(cpuinfo)	({ (void)cpuinfo; 0; })
 #endif
+
+static inline unsigned long cpu_asid_mask(struct cpuinfo_mips *cpuinfo)
+{
+	return ((1 << 8) - 1) << 0;
+}
 
 #endif /* __ASM_CPU_INFO_H */

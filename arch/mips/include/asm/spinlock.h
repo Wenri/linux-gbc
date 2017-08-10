@@ -12,6 +12,7 @@
 #include <linux/compiler.h>
 
 #include <asm/barrier.h>
+#include <asm/compiler.h>
 #include <asm/war.h>
 
 /*

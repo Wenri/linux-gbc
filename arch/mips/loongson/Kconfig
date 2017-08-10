@@ -88,6 +88,7 @@ config LOONGSON_MACH3X
 	select DMA_MAYBE_COHERENT
 	select UEFI_FIRMWARE_INTERFACE
 	select PHYS48_TO_HT40
+	select HAVE_KVM
 	help
 		Generic Loongson 3 family machines utilize the 3A/3B revision
 		of Loongson processor and RS780/SBX00 chipset.

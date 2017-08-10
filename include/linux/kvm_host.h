@@ -114,6 +114,10 @@ static inline bool is_error_page(struct page *page)
 	return IS_ERR(page);
 }
 
+#define KVM_REQUEST_MASK           GENMASK(7,0)
+#define KVM_REQUEST_NO_WAKEUP      BIT(8)
+#define KVM_REQUEST_WAIT           BIT(9)
+
 /*
  * vcpu->requests bit members
  */
@@ -1067,13 +1071,23 @@ static inline void kvm_make_request(int req, struct kvm_vcpu *vcpu)
 	 * caller.  Paired with the smp_mb__after_atomic in kvm_check_request.
 	 */
 	smp_wmb();
-	set_bit(req, &vcpu->requests);
+	set_bit(req & KVM_REQUEST_MASK, &vcpu->requests);
 }
+
+static inline bool kvm_test_request(int req, struct kvm_vcpu *vcpu)
+{
+	return test_bit(req & KVM_REQUEST_MASK, &vcpu->requests);
+}
+
+static inline void kvm_clear_request(int req, struct kvm_vcpu *vcpu)
+{
+	clear_bit(req & KVM_REQUEST_MASK, &vcpu->requests);
+ }
 
 static inline bool kvm_check_request(int req, struct kvm_vcpu *vcpu)
 {
-	if (test_bit(req, &vcpu->requests)) {
-		clear_bit(req, &vcpu->requests);
+	if (kvm_test_request(req, vcpu)) {
+		kvm_clear_request(req, vcpu);
 
 		/*
 		 * Ensure the rest of the request is visible to kvm_check_request's

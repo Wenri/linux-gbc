@@ -35,10 +35,6 @@
 #include <asm/uasm.h>
 #include <asm/setup.h>
 
-#define MIPS_ENTRYLO_PFN_SHIFT  6
-#define MIPS_ENTRYLO_XI                (_ULCAST_(1) << 62)
-#define MIPS_ENTRYLO_RI                (_ULCAST_(1) << 63)
-
 /*
  * TLB load/store/modify handlers.
  *
@@ -344,8 +340,8 @@ static int allocate_kscratch(void)
 	return r;
 }
 
-static int scratch_reg;
-static int pgd_reg;
+int scratch_reg;
+int pgd_reg;
 enum vmalloc64_mode {not_refill, refill_scratch, refill_noscratch};
 
 static struct work_registers build_get_work_registers(u32 **p)
@@ -503,7 +499,7 @@ static void __maybe_unused build_tlb_probe_entry(u32 **p)
  */
 enum tlb_write_entry { tlb_random, tlb_indexed };
 
-static void build_tlb_write_entry(u32 **p, struct uasm_label **l,
+void build_tlb_write_entry(u32 **p, struct uasm_label **l,
 				  struct uasm_reloc **r,
 				  enum tlb_write_entry wmode)
 {
@@ -807,8 +803,7 @@ static void build_huge_handler_tail(u32 **p,
  * TMP and PTR are scratch.
  * TMP will be clobbered, PTR will hold the pmd entry.
  */
-static void
-build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
+void build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 		 unsigned int tmp, unsigned int ptr)
 {
 #ifndef CONFIG_MIPS_PGD_C0_CONTEXT
@@ -1017,7 +1012,7 @@ static void build_adjust_context(u32 **p, unsigned int ctx)
 	uasm_i_andi(p, ctx, ctx, mask);
 }
 
-static void build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
+void build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
 {
 	/*
 	 * Bug workaround for the Nevada. It seems as if under certain
@@ -1042,7 +1037,7 @@ static void build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
 	UASM_i_ADDU(p, ptr, ptr, tmp); /* add in offset */
 }
 
-static void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
+void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 {
 	/*
 	 * 64bit address support (36bit on a 32bit CPU) in a 32bit

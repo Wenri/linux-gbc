@@ -46,6 +46,11 @@
 #define cpu_has_local_ebase	0
 #define cpu_has_perf_cntr_intr_bit	0
 #define cpu_has_wsbh		IS_ENABLED(CONFIG_CPU_LOONGSON3)
+#define cpu_has_ebase_wg	1
+#define cpu_has_guestctl0ext	0
+#define cpu_has_guestctl1	0
+#define cpu_has_guestctl2	1
+#define cpu_has_segments	0
 
 #ifdef CONFIG_CPU_LOONGSON3
 #define cpu_has_ic_fills_f_dc	1

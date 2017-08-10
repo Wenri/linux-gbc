@@ -26,6 +26,12 @@
 #ifndef cpu_has_tlbinv
 #define cpu_has_tlbinv		(cpu_data[0].options & MIPS_CPU_TLBINV)
 #endif
+#ifndef cpu_has_segments
+#define cpu_has_segments	(cpu_data[0].options & MIPS_CPU_SEGMENTS)
+#endif
+#ifndef cpu_has_eva
+#define cpu_has_eva		(cpu_data[0].options & MIPS_CPU_EVA)
+#endif
 #ifndef cpu_has_htw
 #define cpu_has_htw		(cpu_data[0].options & MIPS_CPU_HTW)
 #endif
@@ -113,6 +119,18 @@
 #endif
 #ifndef kernel_uses_llsc
 #define kernel_uses_llsc	cpu_has_llsc
+#endif
+#ifndef cpu_has_guestctl0ext
+#define cpu_has_guestctl0ext	(cpu_data[0].options & MIPS_CPU_GUESTCTL0EXT)
+#endif
+#ifndef cpu_has_guestctl1
+#define cpu_has_guestctl1	(cpu_data[0].options & MIPS_CPU_GUESTCTL1)
+#endif
+#ifndef cpu_has_guestctl2
+#define cpu_has_guestctl2	(cpu_data[0].options & MIPS_CPU_GUESTCTL2)
+#endif
+#ifndef cpu_has_guestid
+#define cpu_has_guestid		(cpu_data[0].options & MIPS_CPU_GUESTID)
 #endif
 #ifndef cpu_has_mips16
 #define cpu_has_mips16		(cpu_data[0].ases & MIPS_ASE_MIPS16)
@@ -343,6 +361,13 @@
 
 #ifndef cpu_has_vz
 #define cpu_has_vz		(cpu_data[0].ases & MIPS_ASE_VZ)
+#endif
+
+#ifndef cpu_has_ebase_wg
+# define cpu_has_ebase_wg	(cpu_data[0].options & MIPS_CPU_EBASE_WG)
+#endif
+#ifndef cpu_guest_has_segments
+#define cpu_guest_has_segments	(cpu_data[0].guest.options & MIPS_CPU_SEGMENTS)
 #endif
 
 #if defined(CONFIG_CPU_HAS_MSA) && !defined(cpu_has_msa)

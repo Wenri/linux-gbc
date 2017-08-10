@@ -1889,6 +1889,27 @@ static int __init ulri_disable(char *s)
 }
 __setup("noulri", ulri_disable);
 
+unsigned int hwrena;
+EXPORT_SYMBOL_GPL(hwrena);
+
+/* configure HWRENA register */
+static void configure_hwrena(void)
+{
+	hwrena = cpu_hwrena_impl_bits;
+
+	if (cpu_has_mips_r2)
+		hwrena |= MIPS_HWRENA_CPUNUM |
+			  MIPS_HWRENA_SYNCISTEP |
+			  MIPS_HWRENA_CC |
+			  MIPS_HWRENA_CCRES;
+
+	if (!noulri && cpu_has_userlocal)
+		hwrena |= MIPS_HWRENA_ULR;
+
+	if (hwrena)
+		write_c0_hwrena(hwrena);
+}
+
 /* configure STATUS register */
 static void configure_status(void)
 {
@@ -1912,21 +1933,6 @@ static void configure_status(void)
 
 	change_c0_status(ST0_CU|ST0_MX|ST0_RE|ST0_FR|ST0_BEV|ST0_TS|ST0_KX|ST0_SX|ST0_UX,
 			 status_set);
-}
-
-/* configure HWRENA register */
-static void configure_hwrena(void)
-{
-	unsigned int hwrena = cpu_hwrena_impl_bits;
-
-	if (cpu_has_mips_r2)
-		hwrena |= 0x0000000f;
-
-	if (!noulri && cpu_has_userlocal)
-		hwrena |= (1 << 29);
-
-	if (hwrena)
-		write_c0_hwrena(hwrena);
 }
 
 static void configure_exception_vector(void)
