@@ -221,7 +221,22 @@ static void kvm_vz_vcpu_reenter(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-	return 0;
+//	int cpu = smp_processor_id();
+	int r;
+//
+//	kvm_vz_acquire_htimer(vcpu);
+//	/* Check if we have any exceptions/interrupts pending */
+//	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
+//
+//	kvm_vz_check_requests(vcpu, cpu);
+//	kvm_vz_vcpu_load_tlb(vcpu, cpu);
+//	kvm_vz_vcpu_load_wired(vcpu);
+
+	r = vcpu->arch.vcpu_run(run, vcpu);
+
+//	kvm_vz_vcpu_save_wired(vcpu);
+
+	return r;
 }
 
 static struct kvm_mips_callbacks kvm_vz_callbacks = {

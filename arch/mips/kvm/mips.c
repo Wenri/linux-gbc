@@ -272,6 +272,23 @@ void kvm_arch_commit_memory_region(struct kvm *kvm,
 	}
 }
 
+static inline void loongson_dump_handler(const char *symbol, void *start, void *end)
+{
+	u32 *p;
+
+	printk("LEAF(%s)\n", symbol);
+
+	printk("\t.set push\n");
+	printk("\t.set noreorder\n");
+
+	for (p = start; p < (u32 *)end; ++p)
+		printk("\t.word\t0x%08x\t\t# %p\n", *p, p);
+
+	printk("\t.set\tpop\n");
+
+	printk("\tEND(%s)\n", symbol);
+}
+
 static inline void dump_handler(const char *symbol, void *start, void *end)
 {
 	u32 *p;
@@ -374,10 +391,10 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	pr_debug("#include <asm/asm.h>\n");
 	pr_debug("#include <asm/regdef.h>\n");
 	pr_debug("\n");
-	dump_handler("kvm_vcpu_run", vcpu->arch.vcpu_run, p);
-	dump_handler("kvm_tlb_refill", refill_start, refill_end);
-	dump_handler("kvm_gen_exc", gebase + 0x180, gebase + 0x200);
-	dump_handler("kvm_exit", gebase + 0x2000, vcpu->arch.vcpu_run);
+	loongson_dump_handler("kvm_vcpu_run", vcpu->arch.vcpu_run, p);
+	loongson_dump_handler("kvm_tlb_refill", refill_start, refill_end);
+	loongson_dump_handler("kvm_gen_exc", gebase + 0x180, gebase + 0x200);
+	loongson_dump_handler("kvm_exit", gebase + 0x2000, vcpu->arch.vcpu_run);
 
 	/* Invalidate the icache for these ranges */
 	flush_icache_range((unsigned long)gebase,
@@ -460,8 +477,9 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
 
 	lose_fpu(1);
 
-	local_irq_disable();
+//	local_irq_disable();
 //	guest_enter_irqoff();
+	__kvm_guest_enter();
 	trace_kvm_enter(vcpu);
 
 	/*

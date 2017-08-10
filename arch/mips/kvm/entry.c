@@ -18,6 +18,11 @@
 #include <asm/tlbex.h>
 #include <asm/uasm.h>
 
+#define CONFIG_KVM_MIPS_LSV
+// used by ls vz
+#define C0_DIAG		22, 0
+#define LS_MODE_SHIFT	16
+
 /* Register names */
 #define ZERO		0
 #define AT		1
@@ -333,6 +338,10 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_mfc0(&p, K0, C0_GUESTCTL0);
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_GM_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_GUESTCTL0);
+	/* LSVZ set diag bit[16] = 1 */
+	uasm_i_mfc0(&p, K0, C0_DIAG);
+	uasm_i_ins(&p, K0, V1, LS_MODE_SHIFT, 1);
+	uasm_i_mtc0(&p, K0, C0_DIAG);
 
 	/*if (cpu_has_guestid) {*/
 		/*
