@@ -91,7 +91,9 @@ Ip_u2u1msbu3(_dins);
 Ip_u2u1msbu3(_dinsm);
 Ip_u1u2(_divu);
 Ip_u1u2u3(_dmfc0);
+Ip_u1u2u3(_dmfgc0);
 Ip_u1u2u3(_dmtc0);
+Ip_u1u2u3(_dmtgc0);
 Ip_u2u1u3(_drotr);
 Ip_u2u1u3(_drotr32);
 Ip_u2u1u3(_dsll);
@@ -118,10 +120,12 @@ Ip_u1s2(_lui);
 Ip_u2s3u1(_lw);
 Ip_u3u1u2(_lwx);
 Ip_u1u2u3(_mfc0);
+Ip_u1u2u3(_mfgc0);
 Ip_u1u2u3(_mfhc0);
 Ip_u1(_mfhi);
 Ip_u1(_mflo);
 Ip_u1u2u3(_mtc0);
+Ip_u1u2u3(_mtgc0);
 Ip_u1u2u3(_mthc0);
 Ip_u1(_mthi);
 Ip_u1(_mtlo);
@@ -190,7 +194,9 @@ static inline void uasm_l##lb(struct uasm_label **lab, u32 *addr)	\
 # define UASM_i_LW(buf, rs, rt, off) uasm_i_ld(buf, rs, rt, off)
 # define UASM_i_LWX(buf, rs, rt, rd) uasm_i_ldx(buf, rs, rt, rd)
 # define UASM_i_MFC0(buf, rt, rd...) uasm_i_dmfc0(buf, rt, rd)
+# define UASM_i_MFGC0(buf, rt, rd...) uasm_i_dmfgc0(buf, rt, rd)
 # define UASM_i_MTC0(buf, rt, rd...) uasm_i_dmtc0(buf, rt, rd)
+# define UASM_i_MTGC0(buf, rt, rd...) uasm_i_dmtgc0(buf, rt, rd)
 # define UASM_i_ROTR(buf, rs, rt, sh) uasm_i_drotr(buf, rs, rt, sh)
 # define UASM_i_SC(buf, rs, rt, off) uasm_i_scd(buf, rs, rt, off)
 # define UASM_i_SLL(buf, rs, rt, sh) uasm_i_dsll(buf, rs, rt, sh)
@@ -206,7 +212,9 @@ static inline void uasm_l##lb(struct uasm_label **lab, u32 *addr)	\
 # define UASM_i_LW(buf, rs, rt, off) uasm_i_lw(buf, rs, rt, off)
 # define UASM_i_LWX(buf, rs, rt, rd) uasm_i_lwx(buf, rs, rt, rd)
 # define UASM_i_MFC0(buf, rt, rd...) uasm_i_mfc0(buf, rt, rd)
+# define UASM_i_MFGC0(buf, rt, rd...) uasm_i_mfgc0(buf, rt, rd)
 # define UASM_i_MTC0(buf, rt, rd...) uasm_i_mtc0(buf, rt, rd)
+# define UASM_i_MTGC0(buf, rt, rd...) uasm_i_mtgc0(buf, rt, rd)
 # define UASM_i_ROTR(buf, rs, rt, sh) uasm_i_rotr(buf, rs, rt, sh)
 # define UASM_i_SC(buf, rs, rt, off) uasm_i_sc(buf, rs, rt, off)
 # define UASM_i_SLL(buf, rs, rt, sh) uasm_i_sll(buf, rs, rt, sh)

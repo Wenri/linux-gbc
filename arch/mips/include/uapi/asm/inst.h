@@ -170,7 +170,9 @@ enum rt_op {
 enum cop_op {
 	mfc_op	      = 0x00, dmfc_op	    = 0x01,
 	cfc_op	      = 0x02, mfhc0_op	    = 0x02,
-	mfhc_op       = 0x03, mtc_op	    = 0x04,
+	mfhc_op       = 0x03, mfgc_op       = 0x03,
+	dmfgc_op      = 0x03, mtgc_op       = 0x03,
+        dmtgc_op      = 0x03, mtc_op	    = 0x04,
 	dmtc_op	      = 0x05, ctc_op	    = 0x06,
 	mthc0_op      = 0x06, mthc_op	    = 0x07,
 	bc_op	      = 0x08, bc1eqz_op     = 0x09,
