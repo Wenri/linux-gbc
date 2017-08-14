@@ -305,7 +305,12 @@ static inline void dump_handler(const char *symbol, void *start, void *end)
 
 	pr_debug("\tEND(%s)\n", symbol);
 }
-
+int test_inst[] = {
+//	0xdc0c0008,
+	0x1000ffff,
+	0x00000000,
+//	0x42000028,
+};
 struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 {
 	int err, size;
@@ -367,7 +372,13 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	if (IS_ENABLED(CONFIG_KVM_MIPS_VZ) && IS_ENABLED(CONFIG_64BIT))
 		refill_start += 0x080;
 	refill_end = kvm_mips_build_tlb_refill_exception(refill_start, handler);
+	printk("start %lx end %lx handler %lx\n",(unsigned long)refill_start,(unsigned long)refill_end,(unsigned long)handler);
+	/*enable WG of gsebase*/
+	write_c0_gsebase(0x800);
+	write_c0_gsebase((unsigned long)(refill_start + 0x1000));
 
+	/*add test instructions*/
+	memcpy((void *)0xffffffff80110000,test_inst,sizeof(test_inst));
 	/* General Exception Entry point */
 	kvm_mips_build_exception(gebase + 0x180, handler);
 
@@ -1283,7 +1294,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	local_irq_enable();
 
-	kvm_debug("kvm_mips_handle_exit: cause: %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
+	kvm_info("kvm_mips_handle_exit: cause: %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
 			cause, opc, run, vcpu);
 	trace_kvm_exit(vcpu, exccode);
 
@@ -1305,7 +1316,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	switch (exccode) {
 	case EXCCODE_INT:
-		kvm_debug("[%d]EXCCODE_INT @ %p\n", vcpu->vcpu_id, opc);
+		kvm_info("[%d]EXCCODE_INT @ %p\n", vcpu->vcpu_id, opc);
 
 		++vcpu->stat.int_exits;
 
@@ -1316,7 +1327,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	case EXCCODE_CPU:
-		kvm_debug("EXCCODE_CPU: @ PC: %p\n", opc);
+		kvm_info("EXCCODE_CPU: @ PC: %p\n", opc);
 
 		++vcpu->stat.cop_unusable_exits;
 		ret = kvm_mips_callbacks->handle_cop_unusable(vcpu);
@@ -1331,7 +1342,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	case EXCCODE_TLBS:
-		kvm_debug("TLB ST fault:  cause %#x, status %#x, PC: %p, BadVaddr: %#lx\n",
+		kvm_info("TLB ST fault:  cause %#x, status %#x, PC: %p, BadVaddr: %#lx\n",
 			  cause, kvm_read_c0_guest_status(vcpu->arch.cop0), opc,
 			  badvaddr);
 
@@ -1340,7 +1351,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	case EXCCODE_TLBL:
-		kvm_debug("TLB LD fault: cause %#x, PC: %p, BadVaddr: %#lx\n",
+		kvm_info("TLB LD fault: cause %#x, PC: %p, BadVaddr: %#lx\n",
 			  cause, opc, badvaddr);
 
 		++vcpu->stat.tlbmiss_ld_exits;
@@ -1394,6 +1405,8 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	case EXCCODE_GE:
 		/* defer exit accounting to handler */
+		kvm_info("TLB LD fault: cause %#x, PC: %p, BadVaddr: %#lx\n",
+			  cause, opc, badvaddr);
 		ret = kvm_mips_callbacks->handle_guest_exit(vcpu);
 		break;
 

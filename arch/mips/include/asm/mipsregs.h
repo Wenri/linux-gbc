@@ -59,6 +59,7 @@
 #define CP0_BADVADDR $8
 #define CP0_BADINSTR $8, 1
 #define CP0_COUNT $9
+#define CP0_GSEBASE $9, 6
 #define CP0_ENTRYHI $10
 #define CP0_GUESTCTL1 $10, 4
 #define CP0_GUESTCTL2 $10, 5
@@ -1480,6 +1481,9 @@ do {									\
 
 #define read_c0_count()		__read_32bit_c0_register($9, 0)
 #define write_c0_count(val)	__write_32bit_c0_register($9, 0, val)
+
+#define read_c0_gsebase()	__read_64bit_c0_register($9, 6) /* loongson gsebase*/
+#define write_c0_gsebase(val)	__write_64bit_c0_register($9, 6, val)
 
 #define read_c0_count2()	__read_32bit_c0_register($9, 6) /* pnx8550 */
 #define write_c0_count2(val)	__write_32bit_c0_register($9, 6, val)

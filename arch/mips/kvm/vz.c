@@ -100,18 +100,18 @@ static inline unsigned int kvm_vz_config5_guest_wrmask(struct kvm_vcpu *vcpu)
 	unsigned int mask = MIPS_CONF5_K | MIPS_CONF5_CV | MIPS_CONF5_SBRI;
 
 	/* Permit MSAEn changes if MSA supported and enabled */
-	/*if (kvm_mips_guest_has_msa(&vcpu->arch))*/
-		/*mask |= MIPS_CONF5_MSAEN;*/
+	if (kvm_mips_guest_has_msa(&vcpu->arch))
+		mask |= MIPS_CONF5_MSAEN;
 
 	/*
 	 * Permit guest FPU mode changes if FPU is enabled and the relevant
 	 * feature exists according to FIR register.
 	 */
 	if (kvm_mips_guest_has_fpu(&vcpu->arch)) {
-		/*if (cpu_has_ufr)*/
-			/*mask |= MIPS_CONF5_UFR;*/
-		/*if (cpu_has_fre)*/
-			/*mask |= MIPS_CONF5_FRE | MIPS_CONF5_UFE;*/
+		if (cpu_has_ufr)
+			mask |= MIPS_CONF5_UFR;
+		if (cpu_has_fre)
+			mask |= MIPS_CONF5_FRE | MIPS_CONF5_UFE;
 	}
 
 	return mask;
@@ -155,8 +155,8 @@ static inline unsigned int kvm_vz_config3_user_wrmask(struct kvm_vcpu *vcpu)
 		MIPS_CONF3_ULRI | MIPS_CONF3_CTXTC;
 
 	/* Permit MSA to be present if MSA is supported */
-	/*if (kvm_mips_guest_can_have_msa(&vcpu->arch))*/
-		/*mask |= MIPS_CONF3_MSA;*/
+	if (kvm_mips_guest_can_have_msa(&vcpu->arch))
+		mask |= MIPS_CONF3_MSA;
 
 	return mask;
 }
@@ -860,8 +860,8 @@ static unsigned long mips_process_maar(unsigned int op, unsigned long val)
 
 	if (read_gc0_pagegrain() & PG_ELPA)
 		mask |= 0x00ffffff00000000ull;
-	/*if (cpu_guest_has_mvh)*/
-		/*mask |= MIPS_MAAR_VH;*/
+	if (cpu_guest_has_mvh)
+		mask |= MIPS_MAAR_VH;
 
 	/* Set or clear VH */
 	if (op == mtc_op) {
@@ -2393,16 +2393,16 @@ static void kvm_vz_vcpu_load_wired(struct kvm_vcpu *vcpu)
 
 static void kvm_vz_vcpu_load_tlb(struct kvm_vcpu *vcpu, int cpu)
 {
-	/*struct kvm *kvm = vcpu->kvm;*/
-	/*struct mm_struct *gpa_mm = &kvm->arch.gpa_mm;*/
-	/*bool migrated;*/
+	struct kvm *kvm = vcpu->kvm;
+	struct mm_struct *gpa_mm = &kvm->arch.gpa_mm;
+	bool migrated;
 
 	/*
 	 * Are we entering guest context on a different CPU to last time?
 	 * If so, the VCPU's guest TLB state on this CPU may be stale.
 	 */
-	/*migrated = (vcpu->arch.last_exec_cpu != cpu);*/
-	/*vcpu->arch.last_exec_cpu = cpu;*/
+	migrated = (vcpu->arch.last_exec_cpu != cpu);
+	vcpu->arch.last_exec_cpu = cpu;
 
 	/*
 	 * A vcpu's GuestID is set in GuestCtl1.ID when the vcpu is loaded and
@@ -2410,7 +2410,7 @@ static void kvm_vz_vcpu_load_tlb(struct kvm_vcpu *vcpu, int cpu)
 	 * remains zeroed when in root context unless the kernel is busy
 	 * manipulating guest tlb entries.
 	 */
-	/*if (cpu_has_guestid) {*/
+	if (cpu_has_guestid) {
 		/*
 		 * Check if our GuestID is of an older version and thus invalid.
 		 *
@@ -2418,18 +2418,18 @@ static void kvm_vz_vcpu_load_tlb(struct kvm_vcpu *vcpu, int cpu)
 		 * another CPU, as the guest mappings may have changed without
 		 * hypervisor knowledge.
 		 */
-		/*if (migrated ||*/
-		    /*(vcpu->arch.vzguestid[cpu] ^ guestid_cache(cpu)) &*/
-					/*GUESTID_VERSION_MASK) {*/
-			/*kvm_vz_get_new_guestid(cpu, vcpu);*/
-			/*vcpu->arch.vzguestid[cpu] = guestid_cache(cpu);*/
-			/*trace_kvm_guestid_change(vcpu,*/
-						 /*vcpu->arch.vzguestid[cpu]);*/
-		/*}*/
+		if (migrated ||
+		    (vcpu->arch.vzguestid[cpu] ^ guestid_cache(cpu)) &
+					GUESTID_VERSION_MASK) {
+			kvm_vz_get_new_guestid(cpu, vcpu);
+			vcpu->arch.vzguestid[cpu] = guestid_cache(cpu);
+			trace_kvm_guestid_change(vcpu,
+						 vcpu->arch.vzguestid[cpu]);
+		}
 
 		/*[> Restore GuestID <]*/
-		/*change_c0_guestctl1(GUESTID_MASK, vcpu->arch.vzguestid[cpu]);*/
-	/*} else {*/
+		change_c0_guestctl1(GUESTID_MASK, vcpu->arch.vzguestid[cpu]);
+	} else {
 		/*
 		 * The Guest TLB only stores a single guest's TLB state, so
 		 * flush it if another VCPU has executed on this CPU.
@@ -2437,259 +2437,259 @@ static void kvm_vz_vcpu_load_tlb(struct kvm_vcpu *vcpu, int cpu)
 		 * We also flush if we've executed on another CPU, as the guest
 		 * mappings may have changed without hypervisor knowledge.
 		 */
-		/*if (migrated || last_exec_vcpu[cpu] != vcpu)*/
-			/*kvm_vz_local_flush_guesttlb_all();*/
-		/*last_exec_vcpu[cpu] = vcpu;*/
+		if (migrated || last_exec_vcpu[cpu] != vcpu)
+			kvm_vz_local_flush_guesttlb_all();
+		last_exec_vcpu[cpu] = vcpu;
 
 		/*
 		 * Root ASID dealiases guest GPA mappings in the root TLB.
 		 * Allocate new root ASID if needed.
 		 */
-		/*if (cpumask_test_and_clear_cpu(cpu, &kvm->arch.asid_flush_mask)*/
-		    /*|| (cpu_context(cpu, gpa_mm) ^ asid_cache(cpu)) &*/
-						/*asid_version_mask(cpu))*/
-			/*get_new_mmu_context(gpa_mm, cpu);*/
-	/*}*/
+		if (cpumask_test_and_clear_cpu(cpu, &kvm->arch.asid_flush_mask)
+		    || (cpu_context(cpu, gpa_mm) ^ asid_cache(cpu)) &
+						asid_version_mask(cpu))
+			get_new_mmu_context(gpa_mm, cpu);
+	}
 }
 
 static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
-	/*struct mips_coproc *cop0 = vcpu->arch.cop0;*/
-	/*bool migrated, all;*/
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	bool migrated, all;
 
 	/*
 	 * Have we migrated to a different CPU?
 	 * If so, any old guest TLB state may be stale.
 	 */
-	/*migrated = (vcpu->arch.last_sched_cpu != cpu);*/
+	migrated = (vcpu->arch.last_sched_cpu != cpu);
 
 	/*
 	 * Was this the last VCPU to run on this CPU?
 	 * If not, any old guest state from this VCPU will have been clobbered.
 	 */
-	/*all = migrated || (last_vcpu[cpu] != vcpu);*/
-	/*last_vcpu[cpu] = vcpu;*/
+	all = migrated || (last_vcpu[cpu] != vcpu);
+	last_vcpu[cpu] = vcpu;
 
 	/*
 	 * Restore CP0_Wired unconditionally as we clear it after use, and
 	 * restore wired guest TLB entries (while in guest context).
 	 */
-	/*kvm_restore_gc0_wired(cop0);*/
-	/*if (current->flags & PF_VCPU) {*/
-		/*tlbw_use_hazard();*/
-		/*kvm_vz_vcpu_load_tlb(vcpu, cpu);*/
-		/*kvm_vz_vcpu_load_wired(vcpu);*/
-	/*}*/
+	kvm_restore_gc0_wired(cop0);
+	if (current->flags & PF_VCPU) {
+		tlbw_use_hazard();
+		kvm_vz_vcpu_load_tlb(vcpu, cpu);
+		kvm_vz_vcpu_load_wired(vcpu);
+	}
 
 	/*
 	 * Restore timer state regardless, as e.g. Cause.TI can change over time
 	 * if left unmaintained.
 	 */
-	/*kvm_vz_restore_timer(vcpu);*/
+	kvm_vz_restore_timer(vcpu);
 
 	/*[> Set MC bit if we want to trace guest mode changes <]*/
-	/*if (kvm_trace_guest_mode_change)*/
-		/*set_c0_guestctl0(MIPS_GCTL0_MC);*/
-	/*else*/
-		/*clear_c0_guestctl0(MIPS_GCTL0_MC);*/
+	if (kvm_trace_guest_mode_change)
+		set_c0_guestctl0(MIPS_GCTL0_MC);
+	else
+		clear_c0_guestctl0(MIPS_GCTL0_MC);
 
 	/*[> Don't bother restoring registers multiple times unless necessary <]*/
-	/*if (!all)*/
-		/*return 0;*/
+	if (!all)
+		return 0;
 
 	/*
 	 * Restore config registers first, as some implementations restrict
 	 * writes to other registers when the corresponding feature bits aren't
 	 * set. For example Status.CU1 cannot be set unless Config1.FP is set.
 	 */
-	/*kvm_restore_gc0_config(cop0);*/
-	/*if (cpu_guest_has_conf1)*/
-		/*kvm_restore_gc0_config1(cop0);*/
-	/*if (cpu_guest_has_conf2)*/
-		/*kvm_restore_gc0_config2(cop0);*/
-	/*if (cpu_guest_has_conf3)*/
-		/*kvm_restore_gc0_config3(cop0);*/
-	/*if (cpu_guest_has_conf4)*/
-		/*kvm_restore_gc0_config4(cop0);*/
-	/*if (cpu_guest_has_conf5)*/
-		/*kvm_restore_gc0_config5(cop0);*/
-	/*if (cpu_guest_has_conf6)*/
-		/*kvm_restore_gc0_config6(cop0);*/
-	/*if (cpu_guest_has_conf7)*/
-		/*kvm_restore_gc0_config7(cop0);*/
+	kvm_restore_gc0_config(cop0);
+	if (cpu_guest_has_conf1)
+		kvm_restore_gc0_config1(cop0);
+	if (cpu_guest_has_conf2)
+		kvm_restore_gc0_config2(cop0);
+	if (cpu_guest_has_conf3)
+		kvm_restore_gc0_config3(cop0);
+	if (cpu_guest_has_conf4)
+		kvm_restore_gc0_config4(cop0);
+	if (cpu_guest_has_conf5)
+		kvm_restore_gc0_config5(cop0);
+	if (cpu_guest_has_conf6)
+		kvm_restore_gc0_config6(cop0);
+	if (cpu_guest_has_conf7)
+		kvm_restore_gc0_config7(cop0);
 
-	/*kvm_restore_gc0_index(cop0);*/
-	/*kvm_restore_gc0_entrylo0(cop0);*/
-	/*kvm_restore_gc0_entrylo1(cop0);*/
-	/*kvm_restore_gc0_context(cop0);*/
-	/*if (cpu_guest_has_contextconfig)*/
-		/*kvm_restore_gc0_contextconfig(cop0);*/
-/*#ifdef CONFIG_64BIT*/
-	/*kvm_restore_gc0_xcontext(cop0);*/
-	/*if (cpu_guest_has_contextconfig)*/
-		/*kvm_restore_gc0_xcontextconfig(cop0);*/
-/*#endif*/
-	/*kvm_restore_gc0_pagemask(cop0);*/
-	/*kvm_restore_gc0_pagegrain(cop0);*/
-	/*kvm_restore_gc0_hwrena(cop0);*/
-	/*kvm_restore_gc0_badvaddr(cop0);*/
-	/*kvm_restore_gc0_entryhi(cop0);*/
-	/*kvm_restore_gc0_status(cop0);*/
-	/*kvm_restore_gc0_intctl(cop0);*/
-	/*kvm_restore_gc0_epc(cop0);*/
-	/*kvm_vz_write_gc0_ebase(kvm_read_sw_gc0_ebase(cop0));*/
-	/*if (cpu_guest_has_userlocal)*/
-		/*kvm_restore_gc0_userlocal(cop0);*/
+	kvm_restore_gc0_index(cop0);
+	kvm_restore_gc0_entrylo0(cop0);
+	kvm_restore_gc0_entrylo1(cop0);
+	kvm_restore_gc0_context(cop0);
+	if (cpu_guest_has_contextconfig)
+		kvm_restore_gc0_contextconfig(cop0);
+#ifdef CONFIG_64BIT
+	kvm_restore_gc0_xcontext(cop0);
+	if (cpu_guest_has_contextconfig)
+		kvm_restore_gc0_xcontextconfig(cop0);
+#endif
+	kvm_restore_gc0_pagemask(cop0);
+	kvm_restore_gc0_pagegrain(cop0);
+	kvm_restore_gc0_hwrena(cop0);
+	kvm_restore_gc0_badvaddr(cop0);
+	kvm_restore_gc0_entryhi(cop0);
+	kvm_restore_gc0_status(cop0);
+	kvm_restore_gc0_intctl(cop0);
+	kvm_restore_gc0_epc(cop0);
+	kvm_vz_write_gc0_ebase(kvm_read_sw_gc0_ebase(cop0));
+	if (cpu_guest_has_userlocal)
+		kvm_restore_gc0_userlocal(cop0);
 
-	/*kvm_restore_gc0_errorepc(cop0);*/
+	kvm_restore_gc0_errorepc(cop0);
 
 	/*[> restore KScratch registers if enabled in guest <]*/
-	/*if (cpu_guest_has_conf4) {*/
-		/*if (cpu_guest_has_kscr(2))*/
-			/*kvm_restore_gc0_kscratch1(cop0);*/
-		/*if (cpu_guest_has_kscr(3))*/
-			/*kvm_restore_gc0_kscratch2(cop0);*/
-		/*if (cpu_guest_has_kscr(4))*/
-			/*kvm_restore_gc0_kscratch3(cop0);*/
-		/*if (cpu_guest_has_kscr(5))*/
-			/*kvm_restore_gc0_kscratch4(cop0);*/
-		/*if (cpu_guest_has_kscr(6))*/
-			/*kvm_restore_gc0_kscratch5(cop0);*/
-		/*if (cpu_guest_has_kscr(7))*/
-			/*kvm_restore_gc0_kscratch6(cop0);*/
-	/*}*/
+	if (cpu_guest_has_conf4) {
+		if (cpu_guest_has_kscr(2))
+			kvm_restore_gc0_kscratch1(cop0);
+		if (cpu_guest_has_kscr(3))
+			kvm_restore_gc0_kscratch2(cop0);
+		if (cpu_guest_has_kscr(4))
+			kvm_restore_gc0_kscratch3(cop0);
+		if (cpu_guest_has_kscr(5))
+			kvm_restore_gc0_kscratch4(cop0);
+		if (cpu_guest_has_kscr(6))
+			kvm_restore_gc0_kscratch5(cop0);
+		if (cpu_guest_has_kscr(7))
+			kvm_restore_gc0_kscratch6(cop0);
+	}
 
-	/*if (cpu_guest_has_badinstr)*/
-		/*kvm_restore_gc0_badinstr(cop0);*/
-	/*if (cpu_guest_has_badinstrp)*/
-		/*kvm_restore_gc0_badinstrp(cop0);*/
+	if (cpu_guest_has_badinstr)
+		kvm_restore_gc0_badinstr(cop0);
+	if (cpu_guest_has_badinstrp)
+		kvm_restore_gc0_badinstrp(cop0);
 
-	/*if (cpu_guest_has_segments) {*/
-		/*kvm_restore_gc0_segctl0(cop0);*/
-		/*kvm_restore_gc0_segctl1(cop0);*/
-		/*kvm_restore_gc0_segctl2(cop0);*/
-	/*}*/
+	if (cpu_guest_has_segments) {
+		kvm_restore_gc0_segctl0(cop0);
+		kvm_restore_gc0_segctl1(cop0);
+		kvm_restore_gc0_segctl2(cop0);
+	}
 
 	/*[> restore HTW registers <]*/
-	/*if (cpu_guest_has_htw) {*/
-		/*kvm_restore_gc0_pwbase(cop0);*/
-		/*kvm_restore_gc0_pwfield(cop0);*/
-		/*kvm_restore_gc0_pwsize(cop0);*/
-		/*kvm_restore_gc0_pwctl(cop0);*/
-	/*}*/
+	if (cpu_guest_has_htw) {
+		kvm_restore_gc0_pwbase(cop0);
+		kvm_restore_gc0_pwfield(cop0);
+		kvm_restore_gc0_pwsize(cop0);
+		kvm_restore_gc0_pwctl(cop0);
+	}
 
 	/*[> restore Root.GuestCtl2 from unused Guest guestctl2 register <]*/
-	/*if (cpu_has_guestctl2)*/
-		/*write_c0_guestctl2(*/
-			/*cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);*/
+	if (cpu_has_guestctl2)
+		write_c0_guestctl2(
+			cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
 
 	/*
 	 * We should clear linked load bit to break interrupted atomics. This
 	 * prevents a SC on the next VCPU from succeeding by matching a LL on
 	 * the previous VCPU.
 	 */
-	/*if (cpu_guest_has_rw_llb)*/
-		/*write_gc0_lladdr(0);*/
+	if (cpu_guest_has_rw_llb)
+		write_gc0_lladdr(0);
 
 	return 0;
 }
 
 static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 {
-/*        struct mips_coproc *cop0 = vcpu->arch.cop0;*/
+        struct mips_coproc *cop0 = vcpu->arch.cop0;
 
-/*        if (current->flags & PF_VCPU)*/
-/*                kvm_vz_vcpu_save_wired(vcpu);*/
+        if (current->flags & PF_VCPU)
+                kvm_vz_vcpu_save_wired(vcpu);
 
-/*        kvm_lose_fpu(vcpu);*/
+        kvm_lose_fpu(vcpu);
 
-/*        kvm_save_gc0_index(cop0);*/
-/*        kvm_save_gc0_entrylo0(cop0);*/
-/*        kvm_save_gc0_entrylo1(cop0);*/
-/*        kvm_save_gc0_context(cop0);*/
-/*        if (cpu_guest_has_contextconfig)*/
-/*                kvm_save_gc0_contextconfig(cop0);*/
-/*#ifdef CONFIG_64BIT*/
-/*        kvm_save_gc0_xcontext(cop0);*/
-/*        if (cpu_guest_has_contextconfig)*/
-/*                kvm_save_gc0_xcontextconfig(cop0);*/
-/*#endif*/
-/*        kvm_save_gc0_pagemask(cop0);*/
-/*        kvm_save_gc0_pagegrain(cop0);*/
-/*        kvm_save_gc0_wired(cop0);*/
-/*        [> allow wired TLB entries to be overwritten <]*/
-/*        clear_gc0_wired(MIPSR6_WIRED_WIRED);*/
-/*        kvm_save_gc0_hwrena(cop0);*/
-/*        kvm_save_gc0_badvaddr(cop0);*/
-/*        kvm_save_gc0_entryhi(cop0);*/
-/*        kvm_save_gc0_status(cop0);*/
-/*        kvm_save_gc0_intctl(cop0);*/
-/*        kvm_save_gc0_epc(cop0);*/
-/*        kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase());*/
-/*        if (cpu_guest_has_userlocal)*/
-/*                kvm_save_gc0_userlocal(cop0);*/
+        kvm_save_gc0_index(cop0);
+        kvm_save_gc0_entrylo0(cop0);
+        kvm_save_gc0_entrylo1(cop0);
+        kvm_save_gc0_context(cop0);
+        if (cpu_guest_has_contextconfig)
+                kvm_save_gc0_contextconfig(cop0);
+#ifdef CONFIG_64BIT
+        kvm_save_gc0_xcontext(cop0);
+        if (cpu_guest_has_contextconfig)
+                kvm_save_gc0_xcontextconfig(cop0);
+#endif
+        kvm_save_gc0_pagemask(cop0);
+        kvm_save_gc0_pagegrain(cop0);
+        kvm_save_gc0_wired(cop0);
+        /*[> allow wired TLB entries to be overwritten <]*/
+        clear_gc0_wired(MIPSR6_WIRED_WIRED);
+        kvm_save_gc0_hwrena(cop0);
+        kvm_save_gc0_badvaddr(cop0);
+        kvm_save_gc0_entryhi(cop0);
+        kvm_save_gc0_status(cop0);
+        kvm_save_gc0_intctl(cop0);
+        kvm_save_gc0_epc(cop0);
+        kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase());
+        if (cpu_guest_has_userlocal)
+                kvm_save_gc0_userlocal(cop0);
 
-/*        [> only save implemented config registers <]*/
-/*        kvm_save_gc0_config(cop0);*/
-/*        if (cpu_guest_has_conf1)*/
-/*                kvm_save_gc0_config1(cop0);*/
-/*        if (cpu_guest_has_conf2)*/
-/*                kvm_save_gc0_config2(cop0);*/
-/*        if (cpu_guest_has_conf3)*/
-/*                kvm_save_gc0_config3(cop0);*/
-/*        if (cpu_guest_has_conf4)*/
-/*                kvm_save_gc0_config4(cop0);*/
-/*        if (cpu_guest_has_conf5)*/
-/*                kvm_save_gc0_config5(cop0);*/
-/*        if (cpu_guest_has_conf6)*/
-/*                kvm_save_gc0_config6(cop0);*/
-/*        if (cpu_guest_has_conf7)*/
-/*                kvm_save_gc0_config7(cop0);*/
+        /*[> only save implemented config registers <]*/
+        kvm_save_gc0_config(cop0);
+        if (cpu_guest_has_conf1)
+                kvm_save_gc0_config1(cop0);
+        if (cpu_guest_has_conf2)
+                kvm_save_gc0_config2(cop0);
+        if (cpu_guest_has_conf3)
+                kvm_save_gc0_config3(cop0);
+        if (cpu_guest_has_conf4)
+                kvm_save_gc0_config4(cop0);
+        if (cpu_guest_has_conf5)
+                kvm_save_gc0_config5(cop0);
+        if (cpu_guest_has_conf6)
+                kvm_save_gc0_config6(cop0);
+        if (cpu_guest_has_conf7)
+                kvm_save_gc0_config7(cop0);
 
-/*        kvm_save_gc0_errorepc(cop0);*/
+        kvm_save_gc0_errorepc(cop0);
 
-/*        [> save KScratch registers if enabled in guest <]*/
-/*        if (cpu_guest_has_conf4) {*/
-/*                if (cpu_guest_has_kscr(2))*/
-/*                        kvm_save_gc0_kscratch1(cop0);*/
-/*                if (cpu_guest_has_kscr(3))*/
-/*                        kvm_save_gc0_kscratch2(cop0);*/
-/*                if (cpu_guest_has_kscr(4))*/
-/*                        kvm_save_gc0_kscratch3(cop0);*/
-/*                if (cpu_guest_has_kscr(5))*/
-/*                        kvm_save_gc0_kscratch4(cop0);*/
-/*                if (cpu_guest_has_kscr(6))*/
-/*                        kvm_save_gc0_kscratch5(cop0);*/
-/*                if (cpu_guest_has_kscr(7))*/
-/*                        kvm_save_gc0_kscratch6(cop0);*/
-/*        }*/
+        /*[> save KScratch registers if enabled in guest <]*/
+        if (cpu_guest_has_conf4) {
+                if (cpu_guest_has_kscr(2))
+                        kvm_save_gc0_kscratch1(cop0);
+                if (cpu_guest_has_kscr(3))
+                        kvm_save_gc0_kscratch2(cop0);
+                if (cpu_guest_has_kscr(4))
+                        kvm_save_gc0_kscratch3(cop0);
+                if (cpu_guest_has_kscr(5))
+                        kvm_save_gc0_kscratch4(cop0);
+                if (cpu_guest_has_kscr(6))
+                        kvm_save_gc0_kscratch5(cop0);
+                if (cpu_guest_has_kscr(7))
+                        kvm_save_gc0_kscratch6(cop0);
+        }
 
-/*        if (cpu_guest_has_badinstr)*/
-/*                kvm_save_gc0_badinstr(cop0);*/
-/*        if (cpu_guest_has_badinstrp)*/
-/*                kvm_save_gc0_badinstrp(cop0);*/
+        if (cpu_guest_has_badinstr)
+                kvm_save_gc0_badinstr(cop0);
+        if (cpu_guest_has_badinstrp)
+                kvm_save_gc0_badinstrp(cop0);
 
-/*        if (cpu_guest_has_segments) {*/
-/*                kvm_save_gc0_segctl0(cop0);*/
-/*                kvm_save_gc0_segctl1(cop0);*/
-/*                kvm_save_gc0_segctl2(cop0);*/
-/*        }*/
+        if (cpu_guest_has_segments) {
+                kvm_save_gc0_segctl0(cop0);
+                kvm_save_gc0_segctl1(cop0);
+                kvm_save_gc0_segctl2(cop0);
+        }
 
-/*        [> save HTW registers if enabled in guest <]*/
-/*        if (cpu_guest_has_htw &&*/
-/*            kvm_read_sw_gc0_config3(cop0) & MIPS_CONF3_PW) {*/
-/*                kvm_save_gc0_pwbase(cop0);*/
-/*                kvm_save_gc0_pwfield(cop0);*/
-/*                kvm_save_gc0_pwsize(cop0);*/
-/*                kvm_save_gc0_pwctl(cop0);*/
-/*        }*/
+        /*[> save HTW registers if enabled in guest <]*/
+        if (cpu_guest_has_htw &&
+            kvm_read_sw_gc0_config3(cop0) & MIPS_CONF3_PW) {
+                kvm_save_gc0_pwbase(cop0);
+                kvm_save_gc0_pwfield(cop0);
+                kvm_save_gc0_pwsize(cop0);
+                kvm_save_gc0_pwctl(cop0);
+        }
 
-/*        kvm_vz_save_timer(vcpu);*/
+        kvm_vz_save_timer(vcpu);
 
-/*        [> save Root.GuestCtl2 in unused Guest guestctl2 register <]*/
-/*        if (cpu_has_guestctl2)*/
-/*                cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] =*/
-/*                        read_c0_guestctl2();*/
+        /*[> save Root.GuestCtl2 in unused Guest guestctl2 register <]*/
+        if (cpu_has_guestctl2)
+                cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] =
+                        read_c0_guestctl2();
 
 	return 0;
 }
@@ -2709,24 +2709,24 @@ static unsigned int kvm_vz_resize_guest_vtlb(unsigned int size)
 	unsigned int config4 = 0, ret = 0, limit;
 
 	/*[> Write MMUSize - 1 into guest Config registers <]*/
-	/*if (cpu_guest_has_conf1)*/
-		/*change_gc0_config1(MIPS_CONF1_TLBS,*/
-				   /*(size - 1) << MIPS_CONF1_TLBS_SHIFT);*/
-	/*if (cpu_guest_has_conf4) {*/
-		/*config4 = read_gc0_config4();*/
-		/*if (cpu_has_mips_r6 || (config4 & MIPS_CONF4_MMUEXTDEF) ==*/
-		    /*MIPS_CONF4_MMUEXTDEF_VTLBSIZEEXT) {*/
-			/*config4 &= ~MIPS_CONF4_VTLBSIZEEXT;*/
-			/*config4 |= ((size - 1) >> MIPS_CONF1_TLBS_SIZE) <<*/
-				/*MIPS_CONF4_VTLBSIZEEXT_SHIFT;*/
-		/*} else if ((config4 & MIPS_CONF4_MMUEXTDEF) ==*/
-			   /*MIPS_CONF4_MMUEXTDEF_MMUSIZEEXT) {*/
-			/*config4 &= ~MIPS_CONF4_MMUSIZEEXT;*/
-			/*config4 |= ((size - 1) >> MIPS_CONF1_TLBS_SIZE) <<*/
-				/*MIPS_CONF4_MMUSIZEEXT_SHIFT;*/
-		/*}*/
-		/*write_gc0_config4(config4);*/
-	/*}*/
+	if (cpu_guest_has_conf1)
+		change_gc0_config1(MIPS_CONF1_TLBS,
+				   (size - 1) << MIPS_CONF1_TLBS_SHIFT);
+	if (cpu_guest_has_conf4) {
+		config4 = read_gc0_config4();
+		if (cpu_has_mips_r6 || (config4 & MIPS_CONF4_MMUEXTDEF) ==
+		    MIPS_CONF4_MMUEXTDEF_VTLBSIZEEXT) {
+			config4 &= ~MIPS_CONF4_VTLBSIZEEXT;
+			config4 |= ((size - 1) >> MIPS_CONF1_TLBS_SIZE) <<
+				MIPS_CONF4_VTLBSIZEEXT_SHIFT;
+		} else if ((config4 & MIPS_CONF4_MMUEXTDEF) ==
+			   MIPS_CONF4_MMUEXTDEF_MMUSIZEEXT) {
+			config4 &= ~MIPS_CONF4_MMUSIZEEXT;
+			config4 |= ((size - 1) >> MIPS_CONF1_TLBS_SIZE) <<
+				MIPS_CONF4_MMUSIZEEXT_SHIFT;
+		}
+		write_gc0_config4(config4);
+	}
 
 	/*
 	 * Set Guest.Wired.Limit = 0 (no limit up to Guest.MMUSize-1), unless it

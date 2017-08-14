@@ -56,6 +56,10 @@
 #define RA		31
 
 /* Some CP0 registers */
+#define C0_INDEX	0, 0
+#define C0_ENTRYLO0	2, 0
+#define C0_ENTRYLO1	3, 0
+#define C0_PAGEMASK	5, 0
 #define C0_PWBASE	5, 5
 #define C0_HWRENA	7, 0
 #define C0_BADVADDR	8, 0
@@ -197,8 +201,9 @@ static inline void build_set_exc_base(u32 **p, unsigned int reg)
 		/* Set WG so that all the bits get written */
 		uasm_i_ori(p, reg, reg, MIPS_EBASE_WG);
 		UASM_i_MTC0(p, reg, C0_EBASE);
+		UASM_i_MTC0(p, reg, C0_EBASE);
 	} else {
-		uasm_i_mtc0(p, reg, C0_EBASE);
+		UASM_i_MTC0(p, reg, C0_EBASE);
 	}
 }
 
@@ -343,8 +348,8 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_mfc0(&p, K0, C0_DIAG);
 	uasm_i_ins(&p, K0, V1, LS_MODE_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_DIAG);
-	uasm_i_lui(&p, K0, 0x8010);
-	uasm_i_mtc0(&p, K0, C0_GSEBASE);
+//	uasm_i_lui(&p, K0, 0x8010);
+//	uasm_i_mtc0(&p, K0, C0_GSEBASE);
 
 	/*if (cpu_has_guestid) {*/
 		/*
@@ -426,10 +431,11 @@ static void *kvm_mips_build_enter_guest(void *addr)
 
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
-	 uasm_i_mtc0(&p, K0, C0_ENTRYHI);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
 #else
 	/* Set up KVM VZ root ASID (!guestid) */
-	uasm_i_mtc0(&p, K0, C0_ENTRYHI);
+//	uasm_i_mtc0(&p, K0, C0_ENTRYHI);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
 /*skip_asid_restore:*/
 #endif
 	uasm_i_ehb(&p);
@@ -466,6 +472,195 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	return p;
 }
 
+void loongson_vz_exception(void)
+{
+	/*the real process is:
+	check the GVA->GPA trans is exist in table which stored in root
+	if no exist, if the GVA is KSEG0/1/XPHY,do the trans directly in root,
+	update the table,update tlb with null entrylo0/1,eret
+	(??? the following maybe should be processed in tlb invalid 
+	get the GPA->HPA trans; if GVA not in KSEG0/1/XPHY,
+	return to guest tlbmiss process and tlb invalid process to allocate GPA,
+	then update tlb)
+	*/
+	//the following is a test code
+	__asm__ volatile(
+	".set	push\n"
+	".set	noreorder\n"
+	"dmfc0	$26,$14,0\n"
+	"dsrl	$26,15\n"
+	"dsll	$26,15\n"
+	"dmtc0	$26,$14,0\n"
+
+	"mfc0	$26,$12,6\n"
+	"lui	$27,0x7010\n"
+	"or	$26,$27\n"
+	"mtc0	$26,$12,6\n"
+	
+	"dmfc0	$26,$10,0\n"
+	"dsrl	$4,$26,13\n"
+	"andi	$5,$26,0xff\n"
+	"li	$6,0x6000\n"
+	"li	$13,5\n"
+	"li	$27,0\n"
+	"1:\n"
+	"li	$26,0\n"
+	"bne	$27,$26,2f\n"
+	"nop\n"
+	"daddiu	$26,$4,0\n"
+	"dli	$12,0x441b\n"
+	"dli	$14,0x451b\n"
+	"b	6f\n"
+	"li	$15,0\n"
+	"2:\n"
+	"li	$26,1\n"
+	"bne	$27,$26,3f\n"
+	"nop\n"
+	"daddiu	$26,$4,4\n"
+	"dli	$12,0x800000000000461b\n"
+	"dli	$14,0x800000000000471b\n"
+	"b	6f\n"
+	"li	$15,1\n"
+	"3:\n"
+	"li	$26,2\n"
+	"bne	$27,$26,4f\n"
+	"nop\n"
+	"daddiu	$26,$4,8\n"
+	"dli	$12,0x400000000000481b\n"
+	"dli	$14,0x400000000000491b\n"
+	"b	6f\n"
+	"li	$15,2\n"
+	"4:\n"
+	"li	$26,3\n"
+	"bne	$27,$26,5f\n"
+	"nop\n"
+	"daddiu	$26,$4,0xc\n"
+	"dli	$12,0x4a1b\n"
+	"dli	$14,0x4b1b\n"
+	"b	6f\n"
+	"li	$15,3\n"
+	"5:\n"
+	"li	$26,4\n"
+	"bne	$27,$26,6f\n"
+	"nop\n"
+	"daddiu	$26,$4,0x10\n"
+	"dli	$12,0x4c19\n"
+	"dli	$14,0x4d19\n"
+	"b	6f\n"
+	"li	$15,4\n"
+	"6:\n"
+	"dsll	$26,$26,13\n"
+	"or	$26,$5\n"
+	"dmtc0	$26,$10,0\n"
+	"dmtc0	$12,$2,0\n"
+	"dmtc0	$14,$3,0\n"
+	"mtc0	$5,$5,0\n"
+	"mtc0	$15,$0,0\n"
+	"tlbwi\n"
+	"addiu	$27,1\n"
+	"bne	$27,$13,1b\n"
+	"nop\n"
+	".set	pop\n"
+	:::
+	);
+}
+#if 0
+/*write for test exception trigger*/
+void loongson_vz_general_exc(void)
+{
+	/*this handler process the guest TLB relate exception
+	 in root context,including IS/VMMMU/VMTLBL/VMTLBS/VMTLBM/VMTLBRI/VMTLBXI
+	after the guest tlb miss handled in root, maybe the tlb entrylo0/1 is 0,
+	if lo0/1 is 0,will trigger this handler;so if GVA in KSEG0/1, process the
+	GPA->HPA trans,fill the table and update tlb then we got the total GVA->HPA trans
+	*/
+	__asm__ volatile (
+	".set	push\n"
+	".set	noreorder\n"
+	"mfc0	$26, $22, 1\n"
+	"srl	$26, 2\n"
+	"andi	$26, 0x1f\n"
+	//VMTLBXI
+	"li	$27, 0x6\n"
+	"bne	$26, $27, 1f\n"
+	"nop\n"
+	"dli	$27, 0xbfffffffffffffff\n"
+	"b	7f\n"
+	"li	$12, 2\n"
+
+	//VMTLBRI
+	"1:\n"
+	"li	$27, 0x5\n"
+	"bne	$26, $27, 2f\n"
+	"nop\n"
+	"dli	$27, 0x7fffffffffffffff\n"
+	"b	7f\n"
+	"li	$12, 1\n"
+
+	//VMTLBM
+	"2:\n"
+	"li	$27, 0x4\n"
+	"bne	$26, $27, 3f\n"
+	"nop\n"
+	"dli	$27, 0x4\n"
+	"b	8f\n"
+	"li	$12, 3\n"
+
+	//VMTLBS
+	"3:\n"
+	"li	$27, 0x3\n"
+	"bne	$26, $27, 4f\n"
+	"nop\n"
+	"dli	$27, 0x4\n"
+	"b	8f\n"
+	"li	$12, 4\n"
+	
+	//VMTLBL
+	"4:\n"
+	"li	$27, 0x2\n"
+	"bne	$26, $27, 5f\n"
+	"nop\n"
+	"li	$27, 0x2\n"
+	"b	8f\n"
+	"li	$12, 4\n"	
+	
+	//VMMMU
+	"5:\n"
+	"li	$27, 0x1\n"
+	"bne	$26, $27, 6f\n"
+	"nop\n"
+
+	"7:\n"
+	"mtc0	$12, $0, 0\n"
+	"tlbr\n"
+	"dmfc0	$26, $2, 0\n"
+	"and	$26, $27\n"
+	"dmtc0	$26, $2, 0\n"
+	"dmfc0	$26, $3, 0\n"
+	"and	$26, $27\n"
+	"dmtc0	$26, $3, 0\n"
+	"tlbwi\n"
+	"b	6f\n"
+	"nop\n"
+
+	"8:\n"
+	"mtc0	$12, $0, 0\n"
+	"tlbr\n"
+	"dmfc0	$26, $2, 0\n"
+	"or	$26, $27\n"
+	"dmtc0	$26, $2, 0\n"
+	"dmfc0	$26, $3, 0\n"
+	"or	$26, $27\n"
+	"dmtc0	$26, $3, 0\n"
+	"tlbwi\n"
+	
+	"6:\n"
+	"eret\n"
+	".set	pop\n"
+	:::
+	);
+}
+#endif
 /**
  * kvm_mips_build_tlb_refill_exception() - Assemble TLB refill handler.
  * @addr:	Address to start writing code.
@@ -477,18 +672,23 @@ static void *kvm_mips_build_enter_guest(void *addr)
  */
 void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 {
-	u32 *p = addr;
+	u32 *p = addr + 0x1000;
 	struct uasm_label labels[2];
 	struct uasm_reloc relocs[2];
-	struct uasm_label *l = labels;
-	struct uasm_reloc *r = relocs;
+//	struct uasm_label *l = labels;
+//	struct uasm_reloc *r = relocs;
 
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
 
 	/* Save guest k1 into scratch register */
-	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
+//	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
+//	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.gprs[K0]), K1);
 
+	UASM_i_LA(&p, T9, (unsigned long)loongson_vz_exception);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
+#if 0
 	/* Get the VCPU pointer from the VCPU scratch register */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
 
@@ -533,7 +733,7 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu, arch.gprs[K0]), K1);
 	uasm_i_ehb(&p);
 	UASM_i_MFC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
-
+#endif
 	/* Jump to guest */
 	uasm_i_eret(&p);
 
@@ -657,19 +857,19 @@ void *kvm_mips_build_exit(void *addr)
 
 	uasm_i_mfc0(&p, K0, C0_CAUSE);
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
+#if 0
+	if (cpu_has_badinstr) {
+		uasm_i_mfc0(&p, K0, C0_BADINSTR);
+		uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch,
+					   host_cp0_badinstr), K1);
+	}
 
-	/*if (cpu_has_badinstr) {*/
-		/*uasm_i_mfc0(&p, K0, C0_BADINSTR);*/
-		/*uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch,*/
-					   /*host_cp0_badinstr), K1);*/
-	/*}*/
-
-	/*if (cpu_has_badinstrp) {*/
-		/*uasm_i_mfc0(&p, K0, C0_BADINSTRP);*/
-		/*uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch,*/
-					   /*host_cp0_badinstrp), K1);*/
-	/*}*/
-
+	if (cpu_has_badinstrp) {
+		uasm_i_mfc0(&p, K0, C0_BADINSTRP);
+		uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch,
+					   host_cp0_badinstrp), K1);
+	}
+#endif
 	/* Now restore the host state just enough to run the handlers */
 
 	/* Switch EBASE to the one used by Linux */
@@ -765,7 +965,7 @@ void *kvm_mips_build_exit(void *addr)
 #endif
 
 	/* Now that the new EBASE has been loaded, unset BEV and KSU_USER */
-	uasm_i_addiu(&p, AT, ZERO, ~(ST0_EXL | KSU_USER | ST0_IE));
+	UASM_i_ADDIU(&p, AT, ZERO, ~(ST0_EXL | KSU_USER | ST0_IE));
 	uasm_i_and(&p, V0, V0, AT);
 	uasm_i_lui(&p, AT, ST0_CU0 >> 16);
 	uasm_i_or(&p, V0, V0, AT);
