@@ -31,7 +31,7 @@
 #include "ls2kmci.h"
 
 #define DRIVER_NAME "ls2k_sdio"
-#define CONFGMACSDIO
+#define CONFGMACSDIO 0x1fe10420
 #define CLKRATE 125000000
 
 enum dbg_channels {
