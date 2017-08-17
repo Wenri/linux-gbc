@@ -313,6 +313,40 @@ static struct platform_device ls2k_audio_device = {
 };
 #endif
 
+/*
+ * SDIO
+ */
+#ifdef CONFIG_MMC_LS2K
+static struct resource ls2k_sdio_resources[] = {
+       [0] = {
+               .start = LS2K_SDIO_REG_BASE,
+               .end   = (LS2K_SDIO_REG_BASE + 0xfff),
+               .flags = IORESOURCE_MEM,
+       },
+       [1] = {
+               .start = LS2K_SDIO_IRQ,
+               .end   = LS2K_SDIO_IRQ,
+               .flags = IORESOURCE_IRQ,
+       },
+       [2] = {
+               .start      = LS2K_DMA1_REG,
+               .end        = LS2K_DMA1_REG,
+               .flags      = IORESOURCE_DMA,
+       },
+};
+
+static struct platform_device ls2k_sdio_device = {
+       .name           = "ls2k_sdio",
+       .id             = 0,
+       .dev = {
+               .dma_mask = &ls2k_sdio_device.dev.coherent_dma_mask,
+               .coherent_dma_mask      = DMA_BIT_MASK(32),
+               .platform_data = 0,
+       },
+       .num_resources  = ARRAY_SIZE(ls2k_sdio_resources),
+       .resource       = ls2k_sdio_resources,
+};
+#endif
 
 static struct platform_device *ls2k_platform_devices[] = {
 	&uart8250_device,
@@ -324,6 +358,9 @@ static struct platform_device *ls2k_platform_devices[] = {
 #endif
 #ifdef CONFIG_SOUND_LS2K_UDA1342
 	&ls2k_audio_device,
+#endif
+#ifdef CONFIG_MMC_LS2K
+	&ls2k_sdio_device,
 #endif
 	&ls2k_i2c0_device,
 	&ls2k_i2c1_device,
@@ -358,7 +395,6 @@ int __init ls2k_platform_init(void)
 if(0)
 {
 	i2c_register_board_info(I2C_BUS_0, &ls2k_gmac_eep_info, 1);
-
 }
 	i2c_register_board_info(I2C_BUS_0, &ls2k_ds1338_info, 1);
 	i2c_register_board_info(I2C_BUS_1, &ls2k_fb_eep_info, 1);

@@ -765,3 +765,14 @@ config MMC_MTK
 	  If you have a machine with a integrated SD/MMC card reader, say Y or M here.
 	  This is needed if support for any SD/SDIO/MMC devices is required.
 	  If unsure, say N.
+
+config MMC_LS2K
+    tristate "loongson 2k SD/MMC Card Interface support"
+    depends on MACH_LOONGSON2K
+    help
+      This selects a driver for the MCI interface found in
+          loongson 2k CPU.If you have a board based on it and a MMC/SD
+      slot, say Y or M here.
+
+      If unsure, say N.
+
