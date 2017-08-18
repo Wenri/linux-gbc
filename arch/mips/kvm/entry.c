@@ -349,6 +349,10 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_ins(&p, K0, V1, LS_MODE_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_DIAG);
 
+	uasm_i_mfc0(&p, K0, C0_STATUS);
+	uasm_i_ori(&p, K0, K0, 32);
+	uasm_i_mtc0(&p, K0, C0_STATUS);
+
 	uasm_i_mfgc0(&p, K0, C0_STATUS);
 	uasm_i_ins(&p, K0, ZERO, 2, 1);
 	uasm_i_ins(&p, K0, ZERO, 22, 1);
