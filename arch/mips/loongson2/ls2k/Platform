@@ -1,7 +1,10 @@
 #
 # Loongson3 Machines' Support
 #
-
 platform-$(CONFIG_MACH_LOONGSON2K) += loongson2/ls2k/
+ifeq ($(call cc-ifversion, -ge, 0409, y), y)
+cflags-$(CONFIG_MACH_LOONGSON2K) += -I$(srctree)/arch/mips/include/asm/mach-loongson2k -mno-branch-likely -Wa,-mno-fix-loongson3-llsc
+else
 cflags-$(CONFIG_MACH_LOONGSON2K) += -I$(srctree)/arch/mips/include/asm/mach-loongson2k -mno-branch-likely -Wa,-mnofix-ls3a-llsc
+endif
 load-$(CONFIG_CPU_LOONGSON2K) += 0xffffffff80200000
