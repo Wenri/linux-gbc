@@ -794,7 +794,7 @@ static int ls2k_mci_probe(struct platform_device *pdev)
 	mmc->max_blk_size	= 4095;
 	mmc->max_req_size	= mmc->max_blk_count * mmc->max_blk_size;
 	mmc->max_segs		= 1;
-	mmc->max_seg_size = mmc->max_blk_size * mmc->max_segs;
+	mmc->max_seg_size = mmc->max_req_size;
   	dbg(host, dbg_debug, "mapped mci_base:%p irq:%u irq_cd:%u dma:%u.\n",host->base, host->irq, host->irq_cd, host->dma);
 
 	ret = mmc_add_host(mmc);
