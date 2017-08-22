@@ -32,6 +32,17 @@
 
 #include "trace.h"
 
+/* Pointers to last VCPU loaded on each physical CPU */
+static struct kvm_vcpu *last_vcpu[NR_CPUS];
+/* Pointers to last VCPU executed on each physical CPU */
+static struct kvm_vcpu *last_exec_vcpu[NR_CPUS];
+
+/*
+ * Number of guest VTLB entries to use, so we can catch inconsistency between
+ * CPUs.
+ */
+static unsigned int kvm_vz_guest_vtlb_size;
+
 static inline long kvm_vz_read_gc0_ebase(void)
 {
 	if (sizeof(long) == 8 && cpu_has_ebase_wg)
@@ -47,14 +58,12 @@ static inline void kvm_vz_write_gc0_ebase(long v)
 	 * WG should be left at 0.
 	 * write_gc0_ebase_64() is no longer UNDEFINED since R6.
 	 */
-        /*
-         * loongson VZ on 3a2000/3a3000 is not compatible with MIPS R5/R6
-         */
-	if (sizeof(long) == 8) {
-		write_gc0_ebase_64(MIPS_EBASE_WG);
+	if (sizeof(long) == 8 &&
+	    (cpu_has_mips64r6 || cpu_has_ebase_wg)) {
+		write_gc0_ebase_64(v | MIPS_EBASE_WG);
 		write_gc0_ebase_64(v);
 	} else {
-		write_gc0_ebase(MIPS_EBASE_WG);
+		write_gc0_ebase(v | MIPS_EBASE_WG);
 		write_gc0_ebase(v);
 	}
 }
@@ -2385,10 +2394,10 @@ static void kvm_vz_vcpu_save_wired(struct kvm_vcpu *vcpu)
 
 static void kvm_vz_vcpu_load_wired(struct kvm_vcpu *vcpu)
 {
-        Load wired entries into the guest TLB
-        if (vcpu->arch.wired_tlb)
-                kvm_vz_load_guesttlb(vcpu->arch.wired_tlb, 0,
-                                     vcpu->arch.wired_tlb_used);
+	/* Load wired entries into the guest TLB */
+	if (vcpu->arch.wired_tlb)
+		kvm_vz_load_guesttlb(vcpu->arch.wired_tlb, 0,
+				     vcpu->arch.wired_tlb_used);
 }
 
 static void kvm_vz_vcpu_load_tlb(struct kvm_vcpu *vcpu, int cpu)
@@ -2427,7 +2436,7 @@ static void kvm_vz_vcpu_load_tlb(struct kvm_vcpu *vcpu, int cpu)
 						 vcpu->arch.vzguestid[cpu]);
 		}
 
-		/*[> Restore GuestID <]*/
+		/* Restore GuestID */
 		change_c0_guestctl1(GUESTID_MASK, vcpu->arch.vzguestid[cpu]);
 	} else {
 		/*
@@ -2487,13 +2496,13 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 */
 	kvm_vz_restore_timer(vcpu);
 
-	/*[> Set MC bit if we want to trace guest mode changes <]*/
+	/* Set MC bit if we want to trace guest mode changes */
 	if (kvm_trace_guest_mode_change)
 		set_c0_guestctl0(MIPS_GCTL0_MC);
 	else
 		clear_c0_guestctl0(MIPS_GCTL0_MC);
 
-	/*[> Don't bother restoring registers multiple times unless necessary <]*/
+	/* Don't bother restoring registers multiple times unless necessary */
 	if (!all)
 		return 0;
 
@@ -2543,7 +2552,7 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 
 	kvm_restore_gc0_errorepc(cop0);
 
-	/*[> restore KScratch registers if enabled in guest <]*/
+	/* restore KScratch registers if enabled in guest */
 	if (cpu_guest_has_conf4) {
 		if (cpu_guest_has_kscr(2))
 			kvm_restore_gc0_kscratch1(cop0);
@@ -2570,7 +2579,7 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		kvm_restore_gc0_segctl2(cop0);
 	}
 
-	/*[> restore HTW registers <]*/
+	/* restore HTW registers */
 	if (cpu_guest_has_htw) {
 		kvm_restore_gc0_pwbase(cop0);
 		kvm_restore_gc0_pwfield(cop0);
@@ -2578,7 +2587,7 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		kvm_restore_gc0_pwctl(cop0);
 	}
 
-	/*[> restore Root.GuestCtl2 from unused Guest guestctl2 register <]*/
+	/* restore Root.GuestCtl2 from unused Guest guestctl2 register */
 	if (cpu_has_guestctl2)
 		write_c0_guestctl2(
 			cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
@@ -2596,100 +2605,100 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 
 static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 {
-        struct mips_coproc *cop0 = vcpu->arch.cop0;
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
 
-        if (current->flags & PF_VCPU)
-                kvm_vz_vcpu_save_wired(vcpu);
+	if (current->flags & PF_VCPU)
+		kvm_vz_vcpu_save_wired(vcpu);
 
-        kvm_lose_fpu(vcpu);
+	kvm_lose_fpu(vcpu);
 
-        kvm_save_gc0_index(cop0);
-        kvm_save_gc0_entrylo0(cop0);
-        kvm_save_gc0_entrylo1(cop0);
-        kvm_save_gc0_context(cop0);
-        if (cpu_guest_has_contextconfig)
-                kvm_save_gc0_contextconfig(cop0);
+	kvm_save_gc0_index(cop0);
+	kvm_save_gc0_entrylo0(cop0);
+	kvm_save_gc0_entrylo1(cop0);
+	kvm_save_gc0_context(cop0);
+	if (cpu_guest_has_contextconfig)
+		kvm_save_gc0_contextconfig(cop0);
 #ifdef CONFIG_64BIT
-        kvm_save_gc0_xcontext(cop0);
-        if (cpu_guest_has_contextconfig)
-                kvm_save_gc0_xcontextconfig(cop0);
+	kvm_save_gc0_xcontext(cop0);
+	if (cpu_guest_has_contextconfig)
+		kvm_save_gc0_xcontextconfig(cop0);
 #endif
-        kvm_save_gc0_pagemask(cop0);
-        kvm_save_gc0_pagegrain(cop0);
-        kvm_save_gc0_wired(cop0);
-        /*[> allow wired TLB entries to be overwritten <]*/
-        clear_gc0_wired(MIPSR6_WIRED_WIRED);
-        kvm_save_gc0_hwrena(cop0);
-        kvm_save_gc0_badvaddr(cop0);
-        kvm_save_gc0_entryhi(cop0);
-        kvm_save_gc0_status(cop0);
-        kvm_save_gc0_intctl(cop0);
-        kvm_save_gc0_epc(cop0);
-        kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase());
-        if (cpu_guest_has_userlocal)
-                kvm_save_gc0_userlocal(cop0);
+	kvm_save_gc0_pagemask(cop0);
+	kvm_save_gc0_pagegrain(cop0);
+	kvm_save_gc0_wired(cop0);
+	/* allow wired TLB entries to be overwritten */
+	clear_gc0_wired(MIPSR6_WIRED_WIRED);
+	kvm_save_gc0_hwrena(cop0);
+	kvm_save_gc0_badvaddr(cop0);
+	kvm_save_gc0_entryhi(cop0);
+	kvm_save_gc0_status(cop0);
+	kvm_save_gc0_intctl(cop0);
+	kvm_save_gc0_epc(cop0);
+	kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase());
+	if (cpu_guest_has_userlocal)
+		kvm_save_gc0_userlocal(cop0);
 
-        /*[> only save implemented config registers <]*/
-        kvm_save_gc0_config(cop0);
-        if (cpu_guest_has_conf1)
-                kvm_save_gc0_config1(cop0);
-        if (cpu_guest_has_conf2)
-                kvm_save_gc0_config2(cop0);
-        if (cpu_guest_has_conf3)
-                kvm_save_gc0_config3(cop0);
-        if (cpu_guest_has_conf4)
-                kvm_save_gc0_config4(cop0);
-        if (cpu_guest_has_conf5)
-                kvm_save_gc0_config5(cop0);
-        if (cpu_guest_has_conf6)
-                kvm_save_gc0_config6(cop0);
-        if (cpu_guest_has_conf7)
-                kvm_save_gc0_config7(cop0);
+	/* only save implemented config registers */
+	kvm_save_gc0_config(cop0);
+	if (cpu_guest_has_conf1)
+		kvm_save_gc0_config1(cop0);
+	if (cpu_guest_has_conf2)
+		kvm_save_gc0_config2(cop0);
+	if (cpu_guest_has_conf3)
+		kvm_save_gc0_config3(cop0);
+	if (cpu_guest_has_conf4)
+		kvm_save_gc0_config4(cop0);
+	if (cpu_guest_has_conf5)
+		kvm_save_gc0_config5(cop0);
+	if (cpu_guest_has_conf6)
+		kvm_save_gc0_config6(cop0);
+	if (cpu_guest_has_conf7)
+		kvm_save_gc0_config7(cop0);
 
-        kvm_save_gc0_errorepc(cop0);
+	kvm_save_gc0_errorepc(cop0);
 
-        /*[> save KScratch registers if enabled in guest <]*/
-        if (cpu_guest_has_conf4) {
-                if (cpu_guest_has_kscr(2))
-                        kvm_save_gc0_kscratch1(cop0);
-                if (cpu_guest_has_kscr(3))
-                        kvm_save_gc0_kscratch2(cop0);
-                if (cpu_guest_has_kscr(4))
-                        kvm_save_gc0_kscratch3(cop0);
-                if (cpu_guest_has_kscr(5))
-                        kvm_save_gc0_kscratch4(cop0);
-                if (cpu_guest_has_kscr(6))
-                        kvm_save_gc0_kscratch5(cop0);
-                if (cpu_guest_has_kscr(7))
-                        kvm_save_gc0_kscratch6(cop0);
-        }
+	/* save KScratch registers if enabled in guest */
+	if (cpu_guest_has_conf4) {
+		if (cpu_guest_has_kscr(2))
+			kvm_save_gc0_kscratch1(cop0);
+		if (cpu_guest_has_kscr(3))
+			kvm_save_gc0_kscratch2(cop0);
+		if (cpu_guest_has_kscr(4))
+			kvm_save_gc0_kscratch3(cop0);
+		if (cpu_guest_has_kscr(5))
+			kvm_save_gc0_kscratch4(cop0);
+		if (cpu_guest_has_kscr(6))
+			kvm_save_gc0_kscratch5(cop0);
+		if (cpu_guest_has_kscr(7))
+			kvm_save_gc0_kscratch6(cop0);
+	}
 
-        if (cpu_guest_has_badinstr)
-                kvm_save_gc0_badinstr(cop0);
-        if (cpu_guest_has_badinstrp)
-                kvm_save_gc0_badinstrp(cop0);
+	if (cpu_guest_has_badinstr)
+		kvm_save_gc0_badinstr(cop0);
+	if (cpu_guest_has_badinstrp)
+		kvm_save_gc0_badinstrp(cop0);
 
-        if (cpu_guest_has_segments) {
-                kvm_save_gc0_segctl0(cop0);
-                kvm_save_gc0_segctl1(cop0);
-                kvm_save_gc0_segctl2(cop0);
-        }
+	if (cpu_guest_has_segments) {
+		kvm_save_gc0_segctl0(cop0);
+		kvm_save_gc0_segctl1(cop0);
+		kvm_save_gc0_segctl2(cop0);
+	}
 
-        /*[> save HTW registers if enabled in guest <]*/
-        if (cpu_guest_has_htw &&
-            kvm_read_sw_gc0_config3(cop0) & MIPS_CONF3_PW) {
-                kvm_save_gc0_pwbase(cop0);
-                kvm_save_gc0_pwfield(cop0);
-                kvm_save_gc0_pwsize(cop0);
-                kvm_save_gc0_pwctl(cop0);
-        }
+	/* save HTW registers if enabled in guest */
+	if (cpu_guest_has_htw &&
+	    kvm_read_sw_gc0_config3(cop0) & MIPS_CONF3_PW) {
+		kvm_save_gc0_pwbase(cop0);
+		kvm_save_gc0_pwfield(cop0);
+		kvm_save_gc0_pwsize(cop0);
+		kvm_save_gc0_pwctl(cop0);
+	}
 
-        kvm_vz_save_timer(vcpu);
+	kvm_vz_save_timer(vcpu);
 
-        /*[> save Root.GuestCtl2 in unused Guest guestctl2 register <]*/
-        if (cpu_has_guestctl2)
-                cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] =
-                        read_c0_guestctl2();
+	/* save Root.GuestCtl2 in unused Guest guestctl2 register */
+	if (cpu_has_guestctl2)
+		cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] =
+			read_c0_guestctl2();
 
 	return 0;
 }
@@ -2708,7 +2717,7 @@ static unsigned int kvm_vz_resize_guest_vtlb(unsigned int size)
 {
 	unsigned int config4 = 0, ret = 0, limit;
 
-	/*[> Write MMUSize - 1 into guest Config registers <]*/
+	/* Write MMUSize - 1 into guest Config registers */
 	if (cpu_guest_has_conf1)
 		change_gc0_config1(MIPS_CONF1_TLBS,
 				   (size - 1) << MIPS_CONF1_TLBS_SHIFT);
@@ -2733,91 +2742,91 @@ static unsigned int kvm_vz_resize_guest_vtlb(unsigned int size)
 	 * would exceed Root.Wired.Limit (clearing Guest.Wired.Wired so write
 	 * not dropped)
 	 */
-	/*if (cpu_has_mips_r6) {*/
-		/*limit = (read_c0_wired() & MIPSR6_WIRED_LIMIT) >>*/
-						/*MIPSR6_WIRED_LIMIT_SHIFT;*/
-		/*if (size - 1 <= limit)*/
-			/*limit = 0;*/
-		/*write_gc0_wired(limit << MIPSR6_WIRED_LIMIT_SHIFT);*/
-	/*}*/
+	if (cpu_has_mips_r6) {
+		limit = (read_c0_wired() & MIPSR6_WIRED_LIMIT) >>
+						MIPSR6_WIRED_LIMIT_SHIFT;
+		if (size - 1 <= limit)
+			limit = 0;
+		write_gc0_wired(limit << MIPSR6_WIRED_LIMIT_SHIFT);
+	}
 
-	/*[> Read back MMUSize - 1 <]*/
-	/*back_to_back_c0_hazard();*/
-	/*if (cpu_guest_has_conf1)*/
-		/*ret = (read_gc0_config1() & MIPS_CONF1_TLBS) >>*/
-						/*MIPS_CONF1_TLBS_SHIFT;*/
-	/*if (config4) {*/
-		/*if (cpu_has_mips_r6 || (config4 & MIPS_CONF4_MMUEXTDEF) ==*/
-		    /*MIPS_CONF4_MMUEXTDEF_VTLBSIZEEXT)*/
-			/*ret |= ((config4 & MIPS_CONF4_VTLBSIZEEXT) >>*/
-				/*MIPS_CONF4_VTLBSIZEEXT_SHIFT) <<*/
-				/*MIPS_CONF1_TLBS_SIZE;*/
-		/*else if ((config4 & MIPS_CONF4_MMUEXTDEF) ==*/
-			 /*MIPS_CONF4_MMUEXTDEF_MMUSIZEEXT)*/
-			/*ret |= ((config4 & MIPS_CONF4_MMUSIZEEXT) >>*/
-				/*MIPS_CONF4_MMUSIZEEXT_SHIFT) <<*/
-				/*MIPS_CONF1_TLBS_SIZE;*/
-	/*}*/
+	/* Read back MMUSize - 1 */
+	back_to_back_c0_hazard();
+	if (cpu_guest_has_conf1)
+		ret = (read_gc0_config1() & MIPS_CONF1_TLBS) >>
+						MIPS_CONF1_TLBS_SHIFT;
+	if (config4) {
+		if (cpu_has_mips_r6 || (config4 & MIPS_CONF4_MMUEXTDEF) ==
+		    MIPS_CONF4_MMUEXTDEF_VTLBSIZEEXT)
+			ret |= ((config4 & MIPS_CONF4_VTLBSIZEEXT) >>
+				MIPS_CONF4_VTLBSIZEEXT_SHIFT) <<
+				MIPS_CONF1_TLBS_SIZE;
+		else if ((config4 & MIPS_CONF4_MMUEXTDEF) ==
+			 MIPS_CONF4_MMUEXTDEF_MMUSIZEEXT)
+			ret |= ((config4 & MIPS_CONF4_MMUSIZEEXT) >>
+				MIPS_CONF4_MMUSIZEEXT_SHIFT) <<
+				MIPS_CONF1_TLBS_SIZE;
+	}
 	return ret + 1;
 }
 
 static int kvm_vz_hardware_enable(void)
 {
-	/*unsigned int mmu_size, guest_mmu_size, ftlb_size;*/
-	/*u64 guest_cvmctl, cvmvmconfig;*/
+	unsigned int mmu_size, guest_mmu_size, ftlb_size;
+	u64 guest_cvmctl, cvmvmconfig;
 
-	/*switch (current_cpu_type()) {*/
-	/*case CPU_CAVIUM_OCTEON3:*/
-		/*[> Set up guest timer/perfcount IRQ lines <]*/
-		/*guest_cvmctl = read_gc0_cvmctl();*/
-		/*guest_cvmctl &= ~CVMCTL_IPTI;*/
-		/*guest_cvmctl |= 7ull << CVMCTL_IPTI_SHIFT;*/
-		/*guest_cvmctl &= ~CVMCTL_IPPCI;*/
-		/*guest_cvmctl |= 6ull << CVMCTL_IPPCI_SHIFT;*/
-		/*write_gc0_cvmctl(guest_cvmctl);*/
+	switch (current_cpu_type()) {
+	case CPU_CAVIUM_OCTEON3:
+		/* Set up guest timer/perfcount IRQ lines */
+		guest_cvmctl = read_gc0_cvmctl();
+		guest_cvmctl &= ~CVMCTL_IPTI;
+		guest_cvmctl |= 7ull << CVMCTL_IPTI_SHIFT;
+		guest_cvmctl &= ~CVMCTL_IPPCI;
+		guest_cvmctl |= 6ull << CVMCTL_IPPCI_SHIFT;
+		write_gc0_cvmctl(guest_cvmctl);
 
-		/*cvmvmconfig = read_c0_cvmvmconfig();*/
-		/*[> No I/O hole translation. <]*/
-		/*cvmvmconfig |= CVMVMCONF_DGHT;*/
-		/*[> Halve the root MMU size <]*/
-		/*mmu_size = ((cvmvmconfig & CVMVMCONF_MMUSIZEM1)*/
-			    /*>> CVMVMCONF_MMUSIZEM1_S) + 1;*/
-		/*guest_mmu_size = mmu_size / 2;*/
-		/*mmu_size -= guest_mmu_size;*/
-		/*cvmvmconfig &= ~CVMVMCONF_RMMUSIZEM1;*/
-		/*cvmvmconfig |= mmu_size - 1;*/
-		/*write_c0_cvmvmconfig(cvmvmconfig);*/
+		cvmvmconfig = read_c0_cvmvmconfig();
+		/* No I/O hole translation. */
+		cvmvmconfig |= CVMVMCONF_DGHT;
+		/* Halve the root MMU size */
+		mmu_size = ((cvmvmconfig & CVMVMCONF_MMUSIZEM1)
+			    >> CVMVMCONF_MMUSIZEM1_S) + 1;
+		guest_mmu_size = mmu_size / 2;
+		mmu_size -= guest_mmu_size;
+		cvmvmconfig &= ~CVMVMCONF_RMMUSIZEM1;
+		cvmvmconfig |= mmu_size - 1;
+		write_c0_cvmvmconfig(cvmvmconfig);
 
-		/*[> Update our records <]*/
-		/*current_cpu_data.tlbsize = mmu_size;*/
-		/*current_cpu_data.tlbsizevtlb = mmu_size;*/
-		/*current_cpu_data.guest.tlbsize = guest_mmu_size;*/
+		/* Update our records */
+		current_cpu_data.tlbsize = mmu_size;
+		current_cpu_data.tlbsizevtlb = mmu_size;
+		current_cpu_data.guest.tlbsize = guest_mmu_size;
 
-		/*[> Flush moved entries in new (guest) context <]*/
-		/*kvm_vz_local_flush_guesttlb_all();*/
-		/*break;*/
-	/*default:*/
+		/* Flush moved entries in new (guest) context */
+		kvm_vz_local_flush_guesttlb_all();
+		break;
+	default:
 		/*
 		 * ImgTec cores tend to use a shared root/guest TLB. To avoid
 		 * overlap of root wired and guest entries, the guest TLB may
 		 * need resizing.
 		 */
-		/*mmu_size = current_cpu_data.tlbsizevtlb;*/
-		/*ftlb_size = current_cpu_data.tlbsize - mmu_size;*/
+		mmu_size = current_cpu_data.tlbsizevtlb;
+		ftlb_size = current_cpu_data.tlbsize - mmu_size;
 
-		/*[> Try switching to maximum guest VTLB size for flush <]*/
-		/*guest_mmu_size = kvm_vz_resize_guest_vtlb(mmu_size);*/
-		/*current_cpu_data.guest.tlbsize = guest_mmu_size + ftlb_size;*/
-		/*kvm_vz_local_flush_guesttlb_all();*/
+		/* Try switching to maximum guest VTLB size for flush */
+		guest_mmu_size = kvm_vz_resize_guest_vtlb(mmu_size);
+		current_cpu_data.guest.tlbsize = guest_mmu_size + ftlb_size;
+		kvm_vz_local_flush_guesttlb_all();
 
 		/*
 		 * Reduce to make space for root wired entries and at least 2
 		 * root non-wired entries. This does assume that long-term wired
 		 * entries won't be added later.
 		 */
-		/*guest_mmu_size = mmu_size - num_wired_entries() - 2;*/
-		/*guest_mmu_size = kvm_vz_resize_guest_vtlb(guest_mmu_size);*/
-		/*current_cpu_data.guest.tlbsize = guest_mmu_size + ftlb_size;*/
+		guest_mmu_size = mmu_size - num_wired_entries() - 2;
+		guest_mmu_size = kvm_vz_resize_guest_vtlb(guest_mmu_size);
+		current_cpu_data.guest.tlbsize = guest_mmu_size + ftlb_size;
 
 		/*
 		 * Write the VTLB size, but if another CPU has already written,
@@ -2825,12 +2834,12 @@ static int kvm_vz_hardware_enable(void)
 		 * guest. If this ever happens it suggests an asymmetric number
 		 * of wired entries.
 		 */
-		/*if (cmpxchg(&kvm_vz_guest_vtlb_size, 0, guest_mmu_size) &&*/
-		    /*WARN(guest_mmu_size != kvm_vz_guest_vtlb_size,*/
-			 /*"Available guest VTLB size mismatch"))*/
-			/*return -EINVAL;*/
-		/*break;*/
-	/*}*/
+		if (cmpxchg(&kvm_vz_guest_vtlb_size, 0, guest_mmu_size) &&
+		    WARN(guest_mmu_size != kvm_vz_guest_vtlb_size,
+			 "Available guest VTLB size mismatch"))
+			return -EINVAL;
+		break;
+	}
 
 	/*
 	 * Enable virtualization features granting guest direct control of
@@ -2841,265 +2850,265 @@ static int kvm_vz_hardware_enable(void)
 	 * CF=1:	Guest Config registers.
 	 * CGI=1:	Indexed flush CACHE operations (optional).
 	 */
-	/*write_c0_guestctl0(MIPS_GCTL0_CP0 |*/
-			   /*(MIPS_GCTL0_AT_GUEST << MIPS_GCTL0_AT_SHIFT) |*/
-			   /*MIPS_GCTL0_CG | MIPS_GCTL0_CF);*/
-	/*if (cpu_has_guestctl0ext)*/
-		/*set_c0_guestctl0ext(MIPS_GCTL0EXT_CGI);*/
+	write_c0_guestctl0(MIPS_GCTL0_CP0 |
+			   (MIPS_GCTL0_AT_GUEST << MIPS_GCTL0_AT_SHIFT) |
+			   MIPS_GCTL0_CG | MIPS_GCTL0_CF);
+	if (cpu_has_guestctl0ext)
+		set_c0_guestctl0ext(MIPS_GCTL0EXT_CGI);
 
-	/*if (cpu_has_guestid) {*/
-		/*write_c0_guestctl1(0);*/
-		/*kvm_vz_local_flush_roottlb_all_guests();*/
+	if (cpu_has_guestid) {
+		write_c0_guestctl1(0);
+		kvm_vz_local_flush_roottlb_all_guests();
 
-		/*GUESTID_MASK = current_cpu_data.guestid_mask;*/
-		/*GUESTID_FIRST_VERSION = GUESTID_MASK + 1;*/
-		/*GUESTID_VERSION_MASK = ~GUESTID_MASK;*/
+		GUESTID_MASK = current_cpu_data.guestid_mask;
+		GUESTID_FIRST_VERSION = GUESTID_MASK + 1;
+		GUESTID_VERSION_MASK = ~GUESTID_MASK;
 
-		/*current_cpu_data.guestid_cache = GUESTID_FIRST_VERSION;*/
-	/*}*/
+		current_cpu_data.guestid_cache = GUESTID_FIRST_VERSION;
+	}
 
-	/*[> clear any pending injected virtual guest interrupts <]*/
-	/*if (cpu_has_guestctl2)*/
-		/*clear_c0_guestctl2(0x3f << 10);*/
+	/* clear any pending injected virtual guest interrupts */
+	if (cpu_has_guestctl2)
+		clear_c0_guestctl2(0x3f << 10);
 
 	return 0;
 }
 
 static void kvm_vz_hardware_disable(void)
 {
-	/*u64 cvmvmconfig;*/
-	/*unsigned int mmu_size;*/
+	u64 cvmvmconfig;
+	unsigned int mmu_size;
 
-	/*[> Flush any remaining guest TLB entries <]*/
-	/*kvm_vz_local_flush_guesttlb_all();*/
+	/* Flush any remaining guest TLB entries */
+	kvm_vz_local_flush_guesttlb_all();
 
-	/*switch (current_cpu_type()) {*/
-	/*case CPU_CAVIUM_OCTEON3:*/
+	switch (current_cpu_type()) {
+	case CPU_CAVIUM_OCTEON3:
 		/*
 		 * Allocate whole TLB for root. Existing guest TLB entries will
 		 * change ownership to the root TLB. We should be safe though as
 		 * they've already been flushed above while in guest TLB.
 		 */
-		/*cvmvmconfig = read_c0_cvmvmconfig();*/
-		/*mmu_size = ((cvmvmconfig & CVMVMCONF_MMUSIZEM1)*/
-			    /*>> CVMVMCONF_MMUSIZEM1_S) + 1;*/
-		/*cvmvmconfig &= ~CVMVMCONF_RMMUSIZEM1;*/
-		/*cvmvmconfig |= mmu_size - 1;*/
-		/*write_c0_cvmvmconfig(cvmvmconfig);*/
+		cvmvmconfig = read_c0_cvmvmconfig();
+		mmu_size = ((cvmvmconfig & CVMVMCONF_MMUSIZEM1)
+			    >> CVMVMCONF_MMUSIZEM1_S) + 1;
+		cvmvmconfig &= ~CVMVMCONF_RMMUSIZEM1;
+		cvmvmconfig |= mmu_size - 1;
+		write_c0_cvmvmconfig(cvmvmconfig);
 
-		/*[> Update our records <]*/
-		/*current_cpu_data.tlbsize = mmu_size;*/
-		/*current_cpu_data.tlbsizevtlb = mmu_size;*/
-		/*current_cpu_data.guest.tlbsize = 0;*/
+		/* Update our records */
+		current_cpu_data.tlbsize = mmu_size;
+		current_cpu_data.tlbsizevtlb = mmu_size;
+		current_cpu_data.guest.tlbsize = 0;
 
-		/*[> Flush moved entries in new (root) context <]*/
-		/*local_flush_tlb_all();*/
-		/*break;*/
-	/*}*/
+		/* Flush moved entries in new (root) context */
+		local_flush_tlb_all();
+		break;
+	}
 
-	/*if (cpu_has_guestid) {*/
-		/*write_c0_guestctl1(0);*/
-		/*kvm_vz_local_flush_roottlb_all_guests();*/
-	/*}*/
+	if (cpu_has_guestid) {
+		write_c0_guestctl1(0);
+		kvm_vz_local_flush_roottlb_all_guests();
+	}
 }
 
 static int kvm_vz_check_extension(struct kvm *kvm, long ext)
 {
 	int r;
 
-	/*switch (ext) {*/
-	/*case KVM_CAP_MIPS_VZ:*/
-		/*[> we wouldn't be here unless cpu_has_vz <]*/
-		/*r = 1;*/
-		/*break;*/
-/*#ifdef CONFIG_64BIT*/
-	/*case KVM_CAP_MIPS_64BIT:*/
-		/*[> We support 64-bit registers/operations and addresses <]*/
-		/*r = 2;*/
-		/*break;*/
-/*#endif*/
-	/*default:*/
-		/*r = 0;*/
-		/*break;*/
-	/*}*/
+	switch (ext) {
+	case KVM_CAP_MIPS_VZ:
+		/* we wouldn't be here unless cpu_has_vz */
+		r = 1;
+		break;
+#ifdef CONFIG_64BIT
+	case KVM_CAP_MIPS_64BIT:
+		/* We support 64-bit registers/operations and addresses */
+		r = 2;
+		break;
+#endif
+	default:
+		r = 0;
+		break;
+	}
 
 	return r;
 }
 
 static int kvm_vz_vcpu_init(struct kvm_vcpu *vcpu)
 {
-	/*int i;*/
+	int i;
 
-	/*for_each_possible_cpu(i)*/
-		/*vcpu->arch.vzguestid[i] = 0;*/
+	for_each_possible_cpu(i)
+		vcpu->arch.vzguestid[i] = 0;
 
 	return 0;
 }
 
 static void kvm_vz_vcpu_uninit(struct kvm_vcpu *vcpu)
 {
-	/*int cpu;*/
+	int cpu;
 
 	/*
 	 * If the VCPU is freed and reused as another VCPU, we don't want the
 	 * matching pointer wrongly hanging around in last_vcpu[] or
 	 * last_exec_vcpu[].
 	 */
-	/*for_each_possible_cpu(cpu) {*/
-		/*if (last_vcpu[cpu] == vcpu)*/
-			/*last_vcpu[cpu] = NULL;*/
-		/*if (last_exec_vcpu[cpu] == vcpu)*/
-			/*last_exec_vcpu[cpu] = NULL;*/
-	/*}*/
+	for_each_possible_cpu(cpu) {
+		if (last_vcpu[cpu] == vcpu)
+			last_vcpu[cpu] = NULL;
+		if (last_exec_vcpu[cpu] == vcpu)
+			last_exec_vcpu[cpu] = NULL;
+	}
 }
 
 static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 {
-	/*struct mips_coproc *cop0 = vcpu->arch.cop0;*/
-	/*unsigned long count_hz = 100*1000*1000; [> default to 100 MHz <]*/
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	unsigned long count_hz = 100*1000*1000; /* default to 100 MHz */
 
 	/*
 	 * Start off the timer at the same frequency as the host timer, but the
 	 * soft timer doesn't handle frequencies greater than 1GHz yet.
 	 */
-	/*if (mips_hpt_frequency && mips_hpt_frequency <= NSEC_PER_SEC)*/
-		/*count_hz = mips_hpt_frequency;*/
-	/*kvm_mips_init_count(vcpu, count_hz);*/
+	if (mips_hpt_frequency && mips_hpt_frequency <= NSEC_PER_SEC)
+		count_hz = mips_hpt_frequency;
+	kvm_mips_init_count(vcpu, count_hz);
 
 	/*
 	 * Initialize guest register state to valid architectural reset state.
 	 */
 
-	/*[> PageGrain <]*/
-	/*if (cpu_has_mips_r6)*/
-		/*kvm_write_sw_gc0_pagegrain(cop0, PG_RIE | PG_XIE | PG_IEC);*/
-	/*[> Wired <]*/
-	/*if (cpu_has_mips_r6)*/
-		/*kvm_write_sw_gc0_wired(cop0,*/
-				       /*read_gc0_wired() & MIPSR6_WIRED_LIMIT);*/
-	/*[> Status <]*/
-	/*kvm_write_sw_gc0_status(cop0, ST0_BEV | ST0_ERL);*/
-	/*if (cpu_has_mips_r6)*/
-		/*kvm_change_sw_gc0_status(cop0, ST0_FR, read_gc0_status());*/
-	/*[> IntCtl <]*/
-	/*kvm_write_sw_gc0_intctl(cop0, read_gc0_intctl() &*/
-				/*(INTCTLF_IPFDC | INTCTLF_IPPCI | INTCTLF_IPTI));*/
-	/*[> PRId <]*/
-	/*kvm_write_sw_gc0_prid(cop0, boot_cpu_data.processor_id);*/
-	/*[> EBase <]*/
-	/*kvm_write_sw_gc0_ebase(cop0, (s32)0x80000000 | vcpu->vcpu_id);*/
-	/*[> Config <]*/
-	/*kvm_save_gc0_config(cop0);*/
-	/*[> architecturally writable (e.g. from guest) <]*/
-	/*kvm_change_sw_gc0_config(cop0, CONF_CM_CMASK,*/
-				 /*_page_cachable_default >> _CACHE_SHIFT);*/
-	/*[> architecturally read only, but maybe writable from root <]*/
-	/*kvm_change_sw_gc0_config(cop0, MIPS_CONF_MT, read_c0_config());*/
-	/*if (cpu_guest_has_conf1) {*/
-		/*kvm_set_sw_gc0_config(cop0, MIPS_CONF_M);*/
-		/*[> Config1 <]*/
-		/*kvm_save_gc0_config1(cop0);*/
-		/*[> architecturally read only, but maybe writable from root <]*/
-		/*kvm_clear_sw_gc0_config1(cop0, MIPS_CONF1_C2	|*/
-					       /*MIPS_CONF1_MD	|*/
-					       /*MIPS_CONF1_PC	|*/
-					       /*MIPS_CONF1_WR	|*/
-					       /*MIPS_CONF1_CA	|*/
-					       /*MIPS_CONF1_FP);*/
-	/*}*/
-	/*if (cpu_guest_has_conf2) {*/
-		/*kvm_set_sw_gc0_config1(cop0, MIPS_CONF_M);*/
-		/*[> Config2 <]*/
-		/*kvm_save_gc0_config2(cop0);*/
-	/*}*/
-	/*if (cpu_guest_has_conf3) {*/
-		/*kvm_set_sw_gc0_config2(cop0, MIPS_CONF_M);*/
-		/*[> Config3 <]*/
-		/*kvm_save_gc0_config3(cop0);*/
-		/*[> architecturally writable (e.g. from guest) <]*/
-		/*kvm_clear_sw_gc0_config3(cop0, MIPS_CONF3_ISA_OE);*/
-		/*[> architecturally read only, but maybe writable from root <]*/
-		/*kvm_clear_sw_gc0_config3(cop0, MIPS_CONF3_MSA	|*/
-					       /*MIPS_CONF3_BPG	|*/
-					       /*MIPS_CONF3_ULRI	|*/
-					       /*MIPS_CONF3_DSP	|*/
-					       /*MIPS_CONF3_CTXTC	|*/
-					       /*MIPS_CONF3_ITL	|*/
-					       /*MIPS_CONF3_LPA	|*/
-					       /*MIPS_CONF3_VEIC	|*/
-					       /*MIPS_CONF3_VINT	|*/
-					       /*MIPS_CONF3_SP	|*/
-					       /*MIPS_CONF3_CDMM	|*/
-					       /*MIPS_CONF3_MT	|*/
-					       /*MIPS_CONF3_SM	|*/
-					       /*MIPS_CONF3_TL);*/
-	/*}*/
-	/*if (cpu_guest_has_conf4) {*/
-		/*kvm_set_sw_gc0_config3(cop0, MIPS_CONF_M);*/
-		/*[> Config4 <]*/
-		/*kvm_save_gc0_config4(cop0);*/
-	/*}*/
-	/*if (cpu_guest_has_conf5) {*/
-		/*kvm_set_sw_gc0_config4(cop0, MIPS_CONF_M);*/
-		/*[> Config5 <]*/
-		/*kvm_save_gc0_config5(cop0);*/
-		/*[> architecturally writable (e.g. from guest) <]*/
-		/*kvm_clear_sw_gc0_config5(cop0, MIPS_CONF5_K	|*/
-					       /*MIPS_CONF5_CV	|*/
-					       /*MIPS_CONF5_MSAEN	|*/
-					       /*MIPS_CONF5_UFE	|*/
-					       /*MIPS_CONF5_FRE	|*/
-					       /*MIPS_CONF5_SBRI	|*/
-					       /*MIPS_CONF5_UFR);*/
-		/*[> architecturally read only, but maybe writable from root <]*/
-		/*kvm_clear_sw_gc0_config5(cop0, MIPS_CONF5_MRP);*/
-	/*}*/
+	/* PageGrain */
+	if (cpu_has_mips_r6)
+		kvm_write_sw_gc0_pagegrain(cop0, PG_RIE | PG_XIE | PG_IEC);
+	/* Wired */
+	if (cpu_has_mips_r6)
+		kvm_write_sw_gc0_wired(cop0,
+				       read_gc0_wired() & MIPSR6_WIRED_LIMIT);
+	/* Status */
+	kvm_write_sw_gc0_status(cop0, ST0_BEV | ST0_ERL);
+	if (cpu_has_mips_r6)
+		kvm_change_sw_gc0_status(cop0, ST0_FR, read_gc0_status());
+	/* IntCtl */
+	kvm_write_sw_gc0_intctl(cop0, read_gc0_intctl() &
+				(INTCTLF_IPFDC | INTCTLF_IPPCI | INTCTLF_IPTI));
+	/* PRId */
+	kvm_write_sw_gc0_prid(cop0, boot_cpu_data.processor_id);
+	/* EBase */
+	kvm_write_sw_gc0_ebase(cop0, (s32)0x80000000 | vcpu->vcpu_id);
+	/* Config */
+	kvm_save_gc0_config(cop0);
+	/* architecturally writable (e.g. from guest) */
+	kvm_change_sw_gc0_config(cop0, CONF_CM_CMASK,
+				 _page_cachable_default >> _CACHE_SHIFT);
+	/* architecturally read only, but maybe writable from root */
+	kvm_change_sw_gc0_config(cop0, MIPS_CONF_MT, read_c0_config());
+	if (cpu_guest_has_conf1) {
+		kvm_set_sw_gc0_config(cop0, MIPS_CONF_M);
+		/* Config1 */
+		kvm_save_gc0_config1(cop0);
+		/* architecturally read only, but maybe writable from root */
+		kvm_clear_sw_gc0_config1(cop0, MIPS_CONF1_C2	|
+					       MIPS_CONF1_MD	|
+					       MIPS_CONF1_PC	|
+					       MIPS_CONF1_WR	|
+					       MIPS_CONF1_CA	|
+					       MIPS_CONF1_FP);
+	}
+	if (cpu_guest_has_conf2) {
+		kvm_set_sw_gc0_config1(cop0, MIPS_CONF_M);
+		/* Config2 */
+		kvm_save_gc0_config2(cop0);
+	}
+	if (cpu_guest_has_conf3) {
+		kvm_set_sw_gc0_config2(cop0, MIPS_CONF_M);
+		/* Config3 */
+		kvm_save_gc0_config3(cop0);
+		/* architecturally writable (e.g. from guest) */
+		kvm_clear_sw_gc0_config3(cop0, MIPS_CONF3_ISA_OE);
+		/* architecturally read only, but maybe writable from root */
+		kvm_clear_sw_gc0_config3(cop0, MIPS_CONF3_MSA	|
+					       MIPS_CONF3_BPG	|
+					       MIPS_CONF3_ULRI	|
+					       MIPS_CONF3_DSP	|
+					       MIPS_CONF3_CTXTC	|
+					       MIPS_CONF3_ITL	|
+					       MIPS_CONF3_LPA	|
+					       MIPS_CONF3_VEIC	|
+					       MIPS_CONF3_VINT	|
+					       MIPS_CONF3_SP	|
+					       MIPS_CONF3_CDMM	|
+					       MIPS_CONF3_MT	|
+					       MIPS_CONF3_SM	|
+					       MIPS_CONF3_TL);
+	}
+	if (cpu_guest_has_conf4) {
+		kvm_set_sw_gc0_config3(cop0, MIPS_CONF_M);
+		/* Config4 */
+		kvm_save_gc0_config4(cop0);
+	}
+	if (cpu_guest_has_conf5) {
+		kvm_set_sw_gc0_config4(cop0, MIPS_CONF_M);
+		/* Config5 */
+		kvm_save_gc0_config5(cop0);
+		/* architecturally writable (e.g. from guest) */
+		kvm_clear_sw_gc0_config5(cop0, MIPS_CONF5_K	|
+					       MIPS_CONF5_CV	|
+					       MIPS_CONF5_MSAEN	|
+					       MIPS_CONF5_UFE	|
+					       MIPS_CONF5_FRE	|
+					       MIPS_CONF5_SBRI	|
+					       MIPS_CONF5_UFR);
+		/* architecturally read only, but maybe writable from root */
+		kvm_clear_sw_gc0_config5(cop0, MIPS_CONF5_MRP);
+	}
 
-	/*if (cpu_guest_has_contextconfig) {*/
-		/*[> ContextConfig <]*/
-		/*kvm_write_sw_gc0_contextconfig(cop0, 0x007ffff0);*/
-/*#ifdef CONFIG_64BIT*/
-		/*[> XContextConfig <]*/
-		/*[> bits SEGBITS-13+3:4 set <]*/
-		/*kvm_write_sw_gc0_xcontextconfig(cop0,*/
-					/*((1ull << (cpu_vmbits - 13)) - 1) << 4);*/
-/*#endif*/
-	/*}*/
+	if (cpu_guest_has_contextconfig) {
+		/* ContextConfig */
+		kvm_write_sw_gc0_contextconfig(cop0, 0x007ffff0);
+#ifdef CONFIG_64BIT
+		/* XContextConfig */
+		/* bits SEGBITS-13+3:4 set */
+		kvm_write_sw_gc0_xcontextconfig(cop0,
+					((1ull << (cpu_vmbits - 13)) - 1) << 4);
+#endif
+	}
 
-	/*[> Implementation dependent, use the legacy layout <]*/
-	/*if (cpu_guest_has_segments) {*/
-		/*[> SegCtl0, SegCtl1, SegCtl2 <]*/
-		/*kvm_write_sw_gc0_segctl0(cop0, 0x00200010);*/
-		/*kvm_write_sw_gc0_segctl1(cop0, 0x00000002 |*/
-				/*(_page_cachable_default >> _CACHE_SHIFT) <<*/
-						/*(16 + MIPS_SEGCFG_C_SHIFT));*/
-		/*kvm_write_sw_gc0_segctl2(cop0, 0x00380438);*/
-	/*}*/
+	/* Implementation dependent, use the legacy layout */
+	if (cpu_guest_has_segments) {
+		/* SegCtl0, SegCtl1, SegCtl2 */
+		kvm_write_sw_gc0_segctl0(cop0, 0x00200010);
+		kvm_write_sw_gc0_segctl1(cop0, 0x00000002 |
+				(_page_cachable_default >> _CACHE_SHIFT) <<
+						(16 + MIPS_SEGCFG_C_SHIFT));
+		kvm_write_sw_gc0_segctl2(cop0, 0x00380438);
+	}
 
-	/*[> reset HTW registers <]*/
-	/*if (cpu_guest_has_htw && cpu_has_mips_r6) {*/
-		/*[> PWField <]*/
-		/*kvm_write_sw_gc0_pwfield(cop0, 0x0c30c302);*/
-		/*[> PWSize <]*/
-		/*kvm_write_sw_gc0_pwsize(cop0, 1 << MIPS_PWSIZE_PTW_SHIFT);*/
-	/*}*/
+	/* reset HTW registers */
+	if (cpu_guest_has_htw && cpu_has_mips_r6) {
+		/* PWField */
+		kvm_write_sw_gc0_pwfield(cop0, 0x0c30c302);
+		/* PWSize */
+		kvm_write_sw_gc0_pwsize(cop0, 1 << MIPS_PWSIZE_PTW_SHIFT);
+	}
 
-	/*[> start with no pending virtual guest interrupts <]*/
-	/*if (cpu_has_guestctl2)*/
-		/*cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] = 0;*/
+	/* start with no pending virtual guest interrupts */
+	if (cpu_has_guestctl2)
+		cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] = 0;
 
-	/*[> Put PC at reset vector <]*/
-	/*vcpu->arch.pc = CKSEG1ADDR(0x1fc00000);*/
+	/* Put PC at reset vector */
+	vcpu->arch.pc = CKSEG1ADDR(0x1fc00000);
 
 	return 0;
 }
 
 static void kvm_vz_flush_shadow_all(struct kvm *kvm)
 {
-	/*if (cpu_has_guestid) {*/
-		/*[> Flush GuestID for each VCPU individually <]*/
-		/*kvm_flush_remote_tlbs(kvm);*/
-	/*} else {*/
+	if (cpu_has_guestid) {
+		/* Flush GuestID for each VCPU individually */
+		kvm_flush_remote_tlbs(kvm);
+	} else {
 		/*
 		 * For each CPU there is a single GPA ASID used by all VCPUs in
 		 * the VM, so it doesn't make sense for the VCPUs to handle
@@ -3109,49 +3118,49 @@ static void kvm_vz_flush_shadow_all(struct kvm *kvm)
 		 * asid_flush_mask, and just use kvm_flush_remote_tlbs(kvm) to
 		 * kick any running VCPUs so they check asid_flush_mask.
 		 */
-		/*cpumask_setall(&kvm->arch.asid_flush_mask);*/
-		/*kvm_flush_remote_tlbs(kvm);*/
-	/*}*/
+		cpumask_setall(&kvm->arch.asid_flush_mask);
+		kvm_flush_remote_tlbs(kvm);
+	}
 }
 
 static void kvm_vz_flush_shadow_memslot(struct kvm *kvm,
 					const struct kvm_memory_slot *slot)
 {
-	/*kvm_vz_flush_shadow_all(kvm);*/
+	kvm_vz_flush_shadow_all(kvm);
 }
 
 static void kvm_vz_vcpu_reenter(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-	/*int cpu = smp_processor_id();*/
-	/*int preserve_guest_tlb;*/
+	int cpu = smp_processor_id();
+	int preserve_guest_tlb;
 
-	/*preserve_guest_tlb = kvm_vz_check_requests(vcpu, cpu);*/
+	preserve_guest_tlb = kvm_vz_check_requests(vcpu, cpu);
 
-	/*if (preserve_guest_tlb)*/
-		/*kvm_vz_vcpu_save_wired(vcpu);*/
+	if (preserve_guest_tlb)
+		kvm_vz_vcpu_save_wired(vcpu);
 
-	/*kvm_vz_vcpu_load_tlb(vcpu, cpu);*/
+	kvm_vz_vcpu_load_tlb(vcpu, cpu);
 
-	/*if (preserve_guest_tlb)*/
-		/*kvm_vz_vcpu_load_wired(vcpu);*/
+	if (preserve_guest_tlb)
+		kvm_vz_vcpu_load_wired(vcpu);
 }
 
 static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-	/*int cpu = smp_processor_id();*/
+	int cpu = smp_processor_id();
 	int r;
 
-	/*kvm_vz_acquire_htimer(vcpu);*/
-	/*[> Check if we have any exceptions/interrupts pending <]*/
-	/*kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());*/
+	kvm_vz_acquire_htimer(vcpu);
+	/* Check if we have any exceptions/interrupts pending */
+	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
 
-	/*kvm_vz_check_requests(vcpu, cpu);*/
-	/*kvm_vz_vcpu_load_tlb(vcpu, cpu);*/
-	/*kvm_vz_vcpu_load_wired(vcpu);*/
+	kvm_vz_check_requests(vcpu, cpu);
+	kvm_vz_vcpu_load_tlb(vcpu, cpu);
+	kvm_vz_vcpu_load_wired(vcpu);
 
-	/*r = vcpu->arch.vcpu_run(run, vcpu);*/
+	r = vcpu->arch.vcpu_run(run, vcpu);
 
-	/*kvm_vz_vcpu_save_wired(vcpu);*/
+	kvm_vz_vcpu_save_wired(vcpu);
 
 	return r;
 }
