@@ -278,7 +278,11 @@ void *kvm_mips_build_vcpu_run(void *addr)
 	 * interrupt mask as it was but make sure that timer interrupts
 	 * are enabled
 	 */
+#ifdef CONFIG_CPU_LOONGSON3
+	uasm_i_addiu(&p, K0, ZERO, ST0_EXL | ST0_UX | KSU_USER | ST0_IE | ST0_KX_IF_64);
+#else
 	uasm_i_addiu(&p, K0, ZERO, ST0_EXL | KSU_USER | ST0_IE | ST0_KX_IF_64);
+#endif
 	uasm_i_andi(&p, V0, V0, ST0_IM);
 	uasm_i_or(&p, K0, K0, V0);
 	uasm_i_mtc0(&p, K0, C0_STATUS);
@@ -348,10 +352,6 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_mfc0(&p, K0, C0_DIAG);
 	uasm_i_ins(&p, K0, V1, LS_MODE_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_DIAG);
-
-	uasm_i_mfc0(&p, K0, C0_STATUS);
-	uasm_i_ori(&p, K0, K0, 32);
-	uasm_i_mtc0(&p, K0, C0_STATUS);
 
 	uasm_i_mfgc0(&p, K0, C0_STATUS);
 	uasm_i_ins(&p, K0, ZERO, 2, 1);
