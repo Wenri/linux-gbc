@@ -299,9 +299,29 @@ static struct platform_device ls2k_gpio_i2c_device = {
 #ifdef CONFIG_SOUND_LS2K_UDA1342
 static struct resource ls2k_uda1342_resource[] = {
        [0]={
-               .start  = LS2K_I2S_REG_BASE,
-               .end    = (LS2K_I2S_REG_BASE + 0x10),
-               .flags  = IORESOURCE_MEM,
+               .start    = LS2K_I2S_REG_BASE,
+               .end      = (LS2K_I2S_REG_BASE + 0x10),
+               .flags    = IORESOURCE_MEM,
+       },
+       [1] = {
+               .start    = LS2K_DMA2_IRQ,
+               .end      = LS2K_DMA2_IRQ,
+               .flags    = IORESOURCE_IRQ,
+       },
+       [2] = {
+               .start    = LS2K_DMA3_IRQ,
+               .end      = LS2K_DMA3_IRQ,
+               .flags    = IORESOURCE_IRQ,
+       },
+       [3] = {
+               .start    = LS2K_DMA2_REG,
+               .end      = LS2K_DMA2_REG,
+               .flags    = IORESOURCE_DMA,
+       },
+       [4] = {
+               .start    = LS2K_DMA3_REG,
+               .end      = LS2K_DMA3_REG,
+               .flags    = IORESOURCE_DMA,
        },
 };
 
@@ -382,6 +402,11 @@ const struct i2c_board_info __initdata ls2k_fb_eep_info = {
 const struct i2c_board_info __initdata ls2k_dvi_fb_eep_info = {
 	I2C_BOARD_INFO("dvi-eeprom-edid", 0x50),
 };
+
+const struct i2c_board_info __initdata ls2k_codec_uda1342_info = {
+	I2C_BOARD_INFO("codec_uda1342", 0x1a),
+};
+
 const struct i2c_board_info __initdata ls2k_ds1338_info = {
 	I2C_BOARD_INFO("ds1338", 0x68),
 };
@@ -403,6 +428,9 @@ if(0)
 			ARRAY_SIZE(ls2k_i2c_gpio_platform_devices));
 #ifdef CONFIG_SPI_LS2K
 	spi_register_board_info(ls2k_spi_device, ARRAY_SIZE(ls2k_spi_device));
+#endif
+#ifdef CONFIG_SOUND_LS2K_UDA1342
+	i2c_register_board_info(1, &ls2k_codec_uda1342_info, 1);
 #endif
 	return platform_add_devices(ls2k_platform_devices,
 			ARRAY_SIZE(ls2k_platform_devices));

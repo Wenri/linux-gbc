@@ -10,6 +10,8 @@
 #ifndef __LS1X_AC97_H__
 #define __LS1X_AC97_H__
 
+#include <ls2k.h>
+
 /* Control Status Register (CSR) */
 #define CSR		0x00
 #define AC97_CSR_RESUME		(1 << 1)

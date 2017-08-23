@@ -36,6 +36,9 @@
 #define writel(val, addr)       *(volatile unsigned int *)CKSEG1ADDR(addr) = (val)
 #define writeq(val, addr)       *(volatile unsigned long *)CKSEG1ADDR(addr) = (val)
 
+static int irq0;
+static int irq1;
+
 void __iomem *order_addr_in0;
 void __iomem *order_addr_in1;
 void __iomem *dma_cfg_addr0;
@@ -45,9 +48,13 @@ void __iomem *int_cfg_addr;
 static int codec_reset = 1;
 
 static int uda1342_volume;
+static struct i2c_client * dvo_client[1];
 
 static irqreturn_t ac97_dma_write_intr(int irq, void *private);
 static irqreturn_t ac97_dma_read_intr(int irq, void *private);
+
+static int i2c_read_codec(struct i2c_client *client, unsigned char reg, unsigned char *val);
+static int i2c_write_codec(struct i2c_client *client, unsigned char reg, unsigned char *val);
 
 #define DMA64 0
 #if DMA64
@@ -768,11 +775,12 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 	case SNDCTL_DSP_SETSYNCRO:
 	case SOUND_PCM_READ_FILTER:
 		return -EINVAL;
+	default:
+		return -EINVAL;
 	}
 
 	return 0;
 }
-
 
 int i2c_rec_haf_word(unsigned char *addr,int addrlen,unsigned char reg,unsigned short* buf ,int count)
 {
@@ -818,8 +826,6 @@ int i2c_rec_haf_word(unsigned char *addr,int addrlen,unsigned char reg,unsigned 
 
         return count;
 }
-
-
 
 unsigned char i2c_rec_b(unsigned char *addr,int addrlen,unsigned char reg,unsigned char* buf ,int count)
 {
@@ -993,10 +999,8 @@ int i2c_send_haf_word(unsigned char *addr,int addrlen,unsigned char reg,unsigned
         int i;
         int j;
         unsigned char value;
-        for(i=0;i<count;i++)
-        {
-                for(j=0;j<addrlen;j++)
-                {
+        for(i=0;i<count;i++){
+                for(j=0;j<addrlen;j++){
                         * GS_SOC_I2C_TXR = addr[j];
                         * GS_SOC_I2C_CR  = j == 0? (CR_START|CR_WRITE):CR_WRITE;
                         while(*GS_SOC_I2C_SR & SR_TIP);
@@ -1034,8 +1038,7 @@ int i2c_send_haf_word(unsigned char *addr,int addrlen,unsigned char reg,unsigned
 int tgt_i2cwrite(int type,unsigned char *addr,int addrlen,unsigned char reg,unsigned char *buf,int count)
 {
         tgt_i2cinit();
-        switch(type&0xff)
-        {
+        switch(type&0xff){
                 case I2C_SINGLE:
                     i2c_send_s(addr,addrlen,reg,buf,count);
                     break;
@@ -1104,14 +1107,7 @@ void    uda1342_test()
         ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[5]), 1);
         reg = 0x21;
         ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[6]), 1);
-
-        for (i=0; i<7; i++)
-        {
-                printk ("data1[%d] = 0x%x ---> 0x%x!\n", i, data1[i], reg1[i]);
-        }
 }
-
-
 
 void    config_uda1342(struct file *file)
 {
@@ -1125,8 +1121,6 @@ void    config_uda1342(struct file *file)
         rat_cddiv = 0x5;
 	u32 value1 = readl(dma_cfg_addr0);
 	writel((value1 & ~(7 << 4)) | (1 << 6), dma_cfg_addr0);
-	value1 = readl(dma_cfg_addr1);
-	writel((value1 & ~(0x3f << 18)) | (1 << 21), dma_cfg_addr1);
 	value1 =  (*(volatile unsigned int *)CKSEG1ADDR(0x1fe11464));
 	(*(volatile unsigned int *)CKSEG1ADDR(0x1fe11468)) = value | (0x1f << 12);
 
@@ -1193,14 +1187,14 @@ static int ls2k_audio_release(struct inode *inode, struct file *file)
                 ls2k_audio_sync(file);
                 audio_clear_buf(state->input_stream);
                 state->rd_ref = 0;
-                free_irq(LS2K_DMA1_IRQ, state->input_stream);
+                free_irq(irq1, state->input_stream);
         }
 
         if (file->f_mode & FMODE_WRITE) {
                 ls2k_audio_sync(file);
                 audio_clear_buf(state->output_stream);
                 state->wr_ref = 0;
-                free_irq(LS2K_DMA0_IRQ, state->output_stream);
+                free_irq(irq0, state->output_stream);
         }
 
         up(&state->sem);
@@ -1251,7 +1245,7 @@ static int ls2k_audio_open(struct inode *inode, struct file *file)
 		INIT_LIST_HEAD(&os->done_list);
 		INIT_LIST_HEAD(&os->all_list);
 		spin_lock_init(&os->lock);
-		request_irq(LS2K_DMA0_IRQ, ac97_dma_write_intr, IRQF_SHARED,
+		request_irq(irq0, ac97_dma_write_intr, IRQF_SHARED,
 				"ac97dma-write", os);
 	}
 
@@ -1271,7 +1265,7 @@ static int ls2k_audio_open(struct inode *inode, struct file *file)
 		INIT_LIST_HEAD(&is->done_list);
 		INIT_LIST_HEAD(&is->all_list);
 		spin_lock_init(&is->lock);
-		request_irq(LS2K_DMA1_IRQ, ac97_dma_read_intr, IRQF_SHARED,
+		request_irq(irq1, ac97_dma_read_intr, IRQF_SHARED,
 				"ac97dma-read", is);
 	}
 
@@ -1279,7 +1273,6 @@ static int ls2k_audio_open(struct inode *inode, struct file *file)
 
 out:
 	up(&state->sem);
-	printk("err is %d\n",err);
 	return err;
 }
 
@@ -1320,16 +1313,16 @@ static struct file_operations ls2k_mixer_fops = {
 
 static DEFINE_SEMAPHORE(ls2k_ac97_mutex);
 
+static int codec_i2c_init();
 static int ls2k_audio_probe(struct platform_device *pdev)
 {
 	struct ls2k_audio_state *state = &ls2k_audio_state;
 	struct resource *res;
 	int rc;
+	unsigned int ls2k_apbdma_cfg;
+	int ls2k_apbdma_sel;
 
-	order_addr_in0 = ORDER_ADDR_IN0;
-	order_addr_in1 = ORDER_ADDR_IN1;
 	dma_cfg_addr0 = DMA_CFG_ADDR0;
-	dma_cfg_addr1 = DMA_CFG_ADDR1;
 	int_sta_addr = INT_STA_ADDR;
 	int_cfg_addr = INT_CFG_ADDR;
 	memset(state, 0, sizeof(struct ls2k_audio_state));
@@ -1337,6 +1330,44 @@ static int ls2k_audio_probe(struct platform_device *pdev)
 	state->input_stream = &input_stream;
 	state->output_stream = &output_stream;
 	sema_init(&state->sem, 1);
+
+	res = platform_get_resource(pdev, IORESOURCE_DMA , 0);
+	if (res == NULL) {
+	    dev_err(&pdev->dev, "no DMA 2 resource defined\n");
+	    return -ENOENT;
+	}
+	order_addr_in0 = res->start;
+
+	ls2k_apbdma_cfg = ls2k_readl(LS2K_APBDMA_CFG_REG);
+	ls2k_apbdma_cfg &=  ~(LS2K_APBDMA_MASK << LS2K_I2SS_DMA_SHIFT);
+	ls2k_apbdma_sel = (res->start - LS2K_DMA0_REG) >> 4;
+	ls2k_apbdma_cfg |= (ls2k_apbdma_sel & LS2K_APBDMA_MASK) << LS2K_I2SS_DMA_SHIFT;
+	ls2k_writel(ls2k_apbdma_cfg,LS2K_APBDMA_CFG_REG);
+
+	res = platform_get_resource(pdev, IORESOURCE_DMA , 1);
+	if (res == NULL) {
+	    dev_err(&pdev->dev, "no DMA 3 resource defined\n");
+	    return -ENOENT;
+	}
+	order_addr_in1 = res->start;
+
+	ls2k_apbdma_cfg = ls2k_readl(LS2K_APBDMA_CFG_REG);
+	ls2k_apbdma_cfg &=  ~(LS2K_APBDMA_MASK << LS2K_I2SR_DMA_SHIFT);
+	ls2k_apbdma_sel = (res->start - LS2K_DMA0_REG) >> 4;
+	ls2k_apbdma_cfg |= (ls2k_apbdma_sel & LS2K_APBDMA_MASK) << LS2K_I2SR_DMA_SHIFT;
+	ls2k_writel(ls2k_apbdma_cfg,LS2K_APBDMA_CFG_REG);
+
+	irq0 = platform_get_irq(pdev, 0);
+	if (irq0 == 0) {
+	    dev_err(&pdev->dev, "failed to get interrupt 2 resouce.\n");
+	    return -ENOENT;
+	}
+
+	irq1 = platform_get_irq(pdev, 1);
+	if (irq1 == 0) {
+	    dev_err(&pdev->dev, "failed to get interrupt 3 resouce.\n");
+	    return -ENOENT;
+	}
 
 	res =  platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -1366,6 +1397,9 @@ static int ls2k_audio_probe(struct platform_device *pdev)
 		goto err_dev1;
 	}
 
+	if(codec_i2c_init())
+		goto err_dev3;
+
 	printk("register mixer success\n");
 	printk("register dsp success\n");
 	printk("SOUND_MIXER_WRITE_VOLUME is %x\n",SOUND_MIXER_WRITE_VOLUME);
@@ -1380,6 +1414,121 @@ err_dev1:
 	release_mem_region(res->start, resource_size(res));
 err_dev0:
 	return rc;
+}
+
+static const struct i2c_device_id codec_ids[] = {
+   { "codec_uda1342", 0 },
+   { /* END OF LIST */ }
+};
+
+MODULE_DEVICE_TABLE(i2c, codec_ids);
+
+static int codec_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	dvo_client[0] = client;
+	return 0;
+}
+
+static int codec_remove(struct i2c_client *client)
+{
+
+	i2c_unregister_device(client);
+	return 0;
+}
+
+static struct i2c_driver eep_driver = {
+	.driver = {
+		.name = "codec-edid",
+		.owner = THIS_MODULE,
+		  },
+	.probe = codec_probe,
+	.remove = codec_remove,
+	.id_table = codec_ids,
+};
+
+static int i2c_read_codec(struct i2c_client *client, unsigned char reg, unsigned char *val)
+{
+	unsigned char start = reg;
+	struct i2c_msg msgs[] = {
+	    {
+		.addr   = client->addr,
+		.flags  = 0,
+		.len    = 1,
+		.buf    = &start,
+	    }, {
+		.addr   = client->addr,
+		.flags  = I2C_M_RD,
+		.len    = 0x2,
+		.buf    = val,
+	    }
+	};
+
+	if (i2c_transfer(client->adapter, msgs, 2) == 2) {
+		return 0;
+	}
+	return -1;
+}
+static int i2c_write_codec(struct i2c_client *client, unsigned char reg, unsigned char *val)
+{
+	unsigned char msg[3] = {reg, *val, *(val + 1)};
+	struct i2c_msg msgs[] = {
+	    {
+		.addr   = client->addr,
+		.flags  = 0,
+		.len    = 3,
+		.buf    = &msg[0],
+	    }
+	};
+
+	if (i2c_transfer(client->adapter, msgs, 1) == 1) {
+		return 0;
+	}
+	return -1;
+}
+static int codec_update_bit(struct i2c_client *client, unsigned char reg, unsigned short mask, unsigned short val)
+{
+	unsigned char reg_val[2] = {0, 0};
+	unsigned short tmp;
+
+	if(i2c_read_codec(client, reg, &reg_val[0]))
+		return -1;
+	tmp = (reg_val[0] << 8) | reg_val[1];
+	tmp &= ~mask;
+	tmp |= val;
+	reg_val[0] = tmp >> 8;
+	reg_val[1] = tmp & 0xf;
+	if(i2c_write_codec(dvo_client[0], reg, &reg_val[0]))
+		return -1;
+	return 0;
+}
+
+static int codec_i2c_init()
+{
+	unsigned char set_reg[]={
+	/******  reg   bit_hi bit_lo  ****/
+	   0x00,   0x14,   0x02,
+	   0x01,   0x00,   0x14,
+	   0x10,   0xff,   0x03,
+	   0x11,   0x00,   0x00,
+	   0x12,   0xc4,   0x00,
+	   0x20,   0x00,   0x30,
+	   0x21,   0x00,   0x30,
+	};
+	int j;
+	unsigned char  val[2] = {0x94,0x02};
+
+	if (i2c_add_driver(&eep_driver)) {
+		pr_err("i2c-%ld No eeprom device register!",eep_driver.id_table->driver_data);
+		return -1;
+	}
+
+	i2c_write_codec(dvo_client[0], 0x0, &set_reg[2]);
+		udelay(15000);
+
+	for(j = 0; j < ARRAY_SIZE(set_reg) / 3; j++)
+		i2c_write_codec(dvo_client[0], set_reg[j * 3], &set_reg[3 * j + 1]);
+
+	return 0;
 }
 
 static int ls2k_audio_remove(struct platform_device *pdev)
