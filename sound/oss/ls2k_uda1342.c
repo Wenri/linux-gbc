@@ -55,6 +55,7 @@ static irqreturn_t ac97_dma_read_intr(int irq, void *private);
 
 static int i2c_read_codec(struct i2c_client *client, unsigned char reg, unsigned char *val);
 static int i2c_write_codec(struct i2c_client *client, unsigned char reg, unsigned char *val);
+static int ls2k_audio_sync(struct file *file);
 
 #define DMA64 0
 #if DMA64
@@ -604,6 +605,18 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 		rd = 1;
 
 	switch (cmd) {
+	case SNDCTL_DSP_RESET:
+		if (file->f_mode & FMODE_WRITE)
+		{
+			ls2k_audio_sync(file);
+			audio_clear_buf(os);
+		}
+		if (file->f_mode & FMODE_READ)
+		{
+			ls2k_audio_sync(file);
+			audio_clear_buf(is);
+		}
+		return 0;
 	case SOUND_MIXER_WRITE_VOLUME:
   		ret = get_user(var, (long *) arg);
 		if(ret)
@@ -623,6 +636,9 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 		if (is && os)
 			val |= DSP_CAP_DUPLEX;
 		return put_user(val, (int *) arg);
+
+	case SNDCTL_DSP_SYNC:
+		return ls2k_audio_sync(file);
 
 	case SNDCTL_DSP_SPEED:
 		return 0;
@@ -939,44 +955,54 @@ static long ls2k_ioctl_mixdev(struct file *file, unsigned int cmd, unsigned long
         struct ac97_codec *codec = state->codec;
 	int ret;
 	int val = 0;
+	unsigned short data;
 
 	/* We must snoop for some commands to provide our own extra processing */
 	switch (cmd) {
+		case SOUND_MIXER_READ_STEREODEVS:
+		case SOUND_MIXER_READ_DEVMASK:
+			val = (SOUND_MASK_MIC | SOUND_MASK_VOLUME);
+			put_user(val, (int *)arg);
+			break;
+		case SOUND_MIXER_WRITE_PCM:
 		case SOUND_MIXER_WRITE_VOLUME:
 			if (get_user(val, (int*)arg)) {
 				return -EFAULT;
 			}
-			sb2f_codec_write(NULL, 0x2, val);		
+			val =(((100-(val&0xff))*256/100))|(((100-(((val&0xff00)>>8)))*256/100)<<8);
+			i2c_write_codec(dvo_client[0], 0x11, &val);		
 			break;
+		case SOUND_MIXER_READ_PCM:
 		case SOUND_MIXER_READ_VOLUME:
-			val = sb2f_codec_read(NULL, 0x2);
+			i2c_read_codec(dvo_client[0], 0x11, &val);
+			val = (((256-(val&0xff))*100/256))|(((256-((val&0xff00)>>8))*100/256)<<8);
 			return put_user(val, (long*)arg);		
 			break;
 		case SOUND_MIXER_WRITE_MUTE:
 			if (get_user(val, (int*)arg)) {
 				return -EFAULT;
 			}
-			sb2f_codec_write(NULL, 0x18, (sb2f_codec_read(NULL,0x18) & 0<<15)| val);		
+			i2c_read_codec(dvo_client[0], 0, &data);
+			if(val)
+				data &= ~(2<<8);
+			else
+				data |= (2<<8);
+			i2c_write_codec(dvo_client[0], 0, &data);		
 			break;
-		case SOUND_MIXER_WRITE_IGAIN:
+		case SOUND_MIXER_WRITE_MIC:
 			if (get_user(val, (int*)arg)) {
 				return -EFAULT;
 			}
-			sb2f_codec_write(NULL, 0x1c, val);		
+			val =(((100-(val&0xff))*256/100))|(((100-(((val&0xff00)>>8)))*256/100)<<8) ;
+			i2c_write_codec(dvo_client[0], 0x12, &val);		
 			break;
-		case SOUND_MIXER_WRITE_PCM:
-			if (get_user(val, (int*)arg)) {
-				return -EFAULT;
-			}
-			sb2f_codec_write(NULL, 0x18, val);		
+		case SOUND_MIXER_READ_MIC:
+			i2c_read_codec(dvo_client[0], 0x12, &val);
+			val = (((256-(val&0xff))*100/256))|(((256-((val&0xff00)>>8))*100/256)<<8);
+			return put_user(val, (long*)arg);		
 			break;
 		case SOUND_MIXER_WRITE_RECSRC:
-			printk("record source\n");
-			if (get_user(val, (int*)arg)) {
-				return -EFAULT;
-			}
-			sb2f_codec_write(NULL, 0x1a, val);		
-			break;
+		case SOUND_MIXER_WRITE_IGAIN:
 		default:
 			break;
 	}
