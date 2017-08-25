@@ -134,9 +134,6 @@ unsigned short reg1[7] = {
         0x0030,
 };
 
-#define uda_address    	0x34
-
-#define uda_dev_addr    0x34
 
 #define uda1342_base    0xffffffffbfe0d000
 #define DMA_BUF		0x00800000
@@ -590,8 +587,6 @@ static int ls2k_audio_read(struct file *file, char *buffer, size_t count, loff_t
 	return (buffer - buffer0);
 }
 
-int tgt_i2cwrite(int type,unsigned char *addr,int addrlen,unsigned char reg,unsigned char *buf,int count);
-
 static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 {
 	struct ls2k_audio_state *state = file->private_data;
@@ -603,8 +598,6 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
         int     ret,reg;
         unsigned char dev_add[1];
 
-        *dev_add = uda_address;
-
 	if (file->f_mode & FMODE_WRITE)
 		wr = 1;
 	if (file->f_mode & FMODE_READ)
@@ -615,11 +608,9 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
   		ret = get_user(var, (long *) arg);
 		if(ret)
 			return ret;
-		printk("\n\nvar is %x\n",var);
-		reg = 0x11;
-		ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)&var , 1); ///DAC master volume
-		reg = 0x12;
-		ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)&var , 1); ///DAC mixer volume
+		val = ((val&0xff)<<8)|((val&0xff00)>>8);
+		i2c_write_codec(dvo_client[0], 0x11, &var);
+		i2c_write_codec(dvo_client[0], 0x12, &var);
 		return 0;
 	case OSS_GETVERSION:
 		return put_user(SOUND_VERSION, (int *) arg);
@@ -782,347 +773,16 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 	return 0;
 }
 
-int i2c_rec_haf_word(unsigned char *addr,int addrlen,unsigned char reg,unsigned short* buf ,int count)
-{
-        int i;
-        int j;
-        unsigned char value;
-        for(i=0;i<count;i++)
-        {
-                for(j=0;j<addrlen;j++)
-                {
-                        * GS_SOC_I2C_TXR = addr[j];
-                        * GS_SOC_I2C_CR  = (j == 0)? (CR_START|CR_WRITE):CR_WRITE;
-                        while(*GS_SOC_I2C_SR & SR_TIP);
-
-                        if((* GS_SOC_I2C_SR) & SR_NOACK) return -1;
-                }
-
-                * GS_SOC_I2C_TXR = reg++;
-                * GS_SOC_I2C_CR  = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return -1;
-
-                * GS_SOC_I2C_TXR = addr[0]|1;
-                * GS_SOC_I2C_CR  = CR_START|CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return -1;
-
-                * GS_SOC_I2C_CR  = CR_READ;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                value = * GS_SOC_I2C_TXR;
-                buf[i] =  value << 8;
-
-                * GS_SOC_I2C_CR  = CR_READ|I2C_WACK;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                value = * GS_SOC_I2C_TXR;
-                buf[i] |= value;
-
-                * GS_SOC_I2C_CR  = CR_STOP;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-        }
-        while(*GS_SOC_I2C_SR & SR_BUSY);
-
-        return count;
-}
-
-unsigned char i2c_rec_b(unsigned char *addr,int addrlen,unsigned char reg,unsigned char* buf ,int count)
-{
-        int i;
-        int j;
-
-
-        unsigned char value;
-
-        for(j=0;j<addrlen;j++)
-        {
-                * GS_SOC_I2C_TXR = addr[j];
-                * GS_SOC_I2C_CR  = j == 0? (CR_START|CR_WRITE):CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-        }
-
-
-        * GS_SOC_I2C_TXR = reg;
-        * GS_SOC_I2C_CR  = CR_WRITE;
-        while(*GS_SOC_I2C_SR & SR_TIP);
-        if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-        * GS_SOC_I2C_TXR = addr[0]|1;
-        * GS_SOC_I2C_CR  = CR_START|CR_WRITE;
-        if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-        for(i=0;i<count;i++)
-        {
-                * GS_SOC_I2C_CR  = CR_READ;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-
-                buf[i] = * GS_SOC_I2C_TXR;
-        }
-        * GS_SOC_I2C_CR  = CR_STOP;
-
-        return count;
-}
-
-unsigned char i2c_rec_s(unsigned char *addr,int addrlen,unsigned char reg,unsigned char* buf ,int count)
-{
-        int i;
-        int j;
-        unsigned char value;
-        for(i=0;i<count;i++)
-        {
-                for(j=0;j<addrlen;j++)
-                {
-                        * GS_SOC_I2C_TXR = addr[j];
-                        * GS_SOC_I2C_CR  = (j == 0)? (CR_START|CR_WRITE):CR_WRITE;
-                        while(*GS_SOC_I2C_SR & SR_TIP);
-
-                        if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-                }
-
-                * GS_SOC_I2C_TXR = reg;
-                * GS_SOC_I2C_CR  = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-                * GS_SOC_I2C_TXR = addr[0]|1;
-                * GS_SOC_I2C_CR  = CR_START|CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-                * GS_SOC_I2C_CR  = CR_READ|I2C_WACK;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-
-                buf[i] = * GS_SOC_I2C_TXR;
-                * GS_SOC_I2C_CR  = CR_STOP;
-                * GS_SOC_I2C_SR;
-        }
-        return count;
-}
-
-int tgt_i2cinit()
-{
-	static int inited=0;
-	if(inited)
-		return 0;
-	inited=1;
-	* GS_SOC_I2C_PRER_LO = 0x64;
-	* GS_SOC_I2C_PRER_HI = 0;
-	* GS_SOC_I2C_CTR = 0x80;
-}
-
-int tgt_i2cread(int type,unsigned char *addr,int addrlen,unsigned char reg,unsigned char *buf,int count)
-{
-        int i;
-        tgt_i2cinit();
-        memset(buf,-1,count);
-        switch(type)
-        {
-                case I2C_SINGLE:
-                        return i2c_rec_s(addr,addrlen,reg,buf,count);
-                        break;
-                case I2C_BLOCK:
-                        return i2c_rec_b(addr,addrlen,reg,buf,count);
-                        break;
-                case I2C_HW_SINGLE:
-                        return i2c_rec_haf_word(addr,addrlen,reg,(unsigned short *)buf,count);
-                        break;
-                default: return 0;break;
-        }
-        return 0;
-}
-
-unsigned char i2c_send_s(unsigned char *addr,int addrlen,unsigned char reg,unsigned char * buf ,int count)
-{
-        int i;
-        int j;
-        for(i=0;i<count;i++)
-        {
-                for(j=0;j<addrlen;j++)
-                {
-                        * GS_SOC_I2C_TXR = addr[j];
-                        * GS_SOC_I2C_CR  = j == 0? (CR_START|CR_WRITE):CR_WRITE;
-                        while(*GS_SOC_I2C_SR & SR_TIP);
-                        if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-                }
-
-                * GS_SOC_I2C_TXR = reg;
-                * GS_SOC_I2C_CR  = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-                * GS_SOC_I2C_TXR = buf[i];
-                * GS_SOC_I2C_CR = CR_WRITE|CR_STOP;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-        }
-        while(*GS_SOC_I2C_SR & SR_BUSY);
-        return count;
-}
-
-unsigned char i2c_send_b(unsigned char *addr,int addrlen,unsigned char reg,unsigned char * buf ,int count)
-{
-        int i;
-        int j;
-        for(j=0;j<addrlen;j++)
-        {
-                * GS_SOC_I2C_TXR = addr[j];
-                * GS_SOC_I2C_CR  = j == 0? (CR_START|CR_WRITE):CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-        }
-
-        * GS_SOC_I2C_TXR = reg;
-        * GS_SOC_I2C_CR  = CR_WRITE;
-        while(*GS_SOC_I2C_SR & SR_TIP);
-        if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-        for(i=0;i<count;i++)
-        {
-                * GS_SOC_I2C_TXR = buf[i];
-                * GS_SOC_I2C_CR = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK) return i;
-
-        }
-        * GS_SOC_I2C_CR  = CR_STOP;
-        while(*GS_SOC_I2C_SR & SR_BUSY);
-        return count;
-}
-
-int i2c_send_haf_word(unsigned char *addr,int addrlen,unsigned char reg,unsigned short * buf ,int count)
-{
-        int i;
-        int j;
-        unsigned char value;
-        for(i=0;i<count;i++){
-                for(j=0;j<addrlen;j++){
-                        * GS_SOC_I2C_TXR = addr[j];
-                        * GS_SOC_I2C_CR  = j == 0? (CR_START|CR_WRITE):CR_WRITE;
-                        while(*GS_SOC_I2C_SR & SR_TIP);
-                        if((* GS_SOC_I2C_SR) & SR_NOACK)
-				return -1;
-                }
-
-                * GS_SOC_I2C_TXR = reg++;
-                * GS_SOC_I2C_CR  = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK)
-			return -1;
-
-                value = (buf[i] >> 8);
-                * GS_SOC_I2C_TXR = value;
-                * GS_SOC_I2C_CR  = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK)
-			return -1;
-
-                value = buf[i];
-                * GS_SOC_I2C_TXR = value;
-                * GS_SOC_I2C_CR  = CR_WRITE;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-                if((* GS_SOC_I2C_SR) & SR_NOACK)
-			return -1;
-
-                * GS_SOC_I2C_CR = CR_WRITE|CR_STOP;
-                while(*GS_SOC_I2C_SR & SR_TIP);
-        }
-        while(*GS_SOC_I2C_SR & SR_BUSY);
-        return count;
-}
-
-int tgt_i2cwrite(int type,unsigned char *addr,int addrlen,unsigned char reg,unsigned char *buf,int count)
-{
-        tgt_i2cinit();
-        switch(type&0xff){
-                case I2C_SINGLE:
-                    i2c_send_s(addr,addrlen,reg,buf,count);
-                    break;
-                case I2C_BLOCK:
-                    return i2c_send_b(addr,addrlen,reg,buf,count);
-                    break;
-                case I2C_SMB_BLOCK:
-                    break;
-                case I2C_HW_SINGLE:
-                        return i2c_send_haf_word(addr,addrlen,reg,(unsigned short *)buf,count);
-                        break;
-                default:
-                    return -1;
-        }
-        return -1;
-}
-
-void    uda1342_test()
-{
-        unsigned char dev_add[1];
-        unsigned short data;
-        unsigned char reg;
-        int ret = 0;
-
-        *dev_add = uda_address;
-        reg = 0x10;
-        unsigned short data1[7];
-        unsigned char i;
-
-        tgt_i2cinit();
-
-        tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data), 1);
-
-        data = 0xfc00;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data), 1);
-
-        data = 0x0;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data), 1);
-
-        reg = 0x0;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[0]), 1);
-        reg = 0x1;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[1]), 1);
-        reg = 0x10;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[2]), 1);
-        reg = 0x11;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[3]), 1);
-        reg = 0x12;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[4]), 1);
-        reg = 0x20;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[5]), 1);
-        reg = 0x21;
-        ret = tgt_i2cwrite(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&reg1[6]), 1);
-
-        reg = 0x0;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[0]), 1);
-        reg = 0x1;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[1]), 1);
-        reg = 0x10;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[2]), 1);
-        reg = 0x11;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[3]), 1);
-        reg = 0x12;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[4]), 1);
-        reg = 0x20;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[5]), 1);
-        reg = 0x21;
-        ret = tgt_i2cread(I2C_HW_SINGLE, dev_add, 1, reg, (unsigned char *)(&data1[6]), 1);
-}
 
 void    config_uda1342(struct file *file)
 {
         unsigned char rat_cddiv;
         unsigned char rat_bitdiv;
-        unsigned char dev_addr;
-        unsigned short value;
 
-        dev_addr = uda_dev_addr;
 	rat_bitdiv = 0x2f;
         rat_cddiv = 0x5;
 	u32 value1 = readl(dma_cfg_addr0);
 	writel((value1 & ~(7 << 4)) | (1 << 6), dma_cfg_addr0);
-	value1 =  (*(volatile unsigned int *)CKSEG1ADDR(0x1fe11464));
-	(*(volatile unsigned int *)CKSEG1ADDR(0x1fe11468)) = value | (0x1f << 12);
 
         * IISCONFIG = (16<<24) | (16<<16) | (rat_bitdiv<<8) | (rat_cddiv<<0) ;
 	if ((file->f_mode & FMODE_WRITE)) {
@@ -1130,9 +790,6 @@ void    config_uda1342(struct file *file)
 	}else{
 		* IISSTATE = 0x0e800;
 	}
-        value =0x8000;
-
-        uda1342_test();
 }
 
 static int ls2k_audio_sync(struct file *file)
@@ -1280,6 +937,49 @@ static long ls2k_ioctl_mixdev(struct file *file, unsigned int cmd, unsigned long
 {
         struct ls2k_audio_state *state = (struct ls2k_audio_state *)file->private_data;
         struct ac97_codec *codec = state->codec;
+	int ret;
+	int val = 0;
+
+	/* We must snoop for some commands to provide our own extra processing */
+	switch (cmd) {
+		case SOUND_MIXER_WRITE_VOLUME:
+			if (get_user(val, (int*)arg)) {
+				return -EFAULT;
+			}
+			sb2f_codec_write(NULL, 0x2, val);		
+			break;
+		case SOUND_MIXER_READ_VOLUME:
+			val = sb2f_codec_read(NULL, 0x2);
+			return put_user(val, (long*)arg);		
+			break;
+		case SOUND_MIXER_WRITE_MUTE:
+			if (get_user(val, (int*)arg)) {
+				return -EFAULT;
+			}
+			sb2f_codec_write(NULL, 0x18, (sb2f_codec_read(NULL,0x18) & 0<<15)| val);		
+			break;
+		case SOUND_MIXER_WRITE_IGAIN:
+			if (get_user(val, (int*)arg)) {
+				return -EFAULT;
+			}
+			sb2f_codec_write(NULL, 0x1c, val);		
+			break;
+		case SOUND_MIXER_WRITE_PCM:
+			if (get_user(val, (int*)arg)) {
+				return -EFAULT;
+			}
+			sb2f_codec_write(NULL, 0x18, val);		
+			break;
+		case SOUND_MIXER_WRITE_RECSRC:
+			printk("record source\n");
+			if (get_user(val, (int*)arg)) {
+				return -EFAULT;
+			}
+			sb2f_codec_write(NULL, 0x1a, val);		
+			break;
+		default:
+			break;
+	}
 
         return 0;
 }
@@ -1496,7 +1196,7 @@ static int codec_update_bit(struct i2c_client *client, unsigned char reg, unsign
 	tmp &= ~mask;
 	tmp |= val;
 	reg_val[0] = tmp >> 8;
-	reg_val[1] = tmp & 0xf;
+	reg_val[1] = tmp & 0xff;
 	if(i2c_write_codec(dvo_client[0], reg, &reg_val[0]))
 		return -1;
 	return 0;
@@ -1522,7 +1222,7 @@ static int codec_i2c_init()
 		return -1;
 	}
 
-	i2c_write_codec(dvo_client[0], 0x0, &set_reg[2]);
+	i2c_write_codec(dvo_client[0], 0x0, val);
 		udelay(15000);
 
 	for(j = 0; j < ARRAY_SIZE(set_reg) / 3; j++)
