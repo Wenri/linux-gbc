@@ -21,8 +21,10 @@
 #define CONFIG_KVM_MIPS_LSV
 // used by ls vz
 #define C0_DIAG		22, 0
+#define C0_GSCAUSE	22, 1
 #define C0_GSEBASE	9, 6
 #define LS_MODE_SHIFT	16
+#define LS_MID_SHIFT	18
 
 /* Register names */
 #define ZERO		0
@@ -748,6 +750,263 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 
 	return p;
 }
+
+/**
+ * kvm_mips_build_tlb_general_exception() - Assemble TLB general handler.
+ * @addr:	Address to start writing code.
+ * @handler:	Address of common handler (within range of @addr).
+ *
+ * Assemble TLB general exception fast path handler for guest execution.
+ *
+ * Returns:	Next address after end of written function.
+ */
+void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
+{
+	u32 *p = addr;
+	struct uasm_label labels[2];
+	struct uasm_reloc relocs[2];
+	struct uasm_label *l = labels;
+	struct uasm_reloc *r = relocs;
+	int i;
+
+	memset(labels, 0, sizeof(labels));
+	memset(relocs, 0, sizeof(relocs));
+
+	/* Save guest k1 into scratch register */
+	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
+
+	/* Get the VCPU pointer from the VCPU scratch register */
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
+
+	/* Save guest k0 into VCPU structure */
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[K0]), K1);
+
+	/* Start saving Guest context to VCPU */
+	for (i = 0; i < 32; ++i) {
+		/* Guest k0/k1 saved later */
+		if (i == K0 || i == K1)
+			continue;
+		UASM_i_SW(&p, i, offsetof(struct kvm_vcpu_arch, gprs[i]), K1);
+	}
+
+#ifndef CONFIG_CPU_MIPSR6
+	/* We need to save hi/lo and restore them on the way out */
+	uasm_i_mfhi(&p, T0);
+	UASM_i_SW(&p, T0, offsetof(struct kvm_vcpu_arch, hi), K1);
+
+	uasm_i_mflo(&p, T0);
+	UASM_i_SW(&p, T0, offsetof(struct kvm_vcpu_arch, lo), K1);
+#endif
+
+	/* Finally save guest k1 to VCPU */
+	uasm_i_ehb(&p);
+	UASM_i_MFC0(&p, T0, scratch_tmp[0], scratch_tmp[1]);
+	UASM_i_SW(&p, T0, offsetof(struct kvm_vcpu_arch, gprs[K1]), K1);
+
+	/* Now that context has been saved, we can use other registers */
+
+	/* Restore vcpu */
+	UASM_i_MFC0(&p, S1, scratch_vcpu[0], scratch_vcpu[1]);
+
+	/* Restore run (vcpu->run) */
+	UASM_i_LW(&p, S0, offsetof(struct kvm_vcpu, run), S1);
+
+	/*
+	 * Save Host level EPC, BadVaddr and Cause to VCPU, useful to process
+	 * the exception
+	 */
+	UASM_i_MFC0(&p, K0, C0_EPC);
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, pc), K1);
+
+	UASM_i_MFC0(&p, K0, C0_BADVADDR);
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_badvaddr),
+		  K1);
+
+	uasm_i_mfc0(&p, K0, C0_CAUSE);
+	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
+#if 0
+	if (cpu_has_badinstr) {
+		uasm_i_mfc0(&p, K0, C0_BADINSTR);
+		uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch,
+					   host_cp0_badinstr), K1);
+	}
+
+	if (cpu_has_badinstrp) {
+		uasm_i_mfc0(&p, K0, C0_BADINSTRP);
+		uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch,
+					   host_cp0_badinstrp), K1);
+	}
+#endif
+	/* Now restore the host state just enough to run the handlers */
+
+	/* Switch EBASE to the one used by Linux */
+	/* load up the host EBASE */
+	uasm_i_mfc0(&p, V0, C0_STATUS);
+
+//	uasm_i_lui(&p, AT, ST0_BEV >> 16);
+//	uasm_i_or(&p, K0, V0, AT);
+//
+//	uasm_i_mtc0(&p, K0, C0_STATUS);
+//	uasm_i_ehb(&p);
+
+	UASM_i_LA_mostly(&p, K0, (long)&ebase);
+	UASM_i_LW(&p, K0, uasm_rel_lo((long)&ebase), K0);
+	build_set_exc_base(&p, K0);
+
+	if (raw_cpu_has_fpu) {
+		/*
+		 * If FPU is enabled, save FCR31 and clear it so that later
+		 * ctc1's don't trigger FPE for pending exceptions.
+		 */
+		uasm_i_lui(&p, AT, ST0_CU1 >> 16);
+		uasm_i_and(&p, V1, V0, AT);
+		uasm_il_beqz(&p, &r, V1, label_fpu_1);
+		 uasm_i_nop(&p);
+		uasm_i_cfc1(&p, T0, 31);
+		uasm_i_sw(&p, T0, offsetof(struct kvm_vcpu_arch, fpu.fcr31),
+			  K1);
+		uasm_i_ctc1(&p, ZERO, 31);
+		uasm_l_fpu_1(&l, p);
+	}
+
+	/*if (cpu_has_msa) {*/
+		/*
+		 * If MSA is enabled, save MSACSR and clear it so that later
+		 * instructions don't trigger MSAFPE for pending exceptions.
+		 */
+		/*uasm_i_mfc0(&p, T0, C0_CONFIG5);*/
+		/*uasm_i_ext(&p, T0, T0, 27, 1); [> MIPS_CONF5_MSAEN <]*/
+		/*uasm_il_beqz(&p, &r, T0, label_msa_1);*/
+		 /*uasm_i_nop(&p);*/
+		/*uasm_i_cfcmsa(&p, T0, MSA_CSR);*/
+		/*uasm_i_sw(&p, T0, offsetof(struct kvm_vcpu_arch, fpu.msacsr),*/
+			  /*K1);*/
+		/*uasm_i_ctcmsa(&p, MSA_CSR, ZERO);*/
+		/*uasm_l_msa_1(&l, p);*/
+	/*}*/
+
+#ifdef CONFIG_KVM_MIPS_VZ
+	/* Restore host ASID */
+	/*if (!cpu_has_guestid) {*/
+		/*UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),*/
+			  /*K1);*/
+		/*UASM_i_MTC0(&p, K0, C0_ENTRYHI);*/
+	/*}*/
+	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
+		  K1);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+
+	/*
+	 * Set up normal Linux process pgd.
+	 * This does roughly the same as TLBMISS_HANDLER_SETUP_PGD():
+	 * - call tlbmiss_handler_setup_pgd(mm->pgd)
+	 * - write mm->pgd into CP0_PWBase
+	 */
+	UASM_i_LW(&p, A0,
+		  offsetof(struct kvm_vcpu_arch, host_pgd), K1);
+	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
+	uasm_i_jalr(&p, RA, T9);
+	/* delay slot */
+	if (cpu_has_htw || cpu_has_ldpte)
+		UASM_i_MTC0(&p, A0, C0_PWBASE);
+	else
+		uasm_i_nop(&p);
+
+	/* Clear GM bit so we don't enter guest mode when EXL is cleared */
+	uasm_i_mfc0(&p, K0, C0_GUESTCTL0);
+	uasm_i_ins(&p, K0, ZERO, MIPS_GCTL0_GM_SHIFT, 1);
+	uasm_i_mtc0(&p, K0, C0_GUESTCTL0);
+
+	/* Save GuestCtl0 so we can access GExcCode after CPU migration */
+	uasm_i_sw(&p, K0,
+		  offsetof(struct kvm_vcpu_arch, host_cp0_guestctl0), K1);
+
+	/*if (cpu_has_guestid) {*/
+		/*
+		 * Clear root mode GuestID, so that root TLB operations use the
+		 * root GuestID in the root TLB.
+		 */
+		/*uasm_i_mfc0(&p, T0, C0_GUESTCTL1);*/
+		/*[> Set GuestCtl1.RID = MIPS_GCTL1_ROOT_GUESTID (i.e. 0) <]*/
+		/*uasm_i_ins(&p, T0, ZERO, MIPS_GCTL1_RID_SHIFT,*/
+			   /*MIPS_GCTL1_RID_WIDTH);*/
+		/*uasm_i_mtc0(&p, T0, C0_GUESTCTL1);*/
+	/*}*/
+#endif
+
+	/* Now that the new EBASE has been loaded, unset BEV and KSU_USER */
+	UASM_i_ADDIU(&p, AT, ZERO, ~(ST0_EXL | KSU_USER | ST0_IE));
+	uasm_i_and(&p, V0, V0, AT);
+	uasm_i_lui(&p, AT, ST0_CU0 >> 16);
+	uasm_i_or(&p, V0, V0, AT);
+#ifdef CONFIG_64BIT
+	uasm_i_ori(&p, V0, V0, ST0_SX | ST0_UX);
+#endif
+	uasm_i_mtc0(&p, V0, C0_STATUS);
+	uasm_i_ehb(&p);
+
+	/* Load up host GP */
+	UASM_i_LW(&p, GP, offsetof(struct kvm_vcpu_arch, host_gp), K1);
+
+	/* Need a stack before we can jump to "C" */
+	UASM_i_LW(&p, SP, offsetof(struct kvm_vcpu_arch, host_stack), K1);
+
+	/* Saved host state */
+	UASM_i_ADDIU(&p, SP, SP, -(int)sizeof(struct pt_regs));
+
+	/*
+	 * XXXKYMA do we need to load the host ASID, maybe not because the
+	 * kernel entries are marked GLOBAL, need to verify
+	 */
+
+	/* Restore host scratch registers, as we'll have clobbered them */
+	kvm_mips_build_restore_scratch(&p, K0, SP);
+
+	/* Restore RDHWR access */
+	UASM_i_LA_mostly(&p, K0, (long)&hwrena);
+	uasm_i_lw(&p, K0, uasm_rel_lo((long)&hwrena), K0);
+	uasm_i_mtc0(&p, K0, C0_HWRENA);
+
+	/* Jump to handler */
+	/*
+	 * XXXKYMA: not sure if this is safe, how large is the stack??
+	 * Now jump to the kvm_mips_handle_exit() to see if we can deal
+	 * with this in the kernel
+	 */
+	uasm_i_move(&p, A0, S0);
+	uasm_i_move(&p, A1, S1);
+/*****************************************************/
+
+#if 0
+	/* LSVZ set diag bit[16] [18][19]= 0 */
+	uasm_i_mfc0(&p, K0, C0_DIAG);
+	uasm_i_ins(&p, K0, ZERO, LS_MODE_SHIFT, 1);
+	uasm_i_ins(&p, K0, ZERO, LS_MID_SHIFT, 2);
+	uasm_i_mtc0(&p, K0, C0_DIAG);
+
+//	uasm_i_mfc0(&p, V0, C0_STATUS);
+//	uasm_i_ori(&p, V0, V0, 0x1f);
+//	uasm_i_xori(&p, V0, V0, 0x1e);
+//	uasm_i_sync(&p, 0);
+//	uasm_i_mtc0(&p, V0, C0_STATUS);
+//	uasm_i_sync(&p, 0);
+
+//	uasm_i_b(&p, -4);
+//	uasm_i_nop(&p);
+#endif
+/*****************************************************/
+	UASM_i_LA(&p, T9, (unsigned long)handle_tlb_general_exception);
+	uasm_i_jalr(&p, RA, T9);
+	UASM_i_ADDIU(&p, SP, SP, -CALLFRAME_SIZ);
+
+	uasm_resolve_relocs(relocs, labels);
+
+	p = kvm_mips_build_ret_from_exit(p);
+
+	return p;
+}
+
 
 /**
  * kvm_mips_build_exception() - Assemble first level guest exception handler.

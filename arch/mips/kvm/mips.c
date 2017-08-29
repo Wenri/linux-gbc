@@ -314,7 +314,9 @@ int test_inst[] = {
 struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 {
 	int err, size;
-	void *gebase, *p, *handler, *refill_start, *refill_end;
+	void *gebase, *p, *handler;
+	void *refill_start, *refill_end;
+	void *general_start, *general_end;
 	int i;
 
 	struct kvm_vcpu *vcpu = kzalloc(sizeof(struct kvm_vcpu), GFP_KERNEL);
@@ -367,18 +369,45 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	/* Build guest exception vectors dynamically in unmapped memory */
 	handler = gebase + 0x2000;
 
+	/*Create guest exception handler address map
+	 |	|
+	 |	|
+	 |	|
+	 |	|
+	 |______|kvm_run
+	 |	|
+	 |	|
+	 |	|
+	 |______|kvm_exit = gebase + 0x2000
+	 |	|
+	 |	|
+	 |______|tlb_invalid = gsebase+0x180
+	 |______|tlb_refill = gsebase+0x80
+	 |______|gsebase = gebase +0x1000
+	 |	|
+	 |	|
+	 |	|
+	 |	|
+	 |______|gebase + 0x180
+	 |______| gebase
+	*/
 	/* TLB refill (or XTLB refill on 64-bit VZ where KX=1) */
-	refill_start = gebase;
+	refill_start = gebase + 0x1000;
+	/*enable WG of gsebase*/
+	write_c0_gsebase(0x800);
+	write_c0_gsebase((unsigned long)(refill_start));
+
 	if (IS_ENABLED(CONFIG_KVM_MIPS_VZ) && IS_ENABLED(CONFIG_64BIT))
 		refill_start += 0x080;
 	refill_end = kvm_mips_build_tlb_refill_exception(refill_start, handler);
+
+	general_start = refill_start + 0x100;
 	printk("start %lx end %lx handler %lx\n",(unsigned long)refill_start,(unsigned long)refill_end,(unsigned long)handler);
-	/*enable WG of gsebase*/
-	write_c0_gsebase(0x800);
-	write_c0_gsebase((unsigned long)(refill_start + 0x1000));
+	printk("general_start %lx\n",(unsigned long)general_start);
+	general_end = kvm_mips_build_tlb_general_exception(general_start, handler);
 
 	/*add test instructions*/
-	memcpy((void *)0xffffffff80110000,test_inst,sizeof(test_inst));
+//	memcpy((void *)0xffffffff80110000,test_inst,sizeof(test_inst));
 	/* General Exception Entry point */
 	kvm_mips_build_exception(gebase + 0x180, handler);
 
@@ -404,6 +433,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	pr_debug("\n");
 	loongson_dump_handler("kvm_vcpu_run", vcpu->arch.vcpu_run, p);
 	loongson_dump_handler("kvm_tlb_refill", refill_start, refill_end);
+	loongson_dump_handler("kvm_tlb_general", general_start, general_end);
 	loongson_dump_handler("kvm_gen_exc", gebase + 0x180, gebase + 0x200);
 	loongson_dump_handler("kvm_exit", gebase + 0x2000, vcpu->arch.vcpu_run);
 
@@ -1261,6 +1291,98 @@ static void kvm_mips_set_c0_status(void)
 
 	write_c0_status(status);
 	ehb();
+}
+
+enum vmtlbexc {
+	IS = 0,
+	VMMMU = 1,
+	VMTLBL = 2,
+	VMTLBS = 3,
+	VMTLBM = 4,
+	VMTLBRI = 5,
+	VMTLBXI = 6
+};
+
+int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
+{
+//	u32 cause = vcpu->arch.host_cp0_cause;
+//	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
+//	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
+	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
+	int ret = RESUME_GUEST;
+	vcpu->mode = OUTSIDE_GUEST_MODE;
+
+	/* re-enable HTW before enabling interrupts */
+	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ))
+		htw_start();
+
+	/* Set a default exit reason */
+	run->exit_reason = KVM_EXIT_UNKNOWN;
+	run->ready_for_interrupt_injection = 1;
+
+//preempt_disable();
+//local_irq_enable();
+//	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
+//			__func__,cause, gsexccode, opc, run, vcpu);
+
+	switch(gsexccode) {
+	case IS:
+		break;
+	case VMMMU:
+		break;
+	case VMTLBL:
+//printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
+		ret = kvm_mips_callbacks->handle_tlb_ld_miss(vcpu);
+		break;
+	case VMTLBS:
+		ret = kvm_mips_callbacks->handle_tlb_st_miss(vcpu);
+		break;
+	case VMTLBM:
+		ret = kvm_mips_callbacks->handle_tlb_mod(vcpu);
+		break;
+	case VMTLBRI:
+		break;
+	case VMTLBXI:
+		break;
+
+	}
+
+	if (ret == RESUME_GUEST) {
+		trace_kvm_reenter(vcpu);
+
+		/*
+		 * Make sure the read of VCPU requests in vcpu_reenter()
+		 * callback is not reordered ahead of the write to vcpu->mode,
+		 * or we could miss a TLB flush request while the requester sees
+		 * the VCPU as outside of guest mode and not needing an IPI.
+		 */
+		smp_store_mb(vcpu->mode, IN_GUEST_MODE);
+
+		kvm_mips_callbacks->vcpu_reenter(run, vcpu);
+
+		/*
+		 * If FPU / MSA are enabled (i.e. the guest's FPU / MSA context
+		 * is live), restore FCR31 / MSACSR.
+		 *
+		 * This should be before returning to the guest exception
+		 * vector, as it may well cause an [MSA] FP exception if there
+		 * are pending exception bits unmasked. (see
+		 * kvm_mips_csr_die_notifier() for how that is handled).
+		 */
+		if (kvm_mips_guest_has_fpu(&vcpu->arch) &&
+		    read_c0_status() & ST0_CU1)
+			__kvm_restore_fcsr(&vcpu->arch);
+
+		/*if (kvm_mips_guest_has_msa(&vcpu->arch) &&*/
+		    /*read_c0_config5() & MIPS_CONF5_MSAEN)*/
+			/*__kvm_restore_msacsr(&vcpu->arch);*/
+	}
+
+	/* Disable HTW before returning to guest or host */
+	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ))
+		htw_stop();
+
+	return ret;
 }
 
 /*
