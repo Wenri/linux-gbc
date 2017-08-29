@@ -704,11 +704,11 @@ void loongson_vz_general_exc(void)
  */
 void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 {
-	u32 *p = addr + 0x1000;
+	u32 *p = addr;
 	struct uasm_label labels[2];
 	struct uasm_reloc relocs[2];
-//	struct uasm_label *l = labels;
-//	struct uasm_reloc *r = relocs;
+	struct uasm_label *l = labels;
+	struct uasm_reloc *r = relocs;
 
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
@@ -717,10 +717,16 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 //	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
 //	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.gprs[K0]), K1);
 
+#if 0
+	/*test for refill one fixed page to get instructions*/
 	UASM_i_LA(&p, T9, (unsigned long)loongson_vz_exception);
 	uasm_i_jalr(&p, RA, T9);
 	uasm_i_nop(&p);
-#if 0
+#endif
+#if 1
+	/* Save guest k1 into scratch register */
+	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
+
 	/* Get the VCPU pointer from the VCPU scratch register */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
 
@@ -732,6 +738,12 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	 * assume symmetry and just disable preemption to silence the warning.
 	 */
 	preempt_disable();
+
+	/*Store the guest pgd into PWBASE*/
+	UASM_i_LW(&p, K0, (int)offsetof(struct kvm_vcpu, kvm), K1);
+	UASM_i_LW(&p, K0, offsetof(struct kvm, arch.gpa_mm.pgd), K0);
+	if (cpu_has_ldpte)
+		UASM_i_MTC0(&p, K0, C0_PWBASE);
 
 	/*
 	 * Now for the actual refill bit. A lot of this can be common with the
@@ -1062,7 +1074,7 @@ void *kvm_mips_build_exception(void *addr, void *handler)
 
 	/* Branch to the common handler */
 	uasm_il_b(&p, &r, label_exit_common);
-	 uasm_i_nop(&p);
+	uasm_i_nop(&p);
 
 	uasm_l_exit_common(&l, handler);
 	uasm_resolve_relocs(relocs, labels);
