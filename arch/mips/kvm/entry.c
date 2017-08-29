@@ -470,6 +470,27 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, lo), K1);
 	uasm_i_mtlo(&p, K0);
 #endif
+/*******************************************************/
+//make sure kernel entry addr 0x80aec1c0 entryHI OK
+#if 0
+	uasm_i_lui(&p, K0, 0x5);
+	uasm_i_mtc0(&p, K0, C0_DIAG);
+
+	uasm_i_lui(&p, K0, 0xc000);
+	uasm_i_ori(&p, K0, K0, 0xffff);
+	uasm_i_dsll(&p, K0, K0, 16);
+	uasm_i_ori(&p, K0, K0, 0x80ae);
+	uasm_i_dsll(&p, K0, K0, 16);
+	uasm_i_ori(&p, K0, K0, 0xc000);
+	UASM_i_MTC0(&p, ZERO, C0_ENTRYLO0);
+	UASM_i_MTC0(&p, ZERO, C0_ENTRYLO1);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+	uasm_i_tlbwr(&p);
+
+	uasm_i_lui(&p, K0, 0x1);
+	uasm_i_mtc0(&p, K0, C0_DIAG);
+#endif
+/*******************************************************/
 
 	/* Restore the guest's k0/k1 registers */
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[K0]), K1);
