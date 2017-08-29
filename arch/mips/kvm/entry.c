@@ -265,7 +265,7 @@ void *kvm_mips_build_vcpu_run(void *addr)
 	 * Setup status register for running the guest in UM, interrupts
 	 * are disabled
 	 */
-	UASM_i_LA(&p, K0, ST0_EXL | KSU_USER | ST0_BEV | ST0_KX_IF_64);
+	UASM_i_LA(&p, K0, ST0_EXL | KSU_USER | ST0_UX | ST0_KX_IF_64);
 	uasm_i_mtc0(&p, K0, C0_STATUS);
 	uasm_i_ehb(&p);
 
@@ -885,11 +885,13 @@ void *kvm_mips_build_exit(void *addr)
 	/* load up the host EBASE */
 	uasm_i_mfc0(&p, V0, C0_STATUS);
 
+#ifndef CONFIG_CPU_LOONGSON3
 	uasm_i_lui(&p, AT, ST0_BEV >> 16);
 	uasm_i_or(&p, K0, V0, AT);
 
 	uasm_i_mtc0(&p, K0, C0_STATUS);
 	uasm_i_ehb(&p);
+#endif
 
 	UASM_i_LA_mostly(&p, K0, (long)&ebase);
 	UASM_i_LW(&p, K0, uasm_rel_lo((long)&ebase), K0);
@@ -1097,10 +1099,12 @@ static void *kvm_mips_build_ret_to_guest(void *addr)
 
 	/* Switch EBASE back to the one used by KVM */
 	uasm_i_mfc0(&p, V1, C0_STATUS);
+#ifndef CONFIG_CPU_LOONGSON3
 	uasm_i_lui(&p, AT, ST0_BEV >> 16);
 	uasm_i_or(&p, K0, V1, AT);
 	uasm_i_mtc0(&p, K0, C0_STATUS);
 	uasm_i_ehb(&p);
+#endif
 	build_set_exc_base(&p, T0);
 
 	/* Setup status register for running guest in UM */
