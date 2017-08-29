@@ -1329,6 +1329,7 @@ static ieee754sp fpemu_sp_rsqrt(ieee754sp s)
 	return ieee754sp_div(ieee754sp_one(0), ieee754sp_sqrt(s));
 }
 
+#if !defined (CONFIG_CPU_LOONGSON3) && !defined (CONFIG_CPU_LOONGSON2K)
 DEF3OP(madd, sp, ieee754sp_mul, ieee754sp_add, );
 DEF3OP(msub, sp, ieee754sp_mul, ieee754sp_sub, );
 DEF3OP(nmadd, sp, ieee754sp_mul, ieee754sp_add, ieee754sp_neg);
@@ -1337,6 +1338,7 @@ DEF3OP(madd, dp, ieee754dp_mul, ieee754dp_add, );
 DEF3OP(msub, dp, ieee754dp_mul, ieee754dp_sub, );
 DEF3OP(nmadd, dp, ieee754dp_mul, ieee754dp_add, ieee754dp_neg);
 DEF3OP(nmsub, dp, ieee754dp_mul, ieee754dp_sub, ieee754dp_neg);
+#endif
 
 static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	mips_instruction ir, void *__user *fault_addr)
@@ -1390,7 +1392,20 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 				return SIGSEGV;
 			}
 			break;
-
+#if defined (CONFIG_CPU_LOONGSON3) || defined (CONFIG_CPU_LOONGSON2K)
+		case madd_s_op:
+			handler = ieee754sp_maddf;
+			goto scoptop;
+		case msub_s_op:
+			handler = ieee754sp_msubf;
+			goto scoptop;
+		case nmadd_s_op:
+			handler = ieee754sp_nmaddf;
+			goto scoptop;
+		case nmsub_s_op:
+			handler = ieee754sp_nmsubf;
+			goto scoptop;
+#else
 		case madd_s_op:
 			handler = fpemu_sp_madd;
 			goto scoptop;
@@ -1403,6 +1418,7 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case nmsub_s_op:
 			handler = fpemu_sp_nmsub;
 			goto scoptop;
+#endif
 
 		      scoptop:
 			SPFROMREG(fr, MIPSInst_FR(ir));
@@ -1478,7 +1494,20 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 				return SIGSEGV;
 			}
 			break;
-
+#if defined (CONFIG_CPU_LOONGSON3) || defined (CONFIG_CPU_LOONGSON2K)
+		case madd_d_op:
+			handler = ieee754dp_maddf;
+			goto dcoptop;
+		case msub_d_op:
+			handler = ieee754dp_msubf;
+			goto dcoptop;
+		case nmadd_d_op:
+			handler = ieee754dp_nmaddf;
+			goto dcoptop;
+		case nmsub_d_op:
+			handler = ieee754dp_nmsubf;
+			goto dcoptop;
+#else
 		case madd_d_op:
 			handler = fpemu_dp_madd;
 			goto dcoptop;
@@ -1491,7 +1520,7 @@ static int fpux_emu(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		case nmsub_d_op:
 			handler = fpemu_dp_nmsub;
 			goto dcoptop;
-
+#endif
 		      dcoptop:
 			DPFROMREG(fr, MIPSInst_FR(ir));
 			DPFROMREG(fs, MIPSInst_FS(ir));

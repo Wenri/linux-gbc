@@ -143,6 +143,15 @@ ieee754sp ieee754sp_trunc(ieee754sp x);
 
 ieee754sp ieee754sp_sqrt(ieee754sp x);
 
+ieee754sp ieee754sp_maddf(ieee754sp z, ieee754sp x,
+				ieee754sp y);
+ieee754sp ieee754sp_msubf(ieee754sp z, ieee754sp x,
+				ieee754sp y);
+ieee754sp ieee754sp_nmaddf(ieee754sp z, ieee754sp x,
+				ieee754sp y);
+ieee754sp ieee754sp_nmsubf(ieee754sp z, ieee754sp x,
+				ieee754sp y);
+
 /*
  * double precision (often aka double)
 */
@@ -194,6 +203,14 @@ ieee754dp ieee754dp_trunc(ieee754dp x);
 
 ieee754dp ieee754dp_sqrt(ieee754dp x);
 
+ieee754dp ieee754dp_maddf(ieee754dp z, ieee754dp x,
+				ieee754dp y);
+ieee754dp ieee754dp_msubf(ieee754dp z, ieee754dp x,
+				ieee754dp y);
+ieee754dp ieee754dp_nmaddf(ieee754dp z, ieee754dp x,
+				ieee754dp y);
+ieee754dp ieee754dp_nmsubf(ieee754dp z, ieee754dp x,
+				ieee754dp y);
 
 
 /* 5 types of floating point number
