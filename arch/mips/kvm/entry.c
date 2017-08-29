@@ -340,7 +340,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
-	if (cpu_has_htw)
+	if (cpu_has_htw || cpu_has_ldpte)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
@@ -1207,7 +1207,7 @@ void *kvm_mips_build_exit(void *addr)
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
-	if (cpu_has_htw)
+	if (cpu_has_htw || cpu_has_ldpte)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
