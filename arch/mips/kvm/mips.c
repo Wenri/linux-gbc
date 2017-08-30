@@ -520,7 +520,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
 
 //	local_irq_disable();
 //	guest_enter_irqoff();
-	__kvm_guest_enter();
+	kvm_guest_enter();
 	trace_kvm_enter(vcpu);
 
 	/*
