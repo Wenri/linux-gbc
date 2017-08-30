@@ -1320,8 +1320,18 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	run->exit_reason = KVM_EXIT_UNKNOWN;
 	run->ready_for_interrupt_injection = 1;
 
-//preempt_disable();
-//local_irq_enable();
+/*****************************************************/
+/* kernel would go mad with preemption enabled, why? */
+
+preempt_disable();
+local_irq_enable();
+printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
+while(1)
+{
+printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
+}
+
+/*****************************************************/
 //	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
 //			__func__,cause, gsexccode, opc, run, vcpu);
 
