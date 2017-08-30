@@ -267,7 +267,7 @@ void *kvm_mips_build_vcpu_run(void *addr)
 	 * Setup status register for running the guest in UM, interrupts
 	 * are disabled
 	 */
-	UASM_i_LA(&p, K0, ST0_EXL | KSU_USER | ST0_UX | ST0_KX_IF_64);
+	UASM_i_LA(&p, K0, ST0_EXL | KSU_USER | ST0_UX | ST0_KX_IF_64 | ST0_MX);
 	uasm_i_mtc0(&p, K0, C0_STATUS);
 	uasm_i_ehb(&p);
 
@@ -281,7 +281,7 @@ void *kvm_mips_build_vcpu_run(void *addr)
 	 * are enabled
 	 */
 #ifdef CONFIG_CPU_LOONGSON3
-	uasm_i_addiu(&p, K0, ZERO, ST0_EXL | ST0_UX | KSU_USER | ST0_IE | ST0_KX_IF_64);
+	UASM_i_LA(&p, K0, ST0_EXL | KSU_USER | ST0_IE | ST0_UX | ST0_KX_IF_64 | ST0_MX);
 #else
 	uasm_i_addiu(&p, K0, ZERO, ST0_EXL | KSU_USER | ST0_IE | ST0_KX_IF_64);
 #endif
@@ -1401,7 +1401,8 @@ static void *kvm_mips_build_ret_to_guest(void *addr)
 
 	/* Setup status register for running guest in UM */
 	uasm_i_ori(&p, V1, V1, ST0_EXL | KSU_USER | ST0_IE);
-	UASM_i_LA(&p, AT, ~(ST0_CU0 | ST0_MX | ST0_SX | ST0_UX));
+	//UASM_i_LA(&p, AT, ~(ST0_CU0 | ST0_MX | ST0_SX | ST0_UX));
+	UASM_i_LA(&p, AT, ~(ST0_CU0 | ST0_SX));
 	uasm_i_and(&p, V1, V1, AT);
 	uasm_i_mtc0(&p, V1, C0_STATUS);
 	uasm_i_ehb(&p);

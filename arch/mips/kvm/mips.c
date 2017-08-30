@@ -1323,7 +1323,7 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 /*****************************************************/
 /* kernel would go mad with preemption enabled, why? */
 
-preempt_disable();
+//preempt_disable();
 local_irq_enable();
 printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
 while(1)
