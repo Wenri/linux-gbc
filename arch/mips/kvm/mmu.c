@@ -745,6 +745,7 @@ retry:
 
 	/* Slow path - ask KVM core whether we can access this GPA */
 	pfn = gfn_to_pfn_prot(kvm, gfn, write_fault, &writeable);
+//	printk("%s gfn %lx, pfn %lx\n",__func__, (unsigned long)gfn, (unsigned long)pfn);
 	if (is_error_noslot_pfn(pfn)) {
 		err = -EFAULT;
 		goto out;
@@ -997,8 +998,8 @@ static pte_t kvm_mips_gpa_pte_to_gva_mapped(pte_t pte, long entrylo)
 	return kvm_mips_gpa_pte_to_gva_unmapped(pte);
 }
 
-/*#ifdef CONFIG_KVM_MIPS_VZ*/
-#if 0
+#ifdef CONFIG_KVM_MIPS_VZ
+#ifndef CONFIG_CPU_LOONGSON3 
 int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 				      struct kvm_vcpu *vcpu,
 				      bool write_fault)
@@ -1012,6 +1013,75 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 	/* Invalidate this entry in the TLB */
 	return kvm_vz_host_tlb_inv(vcpu, badvaddr);
 }
+#else
+/*The badvaddr maybe guest KSEG0/1/23,XPHYS or other mapped address*/
+
+int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
+				      struct kvm_vcpu *vcpu,
+				      bool write_fault)
+{
+	int ret;
+	unsigned long gpa;
+	pte_t pte_gpa[2];
+	int idx;
+
+	unsigned long old_entryhi, pagemask;
+	int c0_idx;
+	unsigned long flags;
+
+	/*the badvaddr we get maybe guest unmmaped or mmapped address,
+	  but not a GPA */
+	
+//printk("%s:%s:%d\n",__FILE__,__func__,__LINE__);
+	if (((badvaddr & CKSEG3) == CKSEG0) ||
+		   ((badvaddr & 0xffffffffffff0000) == 0xffffffffbfc00000)) {
+		//1.get the GPA
+		gpa = CPHYSADDR(badvaddr);
+//		printk("%s badvadd %lx,gpa %lx\n",__func__, badvaddr, gpa);
+		idx = (badvaddr >> PAGE_SHIFT) & 1;
+		ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte_gpa[idx], &pte_gpa[!idx]);
+		if (ret)
+			return ret;
+		//2. update root tlb entry for badvaddr
+
+		local_irq_save(flags);
+
+		old_entryhi = read_c0_entryhi();
+		pagemask = read_c0_pagemask();
+		mtc0_tlbw_hazard();
+		tlb_probe();
+		tlb_probe_hazard();
+		c0_idx = read_c0_index();
+		write_c0_entrylo0(pte_to_entrylo(pte_val(pte_gpa[0])));
+		write_c0_entrylo1(pte_to_entrylo(pte_val(pte_gpa[1])));
+		mtc0_tlbw_hazard();
+		tlb_write_indexed();
+		tlbw_use_hazard();
+		write_c0_entryhi(old_entryhi);
+		/* Set the corresponding tlb line in SW guest tlb*/
+		kvm_ls_vz_update_guesttlb(vcpu, old_entryhi, pagemask, c0_idx%64, pte_gpa);
+
+		local_irq_restore(flags);
+	} else if (((badvaddr & CKSEG3) == CKSEG1))
+	{
+		/*the MMIO address space*/
+		ret = RESUME_GUEST;
+		return ret;
+	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSEG3)
+			  || ((badvaddr & CKSEG3) < XKSSEG))
+	{
+		/* guest mapped address, return back to guest to process
+		   and get the GPA for trans
+		*/
+		ret = RESUME_GUEST;
+		return ret;
+	}
+
+	return 0;
+	/* Invalidate this entry in the TLB */
+//	return kvm_vz_host_tlb_inv(vcpu, badvaddr);
+}
+#endif
 #endif
 
 /* XXXKYMA: Must be called with interrupts disabled */

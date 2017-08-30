@@ -1382,6 +1382,11 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ))
 		htw_stop();
 
+printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
+while(1)
+{
+printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
+}
 	return ret;
 }
 

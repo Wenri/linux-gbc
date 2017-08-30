@@ -889,6 +889,10 @@ void kvm_vz_save_guesttlb(struct kvm_mips_tlb *buf, unsigned int index,
 			  unsigned int count);
 void kvm_vz_load_guesttlb(const struct kvm_mips_tlb *buf, unsigned int index,
 			  unsigned int count);
+void kvm_ls_vz_save_guesttlb(struct kvm_vcpu *vcpu);
+void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu);
+void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu,unsigned long entryhi, unsigned long pagemask,
+				unsigned int index, pte_t *pte);
 #endif
 
 void kvm_mips_suspend_mm(int cpu);

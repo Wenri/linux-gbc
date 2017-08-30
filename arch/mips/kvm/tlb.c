@@ -33,8 +33,8 @@
 #define KVM_GUEST_PC_TLB    0
 #define KVM_GUEST_SP_TLB    1
 
-/*#ifdef CONFIG_KVM_MIPS_VZ*/
-#if 0
+#ifdef CONFIG_KVM_MIPS_VZ
+#ifndef CONFIG_CPU_LOONGSON3 
 unsigned long GUESTID_MASK;
 EXPORT_SYMBOL_GPL(GUESTID_MASK);
 unsigned long GUESTID_FIRST_VERSION;
@@ -51,6 +51,7 @@ static u32 kvm_mips_get_root_asid(struct kvm_vcpu *vcpu)
 	else
 		return cpu_asid(smp_processor_id(), gpa_mm);
 }
+#endif
 #endif
 
 static u32 kvm_mips_get_kernel_asid(struct kvm_vcpu *vcpu)
@@ -210,8 +211,8 @@ int kvm_mips_host_tlb_inv(struct kvm_vcpu *vcpu, unsigned long va,
 }
 EXPORT_SYMBOL_GPL(kvm_mips_host_tlb_inv);
 
-/*#ifdef CONFIG_KVM_MIPS_VZ*/
-#if 0
+#ifdef CONFIG_KVM_MIPS_VZ
+#ifndef CONFIG_CPU_LOONGSON3 
 
 /* GuestID management */
 
@@ -623,7 +624,425 @@ void kvm_vz_load_guesttlb(const struct kvm_mips_tlb *buf, unsigned int index,
 	tlbw_use_hazard();
 }
 EXPORT_SYMBOL_GPL(kvm_vz_load_guesttlb);
+#else
+/* GuestID management */
 
+/**
+ * clear_root_gid() - Set GuestCtl1.RID for normal root operation.
+ */
+static inline void clear_root_gid(void)
+{
+#if 0
+	if (cpu_has_guestid) {
+		clear_c0_guestctl1(MIPS_GCTL1_RID);
+		mtc0_tlbw_hazard();
+	}
+#endif
+}
+
+/**
+ * set_root_gid_to_guest_gid() - Set GuestCtl1.RID to match GuestCtl1.ID.
+ *
+ * Sets the root GuestID to match the current guest GuestID, for TLB operation
+ * on the GPA->RPA mappings in the root TLB.
+ *
+ * The caller must be sure to disable HTW while the root GID is set, and
+ * possibly longer if TLB registers are modified.
+ */
+static inline void set_root_gid_to_guest_gid(void)
+{
+#if 0
+	unsigned int guestctl1;
+
+	if (cpu_has_guestid) {
+		back_to_back_c0_hazard();
+		guestctl1 = read_c0_guestctl1();
+		guestctl1 = (guestctl1 & ~MIPS_GCTL1_RID) |
+			((guestctl1 & MIPS_GCTL1_ID) >> MIPS_GCTL1_ID_SHIFT)
+						     << MIPS_GCTL1_RID_SHIFT;
+		write_c0_guestctl1(guestctl1);
+		mtc0_tlbw_hazard();
+	}
+#endif
+}
+
+int kvm_vz_host_tlb_inv(struct kvm_vcpu *vcpu, unsigned long va)
+{
+#if 0
+	int idx;
+	unsigned long flags, old_entryhi;
+
+	local_irq_save(flags);
+	htw_stop();
+
+	/* Set root GuestID for root probe and write of guest TLB entry */
+	set_root_gid_to_guest_gid();
+
+	old_entryhi = read_c0_entryhi();
+
+	idx = _kvm_mips_host_tlb_inv((va & VPN2_MASK) |
+				     kvm_mips_get_root_asid(vcpu));
+
+	write_c0_entryhi(old_entryhi);
+	clear_root_gid();
+	mtc0_tlbw_hazard();
+
+	htw_start();
+	local_irq_restore(flags);
+
+	/*
+	 * We don't want to get reserved instruction exceptions for missing tlb
+	 * entries.
+	 */
+	if (cpu_has_vtag_icache)
+		flush_icache_all();
+
+	if (idx > 0)
+		kvm_debug("%s: Invalidated root entryhi %#lx @ idx %d\n",
+			  __func__, (va & VPN2_MASK) |
+				    kvm_mips_get_root_asid(vcpu), idx);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_vz_host_tlb_inv);
+
+/**
+ * kvm_vz_guest_tlb_lookup() - Lookup a guest VZ TLB mapping.
+ * @vcpu:	KVM VCPU pointer.
+ * @gpa:	Guest virtual address in a TLB mapped guest segment.
+ * @gpa:	Ponter to output guest physical address it maps to.
+ *
+ * Converts a guest virtual address in a guest TLB mapped segment to a guest
+ * physical address, by probing the guest TLB.
+ *
+ * Returns:	0 if guest TLB mapping exists for @gva. *@gpa will have been
+ *		written.
+ *		-EFAULT if no guest TLB mapping exists for @gva. *@gpa may not
+ *		have been written.
+ */
+int kvm_vz_guest_tlb_lookup(struct kvm_vcpu *vcpu, unsigned long gva,
+			    unsigned long *gpa)
+{
+#if 0
+	unsigned long o_entryhi, o_entrylo[2], o_pagemask;
+	unsigned int o_index;
+	unsigned long entrylo[2], pagemask, pagemaskbit, pa;
+	unsigned long flags;
+	int index;
+
+	/* Probe the guest TLB for a mapping */
+	local_irq_save(flags);
+	/* Set root GuestID for root probe of guest TLB entry */
+	htw_stop();
+	set_root_gid_to_guest_gid();
+
+	o_entryhi = read_gc0_entryhi();
+	o_index = read_gc0_index();
+
+	write_gc0_entryhi((o_entryhi & 0x3ff) | (gva & ~0xfffl));
+	mtc0_tlbw_hazard();
+	guest_tlb_probe();
+	tlb_probe_hazard();
+
+	index = read_gc0_index();
+	if (index < 0) {
+		/* No match, fail */
+		write_gc0_entryhi(o_entryhi);
+		write_gc0_index(o_index);
+
+		clear_root_gid();
+		htw_start();
+		local_irq_restore(flags);
+		return -EFAULT;
+	}
+
+	/* Match! read the TLB entry */
+	o_entrylo[0] = read_gc0_entrylo0();
+	o_entrylo[1] = read_gc0_entrylo1();
+	o_pagemask = read_gc0_pagemask();
+
+	mtc0_tlbr_hazard();
+	guest_tlb_read();
+	tlb_read_hazard();
+
+	entrylo[0] = read_gc0_entrylo0();
+	entrylo[1] = read_gc0_entrylo1();
+	pagemask = ~read_gc0_pagemask() & ~0x1fffl;
+
+	write_gc0_entryhi(o_entryhi);
+	write_gc0_index(o_index);
+	write_gc0_entrylo0(o_entrylo[0]);
+	write_gc0_entrylo1(o_entrylo[1]);
+	write_gc0_pagemask(o_pagemask);
+
+	clear_root_gid();
+	htw_start();
+	local_irq_restore(flags);
+
+	/* Select one of the EntryLo values and interpret the GPA */
+	pagemaskbit = (pagemask ^ (pagemask & (pagemask - 1))) >> 1;
+	pa = entrylo[!!(gva & pagemaskbit)];
+
+	/*
+	 * TLB entry may have become invalid since TLB probe if physical FTLB
+	 * entries are shared between threads (e.g. I6400).
+	 */
+	if (!(pa & ENTRYLO_V))
+		return -EFAULT;
+
+	/*
+	 * Note, this doesn't take guest MIPS32 XPA into account, where PFN is
+	 * split with XI/RI in the middle.
+	 */
+	pa = (pa << 6) & ~0xfffl;
+	pa |= gva & ~(pagemask | pagemaskbit);
+
+	*gpa = pa;
+#endif
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_vz_guest_tlb_lookup);
+
+/**
+ * kvm_vz_local_flush_roottlb_all_guests() - Flush all root TLB entries for
+ * guests.
+ *
+ * Invalidate all entries in root tlb which are GPA mappings.
+ */
+void kvm_vz_local_flush_roottlb_all_guests(void)
+{
+#if 0
+	unsigned long flags;
+	unsigned long old_entryhi, old_pagemask, old_guestctl1;
+	int entry;
+
+	if (WARN_ON(!cpu_has_guestid))
+		return;
+
+	local_irq_save(flags);
+	htw_stop();
+
+	/* TLBR may clobber EntryHi.ASID, PageMask, and GuestCtl1.RID */
+	old_entryhi = read_c0_entryhi();
+	old_pagemask = read_c0_pagemask();
+	old_guestctl1 = read_c0_guestctl1();
+
+	/*
+	 * Invalidate guest entries in root TLB while leaving root entries
+	 * intact when possible.
+	 */
+	for (entry = 0; entry < current_cpu_data.tlbsize; entry++) {
+		write_c0_index(entry);
+		mtc0_tlbw_hazard();
+		tlb_read();
+		tlb_read_hazard();
+
+		/* Don't invalidate non-guest (RVA) mappings in the root TLB */
+		if (!(read_c0_guestctl1() & MIPS_GCTL1_RID))
+			continue;
+
+		/* Make sure all entries differ. */
+		write_c0_entryhi(UNIQUE_ENTRYHI(entry));
+		write_c0_entrylo0(0);
+		write_c0_entrylo1(0);
+		write_c0_guestctl1(0);
+		mtc0_tlbw_hazard();
+		tlb_write_indexed();
+	}
+
+	write_c0_entryhi(old_entryhi);
+	write_c0_pagemask(old_pagemask);
+	write_c0_guestctl1(old_guestctl1);
+	tlbw_use_hazard();
+
+	htw_start();
+	local_irq_restore(flags);
+#endif
+}
+EXPORT_SYMBOL_GPL(kvm_vz_local_flush_roottlb_all_guests);
+
+/**
+ * kvm_vz_local_flush_guesttlb_all() - Flush all guest TLB entries.
+ *
+ * Invalidate all entries in guest tlb irrespective of guestid.
+ */
+void kvm_vz_local_flush_guesttlb_all(void)
+{
+#if 0
+	unsigned long flags;
+	unsigned long old_index;
+	unsigned long old_entryhi;
+	unsigned long old_entrylo[2];
+	unsigned long old_pagemask;
+	int entry;
+	u64 cvmmemctl2 = 0;
+
+	local_irq_save(flags);
+
+	/* Preserve all clobbered guest registers */
+	old_index = read_gc0_index();
+	old_entryhi = read_gc0_entryhi();
+	old_entrylo[0] = read_gc0_entrylo0();
+	old_entrylo[1] = read_gc0_entrylo1();
+	old_pagemask = read_gc0_pagemask();
+
+	switch (current_cpu_type()) {
+	case CPU_CAVIUM_OCTEON3:
+		/* Inhibit machine check due to multiple matching TLB entries */
+		cvmmemctl2 = read_c0_cvmmemctl2();
+		cvmmemctl2 |= CVMMEMCTL2_INHIBITTS;
+		write_c0_cvmmemctl2(cvmmemctl2);
+		break;
+	};
+
+	/* Invalidate guest entries in guest TLB */
+	write_gc0_entrylo0(0);
+	write_gc0_entrylo1(0);
+	write_gc0_pagemask(0);
+	for (entry = 0; entry < current_cpu_data.guest.tlbsize; entry++) {
+		/* Make sure all entries differ. */
+		write_gc0_index(entry);
+		write_gc0_entryhi(UNIQUE_GUEST_ENTRYHI(entry));
+		mtc0_tlbw_hazard();
+		guest_tlb_write_indexed();
+	}
+
+	if (cvmmemctl2) {
+		cvmmemctl2 &= ~CVMMEMCTL2_INHIBITTS;
+		write_c0_cvmmemctl2(cvmmemctl2);
+	};
+
+	write_gc0_index(old_index);
+	write_gc0_entryhi(old_entryhi);
+	write_gc0_entrylo0(old_entrylo[0]);
+	write_gc0_entrylo1(old_entrylo[1]);
+	write_gc0_pagemask(old_pagemask);
+	tlbw_use_hazard();
+
+	local_irq_restore(flags);
+#endif
+}
+EXPORT_SYMBOL_GPL(kvm_vz_local_flush_guesttlb_all);
+
+/**
+ * kvm_ls_vz_save_guesttlb() - Save a range of guest TLB entries.
+ * @vcpu:	The vcpu point to.
+ *
+ * Save a range of guest TLB entries. The caller must ensure interrupts are
+ * disabled.
+ */
+void kvm_ls_vz_save_guesttlb(struct kvm_vcpu *vcpu)
+{
+	int i;
+	int tmp_index;
+	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
+	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
+
+	//save tmp
+	tmp_index = read_c0_index();
+	tmp_entryhi = read_c0_entryhi();
+	tmp_pagemask = read_c0_pagemask();
+	tmp_entrylo0 = read_c0_entrylo0();
+	tmp_entrylo1 = read_c0_entrylo1();
+
+	//find the tlb line
+	for (i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
+		write_c0_index(i);
+		tlb_read();
+		tlb[i].tlb_hi = read_c0_entryhi();
+		tlb[i].tlb_mask = read_c0_pagemask();
+		tlb[i].tlb_lo[0] = read_c0_entrylo0();
+		tlb[i].tlb_lo[1] = read_c0_entrylo1();
+	}
+	write_c0_index(tmp_index);
+	write_c0_entryhi(tmp_entryhi);
+	write_c0_pagemask(tmp_pagemask);
+	write_c0_entrylo0(tmp_entrylo0);
+	write_c0_entrylo1(tmp_entrylo1);
+}
+EXPORT_SYMBOL_GPL(kvm_ls_vz_save_guesttlb);
+
+/**
+ * kvm_ls_vz_load_guesttlb() - Save a range of guest TLB entries.
+ * @vcpu:	the tlb vcpu.
+ *
+ * Load a range of guest TLB entries. The caller must ensure interrupts are
+ * disabled.
+ */
+void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
+{
+	int i;
+	int tmp_index;
+	unsigned long entryhi, pagemask, entrylo0, entrylo1;
+	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
+	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
+
+	//save tmp
+	tmp_index = read_c0_index();
+	tmp_entryhi = read_c0_entryhi();
+	tmp_pagemask = read_c0_pagemask();
+	tmp_entrylo0 = read_c0_entrylo0();
+	tmp_entrylo1 = read_c0_entrylo1();
+
+	//Set the tlb contant 
+	for (i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
+		entryhi =  tlb[i].tlb_hi;
+		pagemask = tlb[i].tlb_mask;
+		entrylo0 = tlb[i].tlb_lo[0];
+		entrylo1 = tlb[i].tlb_lo[1];
+		write_c0_index(i);
+		write_c0_entryhi(entryhi);
+		write_c0_pagemask(pagemask);
+		write_c0_entrylo0(entrylo0);
+		write_c0_entrylo1(entrylo1);
+		tlb_write_indexed();
+	}
+	write_c0_index(tmp_index);
+	write_c0_entryhi(tmp_entryhi);
+	write_c0_pagemask(tmp_pagemask);
+	write_c0_entrylo0(tmp_entrylo0);
+	write_c0_entrylo1(tmp_entrylo1);
+}
+EXPORT_SYMBOL_GPL(kvm_ls_vz_load_guesttlb);
+void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu,unsigned long entryhi, unsigned long pagemask,
+				 unsigned int index, pte_t *pte)
+{
+	int tmp_index;
+	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
+	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
+
+	//save tmp
+	tmp_index = read_c0_index();
+	tmp_entryhi = read_c0_entryhi();
+	tmp_pagemask = read_c0_pagemask();
+	tmp_entrylo0 = read_c0_entrylo0();
+	tmp_entrylo1 = read_c0_entrylo1();
+	
+	//find the tlb to check if the new one is in the tlb
+	//update indexed guesttlb
+	tlb[index].tlb_hi    = entryhi;
+	tlb[index].tlb_mask  = pagemask;
+	tlb[index].tlb_lo[0] = pte_to_entrylo(pte_val(pte[1]));
+	tlb[index].tlb_lo[1] = pte_to_entrylo(pte_val(pte[0]));
+
+	//update indexed tlb
+//	write_c0_index(index);
+//	write_c0_entryhi(entryhi);
+//	write_c0_pagemask(pagemask);
+//	write_c0_entrylo0(pte_to_entrylo(pte_val(pte[0])));
+//	write_c0_entrylo1(pte_to_entrylo(pte_val(pte[1])));
+//	tlb_write_indexed();
+
+	//restore tmp
+	write_c0_index(tmp_index);
+	write_c0_entryhi(tmp_entryhi);
+	write_c0_pagemask(tmp_pagemask);
+	write_c0_entrylo0(tmp_entrylo0);
+	write_c0_entrylo1(tmp_entrylo1);
+}
+EXPORT_SYMBOL_GPL(kvm_ls_vz_update_guesttlb);
+
+#endif
 #endif
 
 /**

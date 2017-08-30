@@ -78,7 +78,50 @@ static int kvm_trap_vz_handle_cop_unusable(struct kvm_vcpu *vcpu)
 
 static int kvm_trap_vz_handle_tlb_ld_miss(struct kvm_vcpu *vcpu)
 {
-	return 0;
+	struct kvm_run *run = vcpu->run;
+	u32 *opc = (u32 *) vcpu->arch.pc;
+	u32 cause = vcpu->arch.host_cp0_cause;
+	ulong badvaddr = vcpu->arch.host_cp0_badvaddr;
+	union mips_instruction inst;
+	enum emulation_result er = EMULATE_DONE;
+	int err, ret = RESUME_GUEST;
+
+	if (kvm_mips_handle_vz_root_tlb_fault(badvaddr, vcpu, false)) {
+		/* A code fetch fault doesn't count as an MMIO */
+		if (kvm_is_ifetch_fault(&vcpu->arch)) {
+			run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+			return RESUME_HOST;
+		}
+
+		/* Fetch the instruction */
+		if (cause & CAUSEF_BD)
+			opc += 1;
+		err = kvm_get_badinstr(opc, vcpu, &inst.word);
+		if (err) {
+			run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+			return RESUME_HOST;
+		}
+
+		/* Treat as MMIO */
+		er = kvm_mips_emulate_load(inst, cause, run, vcpu);
+		if (er == EMULATE_FAIL) {
+			kvm_err("Guest Emulate Load from MMIO space failed: PC: %p, BadVaddr: %#lx\n",
+				opc, badvaddr);
+			run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		}
+	}
+
+	if (er == EMULATE_DONE) {
+		ret = RESUME_GUEST;
+	} else if (er == EMULATE_DO_MMIO) {
+		run->exit_reason = KVM_EXIT_MMIO;
+		ret = RESUME_HOST;
+	} else {
+		run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		ret = RESUME_HOST;
+	}
+
+	return ret;
 }
 
 static int kvm_trap_vz_handle_tlb_st_miss(struct kvm_vcpu *vcpu)
@@ -216,7 +259,7 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 
 static void kvm_vz_vcpu_reenter(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-
+	kvm_ls_vz_load_guesttlb(vcpu);
 }
 
 static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
@@ -231,9 +274,11 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 //	kvm_vz_check_requests(vcpu, cpu);
 //	kvm_vz_vcpu_load_tlb(vcpu, cpu);
 //	kvm_vz_vcpu_load_wired(vcpu);
+	kvm_ls_vz_load_guesttlb(vcpu);
 
 	r = vcpu->arch.vcpu_run(run, vcpu);
 
+	kvm_ls_vz_save_guesttlb(vcpu);
 //	kvm_vz_vcpu_save_wired(vcpu);
 
 	return r;
