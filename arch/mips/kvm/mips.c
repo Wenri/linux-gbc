@@ -1305,9 +1305,8 @@ enum vmtlbexc {
 
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-//	u32 cause = vcpu->arch.host_cp0_cause;
-//	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
-//	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
+	u32 cause = vcpu->arch.host_cp0_cause;
+	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
@@ -1320,20 +1319,9 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	run->exit_reason = KVM_EXIT_UNKNOWN;
 	run->ready_for_interrupt_injection = 1;
 
-/*****************************************************/
-/* kernel would go mad with preemption enabled, why? */
-
-//preempt_disable();
-local_irq_enable();
-printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
-while(1)
-{
-printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
-}
-
-/*****************************************************/
-//	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
-//			__func__,cause, gsexccode, opc, run, vcpu);
+	local_irq_enable();
+	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
+			__func__,cause, gsexccode, opc, run, vcpu);
 
 	switch(gsexccode) {
 	case IS:
@@ -1341,7 +1329,6 @@ printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
 	case VMMMU:
 		break;
 	case VMTLBL:
-//printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
 		ret = kvm_mips_callbacks->handle_tlb_ld_miss(vcpu);
 		break;
 	case VMTLBS:
@@ -1392,11 +1379,11 @@ printk("##### %s:%s:%d\n",__FILE__,__func__,__LINE__);
 	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ))
 		htw_stop();
 
-printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
-while(1)
-{
-printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
-}
+//printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
+//while(1)
+//{
+//printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
+//}
 	return ret;
 }
 
