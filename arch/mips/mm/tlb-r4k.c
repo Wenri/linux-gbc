@@ -33,12 +33,18 @@ extern void build_tlb_refill_handler(void);
  */
 static inline void flush_micro_tlb(void)
 {
+	unsigned int diag;
+
 	switch (current_cpu_type()) {
 	case CPU_LOONGSON2:
-		write_c0_diag(0x4);
+		diag = read_c0_diag();
+		diag |= 0x4;
+		write_c0_diag(diag);
 		break;
 	case CPU_LOONGSON3:
-		write_c0_diag(0xc);
+		diag = read_c0_diag();
+		diag |= 0xc;
+		write_c0_diag(diag);
 		break;
 	default:
 		break;
