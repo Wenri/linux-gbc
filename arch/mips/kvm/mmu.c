@@ -1025,10 +1025,6 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 	pte_t pte_gpa[2];
 	int idx;
 
-	unsigned long old_entryhi, pagemask;
-	int c0_idx;
-	unsigned long flags;
-
 	/*the badvaddr we get maybe guest unmmaped or mmapped address,
 	  but not a GPA */
 	
@@ -1042,26 +1038,10 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte_gpa[idx], &pte_gpa[!idx]);
 		if (ret)
 			return ret;
-		//2. update root tlb entry for badvaddr
 
-		local_irq_save(flags);
-
-		old_entryhi = read_c0_entryhi();
-		pagemask = read_c0_pagemask();
-		mtc0_tlbw_hazard();
-		tlb_probe();
-		tlb_probe_hazard();
-		c0_idx = read_c0_index();
-		write_c0_entrylo0(pte_to_entrylo(pte_val(pte_gpa[0])));
-		write_c0_entrylo1(pte_to_entrylo(pte_val(pte_gpa[1])));
-		mtc0_tlbw_hazard();
-		tlb_write_indexed();
-		tlbw_use_hazard();
-		write_c0_entryhi(old_entryhi);
 		/* Set the corresponding tlb line in SW guest tlb*/
-		kvm_ls_vz_update_guesttlb(vcpu, old_entryhi, pagemask, c0_idx%64, pte_gpa);
+		kvm_ls_vz_update_guesttlb(vcpu, pte_gpa);
 
-		local_irq_restore(flags);
 	} else if (((badvaddr & CKSEG3) == CKSEG1))
 	{
 		/*the MMIO address space*/

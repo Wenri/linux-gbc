@@ -1311,6 +1311,7 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
+
 	/* re-enable HTW before enabling interrupts */
 	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ))
 		htw_start();

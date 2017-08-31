@@ -307,7 +307,7 @@ struct kvm_mmu_memory_cache {
 #define KVM_MIPS_AUX_FPU	0x1
 #define KVM_MIPS_AUX_MSA	0x2
 
-#define KVM_MIPS_GUEST_TLB_SIZE	64
+#define KVM_MIPS_GUEST_TLB_SIZE	64*17
 struct kvm_vcpu_arch {
 	void *guest_ebase;
 	int (*vcpu_run)(struct kvm_run *run, struct kvm_vcpu *vcpu);
@@ -326,6 +326,8 @@ struct kvm_vcpu_arch {
 	u32 host_cp0_badinstr;
 	u32 host_cp0_badinstrp;
 
+	unsigned long guest_entryhi;
+	unsigned long guest_pagemask;
 	/* GPRS */
 	unsigned long gprs[32];
 	unsigned long hi;
@@ -891,8 +893,7 @@ void kvm_vz_load_guesttlb(const struct kvm_mips_tlb *buf, unsigned int index,
 			  unsigned int count);
 void kvm_ls_vz_save_guesttlb(struct kvm_vcpu *vcpu);
 void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu);
-void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu,unsigned long entryhi, unsigned long pagemask,
-				unsigned int index, pte_t *pte);
+void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu, pte_t *pte);
 #endif
 
 void kvm_mips_suspend_mm(int cpu);

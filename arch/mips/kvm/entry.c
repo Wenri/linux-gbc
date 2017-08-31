@@ -926,6 +926,12 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 			  /*K1);*/
 		/*UASM_i_MTC0(&p, K0, C0_ENTRYHI);*/
 	/*}*/
+	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, guest_entryhi),
+		  K1);
+	UASM_i_MFC0(&p, K0, C0_PAGEMASK);
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, guest_pagemask),
+		  K1);
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
 		  K1);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);

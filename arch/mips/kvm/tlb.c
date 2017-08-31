@@ -933,34 +933,60 @@ EXPORT_SYMBOL_GPL(kvm_vz_local_flush_guesttlb_all);
  */
 void kvm_ls_vz_save_guesttlb(struct kvm_vcpu *vcpu)
 {
-	int i;
-	int tmp_index;
+	int i, j;
 	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
+	unsigned long tmp_enthi, tmp_mask, tmp_entlo0, tmp_entlo1;
 	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
+	unsigned long flags;
 
+	local_irq_save(flags);
 	//save tmp
-	tmp_index = read_c0_index();
 	tmp_entryhi = read_c0_entryhi();
 	tmp_pagemask = read_c0_pagemask();
 	tmp_entrylo0 = read_c0_entrylo0();
 	tmp_entrylo1 = read_c0_entrylo1();
 
+	//flush content of guest_tlb
+	for(i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
+		tlb[i].tlb_hi    = 0;
+		tlb[i].tlb_mask  = 0;
+		tlb[i].tlb_lo[0] = 0;
+		tlb[i].tlb_lo[1] = 0;
+
+	}
+	j = 0;
 	//find the tlb line
 	for (i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
-		write_c0_index(i);
+		//read the tlb
 		tlb_read();
-		tlb[i].tlb_hi = read_c0_entryhi();
-		tlb[i].tlb_mask = read_c0_pagemask();
-		tlb[i].tlb_lo[0] = read_c0_entrylo0();
-		tlb[i].tlb_lo[1] = read_c0_entrylo1();
+		//save to guesttlb
+		if(((read_c0_diag()>>18) & 0x3) == 1) {
+			tmp_enthi  = read_c0_entryhi();
+			tmp_mask   = read_c0_pagemask();
+			tmp_entlo0 = read_c0_entrylo0();
+			tmp_entlo1 = read_c0_entrylo1();
+		} else
+			continue;
+
+		tlb[j].tlb_hi   = tmp_enthi;
+		tlb[j].tlb_mask = tmp_mask;
+		tlb[j].tlb_lo[0] = tmp_entlo0;
+		tlb[j].tlb_lo[1] = tmp_entlo1;
+		++j;
 	}
-	write_c0_index(tmp_index);
 	write_c0_entryhi(tmp_entryhi);
 	write_c0_pagemask(tmp_pagemask);
 	write_c0_entrylo0(tmp_entrylo0);
 	write_c0_entrylo1(tmp_entrylo1);
+	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_save_guesttlb);
+
+struct ls_tlb {
+	int index;
+	struct kvm_mips_tlb tlb;
+};
+struct ls_tlb ls_tlb[KVM_MIPS_GUEST_TLB_SIZE] = {};
 
 /**
  * kvm_ls_vz_load_guesttlb() - Save a range of guest TLB entries.
@@ -973,72 +999,92 @@ void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
 {
 	int i;
 	int tmp_index;
-	unsigned long entryhi, pagemask, entrylo0, entrylo1;
 	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
 	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
+	unsigned long flags;
+	unsigned int diag;
 
+	local_irq_save(flags);
 	//save tmp
-	tmp_index = read_c0_index();
+	tmp_index   = read_c0_index();
 	tmp_entryhi = read_c0_entryhi();
 	tmp_pagemask = read_c0_pagemask();
 	tmp_entrylo0 = read_c0_entrylo0();
 	tmp_entrylo1 = read_c0_entrylo1();
-
-	//Set the tlb contant 
-	for (i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
-		entryhi =  tlb[i].tlb_hi;
-		pagemask = tlb[i].tlb_mask;
-		entrylo0 = tlb[i].tlb_lo[0];
-		entrylo1 = tlb[i].tlb_lo[1];
-		write_c0_index(i);
-		write_c0_entryhi(entryhi);
-		write_c0_pagemask(pagemask);
-		write_c0_entrylo0(entrylo0);
-		write_c0_entrylo1(entrylo1);
-		tlb_write_indexed();
+	// Save the guest TLB lines into temporary struct
+	for(i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
+		tlb_read();
+		if(!((read_c0_diag()>>18) & 0x3))
+			continue;
+		tlb_probe();
+		tlbinvf();
 	}
+	/*detect the current TLB lines belong to guest in TLB or not
+	update TLB with the guest_tlb
+	*/
+	diag = read_c0_diag();
+	diag |= 1 << 18;
+	write_c0_diag(diag);
+	for(i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
+		if(!tlb[i].tlb_hi)
+			continue;
+		write_c0_entryhi(tlb[i].tlb_hi);
+		write_c0_pagemask(tlb[i].tlb_mask);
+		write_c0_entrylo0(tlb[i].tlb_lo[0]);
+		write_c0_entrylo1(tlb[i].tlb_lo[1]);
+		tlb_write_random();
+	}
+
 	write_c0_index(tmp_index);
 	write_c0_entryhi(tmp_entryhi);
 	write_c0_pagemask(tmp_pagemask);
 	write_c0_entrylo0(tmp_entrylo0);
 	write_c0_entrylo1(tmp_entrylo1);
+	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_load_guesttlb);
-void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu,unsigned long entryhi, unsigned long pagemask,
-				 unsigned int index, pte_t *pte)
+
+#define GUEST_VPN2(x) ((0xffffffffffffe000 & (unsigned long) x) & (~((1<<(PAGE_SHIFT+1)) - 1 )))
+#define GUEST_ASID(x) (x & 0xff)
+
+void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu, pte_t *pte)
 {
-	int tmp_index;
-	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
 	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
-
-	//save tmp
-	tmp_index = read_c0_index();
-	tmp_entryhi = read_c0_entryhi();
-	tmp_pagemask = read_c0_pagemask();
-	tmp_entrylo0 = read_c0_entrylo0();
-	tmp_entrylo1 = read_c0_entrylo1();
+	int i;
 	
-	//find the tlb to check if the new one is in the tlb
+	/*Get one exist or vacant slot to store the TLB line	
+	  We make sure the stored line in guesttlb from low to high
+	*/
+printk("#### vcpu->arch.guest_entryhi is %lx, pagemask is %lx, hpa0 %lx, hpa1 %lx\n",
+		vcpu->arch.guest_entryhi, vcpu->arch.guest_pagemask, pte_val(pte[0]), pte_val(pte[1]));
+	for(i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
+		// make sure the guesttlb stored from low to high
+		if (!tlb[i].tlb_hi) {
+			break;
+		} else if (tlb[i].tlb_hi) {
+			if((GUEST_VPN2(tlb[i].tlb_hi) || GUEST_ASID(tlb[i].tlb_hi))
+				 == (GUEST_VPN2(vcpu->arch.guest_entryhi) || GUEST_ASID(vcpu->arch.guest_entryhi))) {
+				break;
+			} else if(i == (KVM_MIPS_GUEST_TLB_SIZE - 1)) {
+				i = 0;
+				break;
+			}
+		}
+	}
+	/*find the guesttlb to check if the new one is in the tlb
+	  if no, replace one old with the new one
+	  if yes, get the correct index,replace the entrylo0/1
+	  Fix me !!!!!!
+	*/
+	
 	//update indexed guesttlb
-	tlb[index].tlb_hi    = entryhi;
-	tlb[index].tlb_mask  = pagemask;
-	tlb[index].tlb_lo[0] = pte_to_entrylo(pte_val(pte[1]));
-	tlb[index].tlb_lo[1] = pte_to_entrylo(pte_val(pte[0]));
+	tlb[i].tlb_hi    = vcpu->arch.guest_entryhi;
+	tlb[i].tlb_mask  = vcpu->arch.guest_pagemask;
+	tlb[i].tlb_lo[0] = pte_to_entrylo(pte_val(pte[0]));
+	tlb[i].tlb_lo[1] = pte_to_entrylo(pte_val(pte[1]));
 
-	//update indexed tlb
-//	write_c0_index(index);
-//	write_c0_entryhi(entryhi);
-//	write_c0_pagemask(pagemask);
-//	write_c0_entrylo0(pte_to_entrylo(pte_val(pte[0])));
-//	write_c0_entrylo1(pte_to_entrylo(pte_val(pte[1])));
-//	tlb_write_indexed();
-
-	//restore tmp
-	write_c0_index(tmp_index);
-	write_c0_entryhi(tmp_entryhi);
-	write_c0_pagemask(tmp_pagemask);
-	write_c0_entrylo0(tmp_entrylo0);
-	write_c0_entrylo1(tmp_entrylo1);
+printk("#### updating stlb, tlb_hi %lx, tlb_mask %lx, tlblo0 %lx, tlblo1 %lx\n",
+		tlb[i].tlb_hi, tlb[i].tlb_mask, tlb[i].tlb_lo[0], tlb[i].tlb_lo[1]);
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_update_guesttlb);
 
