@@ -208,6 +208,7 @@ struct mips_coproc {
 #define MIPS_CP0_TLB_LO1	3
 #define MIPS_CP0_TLB_CONTEXT	4
 #define MIPS_CP0_TLB_PG_MASK	5
+#define MIPS_CP0_TLB_PGGRAIN	5
 #define MIPS_CP0_TLB_WIRED	6
 #define MIPS_CP0_HWRENA		7
 #define MIPS_CP0_BAD_VADDR	8
@@ -228,6 +229,7 @@ struct mips_coproc {
 #define MIPS_CP0_TAG_LO		28
 #define MIPS_CP0_TAG_HI		29
 #define MIPS_CP0_ERROR_PC	30
+#define MIPS_CP0_DIAG		23
 #define MIPS_CP0_DEBUG		23
 #define MIPS_CP0_DEPC		24
 #define MIPS_CP0_PERFCNT	25

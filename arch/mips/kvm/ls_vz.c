@@ -140,12 +140,146 @@ static int kvm_trap_vz_handle_msa_disabled(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
+					      u32 *opc, u32 cause,
+					      struct kvm_run *run,
+					      struct kvm_vcpu *vcpu)
+{
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	enum emulation_result er = EMULATE_DONE;
+	u32 rt, rd, sel;
+	unsigned long curr_pc;
+	unsigned long val;
+
+	/*
+	 * Update PC and hold onto current PC in case there is
+	 * an error and we want to rollback the PC
+	 */
+	curr_pc = vcpu->arch.pc;
+	er = update_pc(vcpu, cause);
+	if (er == EMULATE_FAIL)
+		return er;
+
+	if (inst.co_format.co) {
+		switch (inst.co_format.func) {
+		case wait_op:
+			er = kvm_mips_emul_wait(vcpu);
+			break;
+		case tlbr_op:
+			/*NEED TO BE FIXED!!!*/
+//			er = kvm_mips_lsvz_tlbr(vcpu);
+			break;
+		case tlbwi_op:
+			/*NEED TO BE FIXED!!!*/
+//			er = kvm_mips_lsvz_tlbwi(vcpu);
+			break;
+		case tlbwr_op:
+			/*NEED TO BE FIXED!!!*/
+//			er = kvm_mips_lsvz_tlbwr(vcpu);
+			break;
+		case tlbp_op:
+			/*NEED TO BE FIXED!!!*/
+//			er = kvm_mips_lsvz_tlbp(vcpu);
+			break;
+		default:
+			er = EMULATE_FAIL;
+		}
+	} else {
+		rt = inst.c0r_format.rt;
+		rd = inst.c0r_format.rd;
+		sel = inst.c0r_format.sel;
+
+printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt, rd, sel);
+		switch (inst.c0r_format.rs) {
+		case dmfc_op:
+		case mfc_op:
+#ifdef CONFIG_KVM_MIPS_DEBUG_COP0_COUNTERS
+			cop0->stat[rd][sel]++;
+#endif
+			if (rd == MIPS_CP0_TLB_PGGRAIN &&
+			    sel == 1) {			/* PageGrain */
+				val = cop0->reg[rd][sel];
+				/* Sign extend */
+				if (inst.c0r_format.rs == mfc_op)
+					val = (int)val;
+				vcpu->arch.gprs[rt] = val;
+			} else if ((rd == MIPS_CP0_PRID &&
+				    (sel == 0 ||	/* PRid */
+				     sel == 2 ||	/* CDMMBase */
+				     sel == 3)) ||	/* CMGCRBase */
+				   (rd == MIPS_CP0_STATUS &&
+				    (sel == 2 ||	/* SRSCtl */
+				     sel == 3)) ||	/* SRSMap */
+				   (rd == MIPS_CP0_CONFIG &&
+				    (sel == 7)) ||	/* Config7 */
+				   (rd == MIPS_CP0_ERRCTL &&
+				    (sel == 0))) {	/* ErrCtl */
+				val = cop0->reg[rd][sel];
+			} else {
+				val = 0;
+				er = EMULATE_FAIL;
+			}
+
+			if (er != EMULATE_FAIL) {
+				/* Sign extend */
+				if (inst.c0r_format.rs == mfc_op)
+					val = (int)val;
+				vcpu->arch.gprs[rt] = val;
+			}
+
+			trace_kvm_hwr(vcpu, (inst.c0r_format.rs == mfc_op) ?
+					KVM_TRACE_MFC0 : KVM_TRACE_DMFC0,
+				      KVM_TRACE_COP0(rd, sel), val);
+			break;
+
+		case dmtc_op:
+		case mtc_op:
+#ifdef CONFIG_KVM_MIPS_DEBUG_COP0_COUNTERS
+			cop0->stat[rd][sel]++;
+#endif
+			val = vcpu->arch.gprs[rt];
+			trace_kvm_hwr(vcpu, (inst.c0r_format.rs == mtc_op) ?
+					KVM_TRACE_MTC0 : KVM_TRACE_DMTC0,
+				      KVM_TRACE_COP0(rd, sel), val);
+			if (rd == MIPS_CP0_TLB_PGGRAIN &&
+			    sel == 1) {			/* PageGrain */
+				val = vcpu->arch.gprs[rt];
+				/* Sign extend */
+				if (inst.c0r_format.rs == mtc_op)
+					val = (int)val;
+				cop0->reg[rd][sel] = val;
+			} else {
+				er = EMULATE_FAIL;
+			}
+			break;
+		case wrpgpr_op:
+			er = EMULATE_FAIL;
+			break;
+//		case rdpgpr_op:
+//			er = EMULATE_FAIL;
+//			break;
+		default:
+			er = EMULATE_FAIL;
+			break;
+		}
+	}
+	/* Rollback PC only if emulation was unsuccessful */
+	if (er == EMULATE_FAIL) {
+		kvm_err("[%#lx]%s: unsupported cop0 instruction 0x%08x\n",
+			curr_pc, __func__, inst.word);
+
+		vcpu->arch.pc = curr_pc;
+	}
+
+	return er;
+}
+
 static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
 						     struct kvm_vcpu *vcpu)
 {
 	enum emulation_result er = EMULATE_DONE;
 	struct kvm_vcpu_arch *arch = &vcpu->arch;
-//	struct kvm_run *run = vcpu->run;
+	struct kvm_run *run = vcpu->run;
 	union mips_instruction inst;
 	int rd, rt, sel;
 	int err;
@@ -163,7 +297,7 @@ static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
 
 	switch (inst.r_format.opcode) {
 	case cop0_op:
-//		er = kvm_vz_gpsi_cop0(inst, opc, cause, run, vcpu);
+		er = kvm_vz_gpsi_cop0(inst, opc, cause, run, vcpu);
 		break;
 #ifndef CONFIG_CPU_MIPSR6
 	case cache_op:
