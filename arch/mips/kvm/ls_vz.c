@@ -203,6 +203,13 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 				if (inst.c0r_format.rs == mfc_op)
 					val = (int)val;
 				vcpu->arch.gprs[rt] = val;
+			} else if ((rd == MIPS_CP0_CONFIG) &&
+			    (sel == 6)) {               /* GSConfig*/
+				val = cop0->reg[rd][sel];
+				/* Sign extend */
+				if (inst.c0r_format.rs == mfc_op)
+					val = (int)val;
+				vcpu->arch.gprs[rt] = val;
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -243,6 +250,13 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 				      KVM_TRACE_COP0(rd, sel), val);
 			if (rd == MIPS_CP0_TLB_PGGRAIN &&
 			    sel == 1) {			/* PageGrain */
+				val = vcpu->arch.gprs[rt];
+				/* Sign extend */
+				if (inst.c0r_format.rs == mtc_op)
+					val = (int)val;
+				cop0->reg[rd][sel] = val;
+			} else if ((rd == MIPS_CP0_CONFIG) &&
+			    (sel == 6)) {               /* GSConfig*/
 				val = vcpu->arch.gprs[rt];
 				/* Sign extend */
 				if (inst.c0r_format.rs == mtc_op)
