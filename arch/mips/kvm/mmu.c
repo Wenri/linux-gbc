@@ -1028,7 +1028,6 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 	/*the badvaddr we get maybe guest unmmaped or mmapped address,
 	  but not a GPA */
 	
-//printk("%s:%s:%d\n",__FILE__,__func__,__LINE__);
 	if (((badvaddr & CKSEG3) == CKSEG0) ||
 		   ((badvaddr & 0xffffffffffff0000) == 0xffffffffbfc00000)) {
 		//1.get the GPA
@@ -1293,6 +1292,7 @@ enum kvm_mips_fault_result kvm_trap_emul_gva_fault(struct kvm_vcpu *vcpu,
 	return KVM_MIPS_MAPPED;
 }
 
+#ifndef CONFIG_CPU_LOONGSON3
 int kvm_get_inst(u32 *opc, struct kvm_vcpu *vcpu, u32 *out)
 {
 	int err;
@@ -1324,3 +1324,40 @@ retry:
 	}
 	return 0;
 }
+#else
+int kvm_get_inst(u32 *opc, struct kvm_vcpu *vcpu, u32 *out)
+{
+	int err;
+	unsigned long gpa;
+	pte_t pte_gpa[2];
+	int idx;
+	struct page *page = NULL;
+	unsigned long hpa;
+
+	/*
+	 * Try to handle the fault, maybe we just raced with a GVA
+	 * invalidation.
+	 */
+	//1. get the pte of the instruction
+	gpa = CPHYSADDR((unsigned long)opc);
+	idx = ((unsigned long)opc >> PAGE_SHIFT) & 1;
+	err = kvm_mips_map_page(vcpu, gpa, false, &pte_gpa[idx], &pte_gpa[!idx]);
+	if (err)
+		return err;
+	//2. get the page of the instruction
+	page = pte_page((pte_gpa[idx]));	
+	hpa = page_to_phys(page);		
+	printk("---instruction page %p, hpa %lx pfn %lx\n",page,hpa,pte_pfn(pte_gpa[idx]));
+	//3. Get the instruction address in page
+	*out = *(u32 *)(((unsigned long)opc & ((1 << PAGE_SHIFT) - 1)) | hpa | CAC_BASE);
+
+	printk("---instruction address %p, %x\n", out, (unsigned int)*out);
+	if (unlikely(err)) {
+		kvm_err("%s: illegal address: %p\n",
+			__func__, out);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+#endif

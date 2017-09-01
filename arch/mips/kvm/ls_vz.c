@@ -139,9 +139,142 @@ static int kvm_trap_vz_handle_msa_disabled(struct kvm_vcpu *vcpu)
 {
 	return 0;
 }
+
+static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
+						     struct kvm_vcpu *vcpu)
+{
+	enum emulation_result er = EMULATE_DONE;
+	struct kvm_vcpu_arch *arch = &vcpu->arch;
+//	struct kvm_run *run = vcpu->run;
+	union mips_instruction inst;
+	int rd, rt, sel;
+	int err;
+
+	/*
+	 *  Fetch the instruction.
+	 */
+	if (cause & CAUSEF_BD)
+		opc += 1;
+
+	err = kvm_get_badinstr(opc, vcpu, &inst.word);
+	printk("#### badinst is 0x%x\n", inst.word);
+	if (err)
+		return EMULATE_FAIL;
+
+	switch (inst.r_format.opcode) {
+	case cop0_op:
+//		er = kvm_vz_gpsi_cop0(inst, opc, cause, run, vcpu);
+		break;
+#ifndef CONFIG_CPU_MIPSR6
+	case cache_op:
+		trace_kvm_exit(vcpu, KVM_TRACE_EXIT_CACHE);
+//		er = kvm_vz_gpsi_cache(inst, opc, cause, run, vcpu);
+		break;
+#endif
+	case spec3_op:
+		switch (inst.spec3_format.func) {
+#ifdef CONFIG_CPU_MIPSR6
+		case cache6_op:
+			trace_kvm_exit(vcpu, KVM_TRACE_EXIT_CACHE);
+			er = kvm_vz_gpsi_cache(inst, opc, cause, run, vcpu);
+			break;
+#endif
+		case rdhwr_op:
+			if (inst.r_format.rs || (inst.r_format.re >> 3))
+				goto unknown;
+
+			rd = inst.r_format.rd;
+			rt = inst.r_format.rt;
+			sel = inst.r_format.re & 0x7;
+
+			switch (rd) {
+			case MIPS_HWR_CC:	/* Read count register */
+				arch->gprs[rt] =
+					(long)(int)kvm_mips_read_count(vcpu);
+				break;
+			default:
+				trace_kvm_hwr(vcpu, KVM_TRACE_RDHWR,
+					      KVM_TRACE_HWR(rd, sel), 0);
+				goto unknown;
+			};
+
+			trace_kvm_hwr(vcpu, KVM_TRACE_RDHWR,
+				      KVM_TRACE_HWR(rd, sel), arch->gprs[rt]);
+
+			er = update_pc(vcpu, cause);
+			break;
+		default:
+			goto unknown;
+		};
+		break;
+unknown:
+	default:
+		kvm_err("GPSI exception not supported (%p/%#x)\n",
+				opc, inst.word);
+		kvm_arch_vcpu_dump_regs(vcpu);
+		er = EMULATE_FAIL;
+		break;
+	}
+
+	return er;
+}
+
 static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 {
-	return 0;
+	u32 cause = vcpu->arch.host_cp0_cause;
+	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
+	enum emulation_result er = EMULATE_DONE;
+	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
+	u32 gexccode = (vcpu->arch.host_cp0_guestctl0 &
+			MIPS_GCTL0_GEXC) >> MIPS_GCTL0_GEXC_SHIFT;
+	int ret = RESUME_GUEST;
+
+	unsigned long badvaddr = vcpu->arch.host_cp0_badvaddr;
+
+	printk("$$$$ %s:%s:%d\n", __FILE__,__func__,__LINE__);
+	printk("$$$$ VZ Guest Exception: cause %#x, PC: %p, BadVaddr: %#lx\n",
+			  cause, opc, badvaddr);
+	printk("$$$$ excode %#x, gsexccode: %#x\n",
+			  exccode, gexccode);
+
+	trace_kvm_exit(vcpu, KVM_TRACE_EXIT_GEXCCODE_BASE + gexccode);
+	switch (gexccode) {
+	case MIPS_GCTL0_GEXC_GPSI:
+		++vcpu->stat.vz_gpsi_exits;
+		er = kvm_trap_vz_handle_gpsi(cause, opc, vcpu);
+		break;
+//	case MIPS_GCTL0_GEXC_GSFC:
+//	/*only GFC in loongson, the same code as GSFC*/
+//		++vcpu->stat.vz_gsfc_exits;
+//		er = kvm_trap_vz_handle_gsfc(cause, opc, vcpu);
+//		break;
+//	case MIPS_GCTL0_GEXC_HC:
+//		++vcpu->stat.vz_hc_exits;
+//		er = kvm_trap_vz_handle_hc(cause, opc, vcpu);
+//		break;
+//	case MIPS_GCTL0_GEXC_GRR:
+//		++vcpu->stat.vz_grr_exits;
+//		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
+//						       vcpu);
+//		break;
+	default:
+//		++vcpu->stat.vz_resvd_exits;
+//		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
+//						       vcpu);
+		break;
+
+	}
+
+	if (er == EMULATE_DONE) {
+		ret = RESUME_GUEST;
+	} else if (er == EMULATE_HYPERCALL) {
+		ret = kvm_mips_handle_hypcall(vcpu);
+	} else {
+		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		ret = RESUME_HOST;
+	}
+
+	return ret;
 }
 
 static void kvm_vz_hardware_disable(void)

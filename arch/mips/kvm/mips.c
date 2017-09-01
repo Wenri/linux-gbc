@@ -1530,7 +1530,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	case EXCCODE_GE:
 		/* defer exit accounting to handler */
-		kvm_info("TLB LD fault: cause %#x, PC: %p, BadVaddr: %#lx\n",
+		kvm_info("VZ Guest Exception: cause %#x, PC: %p, BadVaddr: %#lx\n",
 			  cause, opc, badvaddr);
 		ret = kvm_mips_callbacks->handle_guest_exit(vcpu);
 		break;
