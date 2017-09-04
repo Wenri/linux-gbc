@@ -1055,8 +1055,8 @@ void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu, pte_t *pte)
 	/*Get one exist or vacant slot to store the TLB line	
 	  We make sure the stored line in guesttlb from low to high
 	*/
-printk("#### vcpu->arch.guest_entryhi is %lx, pagemask is %lx, hpa0 %lx, hpa1 %lx\n",
-		vcpu->arch.guest_entryhi, vcpu->arch.guest_pagemask, pte_val(pte[0]), pte_val(pte[1]));
+//printk("#### vcpu->arch.guest_entryhi is %lx, pagemask is %lx, hpa0 %lx, hpa1 %lx\n",
+//		vcpu->arch.guest_entryhi, vcpu->arch.guest_pagemask, pte_val(pte[0]), pte_val(pte[1]));
 	for(i = 0; i < KVM_MIPS_GUEST_TLB_SIZE; i++) {
 		// make sure the guesttlb stored from low to high
 		if (!tlb[i].tlb_hi) {
@@ -1083,8 +1083,8 @@ printk("#### vcpu->arch.guest_entryhi is %lx, pagemask is %lx, hpa0 %lx, hpa1 %l
 	tlb[i].tlb_lo[0] = pte_to_entrylo(pte_val(pte[0]));
 	tlb[i].tlb_lo[1] = pte_to_entrylo(pte_val(pte[1]));
 
-printk("#### updating stlb, tlb_hi %lx, tlb_mask %lx, tlblo0 %lx, tlblo1 %lx\n",
-		tlb[i].tlb_hi, tlb[i].tlb_mask, tlb[i].tlb_lo[0], tlb[i].tlb_lo[1]);
+//printk("#### updating stlb, tlb_hi %lx, tlb_mask %lx, tlblo0 %lx, tlblo1 %lx\n",
+//		tlb[i].tlb_hi, tlb[i].tlb_mask, tlb[i].tlb_lo[0], tlb[i].tlb_lo[1]);
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_update_guesttlb);
 
