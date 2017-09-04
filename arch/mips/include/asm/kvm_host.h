@@ -188,16 +188,6 @@ struct kvm_arch {
 	cpumask_t asid_flush_mask;
 };
 
-#define N_MIPS_COPROC_REGS	32
-#define N_MIPS_COPROC_SEL	8
-
-struct mips_coproc {
-	unsigned long reg[N_MIPS_COPROC_REGS][N_MIPS_COPROC_SEL];
-#ifdef CONFIG_KVM_MIPS_DEBUG_COP0_COUNTERS
-	unsigned long stat[N_MIPS_COPROC_REGS][N_MIPS_COPROC_SEL];
-#endif
-};
-
 /*
  * Coprocessor 0 register names
  */

@@ -23,6 +23,16 @@
 
 #define KVM_COALESCED_MMIO_PAGE_OFFSET 1
 
+#define N_MIPS_COPROC_REGS	32
+#define N_MIPS_COPROC_SEL	8
+
+struct mips_coproc {
+	unsigned long reg[N_MIPS_COPROC_REGS][N_MIPS_COPROC_SEL];
+#ifdef CONFIG_KVM_MIPS_DEBUG_COP0_COUNTERS
+	unsigned long stat[N_MIPS_COPROC_REGS][N_MIPS_COPROC_SEL];
+#endif
+};
+
 /*
  * for KVM_GET_REGS and KVM_SET_REGS
  *
@@ -36,6 +46,7 @@ struct kvm_regs {
 	__u64 hi;
 	__u64 lo;
 	__u64 pc;
+	struct mips_coproc cop0;
 };
 
 /*
