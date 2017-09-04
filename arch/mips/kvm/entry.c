@@ -393,6 +393,91 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	/* Set the root ASID for the Guest */
 	UASM_i_ADDIU(&p, T1, S0,
 		     offsetof(struct kvm, arch.gpa_mm.context.asid));
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Set guest Coprocessors*/
+	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
+
+	/* Restore Userlocal (4,2)*/
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_CONTEXT][2]),
+		  T0);
+	UASM_i_MTGC0(&p, K0, MIPS_CP0_TLB_CONTEXT, 2);
+
+	/* Restore guest hwrena (7,0)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_HWRENA][0]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_HWRENA, 0);
+
+	/* Restore guest badvaddr (8,0)*/
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_BAD_VADDR][0]),
+		  T0);
+	UASM_i_MTGC0(&p, K0, MIPS_CP0_BAD_VADDR, 0);
+
+	/* Restore guest entryhi (10,0) ASID,NEED TO BE FIXED!!!!*/
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+		  T0);
+	UASM_i_MTGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+
+	/* Restore guest compare (11,0)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_COMPARE][0]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_COMPARE, 0);
+
+	/* Restore guest status (12,0)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][0]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_STATUS, 0);
+
+	/* Restore guest intctl (12,1)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][1]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_STATUS, 1);
+
+	/* Restore guest srsctl (12,2)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][2]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_STATUS, 2);
+
+	/* Restore guest cause (13,0)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CAUSE][0]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_CAUSE, 0);
+
+	/* Restore guest epc (14,0)*/
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_EXC_PC][0]),
+		  T0);
+	UASM_i_MTGC0(&p, K0, MIPS_CP0_EXC_PC, 0);
+
+	/* Restore guest ebase (15,1)*/
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_PRID][1]),
+		  T0);
+	UASM_i_MTGC0(&p, K0, MIPS_CP0_PRID, 1);
+
+	/* Restore guest config0 (16,0)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][0]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_CONFIG, 0);
+
+	/* Restore guest config3 (16,3)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][3]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_CONFIG, 3);
+
+	/* Restore guest config4 (16,4)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][4]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_CONFIG, 4);
+
+	/* Restore guest gscause (22,1)*/
+	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_DIAG][1]),
+		  T0);
+	uasm_i_mtgc0(&p, K0, MIPS_CP0_DIAG, 1);
+
+	/* Restore guest EEPC (30,0)*/
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_ERROR_PC][0]),
+		  T0);
+	UASM_i_MTGC0(&p, K0, MIPS_CP0_ERROR_PC, 0);
+
+#endif
 #else
 	/* Set the ASID for the Guest Kernel or User */
 	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
@@ -847,6 +932,96 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	/* Restore run (vcpu->run) */
 	UASM_i_LW(&p, S0, offsetof(struct kvm_vcpu, run), S1);
 
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Save guest Coprocessors*/
+	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
+
+	/* Save guest Userlocal (4,2)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_CONTEXT, 2);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_CONTEXT][2]),
+		  T0);
+
+	/* Save guest hwrena (7,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_HWRENA, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_HWRENA][0]),
+		  T0);
+
+	/* Save guest badvaddr (8,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_BAD_VADDR, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_BAD_VADDR][0]),
+		  T0);
+
+	/* Save guest entryhi (10,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+		  T0);
+
+	/* Save guest compare (11,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_COMPARE, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_COMPARE][0]),
+		  T0);
+
+	/* Save guest status (12,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][0]),
+		  T0);
+
+	/* Restore guest intctl (12,1)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 1);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][1]),
+		  T0);
+
+	/* Save guest srsctl (12,2)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 2);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][2]),
+		  T0);
+
+	/* Save guest entryhi*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+		  T0);
+
+	/* Save guest cause (13,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CAUSE, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CAUSE][0]),
+		  T0);
+
+	/* Save guest epc (14,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_EXC_PC, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_EXC_PC][0]),
+		  T0);
+
+	/* Save guest ebase (15,1)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_PRID, 1);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_PRID][1]),
+		  T0);
+
+	/* Save guest config0 (16,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CONFIG, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][0]),
+		  T0);
+
+	/* Save guest config3 (16,3)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CONFIG, 3);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][3]),
+		  T0);
+
+	/* Save guest config3 (16,4)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CONFIG, 4);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][4]),
+		  T0);
+
+	/* Restore guest gscause (22,1)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_DIAG, 1);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_DIAG][1]),
+		  T0);
+
+	/* Save guest EEPC (30,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_ERROR_PC, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_ERROR_PC][0]),
+		  T0);
+#endif
+
 	/*
 	 * Save Host level EPC, BadVaddr and Cause to VCPU, useful to process
 	 * the exception
@@ -1153,6 +1328,95 @@ void *kvm_mips_build_exit(void *addr)
 	/* Restore run (vcpu->run) */
 	UASM_i_LW(&p, S0, offsetof(struct kvm_vcpu, run), S1);
 
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Save guest Coprocessors*/
+	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
+
+	/* Save guest Userlocal (4,2)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_CONTEXT, 2);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_CONTEXT][2]),
+		  T0);
+
+	/* Save guest hwrena (7,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_HWRENA, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_HWRENA][0]),
+		  T0);
+
+	/* Save guest badvaddr (8,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_BAD_VADDR, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_BAD_VADDR][0]),
+		  T0);
+
+	/* Save guest entryhi (10,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+		  T0);
+
+	/* Save guest compare (11,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_COMPARE, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_COMPARE][0]),
+		  T0);
+
+	/* Save guest status (12,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][0]),
+		  T0);
+
+	/* Restore guest intctl (12,1)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 1);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][1]),
+		  T0);
+
+	/* Save guest srsctl (12,2)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 2);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][2]),
+		  T0);
+
+	/* Save guest entryhi*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+		  T0);
+
+	/* Save guest cause (13,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CAUSE, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CAUSE][0]),
+		  T0);
+
+	/* Save guest epc (14,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_EXC_PC, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_EXC_PC][0]),
+		  T0);
+
+	/* Save guest ebase (15,1)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_PRID, 1);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_PRID][1]),
+		  T0);
+
+	/* Save guest config0 (16,0)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CONFIG, 0);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][0]),
+		  T0);
+
+	/* Save guest config3 (16,3)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CONFIG, 3);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][3]),
+		  T0);
+
+	/* Save guest config3 (16,4)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_CONFIG, 4);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_CONFIG][4]),
+		  T0);
+
+	/* Restore guest gscause (22,1)*/
+	uasm_i_mfgc0(&p, K0, MIPS_CP0_DIAG, 1);
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_DIAG][1]),
+		  T0);
+
+	/* Save guest EEPC (30,0)*/
+	UASM_i_MFGC0(&p, K0, MIPS_CP0_ERROR_PC, 0);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_ERROR_PC][0]),
+		  T0);
+#endif
 	/*
 	 * Save Host level EPC, BadVaddr and Cause to VCPU, useful to process
 	 * the exception
