@@ -1305,8 +1305,8 @@ enum vmtlbexc {
 
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-	u32 cause = vcpu->arch.host_cp0_cause;
-	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
+//	u32 cause = vcpu->arch.host_cp0_cause;
+//	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
@@ -1321,8 +1321,8 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	run->ready_for_interrupt_injection = 1;
 
 	local_irq_enable();
-	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
-			__func__,cause, gsexccode, opc, run, vcpu);
+//	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
+//			__func__,cause, gsexccode, opc, run, vcpu);
 
 	switch(gsexccode) {
 	case IS:
