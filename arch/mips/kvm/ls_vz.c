@@ -151,7 +151,7 @@ static int kvm_trap_vz_handle_tlb_st_miss(struct kvm_vcpu *vcpu)
 		}
 
 		/* Treat as MMIO */
-		er = kvm_mips_emulate_load(inst, cause, run, vcpu);
+		er = kvm_mips_emulate_store(inst, cause, run, vcpu);
 		if (er == EMULATE_FAIL) {
 			kvm_err("Guest Emulate Load from MMIO space failed: PC: %p, BadVaddr: %#lx\n",
 				opc, badvaddr);
@@ -242,17 +242,16 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 			if (rd == MIPS_CP0_TLB_PGGRAIN &&
 			    sel == 1) {			/* PageGrain */
 				val = cop0->reg[rd][sel];
-				/* Sign extend */
-				if (inst.c0r_format.rs == mfc_op)
-					val = (int)val;
-				vcpu->arch.gprs[rt] = val;
 			} else if ((rd == MIPS_CP0_CONFIG) &&
 			    (sel == 6)) {               /* GSConfig*/
 				val = cop0->reg[rd][sel];
-				/* Sign extend */
-				if (inst.c0r_format.rs == mfc_op)
-					val = (int)val;
-				vcpu->arch.gprs[rt] = val;
+			} else if ((rd == MIPS_CP0_TLB_CONTEXT) &&
+			    (sel == 0)) {               /* Context */
+				val = cop0->reg[rd][sel];
+			} else if ((rd == MIPS_CP0_TLB_XCONTEXT) &&
+			    (sel == 0)) {               /* XContext */
+				val = cop0->reg[rd][sel];
+
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -293,18 +292,23 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 				      KVM_TRACE_COP0(rd, sel), val);
 			if (rd == MIPS_CP0_TLB_PGGRAIN &&
 			    sel == 1) {			/* PageGrain */
-				val = vcpu->arch.gprs[rt];
 				/* Sign extend */
 				if (inst.c0r_format.rs == mtc_op)
 					val = (int)val;
 				cop0->reg[rd][sel] = val;
 			} else if ((rd == MIPS_CP0_CONFIG) &&
 			    (sel == 6)) {               /* GSConfig*/
-				val = vcpu->arch.gprs[rt];
 				/* Sign extend */
 				if (inst.c0r_format.rs == mtc_op)
 					val = (int)val;
 				cop0->reg[rd][sel] = val;
+			} else if ((rd == MIPS_CP0_TLB_CONTEXT) &&
+			    (sel == 0)) {               /* Context */
+				cop0->reg[rd][sel] = val;
+			} else if ((rd == MIPS_CP0_TLB_XCONTEXT) &&
+			    (sel == 0)) {               /* XContext */
+				cop0->reg[rd][sel] = val;
+
 			} else {
 				er = EMULATE_FAIL;
 			}
