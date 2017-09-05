@@ -1044,7 +1044,7 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 	} else if (((badvaddr & CKSEG3) == CKSEG1))
 	{
 		/*the MMIO address space*/
-		ret = RESUME_GUEST;
+		ret = RESUME_HOST;
 		return ret;
 	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSEG3)
 			  || ((badvaddr & CKSEG3) < XKSSEG))
