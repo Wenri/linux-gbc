@@ -251,6 +251,9 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 			} else if ((rd == MIPS_CP0_TLB_XCONTEXT) &&
 			    (sel == 0)) {               /* XContext */
 				val = cop0->reg[rd][sel];
+			} else if ((rd == MIPS_CP0_DIAG) &&
+			    (sel == 0)) {               /* Diag */
+				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
@@ -307,6 +310,13 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 				cop0->reg[rd][sel] = val;
 			} else if ((rd == MIPS_CP0_TLB_XCONTEXT) &&
 			    (sel == 0)) {               /* XContext */
+				cop0->reg[rd][sel] = val;
+
+			} else if ((rd == MIPS_CP0_DIAG) &&
+			    (sel == 0)) {               /* Diag */
+				/* Sign extend */
+				if (inst.c0r_format.rs == mtc_op)
+					val = (int)val;
 				cop0->reg[rd][sel] = val;
 
 			} else {

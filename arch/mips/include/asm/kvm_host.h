@@ -219,7 +219,7 @@ struct kvm_arch {
 #define MIPS_CP0_TAG_LO		28
 #define MIPS_CP0_TAG_HI		29
 #define MIPS_CP0_ERROR_PC	30
-#define MIPS_CP0_DIAG		23
+#define MIPS_CP0_DIAG		22
 #define MIPS_CP0_DEBUG		23
 #define MIPS_CP0_DEPC		24
 #define MIPS_CP0_PERFCNT	25
