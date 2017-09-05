@@ -298,6 +298,10 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 			    (sel == 0)) {               /* Diag */
 				val = cop0->reg[rd][sel];
 
+			} else if ((rd == MIPS_CP0_TLB_HI) &&
+			    (sel == 0)) {               /* Diag */
+				val = cop0->reg[rd][sel];
+
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -361,6 +365,14 @@ printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt,
 				if (inst.c0r_format.rs == mtc_op)
 					val = (int)val;
 				cop0->reg[rd][sel] = val;
+
+			} else if ((rd == MIPS_CP0_TLB_HI) &&
+			    (sel == 0)) {               /* EntryHI*/
+				/* Sign extend */
+#define ENTRYHI_WRITE_MASK 0xC00000FFFFFFFFFF
+				if (inst.c0r_format.rs == mtc_op)
+					val = (int)val;
+				cop0->reg[rd][sel] = val & ENTRYHI_WRITE_MASK;
 
 			} else {
 				er = EMULATE_FAIL;
