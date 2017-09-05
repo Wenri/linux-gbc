@@ -73,7 +73,50 @@ static inline void kvm_vz_write_gc0_ebase(long v)
 
 static int kvm_trap_vz_handle_cop_unusable(struct kvm_vcpu *vcpu)
 {
-	return 0;
+	struct kvm_run *run = vcpu->run;
+	u32 cause = vcpu->arch.host_cp0_cause;
+	enum emulation_result er = EMULATE_FAIL;
+	int ret = RESUME_GUEST;
+	unsigned int sr;
+
+	if (((cause & CAUSEF_CE) >> CAUSEB_CE) == 1) {
+		/*
+		 * If guest FPU not present, the FPU operation should have been
+		 * treated as a reserved instruction!
+		 * If FPU already in use, we shouldn't get this at all.
+		 */
+#if 0
+		if (WARN_ON(!kvm_mips_guest_has_fpu(&vcpu->arch) ||
+			    vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU)) {
+			preempt_enable();
+			return EMULATE_FAIL;
+		}
+
+		kvm_own_fpu(vcpu);
+#endif
+
+		preempt_disable();
+		sr = read_c0_status();
+		write_c0_status(sr | ST0_CU1);
+		preempt_enable();
+		er = EMULATE_DONE;
+	}
+	/* other coprocessors not handled */
+
+	switch (er) {
+	case EMULATE_DONE:
+		ret = RESUME_GUEST;
+		break;
+
+	case EMULATE_FAIL:
+		run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		ret = RESUME_HOST;
+		break;
+
+	default:
+		BUG();
+	}
+	return ret;
 }
 
 static int kvm_trap_vz_handle_tlb_ld_miss(struct kvm_vcpu *vcpu)
