@@ -13,9 +13,13 @@
 #include <asm/time.h>
 #include <loongson.h>
 
+#include <hpet.h>
 void __init plat_time_init(void)
 {
 	/* setup mips r4k timer */
 	mips_hpt_frequency = cpu_clock_freq / 2;
+#ifdef CONFIG_LS2K_HPET
+	setup_hpet_timer();
+#endif
 }
 

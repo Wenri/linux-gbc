@@ -50,4 +50,10 @@ config NEED_DMA_MAP_STATE
 config UEFI_FIRMWARE_INTERFACE
 	bool
 
+config LS2K_HPET
+	bool "LS2K HPET Timer"
+	depends on CPU_LOONGSON2K
+	select MIPS_EXTERNAL_TIMER
+	help
+		This option enables the hpet timer of LS2K.
 endif # MACH_LOONGSON2K

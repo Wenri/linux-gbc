@@ -30,6 +30,7 @@
 #include <ls2k_int.h>
 #include <linux/i2c-gpio.h>
 
+int hpet_enabled = 1;
 /*
  * UART
  */
