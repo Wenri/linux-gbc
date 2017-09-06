@@ -27,3 +27,7 @@ obj-$(CONFIG_SWIOTLB) += dma-swiotlb.o
 
 obj-$(CONFIG_PCI_MSI) += pci_msi.o
 
+#
+#Hpet Support
+#
+obj-$(CONFIG_LS2K_HPET) += hpet.o
