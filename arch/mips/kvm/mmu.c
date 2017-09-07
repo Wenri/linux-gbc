@@ -1027,11 +1027,16 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 
 	/*the badvaddr we get maybe guest unmmaped or mmapped address,
 	  but not a GPA */
-	
+
 	if (((badvaddr & CKSEG3) == CKSEG0) ||
-		   ((badvaddr & 0xffffffffffff0000) == 0xffffffffbfc00000)) {
+		   ((badvaddr & 0xffffffffffff0000) == 0xffffffffbfc00000) ||
+		   ((badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
+		   (((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE))) {
 		//1.get the GPA
-		gpa = CPHYSADDR(badvaddr);
+		if((badvaddr & XKSEG) == XKPHYS)
+			gpa = XKPHYS_TO_PHYS(badvaddr);
+		else
+			gpa = CPHYSADDR(badvaddr);
 //		printk("%s badvadd %lx,gpa %lx\n",__func__, badvaddr, gpa);
 		idx = (badvaddr >> PAGE_SHIFT) & 1;
 		ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte_gpa[idx], &pte_gpa[!idx]);
