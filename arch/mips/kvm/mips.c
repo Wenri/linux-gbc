@@ -427,6 +427,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	vcpu->arch.vcpu_run = p;
 	p = kvm_mips_build_vcpu_run(p);
 
+#if 0
 	/* Dump the generated code */
 	pr_debug("#include <asm/asm.h>\n");
 	pr_debug("#include <asm/regdef.h>\n");
@@ -436,6 +437,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	loongson_dump_handler("kvm_tlb_general", general_start, general_end);
 	loongson_dump_handler("kvm_gen_exc", gebase + 0x180, gebase + 0x200);
 	loongson_dump_handler("kvm_exit", gebase + 0x2000, vcpu->arch.vcpu_run);
+#endif
 
 	/* Invalidate the icache for these ranges */
 	flush_icache_range((unsigned long)gebase,
@@ -1422,8 +1424,10 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	local_irq_enable();
 
+#if 0
 	kvm_info("kvm_mips_handle_exit: cause: %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
 			cause, opc, run, vcpu);
+#endif
 	trace_kvm_exit(vcpu, exccode);
 
 	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ)) {
@@ -1444,7 +1448,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	switch (exccode) {
 	case EXCCODE_INT:
-		kvm_info("[%d]EXCCODE_INT @ %p\n", vcpu->vcpu_id, opc);
+//		kvm_info("[%d]EXCCODE_INT @ %p\n", vcpu->vcpu_id, opc);
 
 		++vcpu->stat.int_exits;
 
@@ -1532,9 +1536,11 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	case EXCCODE_GE:
+#if 0
 		/* defer exit accounting to handler */
 		kvm_info("VZ Guest Exception: cause %#x, PC: %p, BadVaddr: %#lx\n",
 			  cause, opc, badvaddr);
+#endif
 		ret = kvm_mips_callbacks->handle_guest_exit(vcpu);
 		break;
 

@@ -1352,11 +1352,15 @@ int kvm_get_inst(u32 *opc, struct kvm_vcpu *vcpu, u32 *out)
 	//2. get the page of the instruction
 	page = pte_page((pte_gpa[idx]));	
 	hpa = page_to_phys(page);		
+#if 0
 	printk("---instruction page %p, hpa %lx pfn %lx\n",page,hpa,pte_pfn(pte_gpa[idx]));
+#endif
 	//3. Get the instruction address in page
 	*out = *(u32 *)(((unsigned long)opc & ((1 << PAGE_SHIFT) - 1)) | hpa | CAC_BASE);
 
+#if 0
 	printk("---instruction address %p, %x\n", out, (unsigned int)*out);
+#endif
 	if (unlikely(err)) {
 		kvm_err("%s: illegal address: %p\n",
 			__func__, out);

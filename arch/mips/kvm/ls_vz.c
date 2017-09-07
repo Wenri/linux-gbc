@@ -275,7 +275,7 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 		rd = inst.c0r_format.rd;
 		sel = inst.c0r_format.sel;
 
-printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt, rd, sel);
+//printk("$$$$ inst.word is 0x%x, rt is %d, rd is %d, sel is %d\n", inst.word, rt, rd, sel);
 		switch (inst.c0r_format.rs) {
 		case dmfc_op:
 		case mfc_op:
@@ -417,7 +417,7 @@ static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
 		opc += 1;
 
 	err = kvm_get_badinstr(opc, vcpu, &inst.word);
-	printk("#### badinst is 0x%x\n", inst.word);
+//	printk("#### badinst is 0x%x\n", inst.word);
 	if (err)
 		return EMULATE_FAIL;
 
@@ -482,13 +482,14 @@ unknown:
 static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
-	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
 	enum emulation_result er = EMULATE_DONE;
 	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
 	u32 gexccode = (vcpu->arch.host_cp0_guestctl0 &
 			MIPS_GCTL0_GEXC) >> MIPS_GCTL0_GEXC_SHIFT;
 	int ret = RESUME_GUEST;
 
+#if 0
+	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
 	unsigned long badvaddr = vcpu->arch.host_cp0_badvaddr;
 
 	printk("$$$$ %s:%s:%d\n", __FILE__,__func__,__LINE__);
@@ -496,6 +497,7 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 			  cause, opc, badvaddr);
 	printk("$$$$ excode %#x, gsexccode: %#x\n",
 			  exccode, gexccode);
+#endif
 
 	trace_kvm_exit(vcpu, KVM_TRACE_EXIT_GEXCCODE_BASE + gexccode);
 	switch (gexccode) {
