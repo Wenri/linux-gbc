@@ -400,6 +400,93 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 	return er;
 }
 
+/*
+ *  * Most cache ops are split into a 2 bit field identifying the cache, and a 3
+ *   * bit field identifying the cache operation.
+ *    */
+#define CacheOp_Cache                   0x03
+#define CacheOp_Op                      0x1c
+
+#define Cache_I                         0x00
+#define Cache_D                         0x01
+#define Cache_T                         0x02
+#define Cache_V                         0x02 /* Loongson-3 */
+#define Cache_S                         0x03
+
+#define Index_Writeback_Inv             0x00
+#define Index_Load_Tag                  0x04
+#define Index_Store_Tag                 0x08
+#define Hit_Invalidate                  0x10
+#define Hit_Writeback_Inv               0x14    /* not with Cache_I though */
+#define Hit_Writeback                   0x18
+
+static enum emulation_result kvm_vz_gpsi_cache(union mips_instruction inst,
+					       u32 *opc, u32 cause,
+					       struct kvm_run *run,
+					       struct kvm_vcpu *vcpu)
+{
+	enum emulation_result er = EMULATE_DONE;
+	u32 cache, op_inst, op, base;
+	s16 offset;
+	struct kvm_vcpu_arch *arch = &vcpu->arch;
+	unsigned long va, curr_pc;
+
+	/*
+	 * Update PC and hold onto current PC in case there is
+	 * an error and we want to rollback the PC
+	 */
+
+	curr_pc = vcpu->arch.pc;
+	er = update_pc(vcpu, cause);
+	if (er == EMULATE_FAIL)
+		return er;
+
+	base = inst.i_format.rs;
+	op_inst = inst.i_format.rt;
+	offset = inst.i_format.simmediate;
+	cache = op_inst & CacheOp_Cache;
+	op = op_inst & CacheOp_Op;
+
+	va = arch->gprs[base] + offset;
+
+	kvm_debug("CACHE (cache: %#x, op: %#x, base[%d]: %#lx, offset: %#x\n",
+		  cache, op, base, arch->gprs[base], offset);
+
+	/* Secondary or tirtiary cache ops ignored */
+	if (cache != Cache_I && cache != Cache_D)
+		return EMULATE_DONE;
+
+	switch (op_inst) {
+	case Index_Invalidate_I:
+		flush_icache_line_indexed(va);
+		return EMULATE_DONE;
+	case Index_Writeback_Inv_D:
+		flush_dcache_line_indexed(va);
+		return EMULATE_DONE;
+	case Hit_Invalidate_I:
+	case Hit_Invalidate_D:
+	case Hit_Writeback_Inv_D:
+		if (boot_cpu_type() == CPU_LOONGSON3) {
+			/* We can just flush entire icache */
+			local_flush_icache_range(0, 0);
+			return EMULATE_DONE;
+		}
+
+		/* So far, other platforms support guest hit cache ops */
+		break;
+	default:
+		break;
+	};
+
+	kvm_err("@ %#lx/%#lx CACHE (cache: %#x, op: %#x, base[%d]: %#lx, offset: %#x\n",
+		curr_pc, vcpu->arch.gprs[31], cache, op, base, arch->gprs[base],
+		offset);
+	/* Rollback PC */
+	vcpu->arch.pc = curr_pc;
+
+	return EMULATE_FAIL;
+}
+
 static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
 						     struct kvm_vcpu *vcpu)
 {
@@ -425,20 +512,12 @@ static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
 	case cop0_op:
 		er = kvm_vz_gpsi_cop0(inst, opc, cause, run, vcpu);
 		break;
-#ifndef CONFIG_CPU_MIPSR6
 	case cache_op:
 		trace_kvm_exit(vcpu, KVM_TRACE_EXIT_CACHE);
-//		er = kvm_vz_gpsi_cache(inst, opc, cause, run, vcpu);
+		er = kvm_vz_gpsi_cache(inst, opc, cause, run, vcpu);
 		break;
-#endif
 	case spec3_op:
 		switch (inst.spec3_format.func) {
-#ifdef CONFIG_CPU_MIPSR6
-		case cache6_op:
-			trace_kvm_exit(vcpu, KVM_TRACE_EXIT_CACHE);
-			er = kvm_vz_gpsi_cache(inst, opc, cause, run, vcpu);
-			break;
-#endif
 		case rdhwr_op:
 			if (inst.r_format.rs || (inst.r_format.re >> 3))
 				goto unknown;
