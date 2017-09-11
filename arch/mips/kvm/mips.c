@@ -520,7 +520,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
 
 	lose_fpu(1);
 
-//	local_irq_disable();
+	local_irq_disable();
 //	guest_enter_irqoff();
 	kvm_guest_enter();
 	trace_kvm_enter(vcpu);
@@ -537,6 +537,7 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
 
 	trace_kvm_out(vcpu);
 //	guest_exit_irqoff();
+	kvm_guest_exit();
 	local_irq_enable();
 
 out:
@@ -1349,6 +1350,8 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	}
+
+	local_irq_disable();
 
 	if (ret == RESUME_GUEST) {
 		trace_kvm_reenter(vcpu);
