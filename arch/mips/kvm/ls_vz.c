@@ -724,11 +724,20 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 
 static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
+	if (current->flags & PF_VCPU) {
+		tlbw_use_hazard();
+		kvm_ls_vz_load_guesttlb(vcpu);
+	}
+	/*Should we load the guest cp0s here??? FIX ME */
 	return 0;
 }
 
 static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 {
+	if (current->flags & PF_VCPU)
+		kvm_ls_vz_save_guesttlb(vcpu);
+	/*Should we save the guest cp0s here??? FIX ME */
+
 	return 0;
 }
 
