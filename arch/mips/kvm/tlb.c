@@ -1003,6 +1003,7 @@ void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
 	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
 	unsigned long flags;
 	unsigned int diag;
+	int idx;
 
 	local_irq_save(flags);
 	//save tmp
@@ -1017,7 +1018,18 @@ void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
 		if(!((read_c0_diag()>>18) & 0x3))
 			continue;
 		tlb_probe();
-		tlbinvf();
+		tlb_probe_hazard();
+//		tlbinvf();
+		idx = read_c0_index();
+		write_c0_entrylo0(0);
+		write_c0_entrylo1(0);
+		if (idx >= 0) {
+			/* Make sure all entries differ. */
+			write_c0_entryhi(UNIQUE_ENTRYHI(idx));
+			mtc0_tlbw_hazard();
+			tlb_write_indexed();
+			tlbw_use_hazard();
+		}
 	}
 	/*detect the current TLB lines belong to guest in TLB or not
 	update TLB with the guest_tlb
@@ -1029,10 +1041,13 @@ void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
 		if(!tlb[i].tlb_hi)
 			continue;
 		write_c0_entryhi(tlb[i].tlb_hi);
+		mtc0_tlbw_hazard();
 		write_c0_pagemask(tlb[i].tlb_mask);
 		write_c0_entrylo0(tlb[i].tlb_lo[0]);
 		write_c0_entrylo1(tlb[i].tlb_lo[1]);
+		mtc0_tlbw_hazard();
 		tlb_write_random();
+		tlbw_use_hazard();
 	}
 
 	write_c0_index(tmp_index);
