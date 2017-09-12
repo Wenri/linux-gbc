@@ -226,6 +226,13 @@ static int kvm_trap_vz_handle_msa_disabled(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+/* Write Guest TLB Entry @ Index */
+#define tlbinvf_op 0x4
+enum emulation_result kvm_mips_lsvz_tlbinvf(struct kvm_vcpu *vcpu)
+{
+	return EMULATE_DONE;
+}
+
 static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 					      u32 *opc, u32 cause,
 					      struct kvm_run *run,
@@ -266,6 +273,9 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 		case tlbp_op:
 			/*NEED TO BE FIXED!!!*/
 //			er = kvm_mips_lsvz_tlbp(vcpu);
+			break;
+		case tlbinvf_op:
+			er = kvm_mips_lsvz_tlbinvf(vcpu);
 			break;
 		default:
 			er = EMULATE_FAIL;
