@@ -310,6 +310,14 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			    (sel == 0)) {               /* Wired */
 				val = cop0->reg[rd][sel];
 
+			} else if ((rd == MIPS_CP0_TLB_LO0) &&
+			    (sel == 0)) {               /* Entrylo0*/
+				val = cop0->reg[rd][sel];
+
+			} else if ((rd == MIPS_CP0_TLB_LO1) &&
+			    (sel == 0)) {               /* Entrylo1*/
+				val = cop0->reg[rd][sel];
+
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -393,6 +401,15 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			} else if ((rd == MIPS_CP0_TLB_WIRED) &&
 			    (sel == 0)) {               /* Wired */
 				cop0->reg[rd][sel] = val & WIRED_WRITE_MASK;
+
+#define ENTRYLO_WRITE_MASK 0xE00003FFFFFFFFFF
+			} else if ((rd == MIPS_CP0_TLB_LO0) &&
+			    (sel == 0)) {               /* Entrylo0*/
+				cop0->reg[rd][sel] = val & ENTRYLO_WRITE_MASK;
+
+			} else if ((rd == MIPS_CP0_TLB_LO1) &&
+			    (sel == 0)) {               /* Entrylo1*/
+				cop0->reg[rd][sel] = val & ENTRYLO_WRITE_MASK;
 
 			} else {
 				er = EMULATE_FAIL;
