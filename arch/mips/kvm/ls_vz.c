@@ -318,6 +318,10 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			    (sel == 0)) {               /* Entrylo1*/
 				val = cop0->reg[rd][sel];
 
+			} else if ((rd == MIPS_CP0_TLB_INDEX) &&
+			    (sel == 0)) {               /* Index */
+				val = cop0->reg[rd][sel];
+
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -410,6 +414,11 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			} else if ((rd == MIPS_CP0_TLB_LO1) &&
 			    (sel == 0)) {               /* Entrylo1*/
 				cop0->reg[rd][sel] = val & ENTRYLO_WRITE_MASK;
+
+#define INDEX_WRITE_MASK 0x7FF
+			} else if ((rd == MIPS_CP0_TLB_INDEX) &&
+			    (sel == 0)) {               /* Index */
+				cop0->reg[rd][sel] = (int)val & INDEX_WRITE_MASK;
 
 			} else {
 				er = EMULATE_FAIL;
