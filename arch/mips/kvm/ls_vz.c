@@ -299,7 +299,11 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_TLB_HI) &&
-			    (sel == 0)) {               /* Diag */
+			    (sel == 0)) {               /* EntryHI */
+				val = cop0->reg[rd][sel];
+
+			} else if ((rd == MIPS_CP0_TLB_PG_MASK) &&
+			    (sel == 0)) {               /* Pagemask */
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_PRID &&
@@ -373,6 +377,13 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 				if (inst.c0r_format.rs == mtc_op)
 					val = (int)val;
 				cop0->reg[rd][sel] = val & ENTRYHI_WRITE_MASK;
+
+#define PAGEMASK_WRITE_MASK0 0x00000000FFFFF800
+#define PAGEMASK_WRITE_MASK1 0x0000000000003000
+			} else if ((rd == MIPS_CP0_TLB_PG_MASK) &&
+			    (sel == 0)) {               /* Pagemask */
+				cop0->reg[rd][sel] = (val & PAGEMASK_WRITE_MASK0)
+							| PAGEMASK_WRITE_MASK1;
 
 			} else {
 				er = EMULATE_FAIL;
@@ -646,6 +657,7 @@ static void kvm_vz_vcpu_uninit(struct kvm_vcpu *vcpu)
 
 static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 {
+	vcpu->arch.cop0->reg[MIPS_CP0_TLB_PG_MASK][0] = 0xF000ULL;
 	return 0;
 }
 
