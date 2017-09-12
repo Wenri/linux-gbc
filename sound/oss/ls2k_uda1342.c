@@ -446,9 +446,30 @@ static u32 fill_play_buffer(struct audio_stream *s, const char *buf, u32 count)
 	u32 copy_bytes;
 
 	desc = list_entry(s->free_list.next, struct audio_dma_desc, link);
-	copy_bytes = min((s->fragsize - desc->pos), count);
-	copy_from_user((void *)(desc->snd_buffer + desc->pos), buf, copy_bytes);
-	desc->pos += copy_bytes;
+	if(s->num_channels == 1)
+	{
+		int i,j;
+		unsigned char c;
+		copy_bytes = min((s->fragsize - desc->pos), count*2)/2;
+		
+		for(i = 0, j = 0;i < copy_bytes;i += 2, j += 4)
+		{
+			get_user(c,buf+i);
+			*(desc->snd_buffer + desc->pos + j) = c;
+			*(desc->snd_buffer + desc->pos + j + 2) = c;
+			get_user(c,buf+i+1);
+			*(desc->snd_buffer + desc->pos + j + 1) = c;
+			*(desc->snd_buffer + desc->pos + j +  3) = c;
+		}
+		desc->pos += j;
+	}
+	else
+	{
+		copy_bytes = min((s->fragsize - desc->pos), count);
+		copy_from_user((void *)(desc->snd_buffer + desc->pos), buf, copy_bytes);
+		desc->pos += copy_bytes;
+	}
+	
 
 	if (desc->pos == s->fragsize) {
 		list_del(&desc->link);
@@ -644,6 +665,16 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 		return 0;
 
 	case SNDCTL_DSP_STEREO:
+		if (get_user(val, (int *)arg)) {
+			return -EFAULT;
+			break;
+		}
+
+		if (wr)
+			os->num_channels = val?2:1;
+		else 
+			is->num_channels = val?2:1;
+		put_user(val, (int *) arg);
 		return 0;
 
 	case SNDCTL_DSP_CHANNELS:
@@ -677,10 +708,6 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 					return -EINVAL;
 				}
 
-				if (val <= 2 &&
-				    (state->codec_ext_caps & AC97_EXT_DACS)) {
-				} else if (val >= 4) {
-				}
 
 				os->num_channels = val;
 			}
@@ -718,6 +745,7 @@ static long ls2k_audio_ioctl(struct file *file, uint cmd, ulong arg)
 				val = (state->output_stream->sample_size == 16) ?
 					AFMT_S16_LE : AFMT_U8;
 		}
+		*IISCONFIG = (*IISCONFIG&0x00ffffff)|(state->output_stream->sample_size<<24);
 		return put_user(val, (int *) arg);
 
 	case SNDCTL_DSP_POST:
@@ -1235,7 +1263,7 @@ static int codec_i2c_init()
 	   0x00,   0x14,   0x02,
 	   0x01,   0x00,   0x14,
 	   0x10,   0xff,   0x03,
-	   0x11,   0x00,   0x00,
+	   0x11,   0x30,   0x30,
 	   0x12,   0xc4,   0x00,
 	   0x20,   0x00,   0x30,
 	   0x21,   0x00,   0x30,
