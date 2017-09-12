@@ -320,7 +320,8 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_TLB_WIRED) &&
-			    (sel == 0)) {               /* Wired */
+			    ((sel == 0) ||              /* Wired */
+			     (sel == 6))) {             /* PWCtl */
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_TLB_LO0) &&
@@ -424,10 +425,13 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 				else
 					er = EMULATE_FAIL;
 
-#define WIRED_WRITE_MASK 0x000000000000003F
-			} else if ((rd == MIPS_CP0_TLB_WIRED) &&
-			    (sel == 0)) {               /* Wired */
-				cop0->reg[rd][sel] = val & WIRED_WRITE_MASK;
+#define WIRED_WRITE_MASK 0x0000003F
+#define PWCTL_WRITE_MASK 0x4000003F
+			} else if (rd == MIPS_CP0_TLB_WIRED) {
+				if (sel == 0)               /* Wired */
+					cop0->reg[rd][sel] = val & WIRED_WRITE_MASK;
+				else if (sel == 6)          /* PWCtl */
+					cop0->reg[rd][sel] = val & PWCTL_WRITE_MASK;
 
 #define ENTRYLO_WRITE_MASK 0xE00003FFFFFFFFFF
 			} else if ((rd == MIPS_CP0_TLB_LO0) &&
