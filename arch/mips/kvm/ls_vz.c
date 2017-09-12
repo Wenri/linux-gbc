@@ -313,7 +313,10 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_TLB_PG_MASK) &&
-			    (sel == 0)) {               /* Pagemask */
+			    ((sel == 0) ||              /* Pagemask */
+			     (sel == 5) ||              /* PWBase */
+			     (sel == 6) ||              /* PWField */
+			     (sel == 7))) {             /* PWSize */
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_TLB_WIRED) &&
@@ -406,10 +409,20 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 
 #define PAGEMASK_WRITE_MASK0 0x00000000FFFFF800
 #define PAGEMASK_WRITE_MASK1 0x0000000000003000
-			} else if ((rd == MIPS_CP0_TLB_PG_MASK) &&
-			    (sel == 0)) {               /* Pagemask */
-				cop0->reg[rd][sel] = (val & PAGEMASK_WRITE_MASK0)
+#define PWFIELD_WRITE_MASK 0x0000003F3FFFFFFF
+#define PWSIZE_WRITE_MASK 0x0000003F7FFFFFFF
+			} else if ((rd == MIPS_CP0_TLB_PG_MASK)) {
+				if (sel == 0)               /* Pagemask */
+					cop0->reg[rd][sel] = (val & PAGEMASK_WRITE_MASK0)
 							| PAGEMASK_WRITE_MASK1;
+				else if (sel == 5)          /* PWBase */
+					cop0->reg[rd][sel] = val;
+				else if (sel == 6)          /* PWField */
+					cop0->reg[rd][sel] = val & PWFIELD_WRITE_MASK;
+				else if (sel == 7)          /* PWSize */
+					cop0->reg[rd][sel] = val & PWSIZE_WRITE_MASK;
+				else
+					er = EMULATE_FAIL;
 
 #define WIRED_WRITE_MASK 0x000000000000003F
 			} else if ((rd == MIPS_CP0_TLB_WIRED) &&
