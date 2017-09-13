@@ -351,6 +351,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_GM_SHIFT, 1);
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_CP0_SHIFT, 1);
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_CF_SHIFT, 1);
+	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_GT_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_GUESTCTL0);
 	/* LSVZ set diag bit[16] = 1 */
 	uasm_i_mfc0(&p, K0, C0_DIAG);
