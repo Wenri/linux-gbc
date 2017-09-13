@@ -336,6 +336,16 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			    (sel == 0)) {               /* Index */
 				val = cop0->reg[rd][sel];
 
+			} else if ((rd == MIPS_CP0_DESAVE) &&
+			    ((sel == 0) ||              /* Desave */
+			    (sel == 2) ||               /* Kscracth1 */
+			    (sel == 3) ||               /* Kscracth2 */
+			    (sel == 4) ||               /* Kscracth3 */
+			    (sel == 5) ||               /* Kscracth4 */
+			    (sel == 6) ||               /* Kscracth5 */
+			    (sel == 7))) {              /* Kscracth6 */
+				val = cop0->reg[rd][sel];
+
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -446,6 +456,18 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			} else if ((rd == MIPS_CP0_TLB_INDEX) &&
 			    (sel == 0)) {               /* Index */
 				cop0->reg[rd][sel] = (int)val & INDEX_WRITE_MASK;
+
+			} else if ((rd == MIPS_CP0_DESAVE) &&
+			    ((sel == 0) ||              /* Desave */
+			    (sel == 2) ||               /* Kscracth1 */
+			    (sel == 3) ||               /* Kscracth2 */
+			    (sel == 4) ||               /* Kscracth3 */
+			    (sel == 5) ||               /* Kscracth4 */
+			    (sel == 6) ||               /* Kscracth5 */
+			    (sel == 7))) {              /* Kscracth6 */
+				if (inst.c0r_format.rs == mtc_op)
+					val = (int)val;
+				cop0->reg[rd][sel] = val;
 
 			} else {
 				er = EMULATE_FAIL;
