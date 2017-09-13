@@ -768,7 +768,11 @@ retry:
 	ptep = kvm_mips_pte_for_gpa(kvm, memcache, gpa);
 
 	/* Set up the PTE */
-	prot_bits = _PAGE_PRESENT | __READABLE | _page_cachable_default;
+	/* Uncached Kseg1 memory space access */
+	if((vcpu->arch.host_cp0_badvaddr & 0xffffffffb0000000) == CKSEG1)
+		prot_bits = _PAGE_PRESENT | __READABLE | _CACHE_UNCACHED;
+	else
+		prot_bits = _PAGE_PRESENT | __READABLE | _page_cachable_default;
 	if (writeable) {
 		prot_bits |= _PAGE_WRITE;
 		if (write_fault) {
@@ -1031,7 +1035,8 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 	if (((badvaddr & CKSEG3) == CKSEG0) ||
 		   ((badvaddr & 0xffffffffffff0000) == 0xffffffffbfc00000) ||
 		   ((badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
-		   (((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE))) {
+		   ((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE) ||
+		   ((badvaddr & 0xffffffffb0000000) == CKSEG1)) {
 		//1.get the GPA
 		if((badvaddr & XKSEG) == XKPHYS)
 			gpa = XKPHYS_TO_PHYS(badvaddr);
