@@ -38,6 +38,7 @@ config SND_SOC_TOPOLOGY
 
 # All the supported SoCs
 source "sound/soc/intel/Kconfig"
+source "sound/soc/loongson/Kconfig"
 
 # Supported codecs
 source "sound/soc/codecs/Kconfig"

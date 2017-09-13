@@ -13,3 +13,4 @@ endif
 obj-$(CONFIG_SND_SOC)	+= snd-soc-core.o
 obj-$(CONFIG_SND_SOC)	+= codecs/
 obj-$(CONFIG_SND_SOC)	+= intel/
+obj-$(CONFIG_SND_SOC)	+= loongson/
