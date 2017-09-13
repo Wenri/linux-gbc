@@ -334,6 +334,12 @@ struct kvm_vcpu_arch {
 	/* COP0 State */
 	struct mips_coproc *cop0;
 
+	/* COP0 State before Field-Change exception */
+	unsigned long old_cp0_status;
+	unsigned long old_cp0_intctl;
+	unsigned long old_cp0_cause;
+	unsigned long old_cp0_entryhi;
+
 	/* Host KSEG0 address of the EI/DI offset */
 	void *kseg0_commpage;
 

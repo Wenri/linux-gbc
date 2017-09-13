@@ -71,6 +71,14 @@ static inline void kvm_vz_write_gc0_ebase(long v)
 	}
 }
 
+static inline void save_regs_with_field_change_exception(struct kvm_vcpu *vcpu)
+{
+	vcpu->arch.old_cp0_status = vcpu->arch.cop0->reg[MIPS_CP0_STATUS][0];
+	vcpu->arch.old_cp0_intctl = vcpu->arch.cop0->reg[MIPS_CP0_STATUS][1];
+	vcpu->arch.old_cp0_cause = vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0];
+	vcpu->arch.old_cp0_entryhi = vcpu->arch.cop0->reg[MIPS_CP0_TLB_HI][0];
+}
+
 static int kvm_trap_vz_handle_cop_unusable(struct kvm_vcpu *vcpu)
 {
 	struct kvm_run *run = vcpu->run;
@@ -653,6 +661,111 @@ unknown:
 	return er;
 }
 
+static enum emulation_result kvm_trap_vz_handle_gsfc(u32 cause, u32 *opc,
+						     struct kvm_vcpu *vcpu)
+{
+	enum emulation_result er = EMULATE_DONE;
+	struct kvm_vcpu_arch *arch = &vcpu->arch;
+	union mips_instruction inst;
+	int err;
+
+	/*
+	 *  Fetch the instruction.
+	 */
+	if (cause & CAUSEF_BD)
+		opc += 1;
+	err = kvm_get_badinstr(opc, vcpu, &inst.word);
+	if (err)
+		return EMULATE_FAIL;
+
+	/* complete MTC0 on behalf of guest and advance EPC */
+	if (inst.c0r_format.opcode == cop0_op &&
+	    ((inst.c0r_format.rs == mtc_op) ||
+	    (inst.c0r_format.rs == dmtc_op)) &&
+	    inst.c0r_format.z == 0) {
+		int rt = inst.c0r_format.rt;
+		int rd = inst.c0r_format.rd;
+		int sel = inst.c0r_format.sel;
+		unsigned int val = arch->gprs[rt];
+		unsigned int old_val, change;
+
+		trace_kvm_hwr(vcpu, KVM_TRACE_MTC0, KVM_TRACE_COP0(rd, sel),
+			      val);
+
+		if ((rd == MIPS_CP0_STATUS) && (sel == 0)) {
+			/* FR bit should read as zero if no FPU */
+			if (!kvm_mips_guest_has_fpu(&vcpu->arch))
+				val &= ~(ST0_CU1 | ST0_FR);
+
+			/*
+			 * Also don't allow FR to be set if host doesn't support
+			 * it.
+			 */
+			if (!(boot_cpu_data.fpu_id & MIPS_FPIR_F64))
+				val &= ~ST0_FR;
+
+			old_val = arch->old_cp0_status;
+			change = val ^ old_val;
+
+			if (change & ST0_KX) {
+				/*
+				 * indicate access 64 bit kernel seg
+				 * and use XTLB REFILL exception
+				 */
+					old_val ^= ST0_KX;
+			}
+
+			//Update old value
+			arch->old_cp0_status = old_val;
+		} else if ((rd == MIPS_CP0_CAUSE) && (sel == 0)) {
+			u32 old_cause = arch->old_cp0_cause;
+			u32 change = old_cause ^ val;
+
+			/* DC bit enabling/disabling timer? */
+			if (change & CAUSEF_DC) {
+				if (val & CAUSEF_DC) {
+//					kvm_vz_lose_htimer(vcpu);
+					kvm_mips_count_disable_cause(vcpu);
+				} else {
+					kvm_mips_count_enable_cause(vcpu);
+				}
+			}
+
+			/* Only certain bits are RW to the guest */
+			change &= (CAUSEF_DC | CAUSEF_IV | CAUSEF_WP |
+				   CAUSEF_IP0 | CAUSEF_IP1);
+
+			/* WP can only be cleared */
+			change &= ~CAUSEF_WP | old_cause;
+
+			arch->old_cp0_cause = val;
+		} else if ((rd == MIPS_CP0_STATUS) && (sel == 1)) { /* IntCtl */
+			arch->old_cp0_intctl = val;
+		} else if ((rd == MIPS_CP0_TLB_HI) && (sel == 0)) {
+			unsigned long old_val = arch->old_cp0_entryhi;
+			unsigned long val = arch->gprs[rt];
+			change = val ^ old_val;
+			/* If change R VPN2 EHINV area
+			   Still set ZERO to these area
+			*/
+
+		} else {
+			kvm_err("Handle GSFC, unsupported field change @ %p: %#x\n",
+			    opc, inst.word);
+			er = EMULATE_FAIL;
+		}
+
+		if (er != EMULATE_FAIL)
+			er = update_pc(vcpu, cause);
+	} else {
+		kvm_err("Handle GSFC, unrecognized instruction @ %p: %#x\n",
+			opc, inst.word);
+		er = EMULATE_FAIL;
+	}
+
+	return er;
+}
+
 static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
@@ -679,11 +792,11 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 		++vcpu->stat.vz_gpsi_exits;
 		er = kvm_trap_vz_handle_gpsi(cause, opc, vcpu);
 		break;
-//	case MIPS_GCTL0_GEXC_GSFC:
-//	/*only GFC in loongson, the same code as GSFC*/
-//		++vcpu->stat.vz_gsfc_exits;
-//		er = kvm_trap_vz_handle_gsfc(cause, opc, vcpu);
-//		break;
+	case MIPS_GCTL0_GEXC_GSFC:
+	/*only GFC in loongson, the same code as GSFC*/
+		++vcpu->stat.vz_gsfc_exits;
+		er = kvm_trap_vz_handle_gsfc(cause, opc, vcpu);
+		break;
 //	case MIPS_GCTL0_GEXC_HC:
 //		++vcpu->stat.vz_hc_exits;
 //		er = kvm_trap_vz_handle_hc(cause, opc, vcpu);
@@ -839,6 +952,8 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 
 static void kvm_vz_vcpu_reenter(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
+	save_regs_with_field_change_exception(vcpu);
+
 	kvm_ls_vz_load_guesttlb(vcpu);
 }
 
@@ -855,6 +970,7 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 //	kvm_vz_vcpu_load_tlb(vcpu, cpu);
 //	kvm_vz_vcpu_load_wired(vcpu);
 	kvm_ls_vz_load_guesttlb(vcpu);
+	save_regs_with_field_change_exception(vcpu);
 
 	r = vcpu->arch.vcpu_run(run, vcpu);
 

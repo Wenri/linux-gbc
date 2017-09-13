@@ -1217,6 +1217,8 @@ int kvm_arch_vcpu_ioctl_set_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 	vcpu->arch.pc = regs->pc;
 
 	vcpu->arch.cop0->reg[MIPS_CP0_PRID][0] = regs->cop0.reg[MIPS_CP0_PRID][0];
+	vcpu->arch.cop0->reg[MIPS_CP0_STATUS][0] = regs->cop0.reg[MIPS_CP0_STATUS][0];
+	vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] = regs->cop0.reg[MIPS_CP0_CAUSE][0];
 printk("#### vcpu->arch.cop0->reg[MIPS_CP0_PRID][0] is 0x%lx, %s:%s:%d\n",
 	vcpu->arch.cop0->reg[MIPS_CP0_PRID][0], __FILE__,__func__,__LINE__);
 	return 0;
@@ -1232,6 +1234,9 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 	regs->hi = vcpu->arch.hi;
 	regs->lo = vcpu->arch.lo;
 	regs->pc = vcpu->arch.pc;
+
+	regs->cop0.reg[MIPS_CP0_STATUS][0] = vcpu->arch.cop0->reg[MIPS_CP0_STATUS][0];
+	regs->cop0.reg[MIPS_CP0_CAUSE][0]  = vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0];
 
 	return 0;
 }
