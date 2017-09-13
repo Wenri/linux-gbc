@@ -563,7 +563,7 @@ static enum emulation_result kvm_vz_gpsi_cache(union mips_instruction inst,
 	case Hit_Writeback_Inv_D:
 		if (boot_cpu_type() == CPU_LOONGSON3) {
 			/* We can just flush entire icache */
-			local_flush_icache_range(0, 0);
+//			local_flush_icache_range(0, 0);
 			return EMULATE_DONE;
 		}
 
