@@ -1037,6 +1037,12 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		   ((badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
 		   ((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE) ||
 		   ((badvaddr & 0xffffffffb0000000) == CKSEG1)) {
+
+		//0. exclude the 0x90000exxxxxxxxxx and 0x900000003ff0xxxx
+		if(((badvaddr & 0xffffff0000000000) == 0x90000e0000000000) ||
+		   ((badvaddr & 0xfffffffffff00000) == 0x900000003ff00000)) {
+			return RESUME_HOST;
+		}
 		//1.get the GPA
 		if((badvaddr & XKSEG) == XKPHYS)
 			gpa = XKPHYS_TO_PHYS(badvaddr);
