@@ -71,6 +71,109 @@ static inline void kvm_vz_write_gc0_ebase(long v)
 	}
 }
 
+/*
+ * These Config bits may be writable by the guest:
+ * Config:	[K23, KU] (!TLB), K0
+ * Config1:	(none)
+ * Config2:	[TU, SU] (impl)
+ * Config3:	ISAOnExc
+ * Config4:	FTLBPageSize
+ * Config5:	K, CV, MSAEn, UFE, FRE, SBRI, UFR
+ */
+
+static inline unsigned int kvm_vz_config_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	return CONF_CM_CMASK;
+}
+
+static inline unsigned int kvm_vz_config1_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+static inline unsigned int kvm_vz_config2_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+static inline unsigned int kvm_vz_config3_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	return MIPS_CONF3_ISA_OE;
+}
+
+static inline unsigned int kvm_vz_config4_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	/* no need to be exact */
+	return MIPS_CONF4_VFTLBPAGESIZE;
+}
+
+static inline unsigned int kvm_vz_config5_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	unsigned int mask = MIPS_CONF5_K | MIPS_CONF5_CV | MIPS_CONF5_SBRI;
+
+	/*
+	 * Permit guest FPU mode changes if FPU is enabled and the relevant
+	 * feature exists according to FIR register.
+	 */
+	if (kvm_mips_guest_has_fpu(&vcpu->arch)) {
+		if (cpu_has_fre)
+			mask |= MIPS_CONF5_FRE | MIPS_CONF5_UFE;
+	}
+
+	return mask;
+}
+
+/*
+ * VZ optionally allows these additional Config bits to be written by root:
+ * Config:	M, [MT]
+ * Config1:	M, [MMUSize-1, C2, MD, PC, WR, CA], FP
+ * Config2:	M
+ * Config3:	M, MSAP, [BPG], ULRI, [DSP2P, DSPP], CTXTC, [ITL, LPA, VEIC,
+ *		VInt, SP, CDMM, MT, SM, TL]
+ * Config4:	M, [VTLBSizeExt, MMUSizeExt]
+ * Config5:	MRP
+ */
+
+static inline unsigned int kvm_vz_config_user_wrmask(struct kvm_vcpu *vcpu)
+{
+	return kvm_vz_config_guest_wrmask(vcpu) | MIPS_CONF_M;
+}
+
+static inline unsigned int kvm_vz_config1_user_wrmask(struct kvm_vcpu *vcpu)
+{
+	unsigned int mask = kvm_vz_config1_guest_wrmask(vcpu) | MIPS_CONF_M;
+
+	/* Permit FPU to be present if FPU is supported */
+	if (kvm_mips_guest_can_have_fpu(&vcpu->arch))
+		mask |= MIPS_CONF1_FP;
+
+	return mask;
+}
+
+static inline unsigned int kvm_vz_config2_user_wrmask(struct kvm_vcpu *vcpu)
+{
+	return kvm_vz_config2_guest_wrmask(vcpu) | MIPS_CONF_M;
+}
+
+static inline unsigned int kvm_vz_config3_user_wrmask(struct kvm_vcpu *vcpu)
+{
+	unsigned int mask = kvm_vz_config3_guest_wrmask(vcpu) | MIPS_CONF_M |
+		MIPS_CONF3_ULRI | MIPS_CONF3_CTXTC;
+
+	return mask;
+}
+
+static inline unsigned int kvm_vz_config4_user_wrmask(struct kvm_vcpu *vcpu)
+{
+	return kvm_vz_config4_guest_wrmask(vcpu) | MIPS_CONF_M;
+}
+
+static inline unsigned int kvm_vz_config5_user_wrmask(struct kvm_vcpu *vcpu)
+{
+	return kvm_vz_config5_guest_wrmask(vcpu) | MIPS_CONF5_MRP;
+}
+
+
 static inline void save_regs_with_field_change_exception(struct kvm_vcpu *vcpu)
 {
 	vcpu->arch.old_cp0_status = vcpu->arch.cop0->reg[MIPS_CP0_STATUS][0];
@@ -354,6 +457,13 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			    (sel == 7))) {              /* Kscracth6 */
 				val = cop0->reg[rd][sel];
 
+			} else if ((rd == MIPS_CP0_COUNT) &&
+			    ((sel == 0) ||              /* Count */
+			    (sel == 7))) {               /* PGD */
+				val = cop0->reg[rd][sel];
+			} else if ((rd == MIPS_CP0_COMPARE) &&
+			    (sel == 0)) {               /* Compare */
+				val = cop0->reg[rd][sel];
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -464,6 +574,20 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			} else if ((rd == MIPS_CP0_TLB_INDEX) &&
 			    (sel == 0)) {               /* Index */
 				cop0->reg[rd][sel] = (int)val & INDEX_WRITE_MASK;
+
+			} else if ((rd == MIPS_CP0_COUNT) &&
+			    (sel == 0)) {               /* Count */
+				kvm_vz_lose_htimer(vcpu);
+				kvm_mips_write_count(vcpu, vcpu->arch.gprs[rt]);
+//				cop0->reg[rd][sel] = val;
+			} else if (rd == MIPS_CP0_COMPARE &&
+				   sel == 0) {		/* Compare */
+				kvm_mips_write_compare(vcpu,
+						       vcpu->arch.gprs[rt],
+						       true);
+			} else if ((rd == MIPS_CP0_COUNT) &&
+			    (sel == 7)) {               /* PGD */
+				cop0->reg[rd][sel] = val;
 
 			} else if ((rd == MIPS_CP0_DESAVE) &&
 			    ((sel == 0) ||              /* Desave */
@@ -854,7 +978,18 @@ static void kvm_vz_vcpu_uninit(struct kvm_vcpu *vcpu)
 
 static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 {
+	unsigned long count_hz = 100*1000*1000; /* default to 100 MHz */
+
 	vcpu->arch.cop0->reg[MIPS_CP0_TLB_PG_MASK][0] = 0xF000ULL;
+
+	/*
+	 * Start off the timer at the same frequency as the host timer, but the
+	 * soft timer doesn't handle frequencies greater than 1GHz yet.
+	 */
+	if (mips_hpt_frequency && mips_hpt_frequency <= NSEC_PER_SEC)
+		count_hz = mips_hpt_frequency;
+	kvm_mips_init_count(vcpu, count_hz);
+
 	return 0;
 }
 
@@ -875,14 +1010,34 @@ static gpa_t kvm_vz_gva_to_gpa_cb(gva_t gva)
 		return CPHYSADDR(gva);
 }
 
+static void kvm_vz_queue_irq(struct kvm_vcpu *vcpu, unsigned int priority)
+{
+	set_bit(priority, &vcpu->arch.pending_exceptions);
+	clear_bit(priority, &vcpu->arch.pending_exceptions_clr);
+}
+
+static void kvm_vz_dequeue_irq(struct kvm_vcpu *vcpu, unsigned int priority)
+{
+	clear_bit(priority, &vcpu->arch.pending_exceptions);
+	set_bit(priority, &vcpu->arch.pending_exceptions_clr);
+}
+
 static void kvm_vz_queue_timer_int_cb(struct kvm_vcpu *vcpu)
 {
-
+	/*
+	 * timer expiry is asynchronous to vcpu execution therefore defer guest
+	 * cp0 accesses
+	 */
+	kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_TIMER);
 }
 
 static void kvm_vz_dequeue_timer_int_cb(struct kvm_vcpu *vcpu)
 {
-
+	/*
+	 * timer expiry is asynchronous to vcpu execution therefore defer guest
+	 * cp0 accesses
+	 */
+	kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_TIMER);
 }
 
 static void kvm_vz_queue_io_int_cb(struct kvm_vcpu *vcpu,
@@ -907,6 +1062,249 @@ static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 {
 	return 0;
 }
+
+/*
+ * VZ guest timer handling.
+ */
+
+/**
+ * kvm_vz_should_use_htimer() - Find whether to use the VZ hard guest timer.
+ * @vcpu:	Virtual CPU.
+ *
+ * Returns:	true if the VZ GTOffset & real guest CP0_Count should be used
+ *		instead of software emulation of guest timer.
+ *		false otherwise.
+ */
+static bool kvm_vz_should_use_htimer(struct kvm_vcpu *vcpu)
+{
+	if (kvm_mips_count_disabled(vcpu))
+		return false;
+
+	/* Chosen frequency must match real frequency */
+	if (mips_hpt_frequency != vcpu->arch.count_hz)
+		return false;
+
+	/* We don't support a CP0_GTOffset with fewer bits than CP0_Count,
+	 * because we don't test gtoffset in cpu-probe.c, so ignore this
+	 */
+//	if (current_cpu_data.gtoffset_mask != 0xffffffff)
+//		return false;
+
+//	printk("---user htimer\n");
+	return true;
+}
+
+/**
+ * _kvm_vz_restore_stimer() - Restore soft timer state.
+ * @vcpu:	Virtual CPU.
+ * @compare:	CP0_Compare register value, restored by caller.
+ * @cause:	CP0_Cause register to restore.
+ *
+ * Restore VZ state relating to the soft timer. The hard timer can be enabled
+ * later.
+ */
+static void _kvm_vz_restore_stimer(struct kvm_vcpu *vcpu, u32 compare,
+				   u32 cause)
+{
+	/*
+	 * Avoid spurious counter interrupts by setting Guest CP0_Count to just
+	 * after Guest CP0_Compare.
+	 */
+	write_c0_gtoffset(compare - read_c0_count());
+
+	back_to_back_c0_hazard();
+	write_gc0_cause(cause);
+}
+
+/**
+ * _kvm_vz_restore_htimer() - Restore hard timer state.
+ * @vcpu:	Virtual CPU.
+ * @compare:	CP0_Compare register value, restored by caller.
+ * @cause:	CP0_Cause register to restore.
+ *
+ * Restore hard timer Guest.Count & Guest.Cause taking care to preserve the
+ * value of Guest.CP0_Cause.TI while restoring Guest.CP0_Cause.
+ */
+static void _kvm_vz_restore_htimer(struct kvm_vcpu *vcpu,
+				   u32 compare, u32 cause)
+{
+	u32 start_count, after_count;
+	ktime_t freeze_time;
+	unsigned long flags;
+
+	/*
+	 * Freeze the soft-timer and sync the guest CP0_Count with it. We do
+	 * this with interrupts disabled to avoid latency.
+	 */
+	local_irq_save(flags);
+	freeze_time = kvm_mips_freeze_hrtimer(vcpu, &start_count);
+	write_c0_gtoffset(start_count - read_c0_count());
+	local_irq_restore(flags);
+
+	/* restore guest CP0_Cause, as TI may already be set */
+	back_to_back_c0_hazard();
+	write_gc0_cause(cause);
+
+	/*
+	 * The above sequence isn't atomic and would result in lost timer
+	 * interrupts if we're not careful. Detect if a timer interrupt is due
+	 * and assert it.
+	 */
+	back_to_back_c0_hazard();
+	after_count = read_gc0_count();
+	if (after_count - start_count > compare - start_count - 1)
+		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_TIMER);
+}
+
+/**
+ * kvm_vz_restore_timer() - Restore timer state.
+ * @vcpu:	Virtual CPU.
+ *
+ * Restore soft timer state from saved context.
+ */
+static void kvm_vz_restore_timer(struct kvm_vcpu *vcpu)
+{
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	u32 cause, compare;
+
+	compare = kvm_read_sw_gc0_compare(cop0);
+	cause = kvm_read_sw_gc0_cause(cop0);
+
+	write_gc0_compare(compare);
+	_kvm_vz_restore_stimer(vcpu, compare, cause);
+}
+
+/**
+ * kvm_vz_acquire_htimer() - Switch to hard timer state.
+ * @vcpu:	Virtual CPU.
+ *
+ * Restore hard timer state on top of existing soft timer state if possible.
+ *
+ * Since hard timer won't remain active over preemption, preemption should be
+ * disabled by the caller.
+ */
+void kvm_vz_acquire_htimer(struct kvm_vcpu *vcpu)
+{
+	u32 gctl0;
+
+	gctl0 = read_c0_guestctl0();
+	if (!(gctl0 & MIPS_GCTL0_GT) && kvm_vz_should_use_htimer(vcpu)) {
+		/* enable guest access to hard timer */
+		write_c0_guestctl0(gctl0 | MIPS_GCTL0_GT);
+
+		_kvm_vz_restore_htimer(vcpu, read_gc0_compare(),
+				       read_gc0_cause());
+	}
+}
+
+/**
+ * _kvm_vz_save_htimer() - Switch to software emulation of guest timer.
+ * @vcpu:	Virtual CPU.
+ * @compare:	Pointer to write compare value to.
+ * @cause:	Pointer to write cause value to.
+ *
+ * Save VZ guest timer state and switch to software emulation of guest CP0
+ * timer. The hard timer must already be in use, so preemption should be
+ * disabled.
+ */
+static void _kvm_vz_save_htimer(struct kvm_vcpu *vcpu,
+				u32 *out_compare, u32 *out_cause)
+{
+	u32 cause, compare, before_count, end_count;
+	ktime_t before_time;
+
+	compare = read_gc0_compare();
+	*out_compare = compare;
+
+	before_time = ktime_get();
+
+	/*
+	 * Record the CP0_Count *prior* to saving CP0_Cause, so we have a time
+	 * at which no pending timer interrupt is missing.
+	 */
+	before_count = read_gc0_count();
+	back_to_back_c0_hazard();
+	cause = read_gc0_cause();
+	*out_cause = cause;
+
+	/*
+	 * Record a final CP0_Count which we will transfer to the soft-timer.
+	 * This is recorded *after* saving CP0_Cause, so we don't get any timer
+	 * interrupts from just after the final CP0_Count point.
+	 */
+	back_to_back_c0_hazard();
+	end_count = read_gc0_count();
+
+	/*
+	 * The above sequence isn't atomic, so we could miss a timer interrupt
+	 * between reading CP0_Cause and end_count. Detect and record any timer
+	 * interrupt due between before_count and end_count.
+	 */
+	if (end_count - before_count > compare - before_count - 1)
+		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_TIMER);
+
+	/*
+	 * Restore soft-timer, ignoring a small amount of negative drift due to
+	 * delay between freeze_hrtimer and setting CP0_GTOffset.
+	 */
+	kvm_mips_restore_hrtimer(vcpu, before_time, end_count, -0x10000);
+}
+
+/**
+ * kvm_vz_save_timer() - Save guest timer state.
+ * @vcpu:	Virtual CPU.
+ *
+ * Save VZ guest timer state and switch to soft guest timer if hard timer was in
+ * use.
+ */
+static void kvm_vz_save_timer(struct kvm_vcpu *vcpu)
+{
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	u32 gctl0, compare, cause;
+
+	gctl0 = read_c0_guestctl0();
+	if (gctl0 & MIPS_GCTL0_GT) {
+		/* disable guest use of hard timer */
+		write_c0_guestctl0(gctl0 & ~MIPS_GCTL0_GT);
+
+		/* save hard timer state */
+		_kvm_vz_save_htimer(vcpu, &compare, &cause);
+	} else {
+		compare = read_gc0_compare();
+		cause = read_gc0_cause();
+	}
+
+	/* save timer-related state to VCPU context */
+	kvm_write_sw_gc0_cause(cop0, cause);
+	kvm_write_sw_gc0_compare(cop0, compare);
+}
+
+/**
+ * kvm_vz_lose_htimer() - Ensure hard guest timer is not in use.
+ * @vcpu:	Virtual CPU.
+ *
+ * Transfers the state of the hard guest timer to the soft guest timer, leaving
+ * guest state intact so it can continue to be used with the soft timer.
+ */
+void kvm_vz_lose_htimer(struct kvm_vcpu *vcpu)
+{
+	u32 gctl0, compare, cause;
+
+	preempt_disable();
+	gctl0 = read_c0_guestctl0();
+	if (gctl0 & MIPS_GCTL0_GT) {
+		/* disable guest use of timer */
+		write_c0_guestctl0(gctl0 & ~MIPS_GCTL0_GT);
+
+		/* switch to soft timer */
+		_kvm_vz_save_htimer(vcpu, &compare, &cause);
+
+		/* leave soft timer in usable state */
+		_kvm_vz_restore_stimer(vcpu, compare, cause);
+	}
+	preempt_enable();
+}
+
 static unsigned long kvm_vz_num_regs(struct kvm_vcpu *vcpu)
 {
 	return 0;
@@ -916,19 +1314,402 @@ static int kvm_vz_copy_reg_indices(struct kvm_vcpu *vcpu, u64 __user *indices)
 {
 	return 0;
 }
+#if 0
+static inline s64 entrylo_kvm_to_user(unsigned long v)
+{
+	s64 mask, ret = v;
+
+	if (BITS_PER_LONG == 32) {
+		/*
+		 * KVM API exposes 64-bit version of the register, so move the
+		 * RI/XI bits up into place.
+		 */
+		mask = MIPS_ENTRYLO_RI | MIPS_ENTRYLO_XI;
+		ret &= ~mask;
+		ret |= ((s64)v & mask) << 32;
+	}
+	return ret;
+}
+
+static inline unsigned long entrylo_user_to_kvm(s64 v)
+{
+	unsigned long mask, ret = v;
+
+	if (BITS_PER_LONG == 32) {
+		/*
+		 * KVM API exposes 64-bit versiono of the register, so move the
+		 * RI/XI bits down into place.
+		 */
+		mask = MIPS_ENTRYLO_RI | MIPS_ENTRYLO_XI;
+		ret &= ~mask;
+		ret |= (v >> 32) & mask;
+	}
+	return ret;
+}
+#endif
 
 static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 			      const struct kvm_one_reg *reg,
 			      s64 *v)
 {
-	return 0;
+	int ret = 0;
+
+	switch (reg->id) {
+	case KVM_REG_MIPS_CP0_INDEX:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_ENTRYLO0:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_ENTRYLO1:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_CONTEXT:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_CONTEXTCONFIG:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_USERLOCAL:
+		*v = read_gc0_userlocal();
+		break;
+#ifdef CONFIG_64BIT
+	case KVM_REG_MIPS_CP0_XCONTEXTCONFIG:
+		ret = -EINVAL;
+		break;
+#endif
+	case KVM_REG_MIPS_CP0_PAGEMASK:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PAGEGRAIN:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_SEGCTL0:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_SEGCTL1:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_SEGCTL2:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWBASE:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWFIELD:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWSIZE:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_WIRED:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWCTL:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_HWRENA:
+		*v = (long)read_gc0_hwrena();
+		break;
+	case KVM_REG_MIPS_CP0_BADVADDR:
+		*v = (long)read_gc0_badvaddr();
+		break;
+	case KVM_REG_MIPS_CP0_BADINSTR:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_BADINSTRP:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_COUNT:
+		*v = kvm_mips_read_count(vcpu);
+		break;
+	case KVM_REG_MIPS_CP0_ENTRYHI:
+		*v = (long)read_gc0_entryhi();
+		break;
+	case KVM_REG_MIPS_CP0_COMPARE:
+		*v = (long)read_gc0_compare();
+		break;
+	case KVM_REG_MIPS_CP0_STATUS:
+		*v = (long)read_gc0_status();
+		break;
+	case KVM_REG_MIPS_CP0_INTCTL:
+		*v = read_gc0_intctl();
+		break;
+	case KVM_REG_MIPS_CP0_CAUSE:
+		*v = (long)read_gc0_cause();
+		break;
+	case KVM_REG_MIPS_CP0_EPC:
+		*v = (long)read_gc0_epc();
+		break;
+	case KVM_REG_MIPS_CP0_PRID:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_EBASE:
+		*v = kvm_vz_read_gc0_ebase();
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG:
+		*v = read_gc0_config();
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG1:
+		*v = read_gc0_config1();
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG2:
+		*v = read_gc0_config2();
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG3:
+		*v = read_gc0_config3();
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG4:
+		*v = read_gc0_config4();
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG5:
+		*v = read_gc0_config5();
+		break;
+#if 0
+	case KVM_REG_MIPS_CP0_MAAR(0) ... KVM_REG_MIPS_CP0_MAAR(0x3f):
+		if (!cpu_guest_has_maar || cpu_guest_has_dyn_maar)
+			return -EINVAL;
+		idx = reg->id - KVM_REG_MIPS_CP0_MAAR(0);
+		if (idx >= ARRAY_SIZE(vcpu->arch.maar))
+			return -EINVAL;
+		*v = vcpu->arch.maar[idx];
+		break;
+	case KVM_REG_MIPS_CP0_MAARI:
+		if (!cpu_guest_has_maar || cpu_guest_has_dyn_maar)
+			return -EINVAL;
+		*v = kvm_read_sw_gc0_maari(vcpu->arch.cop0);
+		break;
+#endif
+#ifdef CONFIG_64BIT
+	case KVM_REG_MIPS_CP0_XCONTEXT:
+		ret = -EINVAL;
+		break;
+#endif
+	case KVM_REG_MIPS_CP0_ERROREPC:
+		*v = (long)read_gc0_errorepc();
+		break;
+	case KVM_REG_MIPS_CP0_KSCRATCH1 ... KVM_REG_MIPS_CP0_KSCRATCH6:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_COUNT_CTL:
+		*v = vcpu->arch.count_ctl;
+		break;
+	case KVM_REG_MIPS_COUNT_RESUME:
+		*v = ktime_to_ns(vcpu->arch.count_resume);
+		break;
+	case KVM_REG_MIPS_COUNT_HZ:
+		*v = vcpu->arch.count_hz;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return ret;
 }
 
 static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 			      const struct kvm_one_reg *reg,
 			      s64 v)
 {
-	return 0;
+	int ret = 0;
+	unsigned int cur, change;
+
+	switch (reg->id) {
+	case KVM_REG_MIPS_CP0_INDEX:
+		write_gc0_index(v);
+		break;
+	case KVM_REG_MIPS_CP0_ENTRYLO0:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_ENTRYLO1:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_CONTEXT:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_CONTEXTCONFIG:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_USERLOCAL:
+		write_gc0_userlocal(v);
+		break;
+#ifdef CONFIG_64BIT
+	case KVM_REG_MIPS_CP0_XCONTEXTCONFIG:
+		ret = -EINVAL;
+		break;
+#endif
+	case KVM_REG_MIPS_CP0_PAGEMASK:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PAGEGRAIN:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_SEGCTL0:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_SEGCTL1:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_SEGCTL2:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWBASE:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWFIELD:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWSIZE:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_WIRED:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_PWCTL:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_HWRENA:
+		write_gc0_hwrena(v);
+		break;
+	case KVM_REG_MIPS_CP0_BADVADDR:
+		write_gc0_badvaddr(v);
+		break;
+	case KVM_REG_MIPS_CP0_BADINSTR:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_BADINSTRP:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_COUNT:
+		kvm_mips_write_count(vcpu, v);
+		break;
+	case KVM_REG_MIPS_CP0_ENTRYHI:
+		write_gc0_entryhi(v);
+		break;
+	case KVM_REG_MIPS_CP0_COMPARE:
+		kvm_mips_write_compare(vcpu, v, false);
+		break;
+	case KVM_REG_MIPS_CP0_STATUS:
+		write_gc0_status(v);
+		break;
+	case KVM_REG_MIPS_CP0_INTCTL:
+		write_gc0_intctl(v);
+		break;
+	case KVM_REG_MIPS_CP0_CAUSE:
+		/*
+		 * If the timer is stopped or started (DC bit) it must look
+		 * atomic with changes to the timer interrupt pending bit (TI).
+		 * A timer interrupt should not happen in between.
+		 */
+		if ((read_gc0_cause() ^ v) & CAUSEF_DC) {
+			if (v & CAUSEF_DC) {
+				/* disable timer first */
+				kvm_mips_count_disable_cause(vcpu);
+				change_gc0_cause((u32)~CAUSEF_DC, v);
+			} else {
+				/* enable timer last */
+				change_gc0_cause((u32)~CAUSEF_DC, v);
+				kvm_mips_count_enable_cause(vcpu);
+			}
+		} else {
+			write_gc0_cause(v);
+		}
+		break;
+	case KVM_REG_MIPS_CP0_EPC:
+		write_gc0_epc(v);
+		break;
+	case KVM_REG_MIPS_CP0_PRID:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_CP0_EBASE:
+		kvm_vz_write_gc0_ebase(v);
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG:
+		cur = read_gc0_config();
+		change = (cur ^ v) & kvm_vz_config_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config(v);
+		}
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG1:
+		cur = read_gc0_config1();
+		change = (cur ^ v) & kvm_vz_config1_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config1(v);
+		}
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG2:
+		cur = read_gc0_config2();
+		change = (cur ^ v) & kvm_vz_config2_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config2(v);
+		}
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG3:
+		cur = read_gc0_config3();
+		change = (cur ^ v) & kvm_vz_config3_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config3(v);
+		}
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG4:
+		cur = read_gc0_config4();
+		change = (cur ^ v) & kvm_vz_config4_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config4(v);
+		}
+		break;
+	case KVM_REG_MIPS_CP0_CONFIG5:
+		cur = read_gc0_config5();
+		change = (cur ^ v) & kvm_vz_config5_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config5(v);
+		}
+		break;
+#if 0
+	case KVM_REG_MIPS_CP0_MAAR(0) ... KVM_REG_MIPS_CP0_MAAR(0x3f):
+		if (!cpu_guest_has_maar || cpu_guest_has_dyn_maar)
+			return -EINVAL;
+		idx = reg->id - KVM_REG_MIPS_CP0_MAAR(0);
+		if (idx >= ARRAY_SIZE(vcpu->arch.maar))
+			return -EINVAL;
+		vcpu->arch.maar[idx] = mips_process_maar(dmtc_op, v);
+		break;
+	case KVM_REG_MIPS_CP0_MAARI:
+		if (!cpu_guest_has_maar || cpu_guest_has_dyn_maar)
+			return -EINVAL;
+		kvm_write_maari(vcpu, v);
+		break;
+#endif
+#ifdef CONFIG_64BIT
+	case KVM_REG_MIPS_CP0_XCONTEXT:
+		ret = -EINVAL;
+		break;
+#endif
+	case KVM_REG_MIPS_CP0_ERROREPC:
+		write_gc0_errorepc(v);
+		break;
+	case KVM_REG_MIPS_CP0_KSCRATCH1 ... KVM_REG_MIPS_CP0_KSCRATCH6:
+		ret = -EINVAL;
+		break;
+	case KVM_REG_MIPS_COUNT_CTL:
+		ret = kvm_mips_set_count_ctl(vcpu, v);
+		break;
+	case KVM_REG_MIPS_COUNT_RESUME:
+		ret = kvm_mips_set_count_resume(vcpu, v);
+		break;
+	case KVM_REG_MIPS_COUNT_HZ:
+		ret = kvm_mips_set_count_hz(vcpu, v);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return ret;
 }
 
 static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
@@ -938,6 +1719,13 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 		kvm_ls_vz_load_guesttlb(vcpu);
 	}
 	/*Should we load the guest cp0s here??? FIX ME */
+
+	/*
+	 * Restore timer state regardless, as e.g. Cause.TI can change over time
+	 * if left unmaintained.
+	 */
+	kvm_vz_restore_timer(vcpu);
+
 	return 0;
 }
 
@@ -946,6 +1734,8 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	if (current->flags & PF_VCPU)
 		kvm_ls_vz_save_guesttlb(vcpu);
 	/*Should we save the guest cp0s here??? FIX ME */
+
+	kvm_vz_save_timer(vcpu);
 
 	return 0;
 }
@@ -961,10 +1751,10 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 //	int cpu = smp_processor_id();
 	int r;
-//
-//	kvm_vz_acquire_htimer(vcpu);
-//	/* Check if we have any exceptions/interrupts pending */
-//	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
+
+	kvm_vz_acquire_htimer(vcpu);
+	/* Check if we have any exceptions/interrupts pending */
+	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
 //
 //	kvm_vz_check_requests(vcpu, cpu);
 //	kvm_vz_vcpu_load_tlb(vcpu, cpu);

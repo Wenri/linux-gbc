@@ -1358,6 +1358,9 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	local_irq_disable();
 
+	if (ret == RESUME_GUEST)
+		kvm_vz_acquire_htimer(vcpu);
+
 	if (ret == RESUME_GUEST) {
 		trace_kvm_reenter(vcpu);
 
@@ -1570,8 +1573,8 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 skip_emul:
 	local_irq_disable();
 
-	/*if (ret == RESUME_GUEST)*/
-		/*kvm_vz_acquire_htimer(vcpu);*/
+	if (ret == RESUME_GUEST)
+		kvm_vz_acquire_htimer(vcpu);
 
 	if (er == EMULATE_DONE && !(ret & RESUME_HOST))
 		kvm_mips_deliver_interrupts(vcpu, cause);
