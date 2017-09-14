@@ -33,7 +33,7 @@ void prom_putchar(char c)
 
 	if (_loongson_uart_base[0] == 0)
 #ifdef CONFIG_CPU_LOONGSON3
-		_loongson_uart_base[0] = 0xffffffffbfe001e0;
+		_loongson_uart_base[0] = 0x900000001fe001e0;
 #else
 		return;
 #endif
