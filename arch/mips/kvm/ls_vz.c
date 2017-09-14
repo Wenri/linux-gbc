@@ -1006,8 +1006,11 @@ static void kvm_vz_flush_shadow_memslot(struct kvm *kvm,
 static gpa_t kvm_vz_gva_to_gpa_cb(gva_t gva)
 {
 	/* VZ guest has already converted gva to gpa */
-	if(CKSEG1ADDR(gva))
+	if((gva & CKSEG3) == CKSEG1)
 		return CPHYSADDR(gva);
+	else {
+		return gva;
+	}
 }
 
 static void kvm_vz_queue_irq(struct kvm_vcpu *vcpu, unsigned int priority)
