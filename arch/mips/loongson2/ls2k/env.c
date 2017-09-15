@@ -119,7 +119,7 @@ void __init prom_init_env(void)
 		cores_per_node = 2;
 		cores_per_package = 2;
 		smp_group[0] = 0x900000001fe11000;
-		loongson_chiptemp[0] = 0x900000001fe11520;
+		loongson_chiptemp[0] = 0x900000001fe07000;
 		loongson_freqctrl[0] = 0x900000001fe104d0;
 		loongson_workarounds = WORKAROUND_CPUFREQ;
 		break;
