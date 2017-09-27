@@ -413,9 +413,9 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_MTGC0(&p, K0, MIPS_CP0_BAD_VADDR, 0);
 
 	/* Restore guest entryhi (10,0) ASID,NEED TO BE FIXED!!!!*/
-	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-		  T0);
-	UASM_i_MTGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+//	UASM_i_LW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+//		  T0);
+//	UASM_i_MTGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
 
 	/* Restore guest compare (11,0)*/
 	uasm_i_lw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_COMPARE][0]),
@@ -952,9 +952,9 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 		  T0);
 
 	/* Save guest entryhi (10,0)*/
-	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
-	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-		  T0);
+//	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+//	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+//		  T0);
 
 	/* Save guest compare (11,0)*/
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_COMPARE, 0);
@@ -977,9 +977,9 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 		  T0);
 
 	/* Save guest entryhi*/
-	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
-	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-		  T0);
+//	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+//	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+//		  T0);
 
 	/* Save guest cause (13,0)*/
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_CAUSE, 0);
@@ -1348,9 +1348,9 @@ void *kvm_mips_build_exit(void *addr)
 		  T0);
 
 	/* Save guest entryhi (10,0)*/
-	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
-	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-		  T0);
+//	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+//	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+//		  T0);
 
 	/* Save guest compare (11,0)*/
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_COMPARE, 0);
@@ -1373,9 +1373,9 @@ void *kvm_mips_build_exit(void *addr)
 		  T0);
 
 	/* Save guest entryhi*/
-	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
-	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-		  T0);
+//	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
+//	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
+//		  T0);
 
 	/* Save guest cause (13,0)*/
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_CAUSE, 0);

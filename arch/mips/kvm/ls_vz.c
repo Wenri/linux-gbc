@@ -531,7 +531,7 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 			} else if ((rd == MIPS_CP0_TLB_HI) &&
 			    (sel == 0)) {               /* EntryHI*/
 				/* Sign extend */
-#define ENTRYHI_WRITE_MASK 0xC00000FFFFFFFFFF
+#define ENTRYHI_WRITE_MASK 0xC000FFFFFFFFFFFF
 				if (inst.c0r_format.rs == mtc_op)
 					val = (int)val;
 				cop0->reg[rd][sel] = val & ENTRYHI_WRITE_MASK;
