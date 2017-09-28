@@ -29,6 +29,9 @@
 #include <ls2k.h>
 #include <ls2k_int.h>
 #include <linux/i2c-gpio.h>
+#ifdef CONFIG_CAN_SJA1000
+#include <linux/can/platform/sja1000.h>
+#endif
 
 int hpet_enabled = 1;
 /*
@@ -390,6 +393,58 @@ static struct platform_device ls2k_sdio_device = {
        .resource       = ls2k_sdio_resources,
 };
 #endif
+#ifdef CONFIG_CAN_SJA1000
+/*
+ * CAN
+ */
+static struct resource ls2k_can0_resources[] = {
+	{
+		.start   = LS2K_CAN0_REG_BASE,
+		.end     = LS2K_CAN0_REG_BASE+0xff,
+		.flags   = IORESOURCE_MEM,
+	}, {
+		.start   = LS2K_CAN0_IRQ,
+		.end     = LS2K_CAN0_IRQ,
+		.flags   = IORESOURCE_IRQ,
+	},
+};
+static struct resource ls2k_can1_resources[] = {
+	{
+		.start   = LS2K_CAN1_REG_BASE,
+		.end     = LS2K_CAN1_REG_BASE+0xff,
+		.flags   = IORESOURCE_MEM,
+	}, {
+		.start   = LS2K_CAN1_IRQ,
+		.end     = LS2K_CAN1_IRQ,
+		.flags   = IORESOURCE_IRQ,
+	},
+};
+
+struct sja1000_platform_data ls2k_sja1000_platform_data = {
+	.osc_freq	= 125000000,
+	.ocr		= 0x40 | 0x18,
+	.cdr		= 0x40,
+};
+
+static struct platform_device ls2k_can0_device = {
+	.name = "sja1000_platform",
+	.id = 1,
+	.dev = {
+		.platform_data = &ls2k_sja1000_platform_data,
+	},
+	.resource = ls2k_can0_resources,
+	.num_resources = ARRAY_SIZE(ls2k_can0_resources),
+};
+static struct platform_device ls2k_can1_device = {
+	.name = "sja1000_platform",
+	.id = 2,
+	.dev = {
+		.platform_data = &ls2k_sja1000_platform_data,
+	},
+	.resource = ls2k_can1_resources,
+	.num_resources = ARRAY_SIZE(ls2k_can1_resources),
+};
+#endif
 
 static struct platform_device *ls2k_platform_devices[] = {
 	&uart8250_device,
@@ -399,7 +454,7 @@ static struct platform_device *ls2k_platform_devices[] = {
 #ifdef CONFIG_MTD_NAND_LS2K
 	&ls2k_nand_device,
 #endif
-#if defined(CONFIG_SND_LS2K) || defined(CONFIG_SOUND_LS2K_UDA1342)
+#ifdef CONFIG_SOUND_LS2K_UDA1342
 	&ls2k_audio_device,
 #endif
 #ifdef CONFIG_MMC_LS2K
@@ -410,6 +465,10 @@ static struct platform_device *ls2k_platform_devices[] = {
 	&ls2k_rtc_device,
 #ifdef CONFIG_SND_LS2K
 	&ls2k_device_i2s,
+#endif
+#ifdef CONFIG_CAN_SJA1000
+	&ls2k_can0_device,
+	&ls2k_can1_device,
 #endif
 };
 
@@ -462,6 +521,10 @@ if(0)
 	/*audio*/
 	ls2k_writel((ls2k_readl(LS2K_APBDMA_CONFIG_REG)&~(0x3f<<18))|((2<<18)|(3<<21)), LS2K_APBDMA_CONFIG_REG);
 	ls2k_writel((ls2k_readl(LS2K_GEN_CONFIG0_REG) & ~(7 << 4)) | (1 << 6), LS2K_GEN_CONFIG0_REG);
+#endif
+#ifdef CONFIG_CAN_SJA1000
+	/*enable can pin*/
+	ls2k_writel(ls2k_readl(LS2K_GEN_CONFIG0_REG)|(3<<16), LS2K_GEN_CONFIG0_REG);
 #endif
 	return platform_add_devices(ls2k_platform_devices,
 			ARRAY_SIZE(ls2k_platform_devices));
