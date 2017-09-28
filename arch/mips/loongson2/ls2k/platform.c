@@ -297,7 +297,7 @@ static struct platform_device ls2k_gpio_i2c_device = {
 /*
  * I2S_UDA1342
  */
-#ifdef CONFIG_SOUND_LS2K_UDA1342
+#if defined(CONFIG_SOUND_LS2K_UDA1342) || defined(CONFIG_SND_LS2K)
 static struct resource ls2k_uda1342_resource[] = {
        [0]={
                .start    = LS2K_I2S_REG_BASE,
@@ -327,11 +327,33 @@ static struct resource ls2k_uda1342_resource[] = {
 };
 
 static struct platform_device ls2k_audio_device = {
+#ifdef CONFIG_SND_LS2K
+       .name           = "ls2k-pcm-audio",
+#else
        .name           = "ls2k-audio",
+#endif
        .id             = -1,
        .num_resources  = ARRAY_SIZE(ls2k_uda1342_resource),
        .resource       = ls2k_uda1342_resource,
 };
+#endif
+
+#ifdef CONFIG_SND_LS2K
+static struct resource ls2ki2s_resources[] = {
+       [0]={
+               .start    = LS2K_I2S_REG_BASE,
+               .end      = (LS2K_I2S_REG_BASE + 0x10),
+               .flags    = IORESOURCE_MEM,
+       },
+	};
+
+struct platform_device ls2k_device_i2s = {
+	.name		= "ls2k-i2s",
+	.id		= -1,
+	.resource	= ls2ki2s_resources,
+	.num_resources	= ARRAY_SIZE(ls2ki2s_resources),
+};
+
 #endif
 
 /*
@@ -377,7 +399,7 @@ static struct platform_device *ls2k_platform_devices[] = {
 #ifdef CONFIG_MTD_NAND_LS2K
 	&ls2k_nand_device,
 #endif
-#ifdef CONFIG_SOUND_LS2K_UDA1342
+#if defined(CONFIG_SND_LS2K) || defined(CONFIG_SOUND_LS2K_UDA1342)
 	&ls2k_audio_device,
 #endif
 #ifdef CONFIG_MMC_LS2K
@@ -386,6 +408,9 @@ static struct platform_device *ls2k_platform_devices[] = {
 	&ls2k_i2c0_device,
 	&ls2k_i2c1_device,
 	&ls2k_rtc_device,
+#ifdef CONFIG_SND_LS2K
+	&ls2k_device_i2s,
+#endif
 };
 
 static struct platform_device *ls2k_i2c_gpio_platform_devices[] = {
@@ -430,8 +455,13 @@ if(0)
 #ifdef CONFIG_SPI_LS2K
 	spi_register_board_info(ls2k_spi_device, ARRAY_SIZE(ls2k_spi_device));
 #endif
-#ifdef CONFIG_SOUND_LS2K_UDA1342
+#if defined(CONFIG_SND_LS2K) || defined(CONFIG_SOUND_LS2K_UDA1342)
 	i2c_register_board_info(1, &ls2k_codec_uda1342_info, 1);
+#endif
+#ifdef CONFIG_SND_LS2K
+	/*audio*/
+	ls2k_writel((ls2k_readl(LS2K_APBDMA_CONFIG_REG)&~(0x3f<<18))|((2<<18)|(3<<21)), LS2K_APBDMA_CONFIG_REG);
+	ls2k_writel((ls2k_readl(LS2K_GEN_CONFIG0_REG) & ~(7 << 4)) | (1 << 6), LS2K_GEN_CONFIG0_REG);
 #endif
 	return platform_add_devices(ls2k_platform_devices,
 			ARRAY_SIZE(ls2k_platform_devices));
