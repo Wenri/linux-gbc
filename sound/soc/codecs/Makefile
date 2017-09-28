@@ -13,6 +13,7 @@ snd-soc-sn95031-objs := sn95031.o
 snd-soc-ssm2518-objs := ssm2518.o
 snd-soc-ssm4567-objs := ssm4567.o
 snd-soc-ts3a227e-objs := ts3a227e.o
+snd-soc-uda1342-objs := uda1342.o
 
 obj-$(CONFIG_SND_SOC_DMIC)	+= snd-soc-dmic.o
 obj-$(CONFIG_SND_SOC_HDAC_HDMI) += snd-soc-hdac-hdmi.o
@@ -29,3 +30,4 @@ obj-$(CONFIG_SND_SOC_SN95031)	+=snd-soc-sn95031.o
 obj-$(CONFIG_SND_SOC_SSM2518)	+= snd-soc-ssm2518.o
 obj-$(CONFIG_SND_SOC_SSM4567)	+= snd-soc-ssm4567.o
 obj-$(CONFIG_SND_SOC_TS3A227E)	+= snd-soc-ts3a227e.o
+obj-$(CONFIG_SND_SOC_UDA1342)	+= snd-soc-uda1342.o

@@ -25,6 +25,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_SN95031 if INTEL_SCU_IPC
 	select SND_SOC_SSM4567 if I2C
 	select SND_SOC_TS3A227E if I2C
+	select SND_SOC_UDA1342 if I2C
         help
           Normally ASoC codec drivers are only built if a machine driver which
           uses them is also built since they are only usable with a machine
@@ -99,5 +100,8 @@ config SND_SOC_TS3A227E
 
 config SND_SOC_NAU8825
 	tristate
+
+config SND_SOC_UDA1342
+        tristate
 
 endmenu
