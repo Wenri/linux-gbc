@@ -168,10 +168,21 @@ static void uda1342_flush_work(struct work_struct *work)
 
 }
 
+/* from 0 to 30 dB in 2 dB steps */
+static DECLARE_TLV_DB_SCALE(mic_tlv, 0, 50, 0);
+
+static const unsigned int uda1342_tlv[] = {
+	TLV_DB_RANGE_HEAD(3),
+	255-199, 255-0, TLV_DB_SCALE_ITEM(-5000+25, 25, 0),
+	255-207, 255-200, TLV_DB_SCALE_ITEM(-5400+50, 50, 0),
+	255-220, 255-208 , TLV_DB_SCALE_ITEM(-6600+60, 60, 0),
+};
 
 static const struct snd_kcontrol_new uda1342_snd_controls[] = {
-	SOC_DOUBLE("Master Playback Volume", 0x11, 0, 8, 255, 1),
-	SOC_DOUBLE("PCM Playback Volume", 0x12, 0, 8, 255, 1),
+	SOC_DOUBLE_TLV("Master Playback Volume", 0x11, 0, 8, 255, 1, uda1342_tlv),
+	SOC_DOUBLE_TLV("Analog Mixer Volume", 0x12, 0, 8, 255, 1, uda1342_tlv),
+	SOC_SINGLE_TLV("Mic Capture Volume", 0x20, 0, 48, 0, mic_tlv),
+	SOC_SINGLE_TLV("Line Capture Volume", 0x21, 0, 48, 0, mic_tlv),
 };
 
 
