@@ -120,6 +120,39 @@ static struct platform_device uart8250_device = {
 		.platform_data = ls2k_uart8250_data,
 	}
 };
+
+#ifdef CONFIG_PWM_LS2K
+/*
+ * PWM
+ */
+#define PWM_RESOURCE(_addr, _irq)			\
+	(struct resource []) {	\
+		[0] = {					\
+			.start	= _addr,			\
+			.end	= _addr + 0xf,			\
+			.flags	= IORESOURCE_MEM	\
+		},					\
+		[1] = {					\
+			.start	= _irq,			\
+			.end	= _irq,			\
+			.flags	= IORESOURCE_IRQ	\
+		}					\
+	}
+
+#define DEFINE_LS2K_PWM(_no, _addr, _irq)			\
+	.name		= "ls2k-pwm",		\
+	.id		= _no,			\
+	.num_resources	= 2,		\
+	.resource	= PWM_RESOURCE(_addr, _irq),	\
+
+struct platform_device ls2k_pwm_device[] = {
+	[0] = { DEFINE_LS2K_PWM(0, LS2K_PWM0_REG_BASE, LS2K_PWM0_IRQ) },
+	[1] = { DEFINE_LS2K_PWM(1, LS2K_PWM1_REG_BASE, LS2K_PWM1_IRQ) },
+	[2] = { DEFINE_LS2K_PWM(2, LS2K_PWM2_REG_BASE, LS2K_PWM2_IRQ) },
+	[3] = { DEFINE_LS2K_PWM(3, LS2K_PWM3_REG_BASE, LS2K_PWM3_IRQ) },
+};
+#endif
+
 /*
  * SPI
  */
@@ -469,6 +502,12 @@ static struct platform_device *ls2k_platform_devices[] = {
 #ifdef CONFIG_CAN_SJA1000
 	&ls2k_can0_device,
 	&ls2k_can1_device,
+#endif
+#ifdef CONFIG_PWM_LS2K
+	&ls2k_pwm_device[0],
+	&ls2k_pwm_device[1],
+	&ls2k_pwm_device[2],
+	&ls2k_pwm_device[3],
 #endif
 };
 
