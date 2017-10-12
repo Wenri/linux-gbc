@@ -600,7 +600,8 @@ static int ehci_run (struct usb_hcd *hcd)
 	hcc_params = ehci_readl(ehci, &ehci->caps->hcc_params);
 	if (HCC_64BIT_ADDR(hcc_params)) {
 		ehci_writel(ehci, 0, &ehci->regs->segment);
-#if 0
+
+#ifdef CONFIG_CPU_LOONGSON2K
 // this is deeply broken on almost all architectures
 		if (!dma_set_mask(hcd->self.controller, DMA_BIT_MASK(64)))
 			ehci_info(ehci, "enabled 64bit DMA\n");
@@ -1304,6 +1305,10 @@ MODULE_LICENSE ("GPL");
 #define	PLATFORM_DRIVER		ehci_hcd_sead3_driver
 #endif
 
+#ifdef CONFIG_CPU_LOONGSON2K
+#define CONFGMACEHCI        *(volatile unsigned long long*)0x900000001fe10420
+#endif
+
 static int __init ehci_hcd_init(void)
 {
 	int retval = 0;
@@ -1322,6 +1327,10 @@ static int __init ehci_hcd_init(void)
 		 hcd_name,
 		 sizeof(struct ehci_qh), sizeof(struct ehci_qtd),
 		 sizeof(struct ehci_itd), sizeof(struct ehci_sitd));
+
+#ifdef CONFIG_CPU_LOONGSON2K
+       CONFGMACEHCI |= 0x1000000000 ;
+#endif
 
 #ifdef CONFIG_DYNAMIC_DEBUG
 	ehci_debug_root = debugfs_create_dir("ehci", usb_debug_root);

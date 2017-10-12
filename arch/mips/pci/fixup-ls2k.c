@@ -167,6 +167,9 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
     if(!dma_map_ops_temp)
         return -1;
 	if (!(dev->bus->parent)) {
+		if((PCI_SLOT(dev->devfn) == 4) && (PCI_FUNC(dev->devfn) == 1))
+			dev->dev.archdata.dma_ops = dma_map_ops_temp;
+
         if(PCI_SLOT(dev->devfn) == 3)
            dev->dev.archdata.dma_ops = dma_map_ops_temp;
 
