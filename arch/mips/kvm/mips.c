@@ -1316,10 +1316,11 @@ enum vmtlbexc {
 
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-//	u32 cause = vcpu->arch.host_cp0_cause;
+	u32 cause = vcpu->arch.host_cp0_cause;
 //	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
+	enum emulation_result er = EMULATE_DONE;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
 
@@ -1360,6 +1361,19 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	if (ret == RESUME_GUEST)
 		kvm_vz_acquire_htimer(vcpu);
+
+	if (er == EMULATE_DONE && !(ret & RESUME_HOST))
+		kvm_mips_deliver_interrupts(vcpu, cause);
+
+	if (!(ret & RESUME_HOST)) {
+		/* Only check for signals if not already exiting to userspace */
+		if (signal_pending(current)) {
+			run->exit_reason = KVM_EXIT_INTR;
+			ret = (-EINTR << 2) | RESUME_HOST;
+			++vcpu->stat.signal_exits;
+			trace_kvm_exit(vcpu, KVM_TRACE_EXIT_SIGNAL);
+		}
+	}
 
 	if (ret == RESUME_GUEST) {
 		trace_kvm_reenter(vcpu);
