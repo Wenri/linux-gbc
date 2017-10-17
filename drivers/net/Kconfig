@@ -403,4 +403,6 @@ config FUJITSU_ES
 
 source "drivers/net/hyperv/Kconfig"
 
+source "drivers/net/can/Kconfig"
+
 endif # NETDEVICES
