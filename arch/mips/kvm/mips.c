@@ -553,7 +553,11 @@ int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,
 	int intr = (int)irq->irq;
 	struct kvm_vcpu *dvcpu = NULL;
 
+#ifdef CONFIG_CPU_LOONGSON3
+	if (intr == 3 || intr == -3 || intr == 6 || intr == -6)
+#else
 	if (intr == 3 || intr == -3 || intr == 4 || intr == -4)
+#endif
 		kvm_debug("%s: CPU: %d, INTR: %d\n", __func__, irq->cpu,
 			  (int)intr);
 
@@ -562,10 +566,18 @@ int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,
 	else
 		dvcpu = vcpu->kvm->vcpus[irq->cpu];
 
+#ifdef CONFIG_CPU_LOONGSON3
+	if (intr == 2 || intr == 3 || intr == 6) {
+#else
 	if (intr == 2 || intr == 3 || intr == 4) {
+#endif
 		kvm_mips_callbacks->queue_io_int(dvcpu, irq);
 
+#ifdef CONFIG_CPU_LOONGSON3
+	} else if (intr == -2 || intr == -3 || intr == -6) {
+#else
 	} else if (intr == -2 || intr == -3 || intr == -4) {
+#endif
 		kvm_mips_callbacks->dequeue_io_int(dvcpu, irq);
 	} else {
 		kvm_err("%s: invalid interrupt ioctl (%d:%d)\n", __func__,
@@ -1317,6 +1329,7 @@ enum vmtlbexc {
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
+	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
 //	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
@@ -1335,6 +1348,24 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	local_irq_enable();
 //	kvm_info("%s: cause: %#x, gsexc %#x, PC: %p, kvm_run: %p, kvm_vcpu: %p\n",
 //			__func__,cause, gsexccode, opc, run, vcpu);
+
+	switch (exccode) {
+	case EXCCODE_INT:
+//		kvm_info("[%d]EXCCODE_INT\n", vcpu->vcpu_id);
+
+		++vcpu->stat.int_exits;
+
+		if (need_resched())
+			cond_resched();
+
+		ret = RESUME_GUEST;
+		break;
+
+	default:
+		kvm_arch_vcpu_dump_regs(vcpu);
+		ret = RESUME_GUEST;
+		break;
+	}
 
 	switch(gsexccode) {
 	case IS:

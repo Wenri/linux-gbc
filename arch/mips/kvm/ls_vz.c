@@ -957,6 +957,10 @@ static void kvm_vz_hardware_disable(void)
 
 static int kvm_vz_hardware_enable(void)
 {
+	/* clear any pending injected virtual guest interrupts */
+	if (cpu_has_guestctl2)
+		clear_c0_guestctl2(0x3f << 10);
+
 	return 0;
 }
 
@@ -978,9 +982,11 @@ static void kvm_vz_vcpu_uninit(struct kvm_vcpu *vcpu)
 
 static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 {
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+
 	unsigned long count_hz = 100*1000*1000; /* default to 100 MHz */
 
-	vcpu->arch.cop0->reg[MIPS_CP0_TLB_PG_MASK][0] = 0xF000ULL;
+	cop0->reg[MIPS_CP0_TLB_PG_MASK][0] = 0xF000ULL;
 
 	/*
 	 * Start off the timer at the same frequency as the host timer, but the
@@ -989,6 +995,10 @@ static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 	if (mips_hpt_frequency && mips_hpt_frequency <= NSEC_PER_SEC)
 		count_hz = mips_hpt_frequency;
 	kvm_mips_init_count(vcpu, count_hz);
+
+	/* start with no pending virtual guest interrupts */
+	if (cpu_has_guestctl2)
+		cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] = 0;
 
 	return 0;
 }
@@ -1043,27 +1053,141 @@ static void kvm_vz_dequeue_timer_int_cb(struct kvm_vcpu *vcpu)
 	kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_TIMER);
 }
 
+#define MIPS_EXC_INT_HT          10
+#define MIPS_EXC_INT_IPI         11
+
 static void kvm_vz_queue_io_int_cb(struct kvm_vcpu *vcpu,
 				   struct kvm_mips_interrupt *irq)
 {
+	int intr = (int)irq->irq;
+
+	/*
+	 * interrupts are asynchronous to vcpu execution therefore defer guest
+	 * cp0 accesses
+	 */
+	switch (intr) {
+	case 2:
+		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_IO);
+		break;
+
+	case 3:
+		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_HT);
+		break;
+
+	case 6:
+		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_IPI);
+		break;
+
+	default:
+		break;
+	}
 }
 
 static void kvm_vz_dequeue_io_int_cb(struct kvm_vcpu *vcpu,
 				     struct kvm_mips_interrupt *irq)
 {
+	int intr = (int)irq->irq;
+
+	/*
+	 * interrupts are asynchronous to vcpu execution therefore defer guest
+	 * cp0 accesses
+	 */
+	switch (intr) {
+	case -2:
+		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_IO);
+		break;
+
+	case -3:
+		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_HT);
+		break;
+
+	case -6:
+		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_IPI);
+		break;
+
+	default:
+		break;
+	}
 }
 
+static u32 kvm_vz_priority_to_irq[MIPS_EXC_MAX] = {
+	[MIPS_EXC_INT_TIMER] = C_IRQ5,
+	[MIPS_EXC_INT_IO]    = C_IRQ0,
+	[MIPS_EXC_INT_HT]    = C_IRQ1,
+	[MIPS_EXC_INT_IPI]   = C_IRQ4,
+};
 
 static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 			       u32 cause)
 {
-	return 0;
+	u32 irq = (priority < MIPS_EXC_MAX) ?
+		kvm_vz_priority_to_irq[priority] : 0;
+
+	switch (priority) {
+	case MIPS_EXC_INT_TIMER:
+		/*
+		 * Call to kvm_write_c0_guest_compare() clears Cause.TI in
+		 * kvm_mips_emulate_CP0(). Explicitly clear irq associated with
+		 * Cause.IP[IPTI] if GuestCtl2 virtual interrupt register not
+		 * supported or if not using GuestCtl2 Hardware Clear.
+		 */
+		if (cpu_has_guestctl2) {
+			if (!(read_c0_guestctl2() & (irq << 14)))
+				clear_c0_guestctl2(irq);
+		} else {
+			clear_gc0_cause(irq);
+		}
+		break;
+
+	case MIPS_EXC_INT_IO:
+	case MIPS_EXC_INT_HT:
+	case MIPS_EXC_INT_IPI:
+		/* Clear GuestCtl2.VIP irq if not using Hardware Clear */
+		if (cpu_has_guestctl2) {
+			if (!(read_c0_guestctl2() & (irq << 14)))
+				clear_c0_guestctl2(irq);
+		} else {
+			clear_gc0_cause(irq);
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	clear_bit(priority, &vcpu->arch.pending_exceptions_clr);
+
+	return 1;
 }
 
 static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 				 u32 cause)
 {
-	return 0;
+	u32 irq = (priority < MIPS_EXC_MAX) ?
+		kvm_vz_priority_to_irq[priority] : 0;
+
+	switch (priority) {
+	case MIPS_EXC_INT_TIMER:
+//		printk("--set guest cause TI\n");
+		set_gc0_cause(C_TI);
+		break;
+
+	case MIPS_EXC_INT_IO:
+	case MIPS_EXC_INT_HT:
+	case MIPS_EXC_INT_IPI:
+		if (cpu_has_guestctl2)
+			set_c0_guestctl2(irq);
+		else
+			set_gc0_cause(irq);
+		break;
+
+	default:
+		break;
+	}
+
+	clear_bit(priority, &vcpu->arch.pending_exceptions);
+
+	return 1;
 }
 
 /*
@@ -1717,6 +1841,8 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 
 static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+
 	if (current->flags & PF_VCPU) {
 		tlbw_use_hazard();
 		kvm_ls_vz_load_guesttlb(vcpu);
@@ -1729,16 +1855,28 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 */
 	kvm_vz_restore_timer(vcpu);
 
+	/* restore Root.GuestCtl2 from unused Guest guestctl2 register */
+	if (cpu_has_guestctl2)
+		write_c0_guestctl2(
+			cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
+
 	return 0;
 }
 
 static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 {
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+
 	if (current->flags & PF_VCPU)
 		kvm_ls_vz_save_guesttlb(vcpu);
 	/*Should we save the guest cp0s here??? FIX ME */
 
 	kvm_vz_save_timer(vcpu);
+
+	/* save Root.GuestCtl2 in unused Guest guestctl2 register */
+	if (cpu_has_guestctl2)
+		cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] =
+			read_c0_guestctl2();
 
 	return 0;
 }
