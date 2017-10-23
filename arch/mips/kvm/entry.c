@@ -393,7 +393,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	/* Set the root ASID for the Guest */
 	UASM_i_ADDIU(&p, T1, S0,
 		     offsetof(struct kvm, arch.gpa_mm.context.asid));
-#ifdef CONFIG_CPU_LOONGSON3
+#if 0 //def CONFIG_CPU_LOONGSON3
 	/* Set guest Coprocessors*/
 	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 
@@ -932,7 +932,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	/* Restore run (vcpu->run) */
 	UASM_i_LW(&p, S0, offsetof(struct kvm_vcpu, run), S1);
 
-#ifdef CONFIG_CPU_LOONGSON3
+#if 0 //def CONFIG_CPU_LOONGSON3
 	/* Save guest Coprocessors*/
 	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 
@@ -975,11 +975,6 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 2);
 	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][2]),
 		  T0);
-
-	/* Save guest entryhi*/
-//	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
-//	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-//		  T0);
 
 	/* Save guest cause (13,0)*/
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_CAUSE, 0);
@@ -1328,7 +1323,7 @@ void *kvm_mips_build_exit(void *addr)
 	/* Restore run (vcpu->run) */
 	UASM_i_LW(&p, S0, offsetof(struct kvm_vcpu, run), S1);
 
-#ifdef CONFIG_CPU_LOONGSON3
+#if 0 //def CONFIG_CPU_LOONGSON3
 	/* Save guest Coprocessors*/
 	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 
@@ -1371,11 +1366,6 @@ void *kvm_mips_build_exit(void *addr)
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_STATUS, 2);
 	uasm_i_sw(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_STATUS][2]),
 		  T0);
-
-	/* Save guest entryhi*/
-//	UASM_i_MFGC0(&p, K0, MIPS_CP0_TLB_HI, 0);
-//	UASM_i_SW(&p, K0, offsetof(struct mips_coproc, reg[MIPS_CP0_TLB_HI][0]),
-//		  T0);
 
 	/* Save guest cause (13,0)*/
 	uasm_i_mfgc0(&p, K0, MIPS_CP0_CAUSE, 0);

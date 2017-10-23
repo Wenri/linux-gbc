@@ -34,9 +34,9 @@
 
 
 /* Pointers to last VCPU loaded on each physical CPU */
-//static struct kvm_vcpu *last_vcpu[NR_CPUS];
+static struct kvm_vcpu *last_vcpu[NR_CPUS];
 /* Pointers to last VCPU executed on each physical CPU */
-/*static struct kvm_vcpu *last_exec_vcpu[NR_CPUS];*/
+static struct kvm_vcpu *last_exec_vcpu[NR_CPUS];
 
 /*
  * Number of guest VTLB entries to use, so we can catch inconsistency between
@@ -978,6 +978,19 @@ static int kvm_vz_vcpu_init(struct kvm_vcpu *vcpu)
 
 static void kvm_vz_vcpu_uninit(struct kvm_vcpu *vcpu)
 {
+	int cpu;
+
+	/*
+	 * If the VCPU is freed and reused as another VCPU, we don't want the
+	 * matching pointer wrongly hanging around in last_vcpu[] or
+	 * last_exec_vcpu[].
+	 */
+	for_each_possible_cpu(cpu) {
+		if (last_vcpu[cpu] == vcpu)
+			last_vcpu[cpu] = NULL;
+		if (last_exec_vcpu[cpu] == vcpu)
+			last_exec_vcpu[cpu] = NULL;
+	}
 }
 
 static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
@@ -995,6 +1008,9 @@ static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 	if (mips_hpt_frequency && mips_hpt_frequency <= NSEC_PER_SEC)
 		count_hz = mips_hpt_frequency;
 	kvm_mips_init_count(vcpu, count_hz);
+
+	/* EBase */
+	kvm_write_sw_gc0_ebase(cop0, (s32)0x80000000 | vcpu->vcpu_id);
 
 	/* start with no pending virtual guest interrupts */
 	if (cpu_has_guestctl2)
@@ -1842,6 +1858,20 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	bool migrated, all;
+
+	/*
+	 * Have we migrated to a different CPU?
+	 * If so, any old guest TLB state may be stale.
+	 */
+	migrated = (vcpu->arch.last_sched_cpu != cpu);
+
+	/*
+	 * Was this the last VCPU to run on this CPU?
+	 * If not, any old guest state from this VCPU will have been clobbered.
+	 */
+	all = migrated || (last_vcpu[cpu] != vcpu);
+	last_vcpu[cpu] = vcpu;
 
 	if (current->flags & PF_VCPU) {
 		tlbw_use_hazard();
@@ -1854,6 +1884,31 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 * if left unmaintained.
 	 */
 	kvm_vz_restore_timer(vcpu);
+
+	/* Don't bother restoring registers multiple times unless necessary */
+	if (!all)
+		return 0;
+
+	/*
+	 * Restore config registers first, as some implementations restrict
+	 * writes to other registers when the corresponding feature bits aren't
+	 * set.Only conf/conf1/conf4 are writable.
+	 * For example Status.CU1 cannot be set unless Config1.FP is set.
+	 */
+	kvm_restore_gc0_config(cop0);
+	kvm_restore_gc0_config1(cop0);
+	kvm_restore_gc0_config4(cop0);
+
+	kvm_restore_gc0_hwrena(cop0);
+	kvm_restore_gc0_badvaddr(cop0);
+	/*Restore entryhi will cause trouble temporarily,if set guestctl0.asid=1 FIX ME!!!!!*/
+//	kvm_restore_gc0_entryhi(cop0);
+	kvm_restore_gc0_status(cop0);
+	kvm_restore_gc0_intctl(cop0);
+	kvm_restore_gc0_epc(cop0);
+	kvm_vz_write_gc0_ebase(kvm_read_sw_gc0_ebase(cop0));
+	kvm_restore_gc0_userlocal(cop0);
+	kvm_restore_gc0_errorepc(cop0);
 
 	/* restore Root.GuestCtl2 from unused Guest guestctl2 register */
 	if (cpu_has_guestctl2)
@@ -1870,6 +1925,25 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	if (current->flags & PF_VCPU)
 		kvm_ls_vz_save_guesttlb(vcpu);
 	/*Should we save the guest cp0s here??? FIX ME */
+
+	kvm_lose_fpu(vcpu);
+
+	kvm_save_gc0_hwrena(cop0);
+	kvm_save_gc0_badvaddr(cop0);
+	/*Not save entryhi for temporarily,FIX ME!!!!!!*/
+//	kvm_save_gc0_entryhi(cop0);
+	kvm_save_gc0_status(cop0);
+	kvm_save_gc0_intctl(cop0);
+	kvm_save_gc0_epc(cop0);
+	kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase());
+	kvm_save_gc0_userlocal(cop0);
+
+	/* only save implemented and writable config registers */
+	kvm_save_gc0_config(cop0);
+	kvm_save_gc0_config1(cop0);
+	kvm_save_gc0_config4(cop0);
+
+	kvm_save_gc0_errorepc(cop0);
 
 	kvm_vz_save_timer(vcpu);
 
