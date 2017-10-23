@@ -88,17 +88,7 @@ static inline unsigned int kvm_vz_config_guest_wrmask(struct kvm_vcpu *vcpu)
 
 static inline unsigned int kvm_vz_config1_guest_wrmask(struct kvm_vcpu *vcpu)
 {
-	return 0;
-}
-
-static inline unsigned int kvm_vz_config2_guest_wrmask(struct kvm_vcpu *vcpu)
-{
-	return 0;
-}
-
-static inline unsigned int kvm_vz_config3_guest_wrmask(struct kvm_vcpu *vcpu)
-{
-	return MIPS_CONF3_ISA_OE;
+	return MIPS_CONF1_TLBS;
 }
 
 static inline unsigned int kvm_vz_config4_guest_wrmask(struct kvm_vcpu *vcpu)
@@ -152,15 +142,12 @@ static inline unsigned int kvm_vz_config1_user_wrmask(struct kvm_vcpu *vcpu)
 
 static inline unsigned int kvm_vz_config2_user_wrmask(struct kvm_vcpu *vcpu)
 {
-	return kvm_vz_config2_guest_wrmask(vcpu) | MIPS_CONF_M;
+	return 0;
 }
 
 static inline unsigned int kvm_vz_config3_user_wrmask(struct kvm_vcpu *vcpu)
 {
-	unsigned int mask = kvm_vz_config3_guest_wrmask(vcpu) | MIPS_CONF_M |
-		MIPS_CONF3_ULRI | MIPS_CONF3_CTXTC;
-
-	return mask;
+	return 0;
 }
 
 static inline unsigned int kvm_vz_config4_user_wrmask(struct kvm_vcpu *vcpu)
@@ -458,12 +445,14 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 				val = cop0->reg[rd][sel];
 
 			} else if ((rd == MIPS_CP0_COUNT) &&
-			    ((sel == 0) ||              /* Count */
-			    (sel == 7))) {               /* PGD */
+			    (sel == 0)) {              /* Count */
+				val = kvm_mips_read_count(vcpu);
+			} else if ((rd == MIPS_CP0_COUNT) &&
+			    (sel == 7)) {               /* PGD */
 				val = cop0->reg[rd][sel];
 			} else if ((rd == MIPS_CP0_COMPARE) &&
 			    (sel == 0)) {               /* Compare */
-				val = cop0->reg[rd][sel];
+				val = read_gc0_compare();
 			} else if ((rd == MIPS_CP0_PRID &&
 				    (sel == 0 ||	/* PRid */
 				     sel == 2 ||	/* CDMMBase */
@@ -1495,20 +1484,22 @@ static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 			      const struct kvm_one_reg *reg,
 			      s64 *v)
 {
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	unsigned int idx;
 	int ret = 0;
 
 	switch (reg->id) {
 	case KVM_REG_MIPS_CP0_INDEX:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_index(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_ENTRYLO0:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_entrylo0(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_ENTRYLO1:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_entrylo1(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_CONTEXT:
-		ret = -EINVAL;
+		*v = kvm_read_sw_gc0_context(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_CONTEXTCONFIG:
 		ret = -EINVAL;
@@ -1522,10 +1513,10 @@ static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 		break;
 #endif
 	case KVM_REG_MIPS_CP0_PAGEMASK:
-		ret = -EINVAL;
+		*v = kvm_read_sw_gc0_pagemask(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_PAGEGRAIN:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_pagegrain(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_SEGCTL0:
 		ret = -EINVAL;
@@ -1537,19 +1528,19 @@ static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 		ret = -EINVAL;
 		break;
 	case KVM_REG_MIPS_CP0_PWBASE:
-		ret = -EINVAL;
+		*v = kvm_read_sw_gc0_pwbase(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_PWFIELD:
-		ret = -EINVAL;
+		*v = kvm_read_sw_gc0_pwfield(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_PWSIZE:
-		ret = -EINVAL;
+		*v = kvm_read_sw_gc0_pwsize(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_WIRED:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_wired(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_PWCTL:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_pwctl(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_HWRENA:
 		*v = (long)read_gc0_hwrena();
@@ -1585,7 +1576,7 @@ static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 		*v = (long)read_gc0_epc();
 		break;
 	case KVM_REG_MIPS_CP0_PRID:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_prid(cop0);
 		break;
 	case KVM_REG_MIPS_CP0_EBASE:
 		*v = kvm_vz_read_gc0_ebase();
@@ -1625,14 +1616,34 @@ static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 #endif
 #ifdef CONFIG_64BIT
 	case KVM_REG_MIPS_CP0_XCONTEXT:
-		ret = -EINVAL;
+		*v = (long)kvm_read_sw_gc0_xcontext(cop0);
 		break;
 #endif
 	case KVM_REG_MIPS_CP0_ERROREPC:
 		*v = (long)read_gc0_errorepc();
 		break;
 	case KVM_REG_MIPS_CP0_KSCRATCH1 ... KVM_REG_MIPS_CP0_KSCRATCH6:
-		ret = -EINVAL;
+		idx = reg->id - KVM_REG_MIPS_CP0_KSCRATCH1 + 2;
+		switch (idx) {
+		case 2:
+			*v = (long)kvm_read_sw_gc0_kscratch1(cop0);
+			break;
+		case 3:
+			*v = (long)kvm_read_sw_gc0_kscratch2(cop0);
+			break;
+		case 4:
+			*v = (long)kvm_read_sw_gc0_kscratch3(cop0);
+			break;
+		case 5:
+			*v = (long)kvm_read_sw_gc0_kscratch4(cop0);
+			break;
+		case 6:
+			*v = (long)kvm_read_sw_gc0_kscratch5(cop0);
+			break;
+		case 7:
+			*v = (long)kvm_read_sw_gc0_kscratch6(cop0);
+			break;
+		}
 		break;
 	case KVM_REG_MIPS_COUNT_CTL:
 		*v = vcpu->arch.count_ctl;
@@ -1653,21 +1664,23 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 			      const struct kvm_one_reg *reg,
 			      s64 v)
 {
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	unsigned int idx;
 	int ret = 0;
 	unsigned int cur, change;
 
 	switch (reg->id) {
 	case KVM_REG_MIPS_CP0_INDEX:
-		write_gc0_index(v);
+		kvm_write_sw_gc0_index(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_ENTRYLO0:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_entrylo0(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_ENTRYLO1:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_entrylo1(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_CONTEXT:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_context(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_CONTEXTCONFIG:
 		ret = -EINVAL;
@@ -1681,10 +1694,10 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		break;
 #endif
 	case KVM_REG_MIPS_CP0_PAGEMASK:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_pagemask(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_PAGEGRAIN:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_pagegrain(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_SEGCTL0:
 		ret = -EINVAL;
@@ -1696,19 +1709,19 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		ret = -EINVAL;
 		break;
 	case KVM_REG_MIPS_CP0_PWBASE:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_pwbase(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_PWFIELD:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_pwfield(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_PWSIZE:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_pwsize(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_WIRED:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_wired(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_PWCTL:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_pwctl(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_HWRENA:
 		write_gc0_hwrena(v);
@@ -1761,7 +1774,7 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		write_gc0_epc(v);
 		break;
 	case KVM_REG_MIPS_CP0_PRID:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_prid(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_EBASE:
 		kvm_vz_write_gc0_ebase(v);
@@ -1783,20 +1796,10 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		}
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG2:
-		cur = read_gc0_config2();
-		change = (cur ^ v) & kvm_vz_config2_user_wrmask(vcpu);
-		if (change) {
-			v = cur ^ change;
-			write_gc0_config2(v);
-		}
+		ret = -EINVAL;
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG3:
-		cur = read_gc0_config3();
-		change = (cur ^ v) & kvm_vz_config3_user_wrmask(vcpu);
-		if (change) {
-			v = cur ^ change;
-			write_gc0_config3(v);
-		}
+		ret = -EINVAL;
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG4:
 		cur = read_gc0_config4();
@@ -1831,14 +1834,34 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 #endif
 #ifdef CONFIG_64BIT
 	case KVM_REG_MIPS_CP0_XCONTEXT:
-		ret = -EINVAL;
+		kvm_write_sw_gc0_xcontext(cop0,v);
 		break;
 #endif
 	case KVM_REG_MIPS_CP0_ERROREPC:
 		write_gc0_errorepc(v);
 		break;
 	case KVM_REG_MIPS_CP0_KSCRATCH1 ... KVM_REG_MIPS_CP0_KSCRATCH6:
-		ret = -EINVAL;
+		idx = reg->id - KVM_REG_MIPS_CP0_KSCRATCH1 + 2;
+		switch (idx) {
+		case 2:
+			kvm_write_sw_gc0_kscratch1(cop0,v);
+			break;
+		case 3:
+			kvm_write_sw_gc0_kscratch2(cop0,v);
+			break;
+		case 4:
+			kvm_write_sw_gc0_kscratch3(cop0,v);
+			break;
+		case 5:
+			kvm_write_sw_gc0_kscratch4(cop0,v);
+			break;
+		case 6:
+			kvm_write_sw_gc0_kscratch5(cop0,v);
+			break;
+		case 7:
+			kvm_write_sw_gc0_kscratch6(cop0,v);
+			break;
+		}
 		break;
 	case KVM_REG_MIPS_COUNT_CTL:
 		ret = kvm_mips_set_count_ctl(vcpu, v);
