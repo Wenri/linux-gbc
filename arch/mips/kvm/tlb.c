@@ -933,6 +933,7 @@ EXPORT_SYMBOL_GPL(kvm_vz_local_flush_guesttlb_all);
  */
 void kvm_ls_vz_save_guesttlb(struct kvm_vcpu *vcpu)
 {
+#if 0
 	int i, j;
 	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
 	unsigned long tmp_enthi, tmp_mask, tmp_entlo0, tmp_entlo1;
@@ -979,6 +980,7 @@ void kvm_ls_vz_save_guesttlb(struct kvm_vcpu *vcpu)
 	write_c0_entrylo0(tmp_entrylo0);
 	write_c0_entrylo1(tmp_entrylo1);
 	local_irq_restore(flags);
+#endif
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_save_guesttlb);
 
@@ -997,6 +999,7 @@ struct ls_tlb ls_tlb[KVM_MIPS_GUEST_TLB_SIZE] = {};
  */
 void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
 {
+#if 0
 	int i;
 	int tmp_index;
 	unsigned long tmp_entryhi, tmp_pagemask, tmp_entrylo0, tmp_entrylo1;
@@ -1056,6 +1059,7 @@ void kvm_ls_vz_load_guesttlb(struct kvm_vcpu *vcpu)
 	write_c0_entrylo0(tmp_entrylo0);
 	write_c0_entrylo1(tmp_entrylo1);
 	local_irq_restore(flags);
+#endif
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_load_guesttlb);
 
@@ -1064,6 +1068,7 @@ EXPORT_SYMBOL_GPL(kvm_ls_vz_load_guesttlb);
 
 void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu, pte_t *pte)
 {
+#if 0
 	struct kvm_mips_tlb *tlb = vcpu->arch.guest_tlb;
 	int i;
 	
@@ -1100,6 +1105,7 @@ void kvm_ls_vz_update_guesttlb(struct kvm_vcpu *vcpu, pte_t *pte)
 
 //printk("#### updating stlb, tlb_hi %lx, tlb_mask %lx, tlblo0 %lx, tlblo1 %lx\n",
 //		tlb[i].tlb_hi, tlb[i].tlb_mask, tlb[i].tlb_lo[0], tlb[i].tlb_lo[1]);
+#endif
 }
 EXPORT_SYMBOL_GPL(kvm_ls_vz_update_guesttlb);
 

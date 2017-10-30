@@ -33,6 +33,8 @@
 #define V1		3
 #define A0		4
 #define A1		5
+#define A2		6
+#define A3		7
 
 #if _MIPS_SIM == _MIPS_SIM_ABI32
 #define T0		8
@@ -42,6 +44,7 @@
 #endif /* _MIPS_SIM == _MIPS_SIM_ABI32 */
 
 #if _MIPS_SIM == _MIPS_SIM_ABI64 || _MIPS_SIM == _MIPS_SIM_NABI32
+#define A4		8
 #define T0		12
 #define T1		13
 #define T2		14
@@ -95,6 +98,8 @@ enum label_id {
 	label_return_to_host,
 	label_kernel_asid,
 	label_exit_common,
+	label_no_tlb_line,
+	label_finish_tlb_fill,
 };
 
 UASM_L_LA(_fpu_1)
@@ -102,9 +107,11 @@ UASM_L_LA(_msa_1)
 UASM_L_LA(_return_to_host)
 UASM_L_LA(_kernel_asid)
 UASM_L_LA(_exit_common)
+UASM_L_LA(_no_tlb_line)
+UASM_L_LA(_finish_tlb_fill)
 
 static void *kvm_mips_build_enter_guest(void *addr);
-static void *kvm_mips_build_ret_from_exit(void *addr);
+static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
 static void *kvm_mips_build_ret_to_guest(void *addr);
 static void *kvm_mips_build_ret_to_host(void *addr);
 
@@ -1213,7 +1220,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 
 	uasm_resolve_relocs(relocs, labels);
 
-	p = kvm_mips_build_ret_from_exit(p);
+	p = kvm_mips_build_ret_from_exit(p, 1);
 
 	return p;
 }
@@ -1585,7 +1592,7 @@ void *kvm_mips_build_exit(void *addr)
 
 	uasm_resolve_relocs(relocs, labels);
 
-	p = kvm_mips_build_ret_from_exit(p);
+	p = kvm_mips_build_ret_from_exit(p, 0);
 
 	return p;
 }
@@ -1599,11 +1606,11 @@ void *kvm_mips_build_exit(void *addr)
  *
  * Returns:	Next address after end of written function.
  */
-static void *kvm_mips_build_ret_from_exit(void *addr)
+static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 {
 	u32 *p = addr;
-	struct uasm_label labels[2];
-	struct uasm_reloc relocs[2];
+	struct uasm_label labels[6];
+	struct uasm_reloc relocs[6];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -1623,13 +1630,75 @@ static void *kvm_mips_build_ret_from_exit(void *addr)
 	uasm_i_move(&p, K1, S1);
 	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
 
+#if 1 //Debug for fill in one tlb line,not use S0,S1,V0,K1
+	if (update_tlb)
+	{
+		uasm_i_mfc0(&p, A0, C0_INDEX); //save index
+		UASM_i_MFC0(&p, A1, C0_ENTRYHI);
+		UASM_i_MFC0(&p, T0, C0_PAGEMASK);
+		UASM_i_MFC0(&p, T1, C0_ENTRYLO0);
+		UASM_i_MFC0(&p, T2, C0_ENTRYLO1);
+
+		/* Set Diag.MID to make sure all TLB instructions works only
+		   on guest TLB entrys */
+		uasm_i_addiu(&p, A4, ZERO, 1);
+		uasm_i_mfc0(&p, A2, C0_DIAG);
+		uasm_i_ins(&p, A2, A4, 18, 2);
+		uasm_i_mtc0(&p, A2, C0_DIAG);
+
+		/* Probe the TLB entry to be written into hardware */
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+		uasm_i_tlbp(&p);
+		uasm_i_ehb(&p);
+
+		/* Get guest TLB entry to be written into hardware */
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
+		UASM_i_MTC0(&p, V1, C0_PAGEMASK);
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[0]), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
+
+		uasm_i_mfc0(&p, T3, C0_INDEX);
+
+		/* If TLB entry to be written not in TLB hardware, write it randomly.
+		   Otherwise write it with index */
+		uasm_il_bltz(&p, &r, T3, label_no_tlb_line);
+		uasm_i_nop(&p);
+		uasm_i_tlbwi(&p);
+		uasm_i_ehb(&p);
+		uasm_il_b(&p, &r, label_finish_tlb_fill);
+		uasm_i_nop(&p);
+
+		uasm_l_no_tlb_line(&l, p);
+
+		uasm_i_tlbwr(&p);
+		uasm_i_ehb(&p);
+
+		uasm_l_finish_tlb_fill(&l, p);
+
+		/* Clear Diag.MID to make sure Root.TLB refill & general
+		   exception works right */
+		uasm_i_move(&p, A4, ZERO);
+		uasm_i_mfc0(&p, A2, C0_DIAG);
+		uasm_i_ins(&p, A2, A4, 18, 2);
+		uasm_i_mtc0(&p, A2, C0_DIAG);
+
+		uasm_i_mtc0(&p, A0, C0_INDEX); //save index
+		UASM_i_MTC0(&p, A1, C0_ENTRYHI);
+		UASM_i_MTC0(&p, T0, C0_PAGEMASK);
+		UASM_i_MTC0(&p, T1, C0_ENTRYLO0);
+		UASM_i_MTC0(&p, T2, C0_ENTRYLO1);
+	}
+#endif
 	/*
 	 * Check return value, should tell us if we are returning to the
 	 * host (handle I/O etc)or resuming the guest
 	 */
 	uasm_i_andi(&p, T0, V0, RESUME_HOST);
 	uasm_il_bnez(&p, &r, T0, label_return_to_host);
-	 uasm_i_nop(&p);
+	uasm_i_nop(&p);
 
 	p = kvm_mips_build_ret_to_guest(p);
 
