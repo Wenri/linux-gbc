@@ -879,6 +879,56 @@ static enum emulation_result kvm_trap_vz_handle_gsfc(u32 cause, u32 *opc,
 	return er;
 }
 
+static enum emulation_result kvm_trap_vz_handle_hc(u32 cause, u32 *opc,
+						   struct kvm_vcpu *vcpu)
+{
+	enum emulation_result er;
+	union mips_instruction inst;
+	unsigned long curr_pc;
+	int err;
+
+	if (cause & CAUSEF_BD)
+		opc += 1;
+	err = kvm_get_badinstr(opc, vcpu, &inst.word);
+	if (err)
+		return EMULATE_FAIL;
+
+	/*
+	 * Update PC and hold onto current PC in case there is
+	 * an error and we want to rollback the PC
+	 */
+	curr_pc = vcpu->arch.pc;
+	er = update_pc(vcpu, cause);
+	if (er == EMULATE_FAIL)
+		return er;
+
+	er = kvm_mips_emul_hypcall(vcpu, inst);
+	if (er == EMULATE_FAIL)
+		vcpu->arch.pc = curr_pc;
+
+	return er;
+}
+
+static enum emulation_result kvm_trap_vz_no_handler_guest_exit(u32 gexccode,
+							u32 cause,
+							u32 *opc,
+							struct kvm_vcpu *vcpu)
+{
+	u32 inst;
+
+	/*
+	 *  Fetch the instruction.
+	 */
+	if (cause & CAUSEF_BD)
+		opc += 1;
+	kvm_get_badinstr(opc, vcpu, &inst);
+
+	kvm_err("Guest Exception Code: %d not yet handled @ PC: %p, inst: 0x%08x  Status: %#x\n",
+		gexccode, opc, inst, read_gc0_status());
+
+	return EMULATE_FAIL;
+}
+
 static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
@@ -887,6 +937,7 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 	u32 gexccode = (vcpu->arch.host_cp0_guestctl0 &
 			MIPS_GCTL0_GEXC) >> MIPS_GCTL0_GEXC_SHIFT;
 	int ret = RESUME_GUEST;
+	vcpu->arch.is_hypcall = 0;
 
 #if 0
 	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
@@ -910,19 +961,20 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 		++vcpu->stat.vz_gsfc_exits;
 		er = kvm_trap_vz_handle_gsfc(cause, opc, vcpu);
 		break;
-//	case MIPS_GCTL0_GEXC_HC:
-//		++vcpu->stat.vz_hc_exits;
-//		er = kvm_trap_vz_handle_hc(cause, opc, vcpu);
-//		break;
+	case MIPS_GCTL0_GEXC_HC:
+		vcpu->arch.is_hypcall = 1;
+		++vcpu->stat.vz_hc_exits;
+		er = kvm_trap_vz_handle_hc(cause, opc, vcpu);
+		break;
 //	case MIPS_GCTL0_GEXC_GRR:
 //		++vcpu->stat.vz_grr_exits;
 //		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
 //						       vcpu);
 //		break;
 	default:
-//		++vcpu->stat.vz_resvd_exits;
-//		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
-//						       vcpu);
+		++vcpu->stat.vz_resvd_exits;
+		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
+						       vcpu);
 		break;
 
 	}

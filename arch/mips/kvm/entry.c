@@ -101,6 +101,7 @@ enum label_id {
 	label_no_tlb_line,
 	label_finish_tlb_fill,
 	label_ignore_tlb_general,
+	label_no_hypcall,
 };
 
 UASM_L_LA(_fpu_1)
@@ -111,6 +112,7 @@ UASM_L_LA(_exit_common)
 UASM_L_LA(_no_tlb_line)
 UASM_L_LA(_finish_tlb_fill)
 UASM_L_LA(_ignore_tlb_general)
+UASM_L_LA(_no_hypcall)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -1409,8 +1411,8 @@ void *kvm_mips_build_exit(void *addr)
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 {
 	u32 *p = addr;
-	struct uasm_label labels[6];
-	struct uasm_reloc relocs[6];
+	struct uasm_label labels[8];
+	struct uasm_reloc relocs[8];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -1431,65 +1433,75 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
 
 #if 1 //Debug for fill in one tlb line,not use S0,S1,V0,K1
-	if (update_tlb)
+	if (!update_tlb)
 	{
-		uasm_i_mfc0(&p, A0, C0_INDEX); //save index
-		UASM_i_MFC0(&p, A1, C0_ENTRYHI);
-		UASM_i_MFC0(&p, T0, C0_PAGEMASK);
-		UASM_i_MFC0(&p, T1, C0_ENTRYLO0);
-		UASM_i_MFC0(&p, T2, C0_ENTRYLO1);
-
-		/* Set Diag.MID to make sure all TLB instructions works only
-		   on guest TLB entrys */
-		uasm_i_addiu(&p, A4, ZERO, 1);
-		uasm_i_mfc0(&p, A2, C0_DIAG);
-		uasm_i_ins(&p, A2, A4, 18, 2);
-		uasm_i_mtc0(&p, A2, C0_DIAG);
-
-		/* Probe the TLB entry to be written into hardware */
-		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
-		UASM_i_MTC0(&p, V1, C0_ENTRYHI);
-		uasm_i_tlbp(&p);
-		uasm_i_ehb(&p);
-
-		/* Get guest TLB entry to be written into hardware */
-		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
-		UASM_i_MTC0(&p, V1, C0_PAGEMASK);
-		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[0]), K1);
-		UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
-		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
-		UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
-
-		uasm_i_mfc0(&p, T3, C0_INDEX);
-
-		/* If TLB entry to be written not in TLB hardware, write it randomly.
-		   Otherwise write it with index */
-		uasm_il_bltz(&p, &r, T3, label_no_tlb_line);
+		uasm_i_lw(&p, A3, offsetof(struct kvm_vcpu_arch, is_hypcall), K1);
+		uasm_il_beqz(&p, &r, A3, label_no_hypcall);
 		uasm_i_nop(&p);
-		uasm_i_tlbwi(&p);
-		uasm_i_ehb(&p);
-		uasm_il_b(&p, &r, label_finish_tlb_fill);
-		uasm_i_nop(&p);
+	}
+	uasm_i_mfc0(&p, A0, C0_INDEX); //save index
+	UASM_i_MFC0(&p, A1, C0_ENTRYHI);
+	UASM_i_MFC0(&p, T0, C0_PAGEMASK);
+	UASM_i_MFC0(&p, T1, C0_ENTRYLO0);
+	UASM_i_MFC0(&p, T2, C0_ENTRYLO1);
 
-		uasm_l_no_tlb_line(&l, p);
+	/* Set Diag.MID to make sure all TLB instructions works only
+	   on guest TLB entrys */
+	uasm_i_addiu(&p, A4, ZERO, 1);
+	uasm_i_mfc0(&p, A2, C0_DIAG);
+	uasm_i_ins(&p, A2, A4, 18, 2);
+	uasm_i_mtc0(&p, A2, C0_DIAG);
 
-		uasm_i_tlbwr(&p);
-		uasm_i_ehb(&p);
+	/* Probe the TLB entry to be written into hardware */
+	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
+	UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+	uasm_i_tlbp(&p);
+	uasm_i_ehb(&p);
 
-		uasm_l_finish_tlb_fill(&l, p);
+	/* Get guest TLB entry to be written into hardware */
+	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
+	UASM_i_MTC0(&p, V1, C0_PAGEMASK);
+	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[0]), K1);
+	UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
+	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
+	UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
 
-		/* Clear Diag.MID to make sure Root.TLB refill & general
-		   exception works right */
-		uasm_i_move(&p, A4, ZERO);
-		uasm_i_mfc0(&p, A2, C0_DIAG);
-		uasm_i_ins(&p, A2, A4, 18, 2);
-		uasm_i_mtc0(&p, A2, C0_DIAG);
+	uasm_i_mfc0(&p, T3, C0_INDEX);
 
-		uasm_i_mtc0(&p, A0, C0_INDEX); //save index
-		UASM_i_MTC0(&p, A1, C0_ENTRYHI);
-		UASM_i_MTC0(&p, T0, C0_PAGEMASK);
-		UASM_i_MTC0(&p, T1, C0_ENTRYLO0);
-		UASM_i_MTC0(&p, T2, C0_ENTRYLO1);
+	/* If TLB entry to be written not in TLB hardware, write it randomly.
+	   Otherwise write it with index */
+	uasm_il_bltz(&p, &r, T3, label_no_tlb_line);
+	uasm_i_nop(&p);
+	uasm_i_tlbwi(&p);
+	uasm_i_ehb(&p);
+	uasm_il_b(&p, &r, label_finish_tlb_fill);
+	uasm_i_nop(&p);
+
+	uasm_l_no_tlb_line(&l, p);
+
+	uasm_i_tlbwr(&p);
+	uasm_i_ehb(&p);
+
+	uasm_l_finish_tlb_fill(&l, p);
+
+	/* Clear Diag.MID to make sure Root.TLB refill & general
+	   exception works right */
+	uasm_i_move(&p, A4, ZERO);
+	uasm_i_mfc0(&p, A2, C0_DIAG);
+	uasm_i_ins(&p, A2, A4, 18, 2);
+	uasm_i_mtc0(&p, A2, C0_DIAG);
+
+	uasm_i_mtc0(&p, A0, C0_INDEX); //save index
+	UASM_i_MTC0(&p, A1, C0_ENTRYHI);
+	UASM_i_MTC0(&p, T0, C0_PAGEMASK);
+	UASM_i_MTC0(&p, T1, C0_ENTRYLO0);
+	UASM_i_MTC0(&p, T2, C0_ENTRYLO1);
+
+	if (!update_tlb)
+	{
+		uasm_l_no_hypcall(&l, p);
+		uasm_i_move(&p, A3, ZERO);
+		uasm_i_sw(&p, A3, offsetof(struct kvm_vcpu_arch, is_hypcall), K1);
 	}
 #endif
 	/*

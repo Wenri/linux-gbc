@@ -697,7 +697,7 @@ out:
  *		attempted to a read-only memory region. This is usually handled
  *		as an MMIO access.
  */
-static int kvm_mips_map_page(struct kvm_vcpu *vcpu, unsigned long gpa,
+int kvm_mips_map_page(struct kvm_vcpu *vcpu, unsigned long gpa,
 			     bool write_fault,
 			     pte_t *out_entry, pte_t *out_buddy)
 {
