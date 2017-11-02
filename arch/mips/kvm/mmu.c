@@ -1062,20 +1062,23 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		/* Set the corresponding tlb line in SW guest tlb*/
 		kvm_ls_vz_update_guesttlb(vcpu, pte_gpa);
 
-	} else if (((badvaddr & CKSEG3) == CKSEG1))
-	{
+	} else if (((badvaddr & CKSEG3) == CKSEG1)) {
 		/*the MMIO address space*/
 		ret = RESUME_HOST;
 		return ret;
-	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSEG3)
-			  || ((badvaddr & CKSEG3) < XKSSEG))
-	{
-		/* guest mapped address, return back to guest to process
-		   and get the GPA for trans
+	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSEG3) ||
+			  ((badvaddr & 0xf000000000000000) == XKSEG) ||
+			  ((badvaddr & 0xf000000000000000) < XKSSEG)) {
+
+		/* This should never reached,because all guest mapped address trigger
+		 * tlbl/tlbs/tlbm exceptions are processed in uasm code and return back
+		 * to guest ebase+0x180 to handle guest tlbl/tlbs/tlbm handlers and
+		 * get the GPA for trans
 		*/
 		ret = RESUME_GUEST;
 		return ret;
-	}
+	} else
+		printk("unhandled guest addr %lx\n", badvaddr);
 
 	return 0;
 	/* Invalidate this entry in the TLB */

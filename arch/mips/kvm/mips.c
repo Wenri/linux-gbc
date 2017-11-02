@@ -456,6 +456,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 
 	kvm_debug("Allocated COMM page @ %p\n", vcpu->arch.kseg0_commpage);
 	kvm_mips_commpage_init(vcpu);
+	kvm_info("guest cop0 page @ %p gprs @ %p tlb @ %p\n", vcpu->arch.cop0, vcpu->arch.gprs, vcpu->arch.guest_tlb);
 
 	/* Init */
 	vcpu->arch.last_sched_cpu = -1;
@@ -1438,6 +1439,45 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 //{
 //printk("@@@@@ %s:%s:%d\n",__FILE__,__func__,__LINE__);
 //}
+	return ret;
+}
+
+/*If meet XKSEG/XUSEG address,we ignore the tlbl/tlbs/tlbm process in root*/
+int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
+{
+	struct mips_coproc *cop0 = vcpu->arch.cop0;
+	struct kvm_vcpu_arch *arch = &vcpu->arch;
+	u32 cause = read_gc0_cause();
+	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
+	int ret = RESUME_GUEST;
+	vcpu->mode = OUTSIDE_GUEST_MODE;
+
+	if ((kvm_read_c0_guest_status(cop0) & ST0_EXL) == 0) {
+		/* save old pc */
+		kvm_write_c0_guest_epc(cop0, arch->pc);
+		kvm_set_c0_guest_status(cop0, ST0_EXL);
+
+		if (cause & CAUSEF_BD)
+			kvm_set_c0_guest_cause(cop0, CAUSEF_BD);
+		else
+			kvm_clear_c0_guest_cause(cop0, CAUSEF_BD);
+
+		kvm_debug("[EXL == 0] delivering TLB INV LD @ pc %#lx\n",
+			  arch->pc);
+	} else {
+		kvm_debug("[EXL == 1] delivering TLB INV LD @ pc %#lx\n",
+			  arch->pc);
+	}
+
+	/* set pc to the exception entry point */
+	arch->pc = kvm_mips_guest_exception_base(vcpu) + 0x180;
+
+	kvm_change_c0_guest_cause(cop0, (0xff),
+				  (gsexccode << CAUSEB_EXCCODE));
+
+	/* setup badvaddr, context and entryhi registers for the guest */
+	kvm_write_c0_guest_badvaddr(cop0, vcpu->arch.host_cp0_badvaddr);
+
 	return ret;
 }
 
