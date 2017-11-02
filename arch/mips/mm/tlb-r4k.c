@@ -26,6 +26,31 @@
 
 extern void build_tlb_refill_handler(void);
 
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+static void emulate_tlb_ops(unsigned long address,
+			    unsigned long pagemask, unsigned long even_pte,
+			    unsigned long odd_pte)
+{
+
+	__asm__ __volatile__(
+	"	.set	push			\n"
+	"	.set	noreorder		\n"
+	"	.set	noat			\n"
+	"	daddiu	$2, $0, 0x3ff		\n"
+	"	dsll	$2, $2, 0x10		\n"
+	"	daddiu	$2, $2, 0xffff		\n"
+	"	dsll	$2, $2, 0x10		\n"
+	"	daddiu	$2, $2, 0xffff		\n"
+	"	and	$6, $6, $2		\n"
+	"	and	$7, $7, $2		\n"
+	"	move	$4, $4			\n"
+	"	move	$5, $5			\n"
+	"	.word	0x42000028		\n" //hypcall
+	"	.set	pop			\n"
+	:::);
+}
+#endif
+
 /*
  * LOONGSON-2 has a 4 entry itlb which is a subset of jtlb, LOONGSON-3 has
  * a 4 entry itlb and a 4 entry dtlb which are subsets of jtlb. Unfortunately,
@@ -298,8 +323,11 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	pud_t *pudp;
 	pmd_t *pmdp;
 	pte_t *ptep;
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	unsigned long pagemask,even_pte,odd_pte;
+#else
 	int idx, pid;
-
+#endif
 	/*
 	 * Handle debugger faulting in for debugee.
 	 */
@@ -309,6 +337,19 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	local_irq_save(flags);
 
 	htw_stop();
+
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	pgdp = pgd_offset(vma->vm_mm, address);
+	pudp = pud_offset(pgdp, address);
+	pmdp = pmd_offset(pudp, address);
+
+	ptep = pte_offset_map(pmdp, address);
+	pagemask = 0x7800;
+	even_pte = pte_val(*ptep++);
+	odd_pte = pte_val(*ptep);
+
+	emulate_tlb_ops(address, pagemask, even_pte, odd_pte);
+#else
 	pid = read_c0_entryhi() & ASID_MASK;
 	address &= (PAGE_MASK << 1);
 	write_c0_entryhi(address | pid);
@@ -356,6 +397,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 			tlb_write_indexed();
 	}
 	tlbw_use_hazard();
+#endif
 	htw_start();
 	flush_micro_tlb_vm(vma);
 	local_irq_restore(flags);

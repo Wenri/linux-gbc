@@ -56,6 +56,17 @@ struct tlb_reg_save {
 } ____cacheline_aligned_in_smp;
 
 static struct tlb_reg_save handler_reg_save[NR_CPUS];
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+struct tlb_gprs_save {
+	unsigned long a0;
+	unsigned long a1;
+	unsigned long a2;
+	unsigned long a3;
+	unsigned long a4;
+} ____cacheline_aligned_in_smp;
+
+static struct tlb_gprs_save handler_gprs_save[NR_CPUS];
+#endif
 
 static inline int r45k_bvahwbug(void)
 {
@@ -390,6 +401,53 @@ static void build_restore_work_registers(u32 **p)
 	UASM_i_LW(p, 1, offsetof(struct tlb_reg_save, a), K0);
 	UASM_i_LW(p, 2, offsetof(struct tlb_reg_save, b), K0);
 }
+
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+void build_save_gprs(u32 **p)
+{
+	if (num_possible_cpus() > 1) {
+		/* Get smp_processor_id */
+		UASM_i_CPUID_MFC0(p, K0, SMP_CPUID_REG);
+		UASM_i_SRL_SAFE(p, K0, K0, SMP_CPUID_REGSHIFT);
+
+		/* handler_reg_save index in K0 */
+		UASM_i_SLL(p, K0, K0, ilog2(sizeof(struct tlb_gprs_save)));
+
+		UASM_i_LA(p, K1, (long)&handler_gprs_save);
+		UASM_i_ADDU(p, K0, K0, K1);
+	} else {
+		UASM_i_LA(p, K0, (long)&handler_gprs_save);
+	}
+	/* K0 now points to save area, save $2 and $3,$4-$7  */
+	UASM_i_SW(p, 4, offsetof(struct tlb_gprs_save, a0), K0);
+	UASM_i_SW(p, 5, offsetof(struct tlb_gprs_save, a1), K0);
+	UASM_i_SW(p, 6, offsetof(struct tlb_gprs_save, a2), K0);
+	UASM_i_SW(p, 7, offsetof(struct tlb_gprs_save, a3), K0);
+	UASM_i_SW(p, 8, offsetof(struct tlb_gprs_save, a4), K0);
+}
+void build_restore_gprs(u32 **p)
+{
+	if (num_possible_cpus() > 1) {
+		/* Get smp_processor_id */
+		UASM_i_CPUID_MFC0(p, K0, SMP_CPUID_REG);
+		UASM_i_SRL_SAFE(p, K0, K0, SMP_CPUID_REGSHIFT);
+
+		/* handler_reg_save index in K0 */
+		UASM_i_SLL(p, K0, K0, ilog2(sizeof(struct tlb_gprs_save)));
+
+		UASM_i_LA(p, K1, (long)&handler_gprs_save);
+		UASM_i_ADDU(p, K0, K0, K1);
+	} else {
+		UASM_i_LA(p, K0, (long)&handler_gprs_save);
+	}
+	/* K0 now points to save area, save $2 and $3,$4-$7  */
+	UASM_i_LW(p, 4, offsetof(struct tlb_gprs_save, a0), K0);
+	UASM_i_LW(p, 5, offsetof(struct tlb_gprs_save, a1), K0);
+	UASM_i_LW(p, 6, offsetof(struct tlb_gprs_save, a2), K0);
+	UASM_i_LW(p, 7, offsetof(struct tlb_gprs_save, a3), K0);
+	UASM_i_LW(p, 8, offsetof(struct tlb_gprs_save, a4), K0);
+}
+#endif
 
 #ifndef CONFIG_MIPS_PGD_C0_CONTEXT
 
@@ -1037,6 +1095,17 @@ void build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
 	UASM_i_ADDU(p, ptr, ptr, tmp); /* add in offset */
 }
 
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+static int uasm_rel_higher(long val)
+{
+#ifdef CONFIG_64BIT
+	return ((((val + 0x80008000L) >> 32) & 0xffff) ^ 0x8000) - 0x8000;
+#else
+	return 0;
+#endif
+}
+#endif
+
 void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 {
 	/*
@@ -1076,8 +1145,37 @@ void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL));
 		if (r4k_250MHZhwbug())
 			UASM_i_MTC0(p, 0, C0_ENTRYLO0);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+
+		/*To get pfn,the same as asm version of pte_pfn
+		 *organize as follow
+		 * a0        a1         a2           a3
+		 *badvaddr  PAGE_SHIFT  even pte    odd pte
+		*/
+		uasm_i_daddiu(p, 8, 0, uasm_rel_higher(0x3ffffffffff));
+		uasm_i_dsll(p, 8, 8, 16);
+		uasm_i_daddiu(p, 8, 8, uasm_rel_hi(0x3ffffffffff));
+		uasm_i_dsll(p, 8, 8, 16);
+		uasm_i_daddiu(p, 8, 8, uasm_rel_lo(0x3ffffffffff));
+
+		uasm_i_move(p, 6, tmp);
+		uasm_i_and(p, 6, 6, 8);
+		//Move page to $5
+
+#else
 		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
+#endif
 		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL));
+
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+		uasm_i_move(p, 7, ptep);
+		uasm_i_and(p, 7, 7, 8);
+
+		uasm_i_dmfc0(p, 4, C0_BADVADDR);
+		uasm_i_addiu(p, 5, 0, PAGE_SHIFT);
+
+		uasm_i_hypcall(p);
+#endif
 	} else {
 		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_GLOBAL)); /* convert to entrylo0 */
 		if (r4k_250MHZhwbug())
@@ -1089,7 +1187,9 @@ void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 	}
 	if (r4k_250MHZhwbug())
 		UASM_i_MTC0(p, 0, C0_ENTRYLO1);
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	UASM_i_MTC0(p, ptep, C0_ENTRYLO1); /* load it */
+#endif
 #endif
 }
 
@@ -1508,6 +1608,7 @@ static void  setup_pw(void)
 	kscratch_used_mask |= (1 << 7); /* KScratch6 is used for KPGD */
 }
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static void  build_loongson3_tlb_refill_handler(void)
 {
 	u32 *p = tlb_handler;
@@ -1567,6 +1668,7 @@ static void  build_loongson3_tlb_refill_handler(void)
 	local_flush_icache_range(ebase + 0x80, ebase + 0x100);
 	dump_handler("loongson3_tlb_refill", (u32 *)(ebase + 0x80), 32);
 }
+#endif
 
 extern u32 handle_tlbl[], handle_tlbl_end[];
 extern u32 handle_tlbs[], handle_tlbs_end[];
@@ -1994,6 +2096,10 @@ build_r4000_tlbchange_handler_head(u32 **p, struct uasm_label **l,
 {
 	struct work_registers wr = build_get_work_registers(p);
 
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_save_gprs(p);
+#endif
+
 #ifdef CONFIG_64BIT
 	build_get_pmde64(p, l, r, wr.r1, wr.r2); /* get pmd in ptr */
 #else
@@ -2019,8 +2125,10 @@ build_r4000_tlbchange_handler_head(u32 **p, struct uasm_label **l,
 	uasm_l_smp_pgtable_change(l, *p);
 #endif
 	iPTE_LW(p, wr.r1, wr.r2); /* get even pte */
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	if (!m4kc_tlbp_war())
 		build_tlb_probe_entry(p);
+#endif
 	return wr;
 }
 
@@ -2032,8 +2140,13 @@ build_r4000_tlbchange_handler_tail(u32 **p, struct uasm_label **l,
 	uasm_i_ori(p, ptr, ptr, sizeof(pte_t));
 	uasm_i_xori(p, ptr, ptr, sizeof(pte_t));
 	build_update_entries(p, tmp, ptr);
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	build_tlb_write_entry(p, l, r, tlb_indexed);
+#endif
 	uasm_l_leave(l, *p);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_restore_gprs(p);
+#endif
 	build_restore_work_registers(p);
 	uasm_i_eret(p); /* return from trap */
 
@@ -2206,6 +2319,9 @@ static void build_r4000_tlb_load_handler(void)
 	uasm_l_nopage_tlbl(&l, p);
 	if (loongson_llsc_war())
 		uasm_i_sync(&p, 0);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_restore_gprs(&p);
+#endif
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_0 & 1) {
@@ -2263,6 +2379,9 @@ static void build_r4000_tlb_store_handler(void)
 	uasm_l_nopage_tlbs(&l, p);
 	if (loongson_llsc_war())
 		uasm_i_sync(&p, 0);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_restore_gprs(&p);
+#endif
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_1 & 1) {
@@ -2321,6 +2440,9 @@ static void build_r4000_tlb_modify_handler(void)
 	uasm_l_nopage_tlbm(&l, p);
 	if (loongson_llsc_war())
 		uasm_i_sync(&p, 0);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_restore_gprs(&p);
+#endif
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_1 & 1) {
@@ -2538,10 +2660,13 @@ void build_tlb_refill_handler(void)
 			build_r4000_tlb_load_handler();
 			build_r4000_tlb_store_handler();
 			build_r4000_tlb_modify_handler();
+
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 			if (cpu_has_ldpte)
 				build_loongson3_tlb_refill_handler();
 			else if (!cpu_has_local_ebase)
 				build_r4000_tlb_refill_handler();
+#endif
 			flush_tlb_handlers();
 			run_once++;
 		}
