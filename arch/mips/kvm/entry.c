@@ -25,6 +25,8 @@
 #define C0_GSEBASE	9, 6
 #define LS_MODE_SHIFT	16
 #define LS_MID_SHIFT	18
+#define MIPS_GCTL0_ASID_SHIFT	20
+#define MIPS_GCTL0_ASID		(_ULCAST_(1) << MIPS_GCTL0_ASID_SHIFT)
 
 /* Register names */
 #define ZERO		0
@@ -362,6 +364,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_GM_SHIFT, 1);
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_CP0_SHIFT, 1);
 	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_CF_SHIFT, 1);
+	uasm_i_ins(&p, K0, V1, MIPS_GCTL0_ASID_SHIFT, 1);
 	uasm_i_mtc0(&p, K0, C0_GUESTCTL0);
 	/* LSVZ set diag bit[16] = 1 */
 	uasm_i_mfc0(&p, K0, C0_DIAG);
@@ -752,6 +755,21 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	 */
 	preempt_disable();
 
+#if 1 //Debug for ASID
+	/* Save guest A0,root.entryhi into VCPU structure */
+	UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
+		  K1);
+
+	/* Get guest ASID */
+	UASM_i_MFGC0(&p, A0, MIPS_CP0_TLB_HI, 0);
+	uasm_i_dsrl(&p, K0, K0, 8);
+	uasm_i_dsll(&p, K0, K0, 8);
+	uasm_i_or(&p, K0, K0, A0);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+#endif
+
 	/*Store the guest pgd into PWBASE*/
 	UASM_i_LW(&p, K0, (int)offsetof(struct kvm_vcpu, kvm), K1);
 	UASM_i_LW(&p, K0, offsetof(struct kvm, arch.gpa_mm.pgd), K0);
@@ -780,6 +798,15 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	build_get_ptep(&p, K0, K1);
 	build_update_entries(&p, K0, K1);
 	build_tlb_write_entry(&p, &l, &r, tlb_random);
+
+#if 1 //Debug for ASID
+	/* Restore Root.entryhi, Guest A0 from VCPU structure */
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
+		  K1);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+#endif
 
 	preempt_enable();
 
