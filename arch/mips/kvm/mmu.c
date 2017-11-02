@@ -773,6 +773,20 @@ retry:
 		prot_bits = _PAGE_PRESENT | __READABLE | _CACHE_UNCACHED;
 	else
 		prot_bits = _PAGE_PRESENT | __READABLE | _page_cachable_default;
+
+#if 1
+	/*Make CKSEG0/CKSEG3/XKPHYS/XKSEG address is GLOBAL*/
+	if (((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG0) ||
+		   ((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG3) ||
+		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
+		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)
+//			  ((vcpu->arch.host_cp0_badvaddr & 0xf000000000000000) == XKSEG)) {
+			  ) {
+
+		prot_bits |= _PAGE_GLOBAL;
+	}
+#endif
+
 	if (writeable) {
 		prot_bits |= _PAGE_WRITE;
 		if (write_fault) {
