@@ -709,6 +709,25 @@ void loongson_vz_general_exc(void)
 	);
 }
 #endif
+
+static int uasm_rel_highest(long val)
+{
+#ifdef CONFIG_64BIT
+	return ((((val + 0x800080008000L) >> 48) & 0xffff) ^ 0x8000) - 0x8000;
+#else
+	return 0;
+#endif
+}
+
+static int uasm_rel_higher(long val)
+{
+#ifdef CONFIG_64BIT
+	return ((((val + 0x80008000L) >> 32) & 0xffff) ^ 0x8000) - 0x8000;
+#else
+	return 0;
+#endif
+}
+
 /**
  * kvm_mips_build_tlb_refill_exception() - Assemble TLB refill handler.
  * @addr:	Address to start writing code.
@@ -1052,29 +1071,35 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	*/
 #if 1
 	UASM_i_MFC0(&p, T1, C0_BADVADDR);
-	uasm_i_lui(&p, T0, 0xf000);
+	UASM_i_ADDIU(&p, T0, ZERO,uasm_rel_highest(0xf000000000000000));
 	uasm_i_dsll(&p, T0, T0, 16);
-	uasm_i_ori(&p, T0, T0, 0x0);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_higher(0xf000000000000000));
 	uasm_i_dsll(&p, T0, T0, 16);
-	uasm_i_ori(&p, T0, T0, 0x0);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_hi(0xf000000000000000));
+	uasm_i_dsll(&p, T0, T0, 16);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_lo(0xf000000000000000));
 	uasm_i_and(&p, T2, T1, T0);
 
 	//Check for XKSEG address
-	uasm_i_lui(&p, T0, 0xc000);
+	UASM_i_ADDIU(&p, T0, ZERO,uasm_rel_highest(0xc000000000000000));
 	uasm_i_dsll(&p, T0, T0, 16);
-	uasm_i_ori(&p, T0, T0, 0x0);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_higher(0xc000000000000000));
 	uasm_i_dsll(&p, T0, T0, 16);
-	uasm_i_ori(&p, T0, T0, 0x0);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_hi(0xc000000000000000));
+	uasm_i_dsll(&p, T0, T0, 16);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_lo(0xc000000000000000));
 
 	uasm_il_beq(&p, &r, T2, T0, label_ignore_tlb_general);
 	uasm_i_nop(&p);
 
-	//Check for XUSEG address
-	uasm_i_lui(&p, T0, 0x4000);
+	//Check for XKUSEG address
+	UASM_i_ADDIU(&p, T0, ZERO,uasm_rel_highest(0x4000000000000000));
 	uasm_i_dsll(&p, T0, T0, 16);
-	uasm_i_ori(&p, T0, T0, 0x0);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_higher(0x4000000000000000));
 	uasm_i_dsll(&p, T0, T0, 16);
-	uasm_i_ori(&p, T0, T0, 0x0);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_hi(0x4000000000000000));
+	uasm_i_dsll(&p, T0, T0, 16);
+	UASM_i_ADDIU(&p, T0, T0, uasm_rel_lo(0x4000000000000000));
 
 	uasm_i_sltu(&p, AT, T1, T0);
 	uasm_il_bne(&p, &r, AT, ZERO, label_ignore_tlb_general);
