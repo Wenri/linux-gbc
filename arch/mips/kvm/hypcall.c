@@ -70,6 +70,10 @@ int guest_pte_trans(int parity, const unsigned long *args,
 //	else
 		pte[!idx].pte = 0;
 
+	/* Guest userspace PTE's PAGE_GLOBAL bits should not be set */
+	if (args[0] < XKSSEG)
+		pte[idx].pte &= ~_PAGE_GLOBAL;
+
 	if (ret)
 		ret = RESUME_HOST;
 
