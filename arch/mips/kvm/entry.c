@@ -759,11 +759,11 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 
 	*p = lui_inst | (high >> 16);
 	p++;
-	UASM_i_ADDIU(&p, K0, K0, high & 0xffff);
+	uasm_i_ori(&p, K0, K0, high & 0xffff);
 	uasm_i_dsll(&p, K0, K0, 16);
-	UASM_i_ADDIU(&p, K0, K0, low >> 16);
+	uasm_i_ori(&p, K0, K0, low >> 16);
 	uasm_i_dsll(&p, K0, K0, 16);
-	UASM_i_ADDIU(&p, K0, K0, low & 0xffff);
+	uasm_i_ori(&p, K0, K0, low & 0xffff);
 	uasm_i_jr(&p, K0);
 	uasm_i_nop(&p);
 
