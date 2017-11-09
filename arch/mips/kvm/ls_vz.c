@@ -1050,6 +1050,10 @@ static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 		count_hz = mips_hpt_frequency;
 	kvm_mips_init_count(vcpu, count_hz);
 
+	/* architecturally writable (e.g. from guest) */
+	kvm_change_sw_gc0_config(cop0, CONF_CM_CMASK,
+				 _page_cachable_default >> _CACHE_SHIFT);
+
 	/* EBase */
 	kvm_write_sw_gc0_ebase(cop0, (s32)0x80000000 | vcpu->vcpu_id);
 
