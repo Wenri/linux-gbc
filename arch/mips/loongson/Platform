@@ -30,6 +30,9 @@ ifdef CONFIG_CPU_LOONGSON3
   ifeq ($(call cc-option-yn, -Wa$(comma)-mno-fix-loongson3-llsc), y)
     cflags-y += -Wa$(comma)-mno-fix-loongson3-llsc
   endif
+  ifeq ($(call cc-option-yn, -Wa$(comma)-mfix-3a3kf-label), y)
+    cflags-y += -Wa$(comma)-mfix-3a3kf-label
+  endif
 endif
 #
 # binutils from v2.25 on and gcc starting from v4.9.0 treat -march=loongson3a
