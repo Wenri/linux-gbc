@@ -742,32 +742,55 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	u32 *p = addr;
 	struct uasm_label labels[2];
 	struct uasm_reloc relocs[2];
+//	struct uasm_label *l = labels;
+//	struct uasm_reloc *r = relocs;
+	unsigned long refill_target = (unsigned long)addr + 0x3b80;
+	unsigned int high = refill_target >> 32;
+	unsigned int low = (unsigned int)refill_target;
+	unsigned int lui_inst = 0x3c1a0000;
+
+	memset(labels, 0, sizeof(labels));
+	memset(relocs, 0, sizeof(relocs));
+
+	/* Save guest k1 into scratch register */
+	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.gprs[K0]), K1);
+
+	*p = lui_inst | (high >> 16);
+	p++;
+	UASM_i_ADDIU(&p, K0, K0, high & 0xffff);
+	uasm_i_dsll(&p, K0, K0, 16);
+	UASM_i_ADDIU(&p, K0, K0, low >> 16);
+	uasm_i_dsll(&p, K0, K0, 16);
+	UASM_i_ADDIU(&p, K0, K0, low & 0xffff);
+	uasm_i_jr(&p, K0);
+	uasm_i_nop(&p);
+
+	return p;
+}
+
+/**
+ * kvm_mips_build_tlb_refill_target() - Assemble TLB refill handler.
+ * @addr:	Address to start writing code.
+ * @handler:	Address of common handler (within range of @addr).
+ *
+ * Assemble TLB refill exception fast path handler for guest execution.
+ *
+ * Returns:	Next address after end of written function.
+ */
+void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
+{
+	u32 *p = addr;
+	struct uasm_label labels[2];
+	struct uasm_reloc relocs[2];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
 
-	/* Save guest k1 into scratch register */
-//	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
-//	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.gprs[K0]), K1);
-
-#if 0
-	/*test for refill one fixed page to get instructions*/
-	UASM_i_LA(&p, T9, (unsigned long)loongson_vz_exception);
-	uasm_i_jalr(&p, RA, T9);
-	uasm_i_nop(&p);
-#endif
 #if 1
-	/* Save guest k1 into scratch register */
-	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
-
-	/* Get the VCPU pointer from the VCPU scratch register */
-	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
-
-	/* Save guest k0 into VCPU structure */
-	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.gprs[K0]), K1);
-
 	/*
 	 * Some of the common tlbex code uses current_cpu_type(). For KVM we
 	 * assume symmetry and just disable preemption to silence the warning.

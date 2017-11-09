@@ -341,6 +341,9 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 		size = 0x200 + VECTORSPACING * 64;
 	else
 		size = 0x4000;
+#ifdef CONFIG_CPU_LOONGSON3
+	size = 0x8000;
+#endif
 
 	gebase = kzalloc(ALIGN(size, PAGE_SIZE), GFP_KERNEL);
 
@@ -370,6 +373,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	handler = gebase + 0x2000;
 
 	/*Create guest exception handler address map
+	  ______  tlb_refill jump target: gsebase + 0x3c00 == refill_start + 0x3b80
 	 |	|
 	 |	|
 	 |	|
@@ -400,6 +404,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	if (IS_ENABLED(CONFIG_KVM_MIPS_VZ) && IS_ENABLED(CONFIG_64BIT))
 		refill_start += 0x080;
 	refill_end = kvm_mips_build_tlb_refill_exception(refill_start, handler);
+	kvm_mips_build_tlb_refill_target(refill_start + 0x3b80, handler);
 
 	general_start = refill_start + 0x100;
 	printk("start %lx end %lx handler %lx\n",(unsigned long)refill_start,(unsigned long)refill_end,(unsigned long)handler);

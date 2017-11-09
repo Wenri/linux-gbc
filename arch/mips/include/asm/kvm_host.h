@@ -837,6 +837,7 @@ extern int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_v
 int kvm_mips_entry_setup(void);
 void *kvm_mips_build_vcpu_run(void *addr);
 void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler);
+void *kvm_mips_build_tlb_refill_target(void *addr, void *handler);
 void *kvm_mips_build_tlb_general_exception(void *addr, void *handler);
 void *kvm_mips_build_exception(void *addr, void *handler);
 void *kvm_mips_build_exit(void *addr);
