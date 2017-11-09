@@ -1095,17 +1095,6 @@ void build_get_ptep(u32 **p, unsigned int tmp, unsigned int ptr)
 	UASM_i_ADDU(p, ptr, ptr, tmp); /* add in offset */
 }
 
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-static int uasm_rel_higher(long val)
-{
-#ifdef CONFIG_64BIT
-	return ((((val + 0x80008000L) >> 32) & 0xffff) ^ 0x8000) - 0x8000;
-#else
-	return 0;
-#endif
-}
-#endif
-
 void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 {
 	/*
@@ -1142,40 +1131,26 @@ void build_update_entries(u32 **p, unsigned int tmp, unsigned int ptep)
 	if (r45k_bvahwbug())
 		build_tlb_probe_entry(p);
 	if (cpu_has_rixi) {
-		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL));
-		if (r4k_250MHZhwbug())
-			UASM_i_MTC0(p, 0, C0_ENTRYLO0);
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-
-		/*To get pfn,the same as asm version of pte_pfn
-		 *organize as follow
-		 * a0        a1         a2           a3
-		 *badvaddr  PAGE_SHIFT  even pte    odd pte
-		*/
-		uasm_i_daddiu(p, 8, 0, uasm_rel_higher(0x3ffffffffff));
-		uasm_i_dsll(p, 8, 8, 16);
-		uasm_i_daddiu(p, 8, 8, uasm_rel_hi(0x3ffffffffff));
-		uasm_i_dsll(p, 8, 8, 16);
-		uasm_i_daddiu(p, 8, 8, uasm_rel_lo(0x3ffffffffff));
-
+		/* To get pfn,the same as asm version of pte_pfn
+		 * organize as follow
+		 *  a0        a1         a2           a3
+		 * badvaddr  PAGE_SHIFT  even pte    odd pte
+		 */
 		uasm_i_move(p, 6, tmp);
-		uasm_i_and(p, 6, 6, 8);
-		//Move page to $5
-
-#else
-		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
-#endif
-		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL));
-
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 		uasm_i_move(p, 7, ptep);
-		uasm_i_and(p, 7, 7, 8);
-
 		uasm_i_dmfc0(p, 4, C0_BADVADDR);
 		uasm_i_addiu(p, 5, 0, PAGE_SHIFT);
 
 		uasm_i_hypcall(p);
+#else
+		UASM_i_ROTR(p, tmp, tmp, ilog2(_PAGE_GLOBAL));
+		if (r4k_250MHZhwbug())
+			UASM_i_MTC0(p, 0, C0_ENTRYLO0);
+		UASM_i_MTC0(p, tmp, C0_ENTRYLO0); /* load it */
+		UASM_i_ROTR(p, ptep, ptep, ilog2(_PAGE_GLOBAL));
 #endif
+
 	} else {
 		UASM_i_SRL(p, tmp, tmp, ilog2(_PAGE_GLOBAL)); /* convert to entrylo0 */
 		if (r4k_250MHZhwbug())

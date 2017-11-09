@@ -59,9 +59,9 @@ int guest_pte_trans(int parity, const unsigned long *args,
 	*/
 	//PFN is the PA over 12bits
 	if(!parity)
-		gpa = (args[2] >> 6) << 12;
+		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
 	else
-		gpa = (args[3] >> 6) << 12;
+		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
 
 	idx = (args[0] >> args[1]) & 1;
 	ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte[idx], &pte[!idx]);

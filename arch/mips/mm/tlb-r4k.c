@@ -28,7 +28,7 @@ extern void build_tlb_refill_handler(void);
 
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 static void emulate_tlb_ops(unsigned long address,
-			    unsigned long pagemask, unsigned long even_pte,
+			    unsigned long pageshift, unsigned long even_pte,
 			    unsigned long odd_pte)
 {
 
@@ -36,15 +36,6 @@ static void emulate_tlb_ops(unsigned long address,
 	"	.set	push			\n"
 	"	.set	noreorder		\n"
 	"	.set	noat			\n"
-	"	daddiu	$2, $0, 0x3ff		\n"
-	"	dsll	$2, $2, 0x10		\n"
-	"	daddiu	$2, $2, 0xffff		\n"
-	"	dsll	$2, $2, 0x10		\n"
-	"	daddiu	$2, $2, 0xffff		\n"
-	"	and	$6, $6, $2		\n"
-	"	and	$7, $7, $2		\n"
-	"	move	$4, $4			\n"
-	"	move	$5, $5			\n"
 	"	.word	0x42000028		\n" //hypcall
 	"	.set	pop			\n"
 	:::);
@@ -324,7 +315,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	pmd_t *pmdp;
 	pte_t *ptep;
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	unsigned long pagemask,even_pte,odd_pte;
+	unsigned long pageshift,even_pte,odd_pte;
 #else
 	int idx, pid;
 #endif
@@ -344,11 +335,11 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	pmdp = pmd_offset(pudp, address);
 
 	ptep = pte_offset_map(pmdp, address);
-	pagemask = 0x7800;
+	pageshift= 14;
 	even_pte = pte_val(*ptep++);
 	odd_pte = pte_val(*ptep);
 
-	emulate_tlb_ops(address, pagemask, even_pte, odd_pte);
+	emulate_tlb_ops(address, pageshift, even_pte, odd_pte);
 #else
 	pid = read_c0_entryhi() & ASID_MASK;
 	address &= (PAGE_MASK << 1);
