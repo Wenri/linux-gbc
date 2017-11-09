@@ -100,7 +100,12 @@ static inline void lose_fpu(int save)
 	if (is_msa_enabled()) {
 		if (save) {
 			save_msa(current);
-			asm volatile("cfc1 %0, $31"
+			asm volatile(".set push \t\n"
+#ifdef GAS_HAS_SET_HARDFLOAT
+					"\t.set hardfloat\n"
+#endif
+					"cfc1 %0, $31 \t\n"
+					".set pop \t\n"
 				: "=r"(current->thread.fpu.fcr31));
 		}
 		disable_msa();
