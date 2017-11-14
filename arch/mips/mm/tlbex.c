@@ -107,6 +107,7 @@ static int use_bbit_insns(void)
 	}
 }
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static int use_lwx_insns(void)
 {
 	switch (current_cpu_type()) {
@@ -116,6 +117,7 @@ static int use_lwx_insns(void)
 		return 0;
 	}
 }
+#endif
 #if defined(CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE) && \
     CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE > 0
 static bool scratchpad_available(void)
@@ -132,10 +134,12 @@ static int scratchpad_offset(int i)
 	return CONFIG_CAVIUM_OCTEON_CVMSEG_SIZE * 128 - (8 * i) - 32768;
 }
 #else
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static bool scratchpad_available(void)
 {
 	return false;
 }
+#endif
 static int scratchpad_offset(int i)
 {
 	BUG();
@@ -275,6 +279,23 @@ static inline void dump_handler(const char *symbol, const u32 *handler, int coun
 	pr_debug("\t.set\tpop\n");
 
 	pr_debug("\tEND(%s)\n", symbol);
+}
+
+static inline void loongson_dump_handler(const char *symbol, const u32 *handler, int count)
+{
+	int i;
+
+	pr_info("LEAF(%s)\n", symbol);
+
+	pr_info("\t.set push\n");
+	pr_info("\t.set noreorder\n");
+
+	for (i = 0; i < count; i++)
+		pr_info("\t.word\t0x%08x\t\t# %p\n", handler[i], &handler[i]);
+
+	pr_info("\t.set\tpop\n");
+
+	pr_info("\tEND(%s)\n", symbol);
 }
 
 /* The only general purpose registers allowed in TLB handlers. */
@@ -425,6 +446,7 @@ void build_save_gprs(u32 **p)
 	UASM_i_SW(p, 7, offsetof(struct tlb_gprs_save, a3), K0);
 	UASM_i_SW(p, 8, offsetof(struct tlb_gprs_save, a4), K0);
 }
+
 void build_restore_gprs(u32 **p)
 {
 	if (num_possible_cpus() > 1) {
@@ -509,7 +531,7 @@ static void build_r3000_tlb_refill_handler(void)
  * other one.To keep things simple, we first assume linear space,
  * then we relocate it to the final handler layout as needed.
  */
-static u32 final_handler[64];
+static u32 final_handler[128];
 
 /*
  * Hazards
@@ -1174,6 +1196,7 @@ struct mips_huge_tlb_info {
 	bool need_reload_pte;
 };
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static struct mips_huge_tlb_info
 build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 			       struct uasm_reloc **r, unsigned int tmp,
@@ -1344,7 +1367,83 @@ build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 
 	return rv;
 }
+#endif
 
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+
+static void build_r4000_tlb_refill_handler(void)
+{
+	u32 *p = tlb_handler;
+	struct uasm_label *l = labels;
+	struct uasm_reloc *r = relocs;
+	u32 *f;
+	struct mips_huge_tlb_info htlb_info __maybe_unused;
+	enum vmalloc64_mode vmalloc_mode __maybe_unused;
+
+	memset(tlb_handler, 0, sizeof(tlb_handler));
+	memset(labels, 0, sizeof(labels));
+	memset(relocs, 0, sizeof(relocs));
+	memset(final_handler, 0, sizeof(final_handler));
+
+	htlb_info.huge_pte = K0;
+	htlb_info.restore_scratch = 0;
+	htlb_info.need_reload_pte = true;
+	vmalloc_mode = refill_noscratch;
+	/*
+	 * create the plain linear handler
+	 */
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_save_gprs(&p);
+	UASM_i_ADDIU(&p, 8, 0, 0); //Indicate TLB MISS
+#endif
+
+#ifdef CONFIG_64BIT
+	build_get_pmde64(&p, &l, &r, K0, K1); /* get pmd in K1 */
+#else
+	build_get_pgde32(&p, K0, K1); /* get pgd in K1 */
+#endif
+
+#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
+	build_is_huge_pte(&p, &r, K0, K1, label_tlb_huge_update);
+#endif
+
+	build_get_ptep(&p, K0, K1);
+	build_update_entries(&p, K0, K1);
+
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_tlb_write_entry(&p, &l, &r, tlb_random);
+#endif
+	uasm_l_leave(&l, p);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_restore_gprs(&p);
+#endif
+	uasm_i_eret(&p); /* return from trap */
+
+#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
+	uasm_l_tlb_huge_update(&l, p);
+	if (htlb_info.need_reload_pte)
+		UASM_i_LW(&p, htlb_info.huge_pte, 0, K1);
+	build_huge_update_entries(&p, htlb_info.huge_pte, K1);
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
+	build_huge_tlb_write_entry(&p, &l, &r, K0, tlb_random,
+				   htlb_info.restore_scratch);
+#endif
+#endif
+
+#ifdef CONFIG_64BIT
+	build_get_pgd_vmalloc64(&p, &l, &r, K0, K1, vmalloc_mode);
+#endif
+	f = final_handler;
+	uasm_copy_handler(relocs, labels, tlb_handler, p, f);
+
+	uasm_resolve_relocs(relocs, labels);
+
+	memcpy((void *)(ebase +0x200), final_handler, 0x200);
+	local_flush_icache_range(ebase+0x200, ebase + 0x400);
+
+	loongson_dump_handler("r4000_tlb_refill", (void *)(ebase +0x200), 128);
+}
+#else
 /*
  * For a 64-bit kernel, we are using the 64-bit XTLB refill exception
  * because EXL == 0.  If we wrap, we can also use the 32 instruction
@@ -1410,6 +1509,7 @@ static void build_r4000_tlb_refill_handler(void)
 
 		build_get_ptep(&p, K0, K1);
 		build_update_entries(&p, K0, K1);
+
 		build_tlb_write_entry(&p, &l, &r, tlb_random);
 		uasm_l_leave(&l, p);
 		uasm_i_eret(&p); /* return from trap */
@@ -1536,8 +1636,9 @@ static void build_r4000_tlb_refill_handler(void)
 	memcpy((void *)ebase, final_handler, 0x100);
 	local_flush_icache_range(ebase, ebase + 0x100);
 
-	dump_handler("r4000_tlb_refill", (u32 *)ebase, 64);
+	loongson_dump_handler("r4000_tlb_refill", (u32 *)ebase, 64);
 }
+#endif
 
 static void  setup_pw(void)
 {
@@ -1583,7 +1684,6 @@ static void  setup_pw(void)
 	kscratch_used_mask |= (1 << 7); /* KScratch6 is used for KPGD */
 }
 
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static void  build_loongson3_tlb_refill_handler(void)
 {
 	u32 *p = tlb_handler;
@@ -1643,7 +1743,6 @@ static void  build_loongson3_tlb_refill_handler(void)
 	local_flush_icache_range(ebase + 0x80, ebase + 0x100);
 	dump_handler("loongson3_tlb_refill", (u32 *)(ebase + 0x80), 32);
 }
-#endif
 
 extern u32 handle_tlbl[], handle_tlbl_end[];
 extern u32 handle_tlbs[], handle_tlbs_end[];
@@ -2157,6 +2256,9 @@ static void build_r4000_tlb_load_handler(void)
 	}
 
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	UASM_i_ADDIU(&p, 8, 0, 2); //Indicate TLBL
+#endif
 	build_pte_present(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbl);
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
@@ -2331,6 +2433,9 @@ static void build_r4000_tlb_store_handler(void)
 	memset(relocs, 0, sizeof(relocs));
 
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	UASM_i_ADDIU(&p, 8, 0, 3); //Indicate TLBS
+#endif
 	build_pte_writable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbs);
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
@@ -2391,6 +2496,9 @@ static void build_r4000_tlb_modify_handler(void)
 	memset(relocs, 0, sizeof(relocs));
 
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	UASM_i_ADDIU(&p, 8, 0, 1); //Indicate TLBM
+#endif
 	build_pte_modifiable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbm);
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
@@ -2636,12 +2744,10 @@ void build_tlb_refill_handler(void)
 			build_r4000_tlb_store_handler();
 			build_r4000_tlb_modify_handler();
 
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 			if (cpu_has_ldpte)
 				build_loongson3_tlb_refill_handler();
 			else if (!cpu_has_local_ebase)
 				build_r4000_tlb_refill_handler();
-#endif
 			flush_tlb_handlers();
 			run_once++;
 		}

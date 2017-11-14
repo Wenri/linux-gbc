@@ -1121,7 +1121,11 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		}
 
 		decode_configs(c);
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV;
+#else
 		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
+#endif
 		break;
 	default:
 		panic("Unknown Loongson Processor ID!");
