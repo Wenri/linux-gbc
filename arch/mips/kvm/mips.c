@@ -461,7 +461,9 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 
 	kvm_debug("Allocated COMM page @ %p\n", vcpu->arch.kseg0_commpage);
 	kvm_mips_commpage_init(vcpu);
-	kvm_info("guest cop0 page @ %p gprs @ %p tlb @ %p\n", vcpu->arch.cop0, vcpu->arch.gprs, vcpu->arch.guest_tlb);
+	kvm_info("guest cop0 page @ %p gprs @ %p tlb @ %p pc @ %lx\n",
+		  vcpu->arch.cop0, vcpu->arch.gprs, vcpu->arch.guest_tlb,
+		  (unsigned long)&vcpu->arch.pc);
 
 	/* Init */
 	vcpu->arch.last_sched_cpu = -1;
@@ -1452,7 +1454,7 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 {
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
 	struct kvm_vcpu_arch *arch = &vcpu->arch;
-	u32 cause = read_gc0_cause();
+	u32 cause = kvm_read_c0_guest_cause(cop0);
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;

@@ -12,7 +12,7 @@
 #include <linux/kvm_host.h>
 #include <linux/kvm_para.h>
 
-#define MAX_HYPCALL_ARGS	4
+#define MAX_HYPCALL_ARGS	8
 
 enum vmtlbexc {
 	VMTLBL = 2,
@@ -48,6 +48,7 @@ int guest_pte_trans(int parity, const unsigned long *args,
 	int ret = 0;
 	unsigned long gpa;
 	int idx;
+	unsigned long entrylo;
 
 	/* The badvaddr we get maybe guest unmmaped or mmapped address,
 	 * but not a GPA
@@ -58,12 +59,21 @@ int guest_pte_trans(int parity, const unsigned long *args,
 	 * we get the guest pfn according the parameters,GPA-->HPA trans here
 	*/
 	//PFN is the PA over 12bits
-	if(!parity)
-		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
-	else
-		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
+	if(!parity) {
+		entrylo = pte_to_entrylo(args[2]);
+	} else {
+		entrylo = pte_to_entrylo(args[3]);
+	}
 
 	idx = (args[0] >> args[1]) & 1;
+	/*If not an valid pte*/
+	if((entrylo & 0x2) == 0) {
+		pte[idx].pte = 0;
+		pte[!idx].pte = 0;
+		goto out;
+	}
+
+	gpa = ((entrylo & 0x3ffffffffff) >> 6) << 12;
 	ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte[idx], &pte[!idx]);
 //	if ((args[0] & 0xf000000000000000) == XKSEG)
 //		pte[!idx].pte |= _PAGE_GLOBAL;
@@ -76,9 +86,9 @@ int guest_pte_trans(int parity, const unsigned long *args,
 
 	if (ret)
 		ret = RESUME_HOST;
-
+out:
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
-	kvm_info("2 %s gpa %lx pte[%d] %lx pte[%d] %lx\n",__func__,
+		kvm_debug("2 %s gpa %lx pte[%d] %lx pte[%d] %lx\n",__func__,
 			gpa, idx, pte_val(pte[idx]), !idx, pte_val(pte[!idx]));
 
 	return ret;
@@ -120,10 +130,6 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 	}
 	ret = guest_pte_trans(parity, args, vcpu, write_fault, pte_gpa);
 
-
-	if ((args[0] & 0xf000000000000000) < XKSSEG)
-	kvm_info("3 guest entryhi %lx guest pfn %lx %lx pte %lx %lx\n", (args[0] & 0xc000ffffffffe000),
-					 (args[2]>> 6), (args[3] >> 6),pte_val(pte_gpa[0]),pte_val(pte_gpa[1]));
 	/*update software tlb
 	*/
 	vcpu->arch.guest_tlb[0].tlb_hi = (args[0] & 0xc000ffffffffe000) |
@@ -131,6 +137,12 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 	vcpu->arch.guest_tlb[0].tlb_mask = 0x7800;
 	vcpu->arch.guest_tlb[0].tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa[0]));
 	vcpu->arch.guest_tlb[0].tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa[1]));
+
+	if ((args[0] & 0xf000000000000000) < XKSSEG)
+		kvm_info("%ld guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx\n",args[4], args[0],
+				 vcpu->arch.guest_tlb[0].tlb_hi, args[2], args[3],
+				 pte_val(pte_gpa[0]),pte_val(pte_gpa[1]));
+
 #endif
 
 	/* Report unimplemented hypercall to guest */
@@ -154,9 +166,10 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 	args[1] = vcpu->arch.gprs[5];	/* a1 PAGE_SHIFT */
 	args[2] = vcpu->arch.gprs[6];	/* a2 even pte value*/
 	args[3] = vcpu->arch.gprs[7];	/* a3 odd pte value*/
+	args[4] = vcpu->arch.gprs[8];	/* tlb_miss/tlbl/tlbs/tlbm */
 
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
-	kvm_info("1 guest badvaddr %lx pgshift %lu a0 %lx a1 %lx\n",
+		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",
 				 args[0],args[1],args[2],args[3]);
 
 	return kvm_mips_hypercall(vcpu, num,

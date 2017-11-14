@@ -104,6 +104,9 @@ enum label_id {
 	label_finish_tlb_fill,
 	label_ignore_tlb_general,
 	label_no_hypcall,
+	label_mapped,
+	label_not_mapped,
+	label_refill_exit,
 };
 
 UASM_L_LA(_fpu_1)
@@ -115,6 +118,9 @@ UASM_L_LA(_no_tlb_line)
 UASM_L_LA(_finish_tlb_fill)
 UASM_L_LA(_ignore_tlb_general)
 UASM_L_LA(_no_hypcall)
+UASM_L_LA(_not_mapped)
+UASM_L_LA(_mapped)
+UASM_L_LA(_refill_exit)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -709,7 +715,7 @@ void loongson_vz_general_exc(void)
 	);
 }
 #endif
-
+#if 0
 static int uasm_rel_highest(long val)
 {
 #ifdef CONFIG_64BIT
@@ -727,6 +733,7 @@ static int uasm_rel_higher(long val)
 	return 0;
 #endif
 }
+#endif
 
 /**
  * kvm_mips_build_tlb_refill_exception() - Assemble TLB refill handler.
@@ -782,8 +789,8 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 {
 	u32 *p = addr;
-	struct uasm_label labels[2];
-	struct uasm_reloc relocs[2];
+	struct uasm_label labels[5];
+	struct uasm_reloc relocs[5];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -800,6 +807,36 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 #if 1 //Debug for ASID
 	/* Save guest A0,root.entryhi into VCPU structure */
 	UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+	UASM_i_SW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
+	UASM_i_SW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
+	UASM_i_SW(&p, A3, offsetof(struct kvm_vcpu, arch.gprs[A3]), K1);
+
+	/* Is badvaddr userspace or kernel mapped */
+	UASM_i_MFC0(&p, K0, C0_BADVADDR);
+	uasm_i_lui(&p, A0, 0x8000);
+	uasm_i_sltu(&p, A0, K0, A0);
+	/* A0 == 0 means (badvaddr >= 0xffffffff80000000) */
+	uasm_il_beqz(&p, &r, A0, label_not_mapped);
+	uasm_i_nop(&p);
+
+	UASM_i_ADDIU(&p, A1, ZERO, 0xc000);
+	uasm_i_dsll32(&p, A1, A1, 16);
+	uasm_i_sltu(&p, A1, K0, A1);
+	uasm_i_xori(&p, A1, A1, 1);
+	/* A1 == 1 means (badvaddr >= 0xc000000000000000) */
+	uasm_il_bnez(&p, &r, A1, label_mapped);
+	uasm_i_nop(&p);
+
+	/* Is badvaddr userspace */
+	UASM_i_ADDIU(&p, A1, ZERO, 0x4000);
+	uasm_i_dsll32(&p, A1, A1, 16);
+	uasm_i_sltu(&p, A1, K0, A1);
+	/* A1 == 1 means (badvaddr < 0x4000000000000000) */
+	uasm_il_bnez(&p, &r, A1, label_mapped);
+	uasm_i_nop(&p);
+
+	uasm_l_not_mapped(&l, p);
+
 	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
 		  K1);
@@ -841,6 +878,27 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	build_update_entries(&p, K0, K1);
 	build_tlb_write_entry(&p, &l, &r, tlb_random);
 
+	uasm_il_b(&p, &r, label_refill_exit);
+	uasm_i_nop(&p);
+
+	uasm_l_mapped(&l, p);
+	UASM_i_MFC0(&p, A0, C0_EPC);
+	UASM_i_MTGC0(&p, A0, C0_EPC);
+	UASM_i_MFC0(&p, A0, C0_BADVADDR);
+	UASM_i_MTGC0(&p, A0, C0_BADVADDR);
+	uasm_i_mfgc0(&p, A0, C0_STATUS);
+	uasm_i_ori(&p, A0, A0, ST0_EXL);
+	uasm_i_mtgc0(&p, A0, C0_STATUS);
+
+	UASM_i_MFGC0(&p, A0, C0_EBASE);
+	UASM_i_ADDIU(&p, A0, A0, 0x200);
+	UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, arch.pc), K1);
+
+	/* Set Guest EPC */
+	UASM_i_MTC0(&p, A0, C0_EPC);
+
+	uasm_l_refill_exit(&l, p);
+
 #if 1 //Debug for ASID
 	/* Restore Root.entryhi, Guest A0 from VCPU structure */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
@@ -848,6 +906,9 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 		  K1);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
 	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+	UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
+	UASM_i_LW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
+	UASM_i_LW(&p, A3, offsetof(struct kvm_vcpu, arch.gprs[A3]), K1);
 #endif
 
 	preempt_enable();
@@ -863,6 +924,7 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	/* Jump to guest */
 	uasm_i_eret(&p);
 
+	uasm_resolve_relocs(relocs, labels);
 	return p;
 }
 
@@ -1094,38 +1156,23 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	*/
 #if 1
 	UASM_i_MFC0(&p, T1, C0_BADVADDR);
-	UASM_i_ADDIU(&p, T0, ZERO,uasm_rel_highest(0xf000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_higher(0xf000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_hi(0xf000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_lo(0xf000000000000000));
+	UASM_i_ADDIU(&p, T0, ZERO,0xf000);
+	uasm_i_dsll32(&p, T0, T0, 16);
 	uasm_i_and(&p, T2, T1, T0);
 
 	//Check for XKSEG address
-	UASM_i_ADDIU(&p, T0, ZERO,uasm_rel_highest(0xc000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_higher(0xc000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_hi(0xc000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_lo(0xc000000000000000));
+	UASM_i_ADDIU(&p, T0, ZERO,0xc000);
+	uasm_i_dsll32(&p, T0, T0, 16);
 
 	uasm_il_beq(&p, &r, T2, T0, label_ignore_tlb_general);
 	uasm_i_nop(&p);
 
 	//Check for XKUSEG address
-	UASM_i_ADDIU(&p, T0, ZERO,uasm_rel_highest(0x4000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_higher(0x4000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_hi(0x4000000000000000));
-	uasm_i_dsll(&p, T0, T0, 16);
-	UASM_i_ADDIU(&p, T0, T0, uasm_rel_lo(0x4000000000000000));
+	UASM_i_ADDIU(&p, T0, ZERO,0x4000);
+	uasm_i_dsll32(&p, T0, T0, 16);
 
 	uasm_i_sltu(&p, AT, T1, T0);
-	uasm_il_bne(&p, &r, AT, ZERO, label_ignore_tlb_general);
+	uasm_il_bnez(&p, &r, AT, label_ignore_tlb_general);
 	uasm_i_nop(&p);
 #endif
 
