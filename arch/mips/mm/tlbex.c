@@ -1407,7 +1407,15 @@ static void build_r4000_tlb_refill_handler(void)
 	build_is_huge_pte(&p, &r, K0, K1, label_tlb_huge_update);
 #endif
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	build_get_ptep(&p, K0, K1);
+#else
+	UASM_i_MFC0(&p, K0, C0_BADVADDR);
+	UASM_i_LW(&p, K1, 0, K1);
+	UASM_i_SRL(&p, K0, K0, PAGE_SHIFT + PTE_ORDER - PTE_T_LOG2);
+	uasm_i_andi(&p, K0, K0, (PTRS_PER_PTE/2 - 1) << (PTE_T_LOG2+1));
+	UASM_i_ADDU(&p, K1, K1, K0);
+#endif
 	build_update_entries(&p, K0, K1);
 
 #ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
