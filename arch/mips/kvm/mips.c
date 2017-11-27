@@ -1454,7 +1454,6 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 {
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
 	struct kvm_vcpu_arch *arch = &vcpu->arch;
-	u32 cause = kvm_read_c0_guest_cause(cop0);
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
@@ -1463,11 +1462,6 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 		/* save old pc */
 		kvm_write_c0_guest_epc(cop0, arch->pc);
 		kvm_set_c0_guest_status(cop0, ST0_EXL);
-
-		if (cause & CAUSEF_BD)
-			kvm_set_c0_guest_cause(cop0, CAUSEF_BD);
-		else
-			kvm_clear_c0_guest_cause(cop0, CAUSEF_BD);
 
 		kvm_debug("[EXL == 0] delivering TLB INV LD @ pc %#lx\n",
 			  arch->pc);

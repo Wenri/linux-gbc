@@ -815,6 +815,121 @@ out:
 	return err;
 }
 
+int kvm_lsvz_map_page(struct kvm_vcpu *vcpu, unsigned long gpa,
+			     bool write_fault, unsigned long prot_bits,
+			     pte_t *out_entry, pte_t *out_buddy)
+{
+	struct kvm *kvm = vcpu->kvm;
+	struct kvm_mmu_memory_cache *memcache = &vcpu->arch.mmu_page_cache;
+	gfn_t gfn = gpa >> PAGE_SHIFT;
+	int srcu_idx, err;
+	kvm_pfn_t pfn;
+	pte_t *ptep, entry, old_pte;
+	bool writeable;
+	unsigned long mmu_seq;
+
+	/* Try the fast path to handle old / clean pages */
+	srcu_idx = srcu_read_lock(&kvm->srcu);
+	err = _kvm_mips_map_page_fast(vcpu, gpa, write_fault, out_entry,
+				      out_buddy);
+	if (!err)
+		goto out;
+
+	/* We need a minimum of cached pages ready for page table creation */
+	err = mmu_topup_memory_cache(memcache, KVM_MMU_CACHE_MIN_PAGES,
+				     KVM_NR_MEM_OBJS);
+	if (err)
+		goto out;
+
+retry:
+	/*
+	 * Used to check for invalidations in progress, of the pfn that is
+	 * returned by pfn_to_pfn_prot below.
+	 */
+	mmu_seq = kvm->mmu_notifier_seq;
+	/*
+	 * Ensure the read of mmu_notifier_seq isn't reordered with PTE reads in
+	 * gfn_to_pfn_prot() (which calls get_user_pages()), so that we don't
+	 * risk the page we get a reference to getting unmapped before we have a
+	 * chance to grab the mmu_lock without mmu_notifier_retry() noticing.
+	 *
+	 * This smp_rmb() pairs with the effective smp_wmb() of the combination
+	 * of the pte_unmap_unlock() after the PTE is zapped, and the
+	 * spin_lock() in kvm_mmu_notifier_invalidate_<page|range_end>() before
+	 * mmu_notifier_seq is incremented.
+	 */
+	smp_rmb();
+
+	/* Slow path - ask KVM core whether we can access this GPA */
+	pfn = gfn_to_pfn_prot(kvm, gfn, write_fault, &writeable);
+	if (is_error_noslot_pfn(pfn)) {
+		err = -EFAULT;
+		goto out;
+	}
+
+	spin_lock(&kvm->mmu_lock);
+	/* Check if an invalidation has taken place since we got pfn */
+	if (mmu_notifier_retry(kvm, mmu_seq)) {
+		/*
+		 * This can happen when mappings are changed asynchronously, but
+		 * also synchronously if a COW is triggered by
+		 * gfn_to_pfn_prot().
+		 */
+		spin_unlock(&kvm->mmu_lock);
+		kvm_release_pfn_clean(pfn);
+		goto retry;
+	}
+
+	/* Ensure page tables are allocated */
+	ptep = kvm_mips_pte_for_gpa(kvm, memcache, gpa);
+
+	/* Set up the PTE */
+	/* Uncached Kseg1 memory space access */
+	if((vcpu->arch.host_cp0_badvaddr & 0xffffffffb0000000) == CKSEG1)
+		prot_bits |= _PAGE_PRESENT | __READABLE | _CACHE_UNCACHED;
+	else
+		prot_bits |= _PAGE_PRESENT | __READABLE | _page_cachable_default;
+
+#if 1
+	/*Make CKSEG0/CKSEG3/XKPHYS/XKSEG address is GLOBAL*/
+	if (((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG0) ||
+		   ((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG3) ||
+		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
+		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)
+			  ) {
+
+		prot_bits |= _PAGE_GLOBAL;
+	}
+#endif
+
+	if (writeable) {
+		prot_bits |= _PAGE_WRITE;
+		if (write_fault) {
+			prot_bits |= __WRITEABLE;
+			mark_page_dirty(kvm, gfn);
+			kvm_set_pfn_dirty(pfn);
+		}
+	}
+	entry = pfn_pte(pfn, __pgprot(prot_bits));
+
+	/* Write the PTE */
+	old_pte = *ptep;
+	set_pte(ptep, entry);
+
+	err = 0;
+	if (out_entry)
+		*out_entry = *ptep;
+	if (out_buddy)
+		*out_buddy = *ptep_buddy(ptep);
+
+	spin_unlock(&kvm->mmu_lock);
+	kvm_release_pfn_clean(pfn);
+	kvm_set_pfn_accessed(pfn);
+out:
+	srcu_read_unlock(&kvm->srcu, srcu_idx);
+	return err;
+}
+
 static pte_t *kvm_trap_emul_pte_for_gva(struct kvm_vcpu *vcpu,
 					unsigned long addr)
 {
@@ -1065,7 +1180,7 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 			gpa = CPHYSADDR(badvaddr);
 //		printk("%s badvadd %lx,gpa %lx\n",__func__, badvaddr, gpa);
 		idx = (badvaddr >> PAGE_SHIFT) & 1;
-		ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte_gpa[idx], &pte_gpa[!idx]);
+		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, 0, &pte_gpa[idx], &pte_gpa[!idx]);
 		if (ret)
 			return ret;
 		vcpu->arch.guest_tlb[0].tlb_hi = badvaddr & 0xc000ffffffffe000;

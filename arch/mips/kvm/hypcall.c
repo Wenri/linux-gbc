@@ -22,8 +22,8 @@ enum vmtlbexc {
 	VMTLBXI = 6
 };
 
-extern int kvm_mips_map_page(struct kvm_vcpu *vcpu, unsigned long gpa,
-				    bool write_fault,
+extern int kvm_lsvz_map_page(struct kvm_vcpu *vcpu, unsigned long gpa,
+				    bool write_fault,unsigned long prot_bits,
 				    pte_t *out_entry, pte_t *out_buddy);
 
 enum emulation_result kvm_mips_emul_hypcall(struct kvm_vcpu *vcpu,
@@ -46,9 +46,10 @@ int guest_pte_trans(int parity, const unsigned long *args,
 			      bool write_fault, pte_t *pte)
 {
 	int ret = 0;
-	unsigned long gpa;
+	unsigned long gpa = 0;
 	int idx;
 	unsigned long entrylo;
+	unsigned long prot_bits = 0;
 
 	/* The badvaddr we get maybe guest unmmaped or mmapped address,
 	 * but not a GPA
@@ -61,8 +62,10 @@ int guest_pte_trans(int parity, const unsigned long *args,
 	//PFN is the PA over 12bits
 	if(!parity) {
 		entrylo = pte_to_entrylo(args[2]);
+		prot_bits = args[2] & 0xffff; //Get all the sw/hw prot bits
 	} else {
 		entrylo = pte_to_entrylo(args[3]);
+		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits
 	}
 
 	idx = (args[0] >> args[1]) & 1;
@@ -74,7 +77,7 @@ int guest_pte_trans(int parity, const unsigned long *args,
 	}
 
 	gpa = ((entrylo & 0x3ffffffffff) >> 6) << 12;
-	ret = kvm_mips_map_page(vcpu, gpa, write_fault, &pte[idx], &pte[!idx]);
+	ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte[idx], &pte[!idx]);
 //	if ((args[0] & 0xf000000000000000) == XKSEG)
 //		pte[!idx].pte |= _PAGE_GLOBAL;
 //	else
@@ -139,7 +142,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 	vcpu->arch.guest_tlb[0].tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa[1]));
 
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
-		kvm_info("%ld guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx\n",args[4], args[0],
+		kvm_debug("%ld guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx\n",args[4], args[0],
 				 vcpu->arch.guest_tlb[0].tlb_hi, args[2], args[3],
 				 pte_val(pte_gpa[0]),pte_val(pte_gpa[1]));
 
