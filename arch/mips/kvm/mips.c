@@ -143,6 +143,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 
 	/* Allocate page table to map GPA -> RPA */
 	kvm->arch.gpa_mm.pgd = kvm_pgd_alloc();
+	printk("gpm_mm.pgd @ %p\n",kvm->arch.gpa_mm.pgd);
 	if (!kvm->arch.gpa_mm.pgd)
 		return -ENOMEM;
 

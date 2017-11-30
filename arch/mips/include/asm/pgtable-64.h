@@ -90,7 +90,7 @@
 #define PTE_ORDER		0
 #endif
 #ifdef CONFIG_PAGE_SIZE_16KB
-#define PGD_ORDER		0
+#define PGD_ORDER		1
 #define PUD_ORDER		aieeee_attempt_to_allocate_pud
 #define PMD_ORDER		0
 #define PTE_ORDER		0

@@ -107,6 +107,7 @@ enum label_id {
 	label_mapped,
 	label_not_mapped,
 	label_refill_exit,
+	label_tlb_normal,
 };
 
 UASM_L_LA(_fpu_1)
@@ -121,6 +122,7 @@ UASM_L_LA(_no_hypcall)
 UASM_L_LA(_not_mapped)
 UASM_L_LA(_mapped)
 UASM_L_LA(_refill_exit)
+UASM_L_LA(_tlb_normal)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -1560,6 +1562,7 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 		uasm_i_lw(&p, A3, offsetof(struct kvm_vcpu_arch, is_hypcall), K1);
 		uasm_il_beqz(&p, &r, A3, label_no_hypcall);
 		uasm_i_nop(&p);
+		UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[2]), K1);
 	}
 	uasm_i_mfc0(&p, A0, C0_INDEX); //save index
 	UASM_i_MFC0(&p, A1, C0_ENTRYHI);
@@ -1574,12 +1577,6 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	uasm_i_ins(&p, A2, A4, 18, 2);
 	uasm_i_mtc0(&p, A2, C0_DIAG);
 
-	/* Probe the TLB entry to be written into hardware */
-	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
-	UASM_i_MTC0(&p, V1, C0_ENTRYHI);
-	uasm_i_tlbp(&p);
-	uasm_i_ehb(&p);
-
 	/* Get guest TLB entry to be written into hardware */
 	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
 	UASM_i_MTC0(&p, V1, C0_PAGEMASK);
@@ -1588,12 +1585,45 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
 	UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
 
+	/* Probe the TLB entry to be written into hardware */
+	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
+	UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+	 /* As the ABI rules, K0 bits[15:12] present hypcall type,bits [11:0]
+	  * present sub-type, now we only use hypcall in tlb related operations
+	  * 0/1/2/3 represent TLB Miss /TLBM/TLBL/TLBS, [11:0] 0/1 represent normal/huge
+	 */
+	if (!update_tlb)
+	{
+		UASM_i_SRL(&p, T3, K0, 12);
+		uasm_il_beqz(&p, &r, T3, label_no_tlb_line);
+		uasm_i_nop(&p);
+	}
+
+	uasm_i_tlbp(&p);
+	uasm_i_ehb(&p);
+
 	uasm_i_mfc0(&p, T3, C0_INDEX);
 
 	/* If TLB entry to be written not in TLB hardware, write it randomly.
 	   Otherwise write it with index */
 	uasm_il_bltz(&p, &r, T3, label_no_tlb_line);
 	uasm_i_nop(&p);
+
+	if (!update_tlb)
+	{
+		uasm_i_andi(&p, K0, K0, 1);
+		uasm_il_beqz(&p, &r, K0, label_tlb_normal);
+		uasm_i_nop(&p);
+		uasm_i_ori(&p, T3, V1, 0x400); //set EHINV=1
+		UASM_i_MTC0(&p, T3, C0_ENTRYHI);
+		uasm_i_tlbwi(&p);
+		uasm_i_ehb(&p);
+		UASM_i_MTC0(&p, V1, C0_ENTRYHI);// set EHINV=0
+		uasm_il_b(&p, &r, label_no_tlb_line);
+		uasm_i_nop(&p);
+		uasm_l_tlb_normal(&l, p);
+	}
+
 	uasm_i_tlbwi(&p);
 	uasm_i_ehb(&p);
 	uasm_il_b(&p, &r, label_finish_tlb_fill);

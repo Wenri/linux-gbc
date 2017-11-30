@@ -137,12 +137,15 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 	*/
 	vcpu->arch.guest_tlb[0].tlb_hi = (args[0] & 0xc000ffffffffe000) |
 					 (read_gc0_entryhi() & KVM_ENTRYHI_ASID);
-	vcpu->arch.guest_tlb[0].tlb_mask = 0x7800;
+	if (args[1] == 14)
+		vcpu->arch.guest_tlb[0].tlb_mask = 0x7800; //normal pagesize 16KB
+	else if (args[1] == 24)
+		vcpu->arch.guest_tlb[0].tlb_mask = 0x1fff800; //huge pagesize 16MB
 	vcpu->arch.guest_tlb[0].tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa[0]));
 	vcpu->arch.guest_tlb[0].tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa[1]));
 
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
-		kvm_debug("%ld guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx\n",args[4], args[0],
+		kvm_debug("%lx guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx\n",args[4], args[0],
 				 vcpu->arch.guest_tlb[0].tlb_hi, args[2], args[3],
 				 pte_val(pte_gpa[0]),pte_val(pte_gpa[1]));
 
@@ -169,7 +172,7 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 	args[1] = vcpu->arch.gprs[5];	/* a1 PAGE_SHIFT */
 	args[2] = vcpu->arch.gprs[6];	/* a2 even pte value*/
 	args[3] = vcpu->arch.gprs[7];	/* a3 odd pte value*/
-	args[4] = vcpu->arch.gprs[8];	/* tlb_miss/tlbl/tlbs/tlbm */
+	args[4] = vcpu->arch.gprs[2];	/* tlb_miss/tlbl/tlbs/tlbm */
 
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
 		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",
