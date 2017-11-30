@@ -27,18 +27,30 @@
 extern void build_tlb_refill_handler(void);
 
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-static void emulate_tlb_ops(unsigned long address,
+static int emulate_tlb_ops(unsigned long address,
 			    unsigned long pageshift, unsigned long even_pte,
 			    unsigned long odd_pte)
 {
-
+#if 1
+	unsigned int ret;
 	__asm__ __volatile__(
 	"	.set	push			\n"
 	"	.set	noreorder		\n"
-	"	.set	noat			\n"
+	"	move	%[val], $2		\n"
+	"	ori	$2, $0, 0x4000	\n"
+	"	move	$4, %[A0]		\n"
+	"	move	$5, %[A1]		\n"
+	"	move	$6, %[A2]		\n"
+	"	move	$7, %[A3]		\n"
 	"	.word	0x42000028		\n" //hypcall
+	"	move	$2, %[val]		\n"
+	"	.set	reorder			\n"
 	"	.set	pop			\n"
-	:::);
+	: [val] "=r" (ret)
+	: [A0] "r" (address), [A1] "r" (pageshift), [A2] "r" (even_pte), [A3] "r" (odd_pte)
+	: "$2", "$4", "$5", "$6", "$7");
+	return ret;
+#endif
 }
 #endif
 

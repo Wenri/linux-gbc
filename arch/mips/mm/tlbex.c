@@ -50,22 +50,23 @@ struct work_registers {
 	int r3;
 };
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 struct tlb_reg_save {
 	unsigned long a;
 	unsigned long b;
 } ____cacheline_aligned_in_smp;
 
 static struct tlb_reg_save handler_reg_save[NR_CPUS];
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+#else
 struct tlb_gprs_save {
 	unsigned long a0;
 	unsigned long a1;
 	unsigned long a2;
 	unsigned long a3;
-	unsigned long a4;
+	unsigned long v0;
 } ____cacheline_aligned_in_smp;
 
-static struct tlb_gprs_save handler_gprs_save[NR_CPUS];
+struct tlb_gprs_save handler_gprs_save[NR_CPUS];
 #endif
 
 static inline int r45k_bvahwbug(void)
@@ -139,13 +140,13 @@ static bool scratchpad_available(void)
 {
 	return false;
 }
-#endif
 static int scratchpad_offset(int i)
 {
 	BUG();
 	/* Really unreachable, but evidently some GCC want this. */
 	return 0;
 }
+#endif
 #endif
 /*
  * Found by experiment: At least some revisions of the 4kc throw under
@@ -181,6 +182,7 @@ enum label_id {
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 	label_tlb_huge_update,
 #endif
+	label_call_hypcall,
 };
 
 UASM_L_LA(_second_part)
@@ -200,6 +202,7 @@ UASM_L_LA(_large_segbits_fault)
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 UASM_L_LA(_tlb_huge_update)
 #endif
+UASM_L_LA(_call_hypcall)
 
 static int hazard_instance;
 
@@ -318,6 +321,7 @@ static inline void loongson_dump_handler(const char *symbol, const u32 *handler,
 #define C0_ENTRYHI	10, 0
 #define C0_EPC		14, 0
 #define C0_XCONTEXT	20, 0
+#define C0_EBASE	15, 1
 
 #ifdef CONFIG_64BIT
 # define GET_CONTEXT(buf, reg) UASM_i_MFC0(buf, reg, C0_XCONTEXT)
@@ -376,6 +380,7 @@ int scratch_reg;
 int pgd_reg;
 enum vmalloc64_mode {not_refill, refill_scratch, refill_noscratch};
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static struct work_registers build_get_work_registers(u32 **p)
 {
 	struct work_registers r;
@@ -422,6 +427,7 @@ static void build_restore_work_registers(u32 **p)
 	UASM_i_LW(p, 1, offsetof(struct tlb_reg_save, a), K0);
 	UASM_i_LW(p, 2, offsetof(struct tlb_reg_save, b), K0);
 }
+#endif
 
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 void build_save_gprs(u32 **p)
@@ -444,7 +450,6 @@ void build_save_gprs(u32 **p)
 	UASM_i_SW(p, 5, offsetof(struct tlb_gprs_save, a1), K0);
 	UASM_i_SW(p, 6, offsetof(struct tlb_gprs_save, a2), K0);
 	UASM_i_SW(p, 7, offsetof(struct tlb_gprs_save, a3), K0);
-	UASM_i_SW(p, 8, offsetof(struct tlb_gprs_save, a4), K0);
 }
 
 void build_restore_gprs(u32 **p)
@@ -467,7 +472,6 @@ void build_restore_gprs(u32 **p)
 	UASM_i_LW(p, 5, offsetof(struct tlb_gprs_save, a1), K0);
 	UASM_i_LW(p, 6, offsetof(struct tlb_gprs_save, a2), K0);
 	UASM_i_LW(p, 7, offsetof(struct tlb_gprs_save, a3), K0);
-	UASM_i_LW(p, 8, offsetof(struct tlb_gprs_save, a4), K0);
 }
 #endif
 
@@ -531,7 +535,9 @@ static void build_r3000_tlb_refill_handler(void)
  * other one.To keep things simple, we first assume linear space,
  * then we relocate it to the final handler layout as needed.
  */
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static u32 final_handler[128];
+#endif
 
 /*
  * Hazards
@@ -737,6 +743,7 @@ static __maybe_unused void build_convert_pte_to_entrylo(u32 **p,
 	}
 }
 
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 #ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
 
 static void build_restore_pagemask(u32 **p, struct uasm_reloc **r,
@@ -877,6 +884,7 @@ static void build_huge_handler_tail(u32 **p,
 	build_huge_tlb_write_entry(p, l, r, pte, tlb_indexed, 0);
 }
 #endif /* CONFIG_MIPS_HUGE_TLB_SUPPORT */
+#endif /* CONFIG_KVM_GUEST_LOONGSON_VZ*/
 
 #ifdef CONFIG_64BIT
 /*
@@ -965,6 +973,7 @@ void build_get_pmde64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
  * BVADDR is the faulting address, PTR is scratch.
  * PTR will hold the pgd for vmalloc.
  */
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static void
 build_get_pgd_vmalloc64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 			unsigned int bvaddr, unsigned int ptr,
@@ -1030,6 +1039,7 @@ build_get_pgd_vmalloc64(u32 **p, struct uasm_label **l, struct uasm_reloc **r,
 		}
 	}
 }
+#endif
 
 #else /* !CONFIG_64BIT */
 
@@ -1370,86 +1380,13 @@ build_fast_tlb_refill_handler (u32 **p, struct uasm_label **l,
 #endif
 
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-
+extern u32 tlb_miss[], handle_tlb_miss[];
 static void build_r4000_tlb_refill_handler(void)
 {
-	u32 *p = tlb_handler;
-	struct uasm_label *l = labels;
-	struct uasm_reloc *r = relocs;
-	u32 *f;
-	struct mips_huge_tlb_info htlb_info __maybe_unused;
-	enum vmalloc64_mode vmalloc_mode __maybe_unused;
-
-	memset(tlb_handler, 0, sizeof(tlb_handler));
-	memset(labels, 0, sizeof(labels));
-	memset(relocs, 0, sizeof(relocs));
-	memset(final_handler, 0, sizeof(final_handler));
-
-	htlb_info.huge_pte = K0;
-	htlb_info.restore_scratch = 0;
-	htlb_info.need_reload_pte = true;
-	vmalloc_mode = refill_noscratch;
-	/*
-	 * create the plain linear handler
-	 */
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_save_gprs(&p);
-	UASM_i_ADDIU(&p, 8, 0, 0); //Indicate TLB MISS
-#endif
-
-#ifdef CONFIG_64BIT
-	build_get_pmde64(&p, &l, &r, K0, K1); /* get pmd in K1 */
-#else
-	build_get_pgde32(&p, K0, K1); /* get pgd in K1 */
-#endif
-
-#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
-	build_is_huge_pte(&p, &r, K0, K1, label_tlb_huge_update);
-#endif
-
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_get_ptep(&p, K0, K1);
-#else
-	UASM_i_MFC0(&p, K0, C0_BADVADDR);
-	UASM_i_LW(&p, K1, 0, K1);
-	UASM_i_SRL(&p, K0, K0, PAGE_SHIFT + PTE_ORDER - PTE_T_LOG2);
-	uasm_i_andi(&p, K0, K0, (PTRS_PER_PTE/2 - 1) << (PTE_T_LOG2+1));
-	UASM_i_ADDU(&p, K1, K1, K0);
-#endif
-	build_update_entries(&p, K0, K1);
-
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_tlb_write_entry(&p, &l, &r, tlb_random);
-#endif
-	uasm_l_leave(&l, p);
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_restore_gprs(&p);
-#endif
-	uasm_i_eret(&p); /* return from trap */
-
-#ifdef CONFIG_MIPS_HUGE_TLB_SUPPORT
-	uasm_l_tlb_huge_update(&l, p);
-	if (htlb_info.need_reload_pte)
-		UASM_i_LW(&p, htlb_info.huge_pte, 0, K1);
-	build_huge_update_entries(&p, htlb_info.huge_pte, K1);
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_huge_tlb_write_entry(&p, &l, &r, K0, tlb_random,
-				   htlb_info.restore_scratch);
-#endif
-#endif
-
-#ifdef CONFIG_64BIT
-	build_get_pgd_vmalloc64(&p, &l, &r, K0, K1, vmalloc_mode);
-#endif
-	f = final_handler;
-	uasm_copy_handler(relocs, labels, tlb_handler, p, f);
-
-	uasm_resolve_relocs(relocs, labels);
-
-	memcpy((void *)(ebase +0x200), final_handler, 0x200);
+	memcpy((void *)(ebase +0x200), tlb_miss, 0x200);
 	local_flush_icache_range(ebase+0x200, ebase + 0x400);
 
-	loongson_dump_handler("r4000_tlb_refill", (void *)(ebase +0x200), 128);
+	dump_handler("r4000_tlb_refill", (void *)(ebase +0x200), 128);
 }
 #else
 /*
@@ -1760,6 +1697,7 @@ extern u32 tlbmiss_handler_setup_pgd_end[];
 
 static void  build_setup_pgd(void)
 {
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	const int a0 = 4;
 	const int __maybe_unused a1 = 5;
 	const int __maybe_unused a2 = 6;
@@ -1833,6 +1771,7 @@ static void  build_setup_pgd(void)
 
 	dump_handler("tlbmiss_handler", tlbmiss_handler_setup_pgd,
 					tlbmiss_handler_setup_pgd_size);
+#endif
 }
 
 static void
@@ -2172,6 +2111,7 @@ static void build_r3000_tlb_modify_handler(void)
 /*
  * R4000 style TLB load/store/modify handlers.
  */
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 static struct work_registers
 build_r4000_tlbchange_handler_head(u32 **p, struct uasm_label **l,
 				   struct uasm_reloc **r)
@@ -2236,19 +2176,22 @@ build_r4000_tlbchange_handler_tail(u32 **p, struct uasm_label **l,
 	build_get_pgd_vmalloc64(p, l, r, tmp, ptr, not_refill);
 #endif
 }
+#endif /*CONFIG_KVM_GUEST_LOONGSON_VZ*/
 
 static void build_r4000_tlb_load_handler(void)
 {
 	u32 *p = handle_tlbl;
 	const int handle_tlbl_size = handle_tlbl_end - handle_tlbl;
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 	struct work_registers wr;
 
 	memset(handle_tlbl, 0, handle_tlbl_size * sizeof(handle_tlbl[0]));
+#endif
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
-
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	if (bcm1250_m3_war()) {
 		unsigned int segbits = 44;
 
@@ -2417,6 +2360,7 @@ static void build_r4000_tlb_load_handler(void)
 #endif
 	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_0 & 0x0fffffff);
 	uasm_i_nop(&p);
+#endif
 
 	if (p >= handle_tlbl_end)
 		panic("TLB load handler fastpath space exceeded");
@@ -2432,18 +2376,17 @@ static void build_r4000_tlb_store_handler(void)
 {
 	u32 *p = handle_tlbs;
 	const int handle_tlbs_size = handle_tlbs_end - handle_tlbs;
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 	struct work_registers wr;
 
 	memset(handle_tlbs, 0, handle_tlbs_size * sizeof(handle_tlbs[0]));
+#endif
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
-
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	UASM_i_ADDIU(&p, 8, 0, 3); //Indicate TLBS
-#endif
 	build_pte_writable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbs);
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
@@ -2467,9 +2410,6 @@ static void build_r4000_tlb_store_handler(void)
 	uasm_l_nopage_tlbs(&l, p);
 	if (loongson_llsc_war())
 		uasm_i_sync(&p, 0);
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_restore_gprs(&p);
-#endif
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_1 & 1) {
@@ -2480,6 +2420,7 @@ static void build_r4000_tlb_store_handler(void)
 #endif
 	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
 	uasm_i_nop(&p);
+#endif
 
 	if (p >= handle_tlbs_end)
 		panic("TLB store handler fastpath space exceeded");
@@ -2495,18 +2436,17 @@ static void build_r4000_tlb_modify_handler(void)
 {
 	u32 *p = handle_tlbm;
 	const int handle_tlbm_size = handle_tlbm_end - handle_tlbm;
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 	struct work_registers wr;
 
 	memset(handle_tlbm, 0, handle_tlbm_size * sizeof(handle_tlbm[0]));
+#endif
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
-
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	wr = build_r4000_tlbchange_handler_head(&p, &l, &r);
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	UASM_i_ADDIU(&p, 8, 0, 1); //Indicate TLBM
-#endif
 	build_pte_modifiable(&p, &r, wr.r1, wr.r2, wr.r3, label_nopage_tlbm);
 	if (m4kc_tlbp_war())
 		build_tlb_probe_entry(&p);
@@ -2531,9 +2471,6 @@ static void build_r4000_tlb_modify_handler(void)
 	uasm_l_nopage_tlbm(&l, p);
 	if (loongson_llsc_war())
 		uasm_i_sync(&p, 0);
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	build_restore_gprs(&p);
-#endif
 	build_restore_work_registers(&p);
 #ifdef CONFIG_CPU_MICROMIPS
 	if ((unsigned long)tlb_do_page_fault_1 & 1) {
@@ -2544,6 +2481,7 @@ static void build_r4000_tlb_modify_handler(void)
 #endif
 	uasm_i_j(&p, (unsigned long)tlb_do_page_fault_1 & 0x0fffffff);
 	uasm_i_nop(&p);
+#endif
 
 	if (p >= handle_tlbm_end)
 		panic("TLB modify handler fastpath space exceeded");
