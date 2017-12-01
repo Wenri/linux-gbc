@@ -1139,7 +1139,12 @@ static int enable_restore_fp_context(int msa)
 
 		/* Restore the scalar FP control & status register */
 		if (!was_fpu_owner)
-			asm volatile("ctc1 %0, $31" : : "r"(current->thread.fpu.fcr31));
+			asm volatile(".set push \n"
+#ifdef GAS_HAS_SET_HARDFLOAT
+					".set hardfloat \n"
+#endif
+					"ctc1 %0, $31 \n"
+					".set pop \n": : "r"(current->thread.fpu.fcr31));
 	}
 out:
 	preempt_enable();
