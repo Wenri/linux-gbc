@@ -675,7 +675,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			LoadW(addr, value, res);
 			if (res)
 				goto fault;
-			current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt] = value;
+			set_fpr32(&current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt], 0, value);
 			compute_return_epc(regs);
 			own_fpu(1);
 			break;
@@ -690,7 +690,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			LoadDW(addr, value, res);
 			if (res)
 				goto fault;
-			current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt] = value;
+			set_fpr64(&current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt], 0, value);
 			compute_return_epc(regs);
 			own_fpu(1);
 			break;
@@ -754,7 +754,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				goto sigbus;
 
 			lose_fpu(1);
-			value = current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt];
+			value = get_fpr32(&current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt], 0);
 
 			StoreW(addr, value, res);
 
@@ -773,7 +773,7 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				goto sigbus;
 			lose_fpu(1);
 
-			value = current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt];
+			value = get_fpr64(&current->thread.fpu.fpr[insn.loongson3_lsdc2_format.rt], 0);
 
 			StoreDW(addr, value, res);
 
@@ -813,12 +813,12 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 				goto sigbus;
 
 			lose_fpu(1);
-			value1 = current->thread.fpu.fpr[insn.loongson3_lswc2_format.rq];
+			value1 = get_fpr64(&current->thread.fpu.fpr[insn.loongson3_lswc2_format.rq], 0);
 
 			StoreDW(addr + 8, value1, res);
 			if (res)
 				goto fault;
-			value = current->thread.fpu.fpr[insn.loongson3_lswc2_format.rt];
+			value = get_fpr64(&current->thread.fpu.fpr[insn.loongson3_lswc2_format.rt], 0);
 
 			StoreDW(addr, value, res);
 			if (res)
@@ -859,8 +859,8 @@ static void emulate_load_store_insn(struct pt_regs *regs,
 			if (res)
 				goto fault;
 
-			current->thread.fpu.fpr[insn.loongson3_lswc2_format.rt] = value;
-			current->thread.fpu.fpr[insn.loongson3_lswc2_format.rq] = value1;
+			set_fpr64(&current->thread.fpu.fpr[insn.loongson3_lswc2_format.rt], 0, value);
+			set_fpr64(&current->thread.fpu.fpr[insn.loongson3_lswc2_format.rq], 0, value1);
 			compute_return_epc(regs);
 			own_fpu(1);
 		}
