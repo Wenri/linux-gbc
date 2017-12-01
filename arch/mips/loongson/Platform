@@ -38,6 +38,10 @@ else
       $(call cc-option,-march=mips64r2,-mips64r2 -U_MIPS_ISA -D_MIPS_ISA=_MIPS_ISA_MIPS64)
 endif
 
+ifeq ($(call cc-option-yn, -Wa$(comma)-mfix-3a3kf-label), y)
+  cflags-y += -Wa$(comma)-mfix-3a3kf-label
+endif
+
 #
 # Loongson Machines' Support
 #
