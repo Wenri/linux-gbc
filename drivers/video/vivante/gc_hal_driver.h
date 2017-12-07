@@ -22,8 +22,6 @@
 #ifndef __gc_hal_driver_h_
 #define __gc_hal_driver_h_
 
-#include <linux/types.h>
-#include "boot_param.h"
 #include "gc_hal_enum.h"
 #include "gc_hal_types.h"
 
@@ -31,11 +29,29 @@
 #include "gc_hal_driver_vg.h"
 #endif
 
+/* add by hb, add hardware cache coherent micro */
 #undef HARDWARE_CACHE_COHERENT 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/******************************************************************************\
+******************************** 2H Chip Version ******************************
+\******************************************************************************/
+#define LS2H_VER2 2
+#define LS2H_VER3 3
+
+#define LS2H_VRAM_2H_DDR 0x01
+#define LS2H_VRAM_3A_DDR 0x02
+
+#define LS2H_SOC_GPU   0x01
+#define LS3A_2H_GPU	0x02
+#define LS2K_SOC_GPU   0x03
+
+extern unsigned int chip_version;
+extern unsigned int vram_kind;
+extern unsigned int board_kind;
 
 /******************************************************************************\
 ******************************* I/O Control Codes ******************************
@@ -170,9 +186,6 @@ typedef enum _gceHAL_COMMAND_CODES
 
     /* Reset time stamp. */
     gcvHAL_QUERY_RESET_TIME_STAMP,
-
-    /* Open burst register */
-    gcvHAL_OPEN_BURST_REG,
 }
 gceHAL_COMMAND_CODES;
 

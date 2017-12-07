@@ -1220,24 +1220,26 @@ gckHARDWARE_InitializeHardware(
                                       data));
         }
     }
-	/*outstanding register, 0x01: NoneBurst */
-    if(vram_type == VRAM_TYPE_UMA)
-    {
-         gctUINT32 data;
-         gcmkONERROR(
-             gckOS_ReadRegisterEx(Hardware->os,
-                                  Hardware->core,
-                                  0x00414,
-                                  &data));
-         data &= 0xffffff81;
-         data |= 0x01;
+	if(LS3A_2H_GPU == board_kind)
+	{
+		if(LS2H_VRAM_3A_DDR == vram_kind)
+		{
+		               gctUINT32 data;
+		            gcmkONERROR(
+		                gckOS_ReadRegisterEx(Hardware->os,
+		                                     Hardware->core,
+		                                     0x00414,
+		                                     &data));
+		               data &= 0xffffff81;
+		               data |= 0x01;
 
-         gcmkONERROR(
-             gckOS_WriteRegisterEx(Hardware->os,
-                                   Hardware->core,
-                                   0x00414,
-                                   data));
-    }
+		            gcmkONERROR(
+		                gckOS_WriteRegisterEx(Hardware->os,
+		                                      Hardware->core,
+		                                      0x00414,
+		                                      data));
+		}
+	}
 
     /* Success. */
     gcmkFOOTER_NO();

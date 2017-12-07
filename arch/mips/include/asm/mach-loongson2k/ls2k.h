@@ -369,9 +369,9 @@ enum {
 #define LS2K_VRAM_2H_DDR 0x01
 #define LS2K_VRAM_3A_DDR 0x02
         
-#define LS2K_SOC_GPU    0x01
+#define LS2H_SOC_GPU    0x01
 #define LS3A_2H_GPU     0x02
-
+#define LS2K_SOC_GPU    0x03
 
 struct ls2k_usbh_data {
 	u8      ports;      /* number of ports on root hub */

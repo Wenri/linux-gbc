@@ -22,21 +22,49 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 
+#include "gc_hal_kernel_linux.h"
+#include "gc_hal_driver.h"
+
+
 #if USE_PLATFORM_DRIVER
 #   include <linux/platform_device.h>
 #endif
-
-#include "loongson-pch.h"
-#include "platform_driver.h"
-#include "gc_hal_kernel_linux.h"
-#include "gc_hal_driver.h"
 
 #ifdef CONFIG_PXA_DVFM
 #   include <mach/dvfm.h>
 #   include <mach/pxa3xx_dvfm.h>
 #endif
 
+#include "ls2hgpu_driver.h"
+#ifdef CONFIG_MACH_LOONGSON2K
+#include <ls2k.h>
+#else
+#include <ls2h/ls2h.h>
+#endif
+
 #define ALL_IN_2H
+
+#define LS2HSOC_GPU_IRQ 102
+#define LS2HSOC_GPU_REGBASE 0x1fe40000
+#define LS3A2H_GPU_IRQ 102
+#define LS3A2H_GPU_REGBASE 0x1be40000
+#define LS3A2H3_GPU_IRQ 102
+#define LS3A2H3_GPU_REGBASE 0x1be40000
+
+
+#define LS2HSOC_GPU_CONTIGUOUSBADR 0x09000000
+/* contigoussize must be integer times of 16MB */
+#define LS2HSOC_GPU_CONTIGUOUSSIZE 0x04000000
+
+#define LS3A2H3_GPU_CONTIGUOUSBADR 0x0a000000
+/* contigoussize must be integer times of 16MB */
+#define LS3A2H3_GPU_CONTIGUOUSSIZE 0x04000000
+
+
+#define LS3A2H_GPU_CONTIGUOUSBADR 0x08000000
+#define LS3A2H_GPU_CONTIGUOUSSIZE 0x08000000
+
+#define LS2HSOC_GPU_SHOWARG 1
 
 /* Zone used for header/footer. */
 #define _GC_OBJ_ZONE    gcvZONE_DRIVER
@@ -44,6 +72,11 @@
 
 MODULE_DESCRIPTION("Vivante Graphics Driver");
 MODULE_LICENSE("GPL");
+
+
+u32 chip_version = LS2H_VER3;
+u32 vram_kind = LS2H_VRAM_2H_DDR;
+u32 board_kind = LS2H_SOC_GPU;
 
 static struct class* gpuClass;
 
@@ -94,7 +127,7 @@ module_param(fastClear, int, 0644);
 static int compression = -1;
 module_param(compression, int, 0644);
 
-static int powerManagement = 1;
+static int powerManagement = 0;
 module_param(powerManagement, int, 0644);
 
 static int signal = 48;
@@ -117,28 +150,43 @@ module_param(showArgs, int, 0644);
     module_param(coreClock, ulong, 0644);
 #endif
 
-struct dma_coherent_mem {
-    void            *virt_base;
-    dma_addr_t      device_base;
-    unsigned long   pfn_base;
-    int             size;
-    int             flags;
-    unsigned long   *bitmap;
-};
+
+#if 0
+static int ls2hgpu_drv_open(
+    struct inode* inode,
+    struct file* filp
+    );
+
+static int ls2hgpu_drv_release(
+    struct inode* inode,
+    struct file* filp
+    );
+
+static long ls2hgpu_drv_ioctl(
+    struct file* filp,
+    unsigned int ioctlCode,
+    unsigned long arg
+    );
+
+static int ls2hgpu_drv_mmap(
+    struct file* filp,
+    struct vm_area_struct* vma
+    );
+#endif
 
 static struct file_operations driver_fops =
 {
     .owner      = THIS_MODULE,
-    .open       = loongson_drv_open,
-    .release    = loongson_drv_release,
-    .unlocked_ioctl = loongson_drv_ioctl,
+    .open       = ls2hgpu_drv_open,
+    .release    = ls2hgpu_drv_release,
+    .unlocked_ioctl = ls2hgpu_drv_ioctl,
 #ifdef HAVE_COMPAT_IOCTL
-    .compat_ioctl = loongson_drv_ioctl,
+    .compat_ioctl = ls2hgpu_drv_ioctl,
 #endif
-    .mmap       = loongson_drv_mmap,
+    .mmap       = ls2hgpu_drv_mmap,
 };
 
-int loongson_drv_open(
+int ls2hgpu_drv_open(
     struct inode* inode,
     struct file* filp
     )
@@ -236,7 +284,7 @@ OnError:
     return -ENOTTY;
 }
 
-int loongson_drv_release(
+int ls2hgpu_drv_release(
     struct inode* inode,
     struct file* filp
     )
@@ -322,7 +370,7 @@ OnError:
     return -ENOTTY;
 }
 
-long loongson_drv_ioctl(
+long ls2hgpu_drv_ioctl(
     struct file* filp,
     unsigned int ioctlCode,
     unsigned long arg
@@ -437,36 +485,6 @@ long loongson_drv_ioctl(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
-
-    if (iface.command == gcvHAL_OPEN_BURST_REG)
-    {
-	gctUINT32 data;
-
-	printk("set outstanding register \n");
-
-        for (i = 0; i < gcdMAX_GPU_COUNT; i++)
-        {
-            if (device->kernels[i] != gcvNULL)
-            {
-		gcmkONERROR(
-	                gckOS_ReadRegisterEx(device->kernels[i]->hardware->os,
-	                                     device->kernels[i]->hardware->core,
-	                                     0x00414,
-	                                     &data));
-		data &= 0xffffff80;
-	
-	        gcmkONERROR(
-	                gckOS_WriteRegisterEx(device->kernels[i]->hardware->os,
-	                                      device->kernels[i]->hardware->core,
-	                                      0x00414,
-	                                      data));
-
-		printk("0x414 in ioctl.c is %x: \n", data);
-		break;
-            }
-        }
-    }
-
     if (iface.command == gcvHAL_CHIP_INFO)
     {
         count = 0;
@@ -573,7 +591,7 @@ OnError:
     return -ENOTTY;
 }
 
-int loongson_drv_mmap(
+int ls2hgpu_drv_mmap(
     struct file* filp,
     struct vm_area_struct* vma
     )
@@ -621,6 +639,7 @@ int loongson_drv_mmap(
         gcmkONERROR(gcvSTATUS_INVALID_ARGUMENT);
     }
 
+/* add by hb, add hardware cache coherent */
 #ifndef HARDWARE_CACHE_COHERENT
 
 #if !gcdPAGED_MEMORY_CACHEABLE
@@ -744,12 +763,12 @@ static int drv_init(void)
     }
 #endif
 
-    printk(KERN_INFO "Galcore Version %d.%d.%d.%d\n",
+    printk(KERN_INFO "Galcore version %d.%d.%d.%d\n",
         gcvVERSION_MAJOR, gcvVERSION_MINOR, gcvVERSION_PATCH, gcvVERSION_BUILD);
 
     if (showArgs)
     {
-        printk("Galcore Options:\n");
+        printk("galcore options:\n");
         printk("  irqLine           = %d\n",      irqLine);
         printk("  registerMemBase   = 0x%08lX\n", registerMemBase);
         printk("  registerMemSize   = 0x%08lX\n", registerMemSize);
@@ -939,27 +958,56 @@ static void drv_exit(void)
     module_exit(drv_exit);
 #else
 
-#ifdef ALL_IN_2H
-struct device *GPU_DEV;
-size_t all_reserved_size;
-dma_addr_t bus_addr;
-dma_addr_t device_addr = 0;
+#ifdef CONFIG_DOVE_GPU
+#   define DEVICE_NAME "dove_gpu"
+#else
+#   define DEVICE_NAME "galcore"
 #endif
 
-int loongson_gpu_probe(struct platform_device *pdev)
+#ifdef ALL_IN_2H
+struct device *GPU_DEV;
+#endif
+
+int  ls2hgpu_gpu_probe(struct platform_device *pdev)
 {
     int ret = -ENODEV;
     struct resource* res;
 #ifdef ALL_IN_2H
+    dma_addr_t bus_addr;
+    dma_addr_t device_addr = 0;
+    size_t all_reserved_size;
     int flags;
 #endif
+    struct ls2k_gpu_plat_data *gdata =
+             (struct ls2k_gpu_plat_data *)pdev->dev.platform_data;
+
 
     gcmkHEADER();
 
 #ifdef ALL_IN_2H
     GPU_DEV = &pdev->dev;
+/*
+#ifdef SOC_MODE
+    bus_addr = 0x0000000009000000;
+    device_addr = 0x09000000;
+    all_reserved_size = 0x05000000;
+#else
+    bus_addr = 0x00000e0004000000;
+    device_addr = 0x04000000;
+    all_reserved_size  = 0x0c000000;
+#endif
+*/
+    chip_version = gdata->chip_ver;
+    vram_kind = gdata->vram_kind;
+    board_kind = gdata->board_kind;
 
-    physSize = 0x80000000;
+    if (chip_version == LS2H_VER3)
+	{
+		physSize = 0x80000000;
+	}
+
+    printk("[galcore] %s(%d, GPU CHIP version:):%s\n", __FUNCTION__, __LINE__, (chip_version > 2) ? "LS2H_VER3_GPU" : "LS2H_VER2_GPU");
+
 
     flags = (DMA_MEMORY_MAP | DMA_MEMORY_EXCLUSIVE);
 #endif
@@ -969,7 +1017,7 @@ int loongson_gpu_probe(struct platform_device *pdev)
     if (!res)
     {
         printk(KERN_ERR "%s: No irq line supplied.\n",__FUNCTION__);
-        goto gpu_probe_fail;
+        goto ls2hgpu_gpu_probe_fail;
     }
 
     irqLine = res->start;
@@ -978,41 +1026,65 @@ int loongson_gpu_probe(struct platform_device *pdev)
     if (!res)
     {
         printk(KERN_ERR "%s: No register base supplied.\n",__FUNCTION__);
-        goto gpu_probe_fail;
+        goto ls2hgpu_gpu_probe_fail;
     }
 
     registerMemBase = res->start;
-    registerMemSize = res->end - res->start + 1;
+//    registerMemSize = res->end - res->start + 1;
+    registerMemSize = 0x800;
 
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpu_mem");
     if (!res)
     {
         printk(KERN_ERR "%s: No memory base supplied.\n",__FUNCTION__);
-        goto gpu_probe_fail;
+        goto ls2hgpu_gpu_probe_fail;
     }
 
     contiguousBase = 0;
-    /* contiguousSize = all_reserved_size - 16MB */
+    /*contiguousSize = all_reserved_size - 16MB */
     contiguousSize = res->end - res->start + 1 - 0x01000000;
 
-    printk("res->start is 0x%llx, res->end is 0x%llx\n", res->start, res->end);
-    printk("contiguousSize is %lx\n", contiguousSize);
+    printk("res->end is 0x%x, res->start is 0x%x \n", res->end, res->start);
+    printk("contiguousSize is %x \n", contiguousSize);
 
     bus_addr = res->start;
     all_reserved_size  = res->end - res->start + 1;
 
-    printk("all reserved_size is %lx\n", all_reserved_size);
+    printk("all reserved_size  is %x \n", all_reserved_size);
 
-    if(vram_type == VRAM_TYPE_UMA)
-    	device_addr = bus_addr | 0x40000000;
-    if(vram_type == VRAM_TYPE_SP)
+    if(LS2H_SOC_GPU == board_kind)
+      device_addr = bus_addr & 0xffffffff;
+    if((LS3A_2H_GPU == board_kind) && (LS2H_VRAM_3A_DDR == vram_kind))
+      device_addr = (bus_addr & 0xffffffff) | 0x40000000;
+    if((LS3A_2H_GPU == board_kind) && (LS2H_VRAM_2H_DDR == vram_kind))
+      device_addr = bus_addr & 0xffffffff;
+    if(LS2K_SOC_GPU == board_kind)
     	device_addr = bus_addr & 0xffffffff;
 
 #ifdef ALL_IN_2H
-    if (!dma_declare_coherent_memory(GPU_DEV, bus_addr, device_addr, all_reserved_size, flags))
-    {
-        dev_err(GPU_DEV, "cannot declare coherent memory\n");
-    }
+        /* The sm501 chip is equipped with local memory that may be used
+         * by on-chip devices such as the video controller and the usb host.
+         * This driver uses dma_declare_coherent_memory() to make sure
+         * usb allocations with dma_alloc_coherent() allocate from
+         * this local memory. The dma_handle returned by dma_alloc_coherent()
+         * will be an offset starting from 0 for the first local memory byte.
+         *
+         * So as long as data is allocated using dma_alloc_coherent() all is
+         * fine. This is however not always the case - buffers may be allocated
+         * using kmalloc() - so the usb core needs to be told that it must copy
+         * data into our local memory if the buffers happen to be placed in
+         * regular memory. The HCD_LOCAL_MEM flag does just that.
+         */
+
+        if (!dma_declare_coherent_memory(GPU_DEV, bus_addr, device_addr, all_reserved_size, flags))
+        {
+		printk("***************************************cannot declare coherent memory****************************\n");
+
+                dev_err(GPU_DEV, "cannot declare coherent memory\n");
+        }
+
+
+
 #endif
 
     ret = drv_init();
@@ -1025,12 +1097,12 @@ int loongson_gpu_probe(struct platform_device *pdev)
         return ret;
     }
 
-gpu_probe_fail:
+ls2hgpu_gpu_probe_fail:
     gcmkFOOTER_ARG(KERN_INFO "Failed to register gpu driver: %d\n", ret);
     return ret;
 }
 
-int loongson_gpu_remove(struct platform_device *pdev)
+int ls2hgpu_gpu_remove(struct platform_device *pdev)
 {
     gcmkHEADER();
     drv_exit();
@@ -1038,10 +1110,7 @@ int loongson_gpu_remove(struct platform_device *pdev)
     return 0;
 }
 
-void *real_vram;
-void *shadow_vram = NULL;
-
-int loongson_gpu_suspend(struct platform_device *dev, pm_message_t state)
+int ls2hgpu_gpu_suspend(struct platform_device *dev, pm_message_t state)
 {
     gceSTATUS status;
     gckGALDEVICE device;
@@ -1089,18 +1158,10 @@ int loongson_gpu_suspend(struct platform_device *dev, pm_message_t state)
         }
     }
 
-    if (vram_type == VRAM_TYPE_SP) {
-        shadow_vram = vmalloc(all_reserved_size);
-        if (shadow_vram) {
-            real_vram = GPU_DEV->dma_mem->virt_base;
-            memcpy_fromio(shadow_vram, real_vram, all_reserved_size);
-        }
-    }
-
     return 0;
 }
 
-int loongson_gpu_resume(struct platform_device *dev)
+int ls2hgpu_gpu_resume(struct platform_device *dev)
 {
     gceSTATUS status;
     gckGALDEVICE device;
@@ -1108,14 +1169,6 @@ int loongson_gpu_resume(struct platform_device *dev)
     gceCHIPPOWERSTATE   statesStored;
 
     device = platform_get_drvdata(dev);
-
-    if (vram_type == VRAM_TYPE_SP) {
-        if (shadow_vram) {
-            real_vram = GPU_DEV->dma_mem->virt_base;
-            memcpy_toio(real_vram, shadow_vram, all_reserved_size);
-            vfree(shadow_vram);
-        }
-    }
 
     for (i = 0; i < gcdMAX_GPU_COUNT; i++)
     {
@@ -1179,4 +1232,127 @@ int loongson_gpu_resume(struct platform_device *dev)
     return 0;
 }
 
+#if 0
+static struct platform_driver gpu_driver = {
+    .probe      = ls2hgpu_gpu_probe,
+    .remove     = ls2hgpu_gpu_remove,
+
+    .suspend    = ls2hgpu_gpu_suspend,
+    .resume     = ls2hgpu_gpu_resume,
+
+    .driver     = {
+        .name   = DEVICE_NAME,
+    }
+};
+
+#ifndef CONFIG_DOVE_GPU
+static struct resource gpu_resources[] = {
+    {
+        .name   = "gpu_irq",
+        .flags  = IORESOURCE_IRQ,
+    },
+    {
+        .name   = "gpu_base",
+        .flags  = IORESOURCE_MEM,
+    },
+/*hb, 3a2h mod, gpu mem allocate in 2H ddr*/
+#ifdef SOC_MODE
+    {
+        .name   = "gpu_mem",
+        .flags  = IORESOURCE_MEM,
+    },
+#endif
+};
+
+static struct platform_device * gpu_device;
+#endif
+
+static int __init gpu_init(void)
+{
+    int ret = 0;
+
+#ifndef CONFIG_DOVE_GPU
+#if 0
+    gpu_resources[0].start = gpu_resources[0].end = irqLine;
+
+    gpu_resources[1].start = registerMemBase;
+    gpu_resources[1].end   = registerMemBase + registerMemSize - 1;
+
+    gpu_resources[2].start = contiguousBase;
+    gpu_resources[2].end   = contiguousBase + contiguousSize - 1;
+#else
+#ifdef SOC_MODE
+    gpu_resources[0].start = gpu_resources[0].end = LS2HSOC_GPU_IRQ;
+
+    gpu_resources[1].start = LS2HSOC_GPU_REGBASE;
+    gpu_resources[1].end   = LS2HSOC_GPU_REGBASE + registerMemSize - 1;
+
+    gpu_resources[2].start = LS2HSOC_GPU_CONTIGUOUSBADR ;
+    gpu_resources[2].end   = LS2HSOC_GPU_CONTIGUOUSBADR  + LS2HSOC_GPU_CONTIGUOUSSIZE - 1;
+#else
+    gpu_resources[0].start = gpu_resources[0].end = LS3A2H_GPU_IRQ;
+
+    gpu_resources[1].start = LS3A2H_GPU_REGBASE;
+    gpu_resources[1].end   = LS3A2H_GPU_REGBASE + registerMemSize - 1;
+#endif
+#endif
+
+    /* Allocate device */
+    gpu_device = platform_device_alloc(DEVICE_NAME, -1);
+    if (!gpu_device)
+    {
+        printk(KERN_ERR "galcore: platform_device_alloc failed.\n");
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    /* Insert resource */
+#ifdef SOC_MODE
+    ret = platform_device_add_resources(gpu_device, gpu_resources, 3);
+#else
+    ret = platform_device_add_resources(gpu_device, gpu_resources, 2);
+#endif
+    if (ret)
+    {
+        printk(KERN_ERR "galcore: platform_device_add_resources failed.\n");
+        goto put_dev;
+    }
+
+    /* Add device */
+    ret = platform_device_add(gpu_device);
+    if (ret)
+    {
+        printk(KERN_ERR "galcore: platform_device_add failed.\n");
+        goto put_dev;
+    }
+#endif
+
+    ret = platform_driver_register(&gpu_driver);
+    if (!ret)
+    {
+        goto out;
+    }
+
+#ifndef CONFIG_DOVE_GPU
+    platform_device_del(gpu_device);
+put_dev:
+    platform_device_put(gpu_device);
+#endif
+
+out:
+    return ret;
+}
+
+static void __exit gpu_exit(void)
+{
+    platform_driver_unregister(&gpu_driver);
+#ifndef CONFIG_DOVE_GPU
+    platform_device_unregister(gpu_device);
+#endif
+}
+
+module_init(gpu_init);
+module_exit(gpu_exit);
+MODULE_LICENSE( "GPL" );
+#endif
 #endif

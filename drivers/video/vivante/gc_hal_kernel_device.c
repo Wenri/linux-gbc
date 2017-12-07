@@ -28,10 +28,11 @@
 
 #define _GC_OBJ_ZONE    gcvZONE_DEVICE
 
-#define DEBUG_FILE 		"galcore_trace"
+#define DEBUG_FILE             "galcore_trace"
 #define PARENT_FILE 		"gpu"
 
-#define USE_BIG_VIDMEM
+/*add by hb, for 16MB mem Alloc */
+#define hb_USE_BIG_VIDMEM
 
 #ifdef FLAREON
     static struct dove_gpio_irq_handler gc500_handle;
@@ -388,7 +389,7 @@ gckGALDEVICE_Construct(
         /* Set up register memory region. */
         if (physical != 0)
         {
-            mem_region = request_mem_region(
+/*            mem_region = request_mem_region(
                 physical, device->requestedRegisterMemSizes[i], "galcore register region"
                 );
 
@@ -403,7 +404,7 @@ gckGALDEVICE_Construct(
 
                 gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
             }
-
+*/
             device->registerBases[i] = (gctPOINTER) ioremap_nocache(
                 physical, device->requestedRegisterMemSizes[i]);
 
@@ -704,17 +705,18 @@ gckGALDEVICE_Construct(
     {
         if (ContiguousBase == 0)
         {
-#ifdef USE_BIG_VIDMEM
-            gctPOINTER h_contiguousBase;
-            gctPHYS_ADDR h_contiguousPhysical;
-            gctUINT32 h_physAddr = 0;
-            int run_once = 0;
+#ifdef hb_USE_BIG_VIDMEM
+		/* add by hb, fix alloc limit*/
+		gctPOINTER          h_contiguousBase;
+		gctPHYS_ADDR        h_contiguousPhysical;
+		gctUINT32 h_physAddr = 0;
+		int flag = 0;
 #endif
 
             while (device->contiguousSize > 0)
             {
                 /* Allocate contiguous memory. */
-#ifndef USE_BIG_VIDMEM
+#ifndef hb_USE_BIG_VIDMEM
                 status = _AllocateMemory(
                     device,
                     device->contiguousSize,
@@ -763,33 +765,37 @@ gckGALDEVICE_Construct(
                 /* Allocate contiguous memory. */
 		status = _AllocateMemory(
 		    device,
-		    device->contiguousSize > 0x1000000 ? 0x1000000 : device->contiguousSize,
+/*		      device->contiguousSize, */
+		    0x1000000 < device->contiguousSize ? 0x1000000 : device->contiguousSize,
 		    &h_contiguousBase,
 		    &h_contiguousPhysical,
 		    &h_physAddr
 		    );
 		
-		if(run_once == 0)
+		if(flag == 0)
 		{
 		    device->contiguousBase = h_contiguousBase,
 		    device->contiguousPhysical = h_contiguousPhysical,
 		    physAddr = h_physAddr;
+
                     device->contiguousPhysicalName = gcmPTR_TO_NAME(device->contiguousPhysical);
-		    run_once = 1;
+		    flag = 1;
 		}
 		
-		if (device->contiguousSize <= (16 << 20))
+		if (device->contiguousSize <= (1 << 24))
 		{
 		    device->contiguousSize = 0;
 		}
 		else
 		{
-		    device->contiguousSize -= (16 << 20);
+		    device->contiguousSize -= (1 << 24);
 		}
 	#endif
             }
 
-#ifdef USE_BIG_VIDMEM
+#ifdef hb_USE_BIG_VIDMEM
+/*add by hb, for 16MB mem Alloc */
+/*            if (gcmIS_SUCCESS(status)) */
             {
 		    {
     			PLINUX_MDL      mdl = (PLINUX_MDL)device->contiguousPhysical;
@@ -802,7 +808,8 @@ gckGALDEVICE_Construct(
                 status = gckVIDMEM_Construct(
                     device->os,
                     physAddr | device->systemMemoryBaseAddress,
-                    ContiguousSize,
+/*                    device->contiguousSize, */
+		     ContiguousSize,
                     64,
                     BankSize,
                     &device->contiguousVidMem
@@ -842,24 +849,25 @@ gckGALDEVICE_Construct(
             }
             else
             {
-                if (vram_type == VRAM_TYPE_UMA)
+/*hb, 3a2h mod, gpu mem allocate in 2H ddr, so we cannot request mem region*/
+	if(LS2H_SOC_GPU == board_kind || LS2H_VRAM_3A_DDR == vram_kind)
+	{
+                mem_region = request_mem_region(
+                    ContiguousBase, ContiguousSize, "galcore managed memory"
+                    );
+
+                if (mem_region == gcvNULL)
                 {
-                    mem_region = request_mem_region(
-                        ContiguousBase, ContiguousSize, "galcore managed memory"
+                    gcmkTRACE_ZONE(
+                        gcvLEVEL_ERROR, gcvZONE_DRIVER,
+                        "%s(%d): Failed to claim %ld bytes @ 0x%08X\n",
+                        __FUNCTION__, __LINE__,
+                        ContiguousSize, ContiguousBase
                         );
 
-                    if (mem_region == gcvNULL)
-                    {
-                        gcmkTRACE_ZONE(
-                            gcvLEVEL_ERROR, gcvZONE_DRIVER,
-                            "%s(%d): Failed to claim %ld bytes @ 0x%08X\n",
-                            __FUNCTION__, __LINE__,
-                            ContiguousSize, ContiguousBase
-                            );
-
-                        gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
-                    }
+                    gcmkONERROR(gcvSTATUS_OUT_OF_RESOURCES);
                 }
+	}
                 device->requestedContiguousBase  = ContiguousBase;
                 device->requestedContiguousSize  = ContiguousSize;
 

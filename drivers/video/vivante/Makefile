@@ -131,7 +131,7 @@ ifeq ($(CONFIG_USE_BANK_ALIGNMENT), 1)
 endif
 
 obj-$(CONFIG_VIVANTE)	+= galcore.o
-galcore-y	:= loongson-gpu.o gc_hal_kernel_device.o gc_hal_kernel_driver.o gc_hal_kernel_linux.o gc_hal_kernel_math.o \
+galcore-y	:= ls2h-gpu.o gc_hal_kernel_device.o gc_hal_kernel_driver.o gc_hal_kernel_linux.o gc_hal_kernel_math.o \
 	gc_hal_kernel_os.o gc_hal_kernel.o gc_hal_kernel_command.o  gc_hal_kernel_db.o gc_hal_kernel_debug.o \
 	gc_hal_kernel_event.o gc_hal_kernel_heap.o gc_hal_kernel_mmu.o gc_hal_kernel_video_memory.o \
 	gc_hal_kernel_context.o gc_hal_kernel_hardware.o gc_hal_kernel_debugfs.o \
