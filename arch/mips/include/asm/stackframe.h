@@ -77,7 +77,12 @@
 
 #ifdef CONFIG_SMP
 		.macro	get_saved_sp	/* SMP variation */
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 		ASM_CPUID_MFC0	k0, ASM_SMP_CPUID_REG
+#else
+		MFC0	k0, $15, 1
+		andi	k0, k0, 0xff
+#endif
 #if defined(CONFIG_32BIT) || defined(KBUILD_64BIT_SYM32)
 		lui	k1, %hi(kernelsp)
 #else
@@ -87,14 +92,24 @@
 		daddiu	k1, %hi(kernelsp)
 		dsll	k1, 16
 #endif
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 		LONG_SRL	k0, SMP_CPUID_PTRSHIFT
+#else
+		LONG_SLL	k0, 3
+#endif
 		LONG_ADDU	k1, k0
 		LONG_L	k1, %lo(kernelsp)(k1)
 		.endm
 
 		.macro	set_saved_sp stackp temp temp2
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 		ASM_CPUID_MFC0	\temp, ASM_SMP_CPUID_REG
 		LONG_SRL	\temp, SMP_CPUID_PTRSHIFT
+#else
+		MFC0	\temp, $15, 1
+		andi	\temp, \temp, 0xff
+		LONG_SLL	\temp, 3
+#endif
 		LONG_S	\stackp, kernelsp(\temp)
 		.endm
 #else /* !CONFIG_SMP */
