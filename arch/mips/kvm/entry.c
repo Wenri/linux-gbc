@@ -475,8 +475,10 @@ static void *kvm_mips_build_enter_guest(void *addr)
 #endif
 	uasm_i_ehb(&p);
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/* Disable RDHWR access */
 	uasm_i_mtc0(&p, ZERO, C0_HWRENA);
+#endif
 
 	/* load the guest context from VCPU and return */
 	for (i = 1; i < 32; ++i) {
@@ -1148,10 +1150,12 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	/* Restore host scratch registers, as we'll have clobbered them */
 	kvm_mips_build_restore_scratch(&p, K0, SP);
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/* Restore RDHWR access */
 	UASM_i_LA_mostly(&p, K0, (long)&hwrena);
 	uasm_i_lw(&p, K0, uasm_rel_lo((long)&hwrena), K0);
 	uasm_i_mtc0(&p, K0, C0_HWRENA);
+#endif
 
 	/*If we meet XKSEG/XUSEG address,we ignore the invalid exception
 	 * process and jump back to guest_ebase+0x180
@@ -1499,10 +1503,12 @@ void *kvm_mips_build_exit(void *addr)
 	/* Restore host scratch registers, as we'll have clobbered them */
 	kvm_mips_build_restore_scratch(&p, K0, SP);
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/* Restore RDHWR access */
 	UASM_i_LA_mostly(&p, K0, (long)&hwrena);
 	uasm_i_lw(&p, K0, uasm_rel_lo((long)&hwrena), K0);
 	uasm_i_mtc0(&p, K0, C0_HWRENA);
+#endif
 
 	/* Jump to handler */
 	/*
@@ -1749,10 +1755,12 @@ static void *kvm_mips_build_ret_to_host(void *addr)
 		UASM_i_LW(&p, i, offsetof(struct pt_regs, regs[i]), K1);
 	}
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/* Restore RDHWR access */
 	UASM_i_LA_mostly(&p, K0, (long)&hwrena);
 	uasm_i_lw(&p, K0, uasm_rel_lo((long)&hwrena), K0);
 	uasm_i_mtc0(&p, K0, C0_HWRENA);
+#endif
 
 	/* Restore RA, which is the address we will return to */
 	UASM_i_LW(&p, RA, offsetof(struct pt_regs, regs[RA]), K1);
