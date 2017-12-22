@@ -328,6 +328,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	pte_t *ptep;
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 	unsigned long pageshift,even_pte,odd_pte;
+	unsigned long tmp_address;
 #else
 	int idx, pid;
 #endif
@@ -342,6 +343,8 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	htw_stop();
 
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	tmp_address = address;
+	address &= (PAGE_MASK << 1);
 	pgdp = pgd_offset(vma->vm_mm, address);
 	pudp = pud_offset(pgdp, address);
 	pmdp = pmd_offset(pudp, address);
@@ -351,7 +354,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	even_pte = pte_val(*ptep++);
 	odd_pte = pte_val(*ptep);
 
-	emulate_tlb_ops(address, pageshift, even_pte, odd_pte);
+	emulate_tlb_ops(tmp_address, pageshift, even_pte, odd_pte);
 #else
 	pid = read_c0_entryhi() & ASID_MASK;
 	address &= (PAGE_MASK << 1);
