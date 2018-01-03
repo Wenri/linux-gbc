@@ -1195,7 +1195,7 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		/*the MMIO address space*/
 		ret = RESUME_HOST;
 		return ret;
-	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSEG3) ||
+	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSSEG) ||
 			  ((badvaddr & 0xf000000000000000) == XKSEG) ||
 			  ((badvaddr & 0xf000000000000000) < XKSSEG)) {
 
@@ -1492,9 +1492,13 @@ int kvm_get_inst(u32 *opc, struct kvm_vcpu *vcpu, u32 *out)
 	 * invalidation.
 	 */
 	//1. get the pte of the instruction
-	gpa = CPHYSADDR((unsigned long)opc);
+	if(((unsigned long) opc & XKSEG) == XKPHYS)
+		gpa = XKPHYS_TO_PHYS((unsigned long)opc);
+	else
+		gpa = CPHYSADDR((unsigned long)opc);
+
 	idx = ((unsigned long)opc >> PAGE_SHIFT) & 1;
-	err = kvm_mips_map_page(vcpu, gpa, false, &pte_gpa[idx], &pte_gpa[!idx]);
+	err = kvm_lsvz_map_page(vcpu, gpa, false, 0, &pte_gpa[idx], &pte_gpa[!idx]);
 	if (err)
 		return err;
 	//2. get the page of the instruction

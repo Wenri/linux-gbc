@@ -1450,11 +1450,16 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	return ret;
 }
 
+#define TLBM 1
+#define TLBL 2
+#define TLBS 3
+
 /*If meet XKSEG/XUSEG address,we ignore the tlbl/tlbs/tlbm process in root*/
 int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
 	struct kvm_vcpu_arch *arch = &vcpu->arch;
+	int guest_exc = 0;
 	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
@@ -1474,8 +1479,15 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	/* set pc to the exception entry point */
 	arch->pc = kvm_mips_guest_exception_base(vcpu) + 0x180;
 
+	if(gsexccode == 2)
+		guest_exc = TLBL;
+	else if(gsexccode == 3)
+		guest_exc = TLBS;
+	else if(gsexccode == 4)
+		guest_exc = TLBM;
+
 	kvm_change_c0_guest_cause(cop0, (0xff),
-				  (gsexccode << CAUSEB_EXCCODE));
+				  (guest_exc << CAUSEB_EXCCODE));
 
 	/* setup badvaddr, context and entryhi registers for the guest */
 	kvm_write_c0_guest_badvaddr(cop0, vcpu->arch.host_cp0_badvaddr);

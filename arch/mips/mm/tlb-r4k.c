@@ -29,7 +29,7 @@ extern void build_tlb_refill_handler(void);
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 static int emulate_tlb_ops(unsigned long address,
 			    unsigned long pageshift, unsigned long even_pte,
-			    unsigned long odd_pte)
+			    unsigned long odd_pte, int op_type)
 {
 #if 1
 	unsigned int ret;
@@ -37,7 +37,7 @@ static int emulate_tlb_ops(unsigned long address,
 	"	.set	push			\n"
 	"	.set	noreorder		\n"
 	"	move	%[val], $2		\n"
-	"	ori	$2, $0, 0x4000	\n"
+	"	move	$2, %[A4]		\n"
 	"	move	$4, %[A0]		\n"
 	"	move	$5, %[A1]		\n"
 	"	move	$6, %[A2]		\n"
@@ -47,8 +47,9 @@ static int emulate_tlb_ops(unsigned long address,
 	"	.set	reorder			\n"
 	"	.set	pop			\n"
 	: [val] "=r" (ret)
-	: [A0] "r" (address), [A1] "r" (pageshift), [A2] "r" (even_pte), [A3] "r" (odd_pte)
-	: "$2", "$4", "$5", "$6", "$7");
+	: [A0] "r" (address), [A1] "r" (pageshift), [A2] "r" (even_pte),
+	  [A3] "r" (odd_pte), [A4] "r" (op_type)
+	: "$2", "$4", "$5", "$6", "$7", "$8");
 	return ret;
 #endif
 }
@@ -89,7 +90,11 @@ void local_flush_tlb_all(void)
 {
 	unsigned long flags;
 	unsigned long old_ctx;
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	int entry, ftlbhighset;
+#else
+	int entry;
+#endif
 
 	local_irq_save(flags);
 	/* Save old context and create impossible VPN2 value */
@@ -102,6 +107,9 @@ void local_flush_tlb_all(void)
 
 	/* Blast 'em all away. */
 	if (cpu_has_tlbinv) {
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+		emulate_tlb_ops(0, 1088, 0, 0, 0x7000);
+#else
 		if (current_cpu_data.tlbsizevtlb) {
 			write_c0_index(0);
 			mtc0_tlbw_hazard();
@@ -116,6 +124,7 @@ void local_flush_tlb_all(void)
 			mtc0_tlbw_hazard();
 			tlbinvf();  /* invalidate one FTLB set */
 		}
+#endif
 	} else {
 		while (entry < current_cpu_data.tlbsize) {
 			/* Make sure all entries differ. */
@@ -171,6 +180,10 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 			int newpid = cpu_asid(cpu, mm);
 
 			htw_stop();
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+			write_c0_entryhi(newpid);
+			emulate_tlb_ops(start, end, 0, 0, 0x6000);
+#else
 			while (start < end) {
 				int idx;
 
@@ -189,6 +202,7 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 				mtc0_tlbw_hazard();
 				tlb_write_indexed();
 			}
+#endif
 			tlbw_use_hazard();
 			write_c0_entryhi(oldpid);
 			htw_start();
@@ -216,7 +230,9 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 		end += ((PAGE_SIZE << 1) - 1);
 		end &= (PAGE_MASK << 1);
 		htw_stop();
-
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+		emulate_tlb_ops(start, end, 0, 0, 0x8000);
+#else
 		while (start < end) {
 			int idx;
 
@@ -235,6 +251,7 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 			mtc0_tlbw_hazard();
 			tlb_write_indexed();
 		}
+#endif
 		tlbw_use_hazard();
 		write_c0_entryhi(pid);
 		htw_start();
@@ -251,13 +268,26 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 
 	if (cpu_context(cpu, vma->vm_mm) != 0) {
 		unsigned long flags;
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 		int oldpid, newpid, idx;
+#else
+		int oldpid, newpid;
+#endif
 
 		newpid = cpu_asid(cpu, vma->vm_mm);
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 		page &= (PAGE_MASK << 1);
+#endif
 		local_irq_save(flags);
 		oldpid = read_c0_entryhi();
 		htw_stop();
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+		write_c0_entryhi(newpid);
+
+		emulate_tlb_ops(page, page, 0, 0, 0x5000);
+		goto finish;
+#else
+
 		write_c0_entryhi(page | newpid);
 		mtc0_tlbw_hazard();
 		tlb_probe();
@@ -272,6 +302,7 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 		mtc0_tlbw_hazard();
 		tlb_write_indexed();
 		tlbw_use_hazard();
+#endif
 
 	finish:
 		write_c0_entryhi(oldpid);
@@ -288,12 +319,21 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 void local_flush_tlb_one(unsigned long page)
 {
 	unsigned long flags;
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	int oldpid, idx;
+#else
+	int oldpid;
+#endif
 
 	local_irq_save(flags);
 	oldpid = read_c0_entryhi();
 	htw_stop();
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	page &= (PAGE_MASK << 1);
+#endif
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	emulate_tlb_ops(page, page, 0, 0, 0x9000);
+#else
 	write_c0_entryhi(page);
 	mtc0_tlbw_hazard();
 	tlb_probe();
@@ -308,6 +348,7 @@ void local_flush_tlb_one(unsigned long page)
 		tlb_write_indexed();
 		tlbw_use_hazard();
 	}
+#endif
 	write_c0_entryhi(oldpid);
 	htw_start();
 	flush_micro_tlb();
@@ -354,7 +395,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	even_pte = pte_val(*ptep++);
 	odd_pte = pte_val(*ptep);
 
-	emulate_tlb_ops(tmp_address, pageshift, even_pte, odd_pte);
+	emulate_tlb_ops(tmp_address, pageshift, even_pte, odd_pte, 0x4000);
 #else
 	pid = read_c0_entryhi() & ASID_MASK;
 	address &= (PAGE_MASK << 1);

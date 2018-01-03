@@ -108,6 +108,7 @@ enum label_id {
 	label_not_mapped,
 	label_refill_exit,
 	label_tlb_normal,
+	label_tlb_flush,
 };
 
 UASM_L_LA(_fpu_1)
@@ -123,6 +124,7 @@ UASM_L_LA(_not_mapped)
 UASM_L_LA(_mapped)
 UASM_L_LA(_refill_exit)
 UASM_L_LA(_tlb_normal)
+UASM_L_LA(_tlb_flush)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -257,8 +259,8 @@ void *kvm_mips_build_vcpu_run(void *addr)
 	/* k0/k1 not being used in host kernel context */
 	UASM_i_ADDIU(&p, K1, SP, -(int)sizeof(struct pt_regs));
 	for (i = 16; i < 32; ++i) {
-		if (i == 24)
-			i = 28;
+		if (i == K0 || i == K1)
+			continue;
 		UASM_i_SW(&p, i, offsetof(struct pt_regs, regs[i]), K1);
 	}
 
@@ -1224,7 +1226,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 
 	UASM_i_LA(&p, T9, (unsigned long)handle_ignore_tlb_general_exception);
 	uasm_i_jalr(&p, RA, T9);
-	uasm_i_nop(&p);
+	UASM_i_ADDIU(&p, SP, SP, -CALLFRAME_SIZ);
 
 	uasm_i_di(&p, ZERO);
 	uasm_i_ehb(&p);
@@ -1569,6 +1571,30 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 		uasm_il_beqz(&p, &r, A3, label_no_hypcall);
 		uasm_i_nop(&p);
 		UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[2]), K1);
+
+		//bypass for flush tlb page
+		UASM_i_ADDIU(&p, V1, ZERO, 0x5000);
+		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
+		uasm_i_nop(&p);
+
+		//bypass for flush tlb range
+		UASM_i_ADDIU(&p, V1, ZERO, 0x6000);
+		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
+		uasm_i_nop(&p);
+#if 0
+		//bypass for flush tlb range
+		UASM_i_ADDIU(&p, V1, ZERO, 0x7000);
+		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
+		uasm_i_nop(&p);
+		//bypass for flush tlb range
+		UASM_i_ADDIU(&p, V1, ZERO, 0x8000);
+		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
+		uasm_i_nop(&p);
+		//bypass for flush tlb range
+		UASM_i_ADDIU(&p, V1, ZERO, 0x9000);
+		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
+		uasm_i_nop(&p);
+#endif
 	}
 	uasm_i_mfc0(&p, A0, C0_INDEX); //save index
 	UASM_i_MFC0(&p, A1, C0_ENTRYHI);
@@ -1583,17 +1609,31 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	uasm_i_ins(&p, A2, A4, 18, 2);
 	uasm_i_mtc0(&p, A2, C0_DIAG);
 
-	/* Get guest TLB entry to be written into hardware */
-	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
-	UASM_i_MTC0(&p, V1, C0_PAGEMASK);
-	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[0]), K1);
-	UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
-	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
-	UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
+	if(update_tlb) {
+		/* Get guest TLB entry to be written into hardware */
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
+		UASM_i_MTC0(&p, V1, C0_PAGEMASK);
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[0]), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
 
-	/* Probe the TLB entry to be written into hardware */
-	UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
-	UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+		/* Probe the TLB entry to be written into hardware */
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_hi), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+	} else {
+		/* Get guest TLB entry to be written into hardware */
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[1].tlb_mask), K1);
+		UASM_i_MTC0(&p, V1, C0_PAGEMASK);
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[1].tlb_lo[0]), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[1].tlb_lo[1]), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
+
+		/* Probe the TLB entry to be written into hardware */
+		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[1].tlb_hi), K1);
+		UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+	}
 	 /* As the ABI rules, K0 bits[15:12] present hypcall type,bits [11:0]
 	  * present sub-type, now we only use hypcall in tlb related operations
 	  * 0/1/2/3 represent TLB Miss /TLBM/TLBL/TLBS, [11:0] 0/1 represent normal/huge
@@ -1657,9 +1697,10 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 
 	if (!update_tlb)
 	{
-		uasm_l_no_hypcall(&l, p);
+		uasm_l_tlb_flush(&l, p);
 		uasm_i_move(&p, A3, ZERO);
 		uasm_i_sw(&p, A3, offsetof(struct kvm_vcpu_arch, is_hypcall), K1);
+		uasm_l_no_hypcall(&l, p);
 	}
 #endif
 	/*
@@ -1750,8 +1791,8 @@ static void *kvm_mips_build_ret_to_host(void *addr)
 
 	/* Load context saved on the host stack */
 	for (i = 16; i < 31; ++i) {
-		if (i == 24)
-			i = 28;
+		if (i == K0 || i == K1)
+			continue;
 		UASM_i_LW(&p, i, offsetof(struct pt_regs, regs[i]), K1);
 	}
 
