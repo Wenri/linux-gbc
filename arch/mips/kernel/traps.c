@@ -2148,9 +2148,13 @@ void __init trap_init(void)
 	else {
 		if (cpu_has_vtag_icache)
 			set_except_vector(EXCCODE_RI, handle_ri_rdhwr_tlbp);
-		else if (current_cpu_type() == CPU_LOONGSON3)
+		else if (current_cpu_type() == CPU_LOONGSON3) {
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+			set_except_vector(EXCCODE_RI, handle_ri);
+#else
 			set_except_vector(EXCCODE_RI, handle_ri_rdhwr_tlbp);
-		else
+#endif
+		} else
 			set_except_vector(EXCCODE_RI, handle_ri_rdhwr);
 	}
 
