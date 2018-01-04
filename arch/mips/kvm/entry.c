@@ -1574,27 +1574,9 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 
 		//bypass for flush tlb page
 		UASM_i_ADDIU(&p, V1, ZERO, 0x5000);
-		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
+		uasm_i_sltu(&p, V1, V1, K0);
+		uasm_il_bnez(&p, &r, V1, label_tlb_flush);
 		uasm_i_nop(&p);
-
-		//bypass for flush tlb range
-		UASM_i_ADDIU(&p, V1, ZERO, 0x6000);
-		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
-		uasm_i_nop(&p);
-#if 0
-		//bypass for flush tlb range
-		UASM_i_ADDIU(&p, V1, ZERO, 0x7000);
-		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
-		uasm_i_nop(&p);
-		//bypass for flush tlb range
-		UASM_i_ADDIU(&p, V1, ZERO, 0x8000);
-		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
-		uasm_i_nop(&p);
-		//bypass for flush tlb range
-		UASM_i_ADDIU(&p, V1, ZERO, 0x9000);
-		uasm_il_beq(&p, &r, K0, V1, label_tlb_flush);
-		uasm_i_nop(&p);
-#endif
 	}
 	uasm_i_mfc0(&p, A0, C0_INDEX); //save index
 	UASM_i_MFC0(&p, A1, C0_ENTRYHI);

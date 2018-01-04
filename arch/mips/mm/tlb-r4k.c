@@ -108,7 +108,7 @@ void local_flush_tlb_all(void)
 	/* Blast 'em all away. */
 	if (cpu_has_tlbinv) {
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-		emulate_tlb_ops(0, 1088, 0, 0, 0x7000);
+		emulate_tlb_ops(0, 1088, 0, 0, 0x5002);
 #else
 		if (current_cpu_data.tlbsizevtlb) {
 			write_c0_index(0);
@@ -182,7 +182,7 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 			htw_stop();
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 			write_c0_entryhi(newpid);
-			emulate_tlb_ops(start, end, 0, 0, 0x6000);
+			emulate_tlb_ops(start, end, size, 0, 0x5003);
 #else
 			while (start < end) {
 				int idx;
@@ -231,7 +231,7 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 		end &= (PAGE_MASK << 1);
 		htw_stop();
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-		emulate_tlb_ops(start, end, 0, 0, 0x8000);
+		emulate_tlb_ops(start, end, size, 0, 0x5004);
 #else
 		while (start < end) {
 			int idx;
@@ -284,7 +284,7 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 		write_c0_entryhi(newpid);
 
-		emulate_tlb_ops(page, page, 0, 0, 0x5000);
+		emulate_tlb_ops(page, page, 0, 0, 0x5001);
 		goto finish;
 #else
 
@@ -328,12 +328,10 @@ void local_flush_tlb_one(unsigned long page)
 	local_irq_save(flags);
 	oldpid = read_c0_entryhi();
 	htw_stop();
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
-	page &= (PAGE_MASK << 1);
-#endif
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	emulate_tlb_ops(page, page, 0, 0, 0x9000);
+	emulate_tlb_ops(page, page, 0, 0, 0x5005);
 #else
+	page &= (PAGE_MASK << 1);
 	write_c0_entryhi(page);
 	mtc0_tlbw_hazard();
 	tlb_probe();

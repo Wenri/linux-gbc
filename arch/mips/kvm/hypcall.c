@@ -102,8 +102,9 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			      const unsigned long *args, unsigned long *hret)
 {
 #ifdef CONFIG_CPU_LOONGSON3
-	if (args[4] == 0x5000) {
-		/*If guest hypcall to flush tlb page
+	if ((args[4] == 0x5001) || (args[4] == 0x5005)) {
+		/*If guest hypcall to flush_tlb_page (0x5001)
+		 *or flush_tlb_one (0x5005)
 		 * TLB probe and then clear the TLB Line
 		*/
 		unsigned long tmp_entryhi, tmp_entrylo0, tmp_entrylo1;
@@ -127,7 +128,10 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		write_c0_diag(tmp_diag);
 
 		badvaddr = args[0] & PAGE_MASK;
-		write_c0_entryhi(badvaddr | read_gc0_entryhi());
+		if(args[4] == 0x5001)
+			write_c0_entryhi(badvaddr | read_gc0_entryhi());
+		else if (args[4] == 0x5005)
+			write_c0_entryhi(badvaddr);
 
 		tlb_probe();
 		tlb_probe_hazard();
@@ -158,72 +162,77 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 
 		if ((args[0] & 0xf000000000000000) < XKSSEG)
 			kvm_debug("%lx guest badvaddr %lx  %lx ASID %lx idx %x\n",args[4], args[0],badvaddr, read_gc0_entryhi(),idx);
-	} else if (args[4] == 0x6000) {
+	} else if ((args[4] == 0x5003) || (args[4] == 0x5004)) {
 
-		/*flush tlb for range of guest XUSEG address
+		/*flush_tlb_range (0x5003) of guest XUSEG address
+		 * or flush_tlb_kernel_range (0x5004)
 		*/
-		unsigned long tmp_entryhi, tmp_entrylo0, tmp_entrylo1;
-		unsigned long page_mask;
-		unsigned int tmp_diag;
 		unsigned long flags;
-		unsigned long address;
-		int tmp_index, idx;
 
 		local_irq_save(flags);
-		address = args[0];
-		//Save tmp registers
-		tmp_entryhi  = read_c0_entryhi();
-		tmp_entrylo0 = read_c0_entrylo0();
-		tmp_entrylo1 = read_c0_entrylo1();
-		page_mask = read_c0_pagemask();
-		tmp_index = read_c0_index();
+		//range size larger than TLB lines
+		if(args[2] > 1024)
+			tlbinvf();
+		else {
+			unsigned long tmp_entryhi, tmp_entrylo0, tmp_entrylo1;
+			unsigned long page_mask;
+			unsigned int tmp_diag;
+			unsigned long address;
+			int tmp_index, idx;
+			unsigned long gc0_entryhi;
 
-		//Enable diag.MID for guest
-		tmp_diag = read_c0_diag();
-		tmp_diag |= (1<<18);
-		write_c0_diag(tmp_diag);
+			address = args[0];
+			//Save tmp registers
+			tmp_entryhi  = read_c0_entryhi();
+			tmp_entrylo0 = read_c0_entrylo0();
+			tmp_entrylo1 = read_c0_entrylo1();
+			page_mask = read_c0_pagemask();
+			tmp_index = read_c0_index();
+			gc0_entryhi = read_gc0_entryhi();
 
-		while(address < args[1]) {
+			//Enable diag.MID for guest
+			tmp_diag = read_c0_diag();
+			tmp_diag |= (1<<18);
+			write_c0_diag(tmp_diag);
 
-			write_c0_entryhi(address | read_gc0_entryhi());
+			while(address < args[1]) {
 
-			address += PAGE_SIZE;
-			tlb_probe();
-			tlb_probe_hazard();
+				if(args[4] == 0x5003)
+					write_c0_entryhi(address | gc0_entryhi);
+				else if (args[4] == 0x5004)
+					write_c0_entryhi(address);
 
-			idx = read_c0_index();
-			if (idx >= 0) {
-				/* Make sure all entries differ. */
-				write_c0_entryhi(MIPS_ENTRYHI_EHINV);
-				write_c0_entrylo0(0);
-				write_c0_entrylo1(0);
-				mtc0_tlbw_hazard();
-				tlb_write_indexed();
-				tlbw_use_hazard();
+				address += PAGE_SIZE;
+				tlb_probe();
+				tlb_probe_hazard();
+
+				idx = read_c0_index();
+				if (idx >= 0) {
+					/* Make sure all entries differ. */
+					write_c0_entryhi(MIPS_ENTRYHI_EHINV);
+					write_c0_entrylo0(0);
+					write_c0_entrylo1(0);
+					mtc0_tlbw_hazard();
+					tlb_write_indexed();
+					tlbw_use_hazard();
+				}
 			}
+			//Disable diag.MID
+			tmp_diag = read_c0_diag();
+			tmp_diag &= ~(3<<18);
+			write_c0_diag(tmp_diag);
+
+			//Restore tmp registers
+			write_c0_entryhi(tmp_entryhi);
+			write_c0_entrylo0(tmp_entrylo0);
+			write_c0_entrylo0(tmp_entrylo1);
+			write_c0_pagemask(page_mask);
+			write_c0_index(tmp_index);
 		}
-		//Disable diag.MID
-		tmp_diag = read_c0_diag();
-		tmp_diag &= ~(3<<18);
-		write_c0_diag(tmp_diag);
-
-		//Restore tmp registers
-		write_c0_entryhi(tmp_entryhi);
-		write_c0_entrylo0(tmp_entrylo0);
-		write_c0_entrylo0(tmp_entrylo1);
-		write_c0_pagemask(page_mask);
-		write_c0_index(tmp_index);
-
 		local_irq_restore(flags);
-	} else if (args[4] == 0x7000) {
+	} else if (args[4] == 0x5002) {
 		/*flush tlb all */
-
-	} else if (args[4] == 0x8000) {
-		/*flush tlb kernel range */
-
-	} else if (args[4] == 0x9000) {
-		/*flush tlb one */
-
+		tlbinvf();
 	} else {
 		unsigned long prot_bits = 0;
 		unsigned long prot_bits1 = 0;
