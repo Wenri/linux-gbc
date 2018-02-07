@@ -133,6 +133,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		else if (args[4] == 0x5005)
 			write_c0_entryhi(badvaddr);
 
+		mtc0_tlbw_hazard();
 		tlb_probe();
 		tlb_probe_hazard();
 
@@ -202,6 +203,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 				else if (args[4] == 0x5004)
 					write_c0_entryhi(address);
 
+				mtc0_tlbw_hazard();
 				address += PAGE_SIZE;
 				tlb_probe();
 				tlb_probe_hazard();
@@ -280,6 +282,11 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x1fff800; //huge pagesize 16MB
 		vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[0]) & 0xffffffffffff0000) | prot_bits1);
 		vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) | prot_bits);
+
+		if ((args[0] & 0xf000000000000000) == XKSEG) {
+			vcpu->arch.guest_tlb[1].tlb_lo[0] |= 1;
+			vcpu->arch.guest_tlb[1].tlb_lo[1] |= 1;
+		}
 
 		if ((args[0] & 0xf000000000000000) < XKSSEG)
 			kvm_debug("%lx guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx tlb0 %lx tlb1 %lx\n",args[4], args[0],

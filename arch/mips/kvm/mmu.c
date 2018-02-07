@@ -1183,6 +1183,9 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, 0, &pte_gpa[idx], &pte_gpa[!idx]);
 		if (ret)
 			return ret;
+
+		pte_gpa[!idx].pte |= _PAGE_GLOBAL;
+
 		vcpu->arch.guest_tlb[0].tlb_hi = badvaddr & 0xc000ffffffffe000;
 		vcpu->arch.guest_tlb[0].tlb_mask = 0x7800;
 		vcpu->arch.guest_tlb[0].tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa[0]));

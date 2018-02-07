@@ -1326,13 +1326,14 @@ enum vmtlbexc {
 	VMTLBRI = 5,
 	VMTLBXI = 6
 };
+#define EXCCODE_GSEXC 0x10
 
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
 	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
 //	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
-	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
+	u32 gsexccode = (vcpu->arch.host_cp0_gscause >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	enum emulation_result er = EMULATE_DONE;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
@@ -1362,31 +1363,37 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		ret = RESUME_GUEST;
 		break;
 
+	case EXCCODE_GSEXC:
+
+		switch(gsexccode) {
+		case IS:
+			kvm_info("--guest trigger fpe exception\n");
+			break;
+		case VMMMU:
+			break;
+		case VMTLBL:
+			ret = kvm_mips_callbacks->handle_tlb_ld_miss(vcpu);
+			break;
+		case VMTLBS:
+			ret = kvm_mips_callbacks->handle_tlb_st_miss(vcpu);
+			break;
+		case VMTLBM:
+			ret = kvm_mips_callbacks->handle_tlb_mod(vcpu);
+			break;
+		case VMTLBRI:
+			kvm_info("--guest trigger TLBRI exception\n");
+			break;
+		case VMTLBXI:
+			kvm_info("--guest trigger TLBXI exception\n");
+			break;
+
+		}
+		break;
+
 	default:
 		kvm_arch_vcpu_dump_regs(vcpu);
 		ret = RESUME_GUEST;
 		break;
-	}
-
-	switch(gsexccode) {
-	case IS:
-		break;
-	case VMMMU:
-		break;
-	case VMTLBL:
-		ret = kvm_mips_callbacks->handle_tlb_ld_miss(vcpu);
-		break;
-	case VMTLBS:
-		ret = kvm_mips_callbacks->handle_tlb_st_miss(vcpu);
-		break;
-	case VMTLBM:
-		ret = kvm_mips_callbacks->handle_tlb_mod(vcpu);
-		break;
-	case VMTLBRI:
-		break;
-	case VMTLBXI:
-		break;
-
 	}
 
 	local_irq_disable();
@@ -1450,17 +1457,13 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	return ret;
 }
 
-#define TLBM 1
-#define TLBL 2
-#define TLBS 3
-
 /*If meet XKSEG/XUSEG address,we ignore the tlbl/tlbs/tlbm process in root*/
 int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
 	struct kvm_vcpu_arch *arch = &vcpu->arch;
 	int guest_exc = 0;
-	u32 gsexccode = (read_c0_diag1() >> CAUSEB_EXCCODE) & 0x1f;
+	u32 gsexccode = (vcpu->arch.host_cp0_gscause >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
@@ -1480,11 +1483,11 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	arch->pc = kvm_mips_guest_exception_base(vcpu) + 0x180;
 
 	if(gsexccode == 2)
-		guest_exc = TLBL;
+		guest_exc = EXCCODE_TLBL;
 	else if(gsexccode == 3)
-		guest_exc = TLBS;
+		guest_exc = EXCCODE_TLBS;
 	else if(gsexccode == 4)
-		guest_exc = TLBM;
+		guest_exc = EXCCODE_MOD;
 
 	kvm_change_c0_guest_cause(cop0, (0xff),
 				  (guest_exc << CAUSEB_EXCCODE));
@@ -1561,7 +1564,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	case EXCCODE_CPU:
-		kvm_info("EXCCODE_CPU: @ PC: %p\n", opc);
+		kvm_debug("EXCCODE_CPU: @ PC: %p\n", opc);
 
 		++vcpu->stat.cop_unusable_exits;
 		ret = kvm_mips_callbacks->handle_cop_unusable(vcpu);
@@ -1570,6 +1573,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 			ret = RESUME_HOST;
 		break;
 
+#ifndef CONFIG_CPU_LOONGSON3
 	case EXCCODE_MOD:
 		++vcpu->stat.tlbmod_exits;
 		ret = kvm_mips_callbacks->handle_tlb_mod(vcpu);
@@ -1636,6 +1640,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		++vcpu->stat.msa_disabled_exits;
 		ret = kvm_mips_callbacks->handle_msa_disabled(vcpu);
 		break;
+#endif
 
 	case EXCCODE_GE:
 #if 0

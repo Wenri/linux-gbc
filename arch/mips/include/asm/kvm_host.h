@@ -327,6 +327,7 @@ struct kvm_vcpu_arch {
 	u32 host_cp0_guestctl0;
 	u32 host_cp0_badinstr;
 	u32 host_cp0_badinstrp;
+	u32 host_cp0_gscause;
 
 	unsigned long guest_entryhi;
 	unsigned long guest_pagemask;

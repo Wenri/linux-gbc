@@ -837,7 +837,7 @@ static enum emulation_result kvm_trap_vz_handle_gsfc(u32 cause, u32 *opc,
 			/* DC bit enabling/disabling timer? */
 			if (change & CAUSEF_DC) {
 				if (val & CAUSEF_DC) {
-//					kvm_vz_lose_htimer(vcpu);
+					kvm_vz_lose_htimer(vcpu);
 					kvm_mips_count_disable_cause(vcpu);
 				} else {
 					kvm_mips_count_enable_cause(vcpu);
@@ -966,11 +966,11 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 		++vcpu->stat.vz_hc_exits;
 		er = kvm_trap_vz_handle_hc(cause, opc, vcpu);
 		break;
-//	case MIPS_GCTL0_GEXC_GRR:
-//		++vcpu->stat.vz_grr_exits;
-//		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
-//						       vcpu);
-//		break;
+	case MIPS_GCTL0_GEXC_GRR:
+		++vcpu->stat.vz_grr_exits;
+		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,
+						       vcpu);
+		break;
 	default:
 		++vcpu->stat.vz_resvd_exits;
 		er = kvm_trap_vz_no_handler_guest_exit(gexccode, cause, opc,

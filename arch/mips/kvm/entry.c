@@ -896,6 +896,14 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_ori(&p, A0, A0, ST0_EXL);
 	uasm_i_mtgc0(&p, A0, C0_STATUS);
 
+	uasm_i_mfc0(&p, A0, C0_GSCAUSE);
+	uasm_i_srl(&p, A0, A0, 2);
+	uasm_i_andi(&p, A0, A0, 0x1f);
+	uasm_i_sll(&p, A0, A0, 2);
+	uasm_i_mfgc0(&p, A1, C0_CAUSE);
+	uasm_i_or(&p, A1, A1, A0);
+	uasm_i_mtgc0(&p, A1, C0_CAUSE);
+
 	UASM_i_MFGC0(&p, A0, C0_EBASE);
 	UASM_i_ADDIU(&p, A0, A0, 0x200);
 	UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, arch.pc), K1);
@@ -1005,6 +1013,9 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	UASM_i_MFC0(&p, K0, C0_BADVADDR);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_badvaddr),
 		  K1);
+
+	uasm_i_mfc0(&p, K0, C0_GSCAUSE);
+	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_gscause), K1);
 
 	uasm_i_mfc0(&p, K0, C0_CAUSE);
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
@@ -1357,6 +1368,9 @@ void *kvm_mips_build_exit(void *addr)
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_badvaddr),
 		  K1);
 
+	uasm_i_mfc0(&p, K0, C0_GSCAUSE);
+	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_gscause), K1);
+
 	uasm_i_mfc0(&p, K0, C0_CAUSE);
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
 #if 0
@@ -1615,6 +1629,7 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 		/* Probe the TLB entry to be written into hardware */
 		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[1].tlb_hi), K1);
 		UASM_i_MTC0(&p, V1, C0_ENTRYHI);
+		uasm_i_ehb(&p);
 	}
 	 /* As the ABI rules, K0 bits[15:12] present hypcall type,bits [11:0]
 	  * present sub-type, now we only use hypcall in tlb related operations
@@ -1644,6 +1659,7 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 		uasm_i_nop(&p);
 		uasm_i_ori(&p, T3, V1, 0x400); //set EHINV=1
 		UASM_i_MTC0(&p, T3, C0_ENTRYHI);
+		uasm_i_ehb(&p);
 		uasm_i_tlbwi(&p);
 		uasm_i_ehb(&p);
 		UASM_i_MTC0(&p, V1, C0_ENTRYHI);// set EHINV=0
@@ -1666,9 +1682,8 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 
 	/* Clear Diag.MID to make sure Root.TLB refill & general
 	   exception works right */
-	uasm_i_move(&p, A4, ZERO);
 	uasm_i_mfc0(&p, A2, C0_DIAG);
-	uasm_i_ins(&p, A2, A4, 18, 2);
+	uasm_i_ins(&p, A2, ZERO, 18, 2);
 	uasm_i_mtc0(&p, A2, C0_DIAG);
 
 	uasm_i_mtc0(&p, A0, C0_INDEX); //save index
@@ -1680,8 +1695,7 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	if (!update_tlb)
 	{
 		uasm_l_tlb_flush(&l, p);
-		uasm_i_move(&p, A3, ZERO);
-		uasm_i_sw(&p, A3, offsetof(struct kvm_vcpu_arch, is_hypcall), K1);
+		uasm_i_sw(&p, ZERO, offsetof(struct kvm_vcpu_arch, is_hypcall), K1);
 		uasm_l_no_hypcall(&l, p);
 	}
 #endif
