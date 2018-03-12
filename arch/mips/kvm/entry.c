@@ -109,6 +109,8 @@ enum label_id {
 	label_refill_exit,
 	label_tlb_normal,
 	label_tlb_flush,
+	label_get_gpa,
+	label_get_hpa,
 };
 
 UASM_L_LA(_fpu_1)
@@ -125,6 +127,8 @@ UASM_L_LA(_mapped)
 UASM_L_LA(_refill_exit)
 UASM_L_LA(_tlb_normal)
 UASM_L_LA(_tlb_flush)
+UASM_L_LA(_get_gpa)
+UASM_L_LA(_get_hpa)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -795,8 +799,8 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 {
 	u32 *p = addr;
-	struct uasm_label labels[5];
-	struct uasm_reloc relocs[5];
+	struct uasm_label labels[6];
+	struct uasm_reloc relocs[6];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -861,6 +865,7 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	if (cpu_has_ldpte)
 		UASM_i_MTC0(&p, K0, C0_PWBASE);
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/*
 	 * Now for the actual refill bit. A lot of this can be common with the
 	 * Linux TLB refill handler, however we don't need to handle so many
@@ -883,7 +888,57 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	build_get_ptep(&p, K0, K1);
 	build_update_entries(&p, K0, K1);
 	build_tlb_write_entry(&p, &l, &r, tlb_random);
+#else
+	UASM_i_MFC0(&p, K0, C0_BADVADDR);
 
+	uasm_i_lui(&p, A0, 0x8000);
+	uasm_i_sltu(&p, A0, K0, A0);
+	/* A0 == 0 means (badvaddr >= 0xffffffff80000000) */
+	uasm_il_beqz(&p, &r, A0, label_get_gpa);
+	uasm_i_nop(&p);
+	/* The address is 0x9xxxxxxxxxxxxxxx, we only do rough
+	 * distinction, maybe there is mmio address, caution!!!!
+	*/
+	UASM_i_LA(&p, A0, (unsigned long)0x0000ffffffffffff);
+	uasm_i_and(&p, K0, K0, A0);
+
+	uasm_il_b(&p, &r, label_get_hpa);
+	uasm_i_nop(&p);
+
+	// The address is 0xffffffff8xxxxxxx
+
+	uasm_l_get_gpa(&l, p);
+
+	UASM_i_LA(&p, A0, 0x1fffffff);
+	uasm_i_and(&p, K0, K0, A0);
+
+	uasm_l_get_hpa(&l, p);
+	//start the find process in gpa_mm.pgd
+
+	uasm_i_move(&p, A0, K0);
+	UASM_i_MFC0(&p, K1, C0_PWBASE);
+	uasm_i_dsrl32(&p, A0, A0, 1);
+	uasm_i_andi(&p, A0, A0, 0x7ff8); //if set PGD_ORDER=1
+	UASM_i_ADDU(&p, K1, K1, A0);
+	UASM_i_LW(&p, K1, 0, K1);
+	UASM_i_SRL(&p, A0, K0, 0x16);
+	uasm_i_andi(&p, A0, A0, 0x3ff8);
+	UASM_i_ADDU(&p, K1, K1, A0);
+	UASM_i_LW(&p, K1, 0, K1); //get pmd offset
+	UASM_i_SRL(&p, A0, K0, 0xb);
+	uasm_i_andi(&p, A0, A0, 0x3ff0);
+	UASM_i_ADDU(&p, K1, K1, A0);
+	UASM_i_LW(&p, K0, 0, K1); //get pmd offset
+	UASM_i_LW(&p, K1, 8, K1); //get pmd offset
+	uasm_i_drotr(&p, K0, K0, 0xa);
+	uasm_i_ori(&p, K0, K0, 1); //make G=1
+	UASM_i_MTC0(&p, K0, C0_ENTRYLO0);
+	uasm_i_drotr(&p, K1, K1, 0xa);
+	uasm_i_ori(&p, K1, K1, 1); //make G=1
+	UASM_i_MTC0(&p, K1, C0_ENTRYLO1);
+	uasm_i_ehb(&p);
+	uasm_i_tlbwr(&p);
+#endif
 	uasm_il_b(&p, &r, label_refill_exit);
 	uasm_i_nop(&p);
 
