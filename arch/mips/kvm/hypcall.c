@@ -41,15 +41,18 @@ enum emulation_result kvm_mips_emul_hypcall(struct kvm_vcpu *vcpu,
 	};
 }
 
-int guest_pte_trans(int parity, const unsigned long *args,
+int guest_pte_trans(const unsigned long *args,
 			      struct kvm_vcpu *vcpu,
-			      bool write_fault, pte_t *pte)
+			      bool write_fault, pte_t *pte, pte_t *pte1)
 {
 	int ret = 0;
 	unsigned long gpa = 0;
-	int idx;
+	int idx= 0;
 	unsigned long entrylo;
 	unsigned long prot_bits = 0;
+	gfn_t gfn;
+	unsigned long hva;
+	struct kvm_memory_slot* slot;
 
 	/* The badvaddr we get maybe guest unmmaped or mmapped address,
 	 * but not a GPA
@@ -60,37 +63,52 @@ int guest_pte_trans(int parity, const unsigned long *args,
 	 * we get the guest pfn according the parameters,GPA-->HPA trans here
 	*/
 	//PFN is the PA over 12bits
-	if(!parity) {
 		entrylo = pte_to_entrylo(args[2]);
 		prot_bits = args[2] & 0xffff; //Get all the sw/hw prot bits
-	} else {
+
+		gpa = ((entrylo & 0x3ffffffffff) >> 6) << 12;
+
+		//we need to get the HVA????
+		gfn = gpa >> PAGE_SHIFT;
+		slot = gfn_to_memslot(vcpu->kvm, gfn);
+		hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+
+		if((hva >> args[1]) & 1)
+			idx = 1;
+		else
+			idx = 0;
+
+		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte[idx], &pte[!idx]);
+		if(ret)
+			kvm_info("entrylo0 map page error\n");
+
+		if (args[0] < XKSSEG)
+			pte[idx].pte &= ~_PAGE_GLOBAL;
+
 		entrylo = pte_to_entrylo(args[3]);
 		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits
-	}
 
-	idx = (args[0] >> args[1]) & 1;
-#if 0
-	/*If not an valid pte*/
-	if((entrylo & 0x2) == 0) {
-		pte[idx].pte = 0;
-		pte[!idx].pte = 0;
-		goto out;
-	}
-#endif
-	gpa = ((entrylo & 0x3ffffffffff) >> 6) << 12;
-	ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte[idx], &pte[!idx]);
-//	if ((args[0] & 0xf000000000000000) == XKSEG)
-//		pte[!idx].pte |= _PAGE_GLOBAL;
-//	else
-		pte[!idx].pte = 0;
+		gpa = ((entrylo & 0x3ffffffffff) >> 6) << 12;
 
-	/* Guest userspace PTE's PAGE_GLOBAL bits should not be set */
-	if (args[0] < XKSSEG)
-		pte[idx].pte &= ~_PAGE_GLOBAL;
+		//we need to get the HVA????
+		gfn = gpa >> PAGE_SHIFT;
+		slot = gfn_to_memslot(vcpu->kvm, gfn);
+		hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+
+		if((hva >> args[1]) & 1)
+			idx = 1;
+		else
+			idx = 0;
+		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte1[idx], &pte1[!idx]);
+		if(ret)
+			kvm_info("entrylo1 map page error\n");
+
+		if (args[0] < XKSSEG)
+			pte1[idx].pte &= ~_PAGE_GLOBAL;
 
 	if (ret)
 		ret = RESUME_HOST;
-//out:
+
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
 		kvm_debug("2 %s gpa %lx pte[%d] %lx pte[%d] %lx\n",__func__,
 			gpa, idx, pte_val(pte[idx]), !idx, pte_val(pte[!idx]));
@@ -238,11 +256,16 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 	} else {
 		unsigned long prot_bits = 0;
 		unsigned long prot_bits1 = 0;
+		unsigned long gpa = 0;
 		int write_fault = 0;
 		pte_t pte_gpa[2];
+		pte_t pte_gpa1[2];
 		int ret = 0;
-		int parity = 0;
 		u32 gsexccode = (read_gc0_cause() >> CAUSEB_EXCCODE) & 0x1f;
+
+		gfn_t gfn;
+		struct kvm_memory_slot* slot;
+		unsigned long hva = 0, hva1 = 0;
 
 		//Distinct TLBL/TLBS/TLBM
 		switch(gsexccode) {
@@ -262,16 +285,26 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		default:
 			break;
 		}
+		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits of odd pte
+		prot_bits1 = args[2] & 0xffff; //Get all the sw/hw prot bits of even pte
 
-		if((args[0] >> args[1]) & 1) {
-			parity = 1;
-			prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits
-		} else {
-			parity = 0;
-			prot_bits1 = args[2] & 0xffff; //Get all the sw/hw prot bits
-		}
-		ret = guest_pte_trans(parity, args, vcpu, write_fault, pte_gpa);
+		//Process GUEST even pte
+		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
+		gfn = gpa >> PAGE_SHIFT;
+		slot = gfn_to_memslot(vcpu->kvm, gfn);
+		hva1 = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
+		//Process GUEST odd pte
+		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
+		gfn = gpa >> PAGE_SHIFT;
+		slot = gfn_to_memslot(vcpu->kvm, gfn);
+		hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+
+		ret = guest_pte_trans(args, vcpu, write_fault, pte_gpa, pte_gpa1);
+		if(ret)
+			kvm_info("translate gpa error\n");
+
+		local_irq_disable();
 		/*update software tlb
 		*/
 		vcpu->arch.guest_tlb[1].tlb_hi = (args[0] & 0xc000ffffffffe000) |
@@ -280,8 +313,16 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x7800; //normal pagesize 16KB
 		else if (args[1] == 24)
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x1fff800; //huge pagesize 16MB
-		vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[0]) & 0xffffffffffff0000) | prot_bits1);
-		vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) | prot_bits);
+
+		if((hva >> args[1]) & 1)
+			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) | prot_bits1);
+		else
+			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[0]) & 0xffffffffffff0000) | prot_bits1);
+
+		if((hva1 >> args[1]) & 1)
+			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[1]) & 0xffffffffffff0000) | prot_bits);
+		else
+			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[0]) & 0xffffffffffff0000) | prot_bits);
 
 		if ((args[0] & 0xf000000000000000) == XKSEG) {
 			vcpu->arch.guest_tlb[1].tlb_lo[0] |= 1;

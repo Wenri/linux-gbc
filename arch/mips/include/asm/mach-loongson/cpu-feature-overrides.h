@@ -51,6 +51,7 @@
 #define cpu_has_guestctl1	0
 #define cpu_has_guestctl2	1
 #define cpu_has_segments	0
+#define cpu_has_dsp		0
 
 #ifdef CONFIG_CPU_LOONGSON3
 #define cpu_has_ic_fills_f_dc	1

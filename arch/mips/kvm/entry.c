@@ -350,7 +350,11 @@ static void *kvm_mips_build_enter_guest(void *addr)
 
 #ifdef CONFIG_KVM_MIPS_VZ
 	/* Save normal linux process pgd (VZ guarantees pgd_reg is set) */
-	UASM_i_MFC0(&p, K0, c0_kscratch(), pgd_reg);
+	/* Loongson use kscratch PWBASE instead of kscratch for save pgd, CAUTION!!!!!!!!!!!!! */
+	if(cpu_has_ldpte)
+		UASM_i_MFC0(&p, K0, C0_PWBASE);
+	else
+		UASM_i_MFC0(&p, K0, c0_kscratch(), pgd_reg);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_pgd), K1);
 
 	/*
@@ -367,7 +371,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
-	if (cpu_has_htw || cpu_has_ldpte)
+	if (cpu_has_htw)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
@@ -799,8 +803,8 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 {
 	u32 *p = addr;
-	struct uasm_label labels[6];
-	struct uasm_reloc relocs[6];
+	struct uasm_label labels[8];
+	struct uasm_reloc relocs[8];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -823,6 +827,13 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 
 	/* Is badvaddr userspace or kernel mapped */
 	UASM_i_MFC0(&p, K0, C0_BADVADDR);
+
+	uasm_i_lui(&p, A0, 0xc000);
+	uasm_i_sltu(&p, A0, K0, A0);
+	/* A0 == 0 means (badvaddr >= 0xffffffffc0000000) */
+	uasm_il_beqz(&p, &r, A0, label_mapped);
+	uasm_i_nop(&p);
+
 	uasm_i_lui(&p, A0, 0x8000);
 	uasm_i_sltu(&p, A0, K0, A0);
 	/* A0 == 0 means (badvaddr >= 0xffffffff80000000) */
@@ -1163,7 +1174,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
-	if (cpu_has_htw || cpu_has_ldpte)
+	if (cpu_has_htw)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
@@ -1229,20 +1240,28 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	 * process and jump back to guest_ebase+0x180
 	*/
 #if 1
-	UASM_i_MFC0(&p, T1, C0_BADVADDR);
-	UASM_i_ADDIU(&p, T0, ZERO,0xf000);
+//	UASM_i_MFC0(&p, T1, C0_BADVADDR);
+	UASM_i_LW(&p, T1, offsetof(struct kvm_vcpu_arch, host_cp0_badvaddr), K1);
+
+	uasm_i_lui(&p, T0, 0xc000);
+	uasm_i_sltu(&p, T0, T1, T0);
+	/* T0 == 0 means (badvaddr >= 0xffffffffc0000000) */
+	uasm_il_beqz(&p, &r, T0, label_ignore_tlb_general);
+	uasm_i_nop(&p);
+
+	UASM_i_ADDIU(&p, T0, ZERO, 0xf000);
 	uasm_i_dsll32(&p, T0, T0, 16);
 	uasm_i_and(&p, T2, T1, T0);
 
 	//Check for XKSEG address
-	UASM_i_ADDIU(&p, T0, ZERO,0xc000);
+	UASM_i_ADDIU(&p, T0, ZERO, 0xc000);
 	uasm_i_dsll32(&p, T0, T0, 16);
 
 	uasm_il_beq(&p, &r, T2, T0, label_ignore_tlb_general);
 	uasm_i_nop(&p);
 
 	//Check for XKUSEG address
-	UASM_i_ADDIU(&p, T0, ZERO,0x4000);
+	UASM_i_ADDIU(&p, T0, ZERO, 0x4000);
 	uasm_i_dsll32(&p, T0, T0, 16);
 
 	uasm_i_sltu(&p, AT, T1, T0);
@@ -1519,7 +1538,7 @@ void *kvm_mips_build_exit(void *addr)
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
-	if (cpu_has_htw || cpu_has_ldpte)
+	if (cpu_has_htw)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
