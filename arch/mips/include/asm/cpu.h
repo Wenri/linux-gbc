@@ -230,7 +230,8 @@
 #define PRID_REV_LOONGSON3B_R1	0x0006
 #define PRID_REV_LOONGSON3B_R2	0x0007
 #define PRID_REV_LOONGSON3A_R2	0x0008
-#define PRID_REV_LOONGSON3A_R3	0x0009
+#define PRID_REV_LOONGSON3A_R3_0	0x0009
+#define PRID_REV_LOONGSON3A_R3_1	0x000D
 
 /*
  * Older processors used to encode processor version and revision in two
