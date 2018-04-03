@@ -172,14 +172,14 @@ int kvm_mips_entry_setup(void)
 	/* Pick a scratch register for storing VCPU */
 	if (kscratch_mask) {
 		scratch_vcpu[0] = c0_kscratch();
-		scratch_vcpu[1] = ffs(kscratch_mask) - 1;
+		scratch_vcpu[1] = 4;
 		kscratch_mask &= ~BIT(scratch_vcpu[1]);
 	}
 
 	/* Pick a scratch register to use as a temp for saving state */
 	if (kscratch_mask) {
 		scratch_tmp[0] = c0_kscratch();
-		scratch_tmp[1] = ffs(kscratch_mask) - 1;
+		scratch_tmp[1] = 5;
 		kscratch_mask &= ~BIT(scratch_tmp[1]);
 	}
 
