@@ -125,6 +125,8 @@ Ip_u1u2u3(_mfgc0);
 Ip_u1u2u3(_mfhc0);
 Ip_u1(_mfhi);
 Ip_u1(_mflo);
+Ip_u3u1u2(_movn);
+Ip_u3u1u2(_movz);
 Ip_u1u2u3(_mtc0);
 Ip_u1u2u3(_mtgc0);
 Ip_u1u2u3(_mthc0);

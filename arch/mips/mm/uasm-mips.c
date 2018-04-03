@@ -113,6 +113,8 @@ static struct insn insn_table[] = {
 	{ insn_mfhc0,  M(cop0_op, mfhc0_op, 0, 0, 0, 0),  RT | RD | SET},
 	{ insn_mfhi,  M(spec_op, 0, 0, 0, 0, mfhi_op), RD },
 	{ insn_mflo,  M(spec_op, 0, 0, 0, 0, mflo_op), RD },
+	{ insn_movn,  M(spec_op, 0, 0, 0, 0, movn_op), RS | RT | RD},
+	{ insn_movz,  M(spec_op, 0, 0, 0, 0, movz_op), RS | RT | RD},
 	{ insn_mtc0,  M(cop0_op, mtc_op, 0, 0, 0, 0),  RT | RD | SET},
 	{ insn_mtgc0,  M(cop0_op, mtgc_op, 0, 0, 0x8, 0),  RT | RD | SET},
 	{ insn_mthc0,  M(cop0_op, mthc0_op, 0, 0, 0, 0),  RT | RD | SET},
