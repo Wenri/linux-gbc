@@ -865,6 +865,7 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 
 	uasm_l_not_mapped(&l, p);
 
+#if 0
 	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
 		  K1);
@@ -875,6 +876,7 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_dsll(&p, K0, K0, 8);
 	uasm_i_or(&p, K0, K0, A0);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+#endif
 #endif
 
 	/*Store the guest pgd into PWBASE*/
@@ -989,9 +991,11 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 #if 1 //Debug for ASID
 	/* Restore Root.entryhi, Guest A0 from VCPU structure */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+#if 0
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
 		  K1);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+#endif
 	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
 	UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
 	UASM_i_LW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
