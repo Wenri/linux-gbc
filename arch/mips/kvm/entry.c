@@ -421,10 +421,11 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
 		  K1);
-
+#ifndef CONFIG_CPU_LOONGSON3
 	/* Set the root ASID for the Guest */
 	UASM_i_ADDIU(&p, T1, S0,
 		     offsetof(struct kvm, arch.gpa_mm.context.asid));
+#endif
 #else
 	/* Set the ASID for the Guest Kernel or User */
 	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu_arch, cop0), K1);
@@ -441,6 +442,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_l_kernel_asid(&l, p);
 #endif
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/* t1: contains the base of the ASID array, need to get the cpu id  */
 	/* smp_processor_id */
 	uasm_i_lw(&p, T2, offsetof(struct thread_info, cpu), GP);
@@ -448,6 +450,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_sll(&p, T2, T2, ilog2(sizeof(long)));
 	UASM_i_ADDU(&p, T3, T1, T2);
 	UASM_i_LW(&p, K0, 0, T3);
+#endif
 #ifdef CONFIG_MIPS_ASID_BITS_VARIABLE
 	/*
 	 * reuse ASID array offset
@@ -461,7 +464,9 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_LW(&p, T2, uasm_rel_lo((long)&cpu_data[0].asid_mask), AT);
 	uasm_i_and(&p, K0, K0, T2);
 #else
+#ifndef CONFIG_CPU_LOONGSON3
 	uasm_i_andi(&p, K0, K0, MIPS_ENTRYHI_ASID);
+#endif
 #endif
 
 #ifndef CONFIG_KVM_MIPS_VZ
@@ -478,9 +483,11 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_jalr(&p, RA, T9);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
 #else
+#ifndef CONFIG_CPU_LOONGSON3
 	/* Set up KVM VZ root ASID (!guestid) */
 //	uasm_i_mtc0(&p, K0, C0_ENTRYHI);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+#endif
 /*skip_asid_restore:*/
 #endif
 	uasm_i_ehb(&p);
