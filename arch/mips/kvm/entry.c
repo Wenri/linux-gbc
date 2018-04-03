@@ -963,28 +963,29 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_nop(&p);
 
 	uasm_l_mapped(&l, p);
+
 	UASM_i_MFC0(&p, A0, C0_EPC);
 	UASM_i_MTGC0(&p, A0, C0_EPC);
 	UASM_i_MFC0(&p, A0, C0_BADVADDR);
 	UASM_i_MTGC0(&p, A0, C0_BADVADDR);
 	uasm_i_mfgc0(&p, A0, C0_STATUS);
+	uasm_i_andi(&p, A1, A0, 0x2);
+
+	UASM_i_MFGC0(&p, A0, C0_EBASE);
+	UASM_i_ADDIU(&p, A2, A0, 0x200);
+
+	/* Set Guest EPC */
+	UASM_i_MTC0(&p, A2, C0_EPC);
+
+	uasm_i_mfgc0(&p, A0, C0_STATUS);
 	uasm_i_ori(&p, A0, A0, ST0_EXL);
 	uasm_i_mtgc0(&p, A0, C0_STATUS);
 
 	uasm_i_mfc0(&p, A0, C0_GSCAUSE);
-	uasm_i_srl(&p, A0, A0, 2);
-	uasm_i_andi(&p, A0, A0, 0x1f);
-	uasm_i_sll(&p, A0, A0, 2);
-	uasm_i_mfgc0(&p, A1, C0_CAUSE);
-	uasm_i_or(&p, A1, A1, A0);
-	uasm_i_mtgc0(&p, A1, C0_CAUSE);
-
-	UASM_i_MFGC0(&p, A0, C0_EBASE);
-	UASM_i_ADDIU(&p, A0, A0, 0x200);
-	UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, arch.pc), K1);
-
-	/* Set Guest EPC */
-	UASM_i_MTC0(&p, A0, C0_EPC);
+	uasm_i_ext(&p, A1, A0, 2, 5);
+	uasm_i_mfgc0(&p, A0, C0_CAUSE);
+	uasm_i_ins(&p, A0, A1, 2, 5);
+	uasm_i_mtgc0(&p, A0, C0_CAUSE);
 
 	uasm_l_refill_exit(&l, p);
 
@@ -1271,7 +1272,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	uasm_il_beq(&p, &r, T2, T0, label_ignore_tlb_general);
 	uasm_i_nop(&p);
 
-	//Check for XKUSEG address
+	//Check for XUSEG address
 	UASM_i_ADDIU(&p, T0, ZERO, 0x4000);
 	uasm_i_dsll32(&p, T0, T0, 16);
 
