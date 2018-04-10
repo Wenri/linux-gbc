@@ -2056,13 +2056,19 @@ void __init trap_init(void)
 	} else {
 #ifdef CONFIG_KVM_GUEST
 #define KVM_GUEST_KSEG0     0x40000000
-        ebase = KVM_GUEST_KSEG0;
+	ebase = KVM_GUEST_KSEG0;
 #else
-        ebase = CKSEG0;
+	ebase = CKSEG0;
 #endif
 		if (cpu_has_mips_r2)
 			ebase += (read_c0_ebase() & 0x3ffff000);
 	}
+
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	ebase = 0xffffffff80100000;
+	write_c0_ebase(0x800);
+	write_c0_ebase(ebase);
+#endif
 
 	if (cpu_has_mmips) {
 		unsigned int config3 = read_c0_config3();
@@ -2217,7 +2223,11 @@ void __init trap_init(void)
 
 	sort_extable(__start___dbe_table, __stop___dbe_table);
 
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	cu2_notifier(default_cu2_call, 0x80100000);	/* Run last  */
+#else
 	cu2_notifier(default_cu2_call, 0x80000000);	/* Run last  */
+#endif
 }
 
 static int trap_pm_notifier(struct notifier_block *self, unsigned long cmd,

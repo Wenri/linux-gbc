@@ -27,6 +27,7 @@
 #include <asm/mmu_context.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
+#include <asm/uasm.h>
 
 #include <linux/kvm_host.h>
 
@@ -1946,9 +1947,35 @@ static struct notifier_block kvm_mips_csr_die_notifier = {
 	.notifier_call = kvm_mips_csr_die_notify,
 };
 
+#ifdef CONFIG_CPU_LOONGSON3
+/*
+ * Though the possiblilty is very small, LSVZ may trap into root
+ * during guest interrupt handling. Force CPU got back to guest
+ * mode when it happens. At least 8 nop.
+ * */
+static void build_lsvz_guest_mode_reenter(void)
+{
+	u32 *p = (void *)0xffffffff80100180;
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_nop(&p);
+	uasm_i_eret(&p);
+
+}
+#endif
+
 static int __init kvm_mips_init(void)
 {
 	int ret;
+
+#ifdef CONFIG_CPU_LOONGSON3
+	build_lsvz_guest_mode_reenter();
+#endif
 
 	ret = kvm_mips_entry_setup();
 	if (ret)

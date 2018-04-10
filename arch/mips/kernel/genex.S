@@ -32,6 +32,17 @@
 NESTED(except_vec3_generic, 0, sp)
 	.set	push
 	.set	noat
+//For LSVZ, Use at least 8 nop for workaround
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+#endif
 #if R5432_CP0_INTERRUPT_WAR
 	mfc0	k0, CP0_INDEX
 #endif
