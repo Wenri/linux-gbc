@@ -155,6 +155,7 @@ Ip_u3u1u2(_subu);
 Ip_u2s3u1(_sw);
 Ip_u1(_sync);
 Ip_u1(_syscall);
+Ip_0(_tlbinvf);
 Ip_0(_tlbp);
 Ip_0(_tlbr);
 Ip_0(_tlbwi);
