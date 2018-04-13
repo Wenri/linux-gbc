@@ -1954,7 +1954,6 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 
 	if (current->flags & PF_VCPU) {
 		tlbw_use_hazard();
-		kvm_ls_vz_load_guesttlb(vcpu);
 	}
 	/*Should we load the guest cp0s here??? FIX ME */
 
@@ -2002,7 +2001,7 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
 
 	if (current->flags & PF_VCPU)
-		kvm_ls_vz_save_guesttlb(vcpu);
+		;
 	/*Should we save the guest cp0s here??? FIX ME */
 
 	kvm_lose_fpu(vcpu);
@@ -2037,8 +2036,6 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 static void kvm_vz_vcpu_reenter(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	save_regs_with_field_change_exception(vcpu);
-
-	kvm_ls_vz_load_guesttlb(vcpu);
 }
 
 static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
@@ -2053,12 +2050,10 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 //	kvm_vz_check_requests(vcpu, cpu);
 //	kvm_vz_vcpu_load_tlb(vcpu, cpu);
 //	kvm_vz_vcpu_load_wired(vcpu);
-	kvm_ls_vz_load_guesttlb(vcpu);
 	save_regs_with_field_change_exception(vcpu);
 
 	r = vcpu->arch.vcpu_run(run, vcpu);
 
-	kvm_ls_vz_save_guesttlb(vcpu);
 //	kvm_vz_vcpu_save_wired(vcpu);
 
 	return r;

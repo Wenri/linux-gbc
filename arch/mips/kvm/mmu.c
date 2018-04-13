@@ -1190,10 +1190,6 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		vcpu->arch.guest_tlb[0].tlb_mask = 0x7800;
 		vcpu->arch.guest_tlb[0].tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa[0]));
 		vcpu->arch.guest_tlb[0].tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa[1]));
-
-		/* Set the corresponding tlb line in SW guest tlb*/
-		kvm_ls_vz_update_guesttlb(vcpu, pte_gpa);
-
 	} else if (((badvaddr & CKSEG3) == CKSEG1)) {
 		/*the MMIO address space*/
 		ret = RESUME_HOST;
