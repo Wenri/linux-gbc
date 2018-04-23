@@ -147,7 +147,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 
 		badvaddr = args[0] & PAGE_MASK;
 		if(args[4] == 0x5001)
-			write_c0_entryhi(badvaddr | read_gc0_entryhi());
+			write_c0_entryhi(badvaddr | vcpu->arch.cop0->reg[MIPS_CP0_TLB_HI][0]);
 		else if (args[4] == 0x5005)
 			write_c0_entryhi(badvaddr);
 
@@ -207,7 +207,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			tmp_entrylo1 = read_c0_entrylo1();
 			page_mask = read_c0_pagemask();
 			tmp_index = read_c0_index();
-			gc0_entryhi = read_gc0_entryhi();
+			gc0_entryhi = vcpu->arch.cop0->reg[MIPS_CP0_TLB_HI][0];
 
 			//Enable diag.MID for guest
 			tmp_diag = read_c0_diag();
@@ -261,7 +261,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		pte_t pte_gpa[2];
 		pte_t pte_gpa1[2];
 		int ret = 0;
-		u32 gsexccode = (read_gc0_cause() >> CAUSEB_EXCCODE) & 0x1f;
+		u32 gsexccode = args[5];
 
 		gfn_t gfn;
 		struct kvm_memory_slot* slot;
@@ -269,20 +269,21 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 
 		//Distinct TLBL/TLBS/TLBM
 		switch(gsexccode) {
-		case VMTLBL:
+		case EXCCODE_TLBL:
 			write_fault = 0;
 			break;
-		case VMTLBS:
+		case EXCCODE_TLBS:
 			write_fault = 1;
 			break;
-		case VMTLBM:
+		case EXCCODE_MOD:
 			write_fault = 1;
 			break;
-		case VMTLBRI:
+		case EXCCODE_TLBRI:
 			break;
-		case VMTLBXI:
+		case EXCCODE_TLBXI:
 			break;
 		default:
+			kvm_info("illegal guest cause value %lx\n",args[5]);
 			break;
 		}
 		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits of odd pte
@@ -304,11 +305,9 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		if(ret)
 			kvm_info("translate gpa error\n");
 
-		local_irq_disable();
 		/*update software tlb
 		*/
-		vcpu->arch.guest_tlb[1].tlb_hi = (args[0] & 0xc000ffffffffe000) |
-						 (read_gc0_entryhi() & KVM_ENTRYHI_ASID);
+		vcpu->arch.guest_tlb[1].tlb_hi = (args[0] & 0xc000ffffffffe000);
 		if (args[1] == 14)
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x7800; //normal pagesize 16KB
 		else if (args[1] == 24)
@@ -366,6 +365,7 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 	args[2] = vcpu->arch.gprs[6];	/* a2 even pte value*/
 	args[3] = vcpu->arch.gprs[7];	/* a3 odd pte value*/
 	args[4] = vcpu->arch.gprs[2];	/* tlb_miss/tlbl/tlbs/tlbm */
+	args[5] = vcpu->arch.gprs[3];	/* EXCCODE/_TLBL/_TLBS/_MOD */
 
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
 		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",

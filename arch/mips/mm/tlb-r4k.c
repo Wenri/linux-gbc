@@ -32,24 +32,27 @@ static int emulate_tlb_ops(unsigned long address,
 			    unsigned long odd_pte, int op_type)
 {
 #if 1
-	unsigned int ret;
+	unsigned int ret, v1;
 	__asm__ __volatile__(
 	"	.set	push			\n"
 	"	.set	noreorder		\n"
 	"	move	%[val], $2		\n"
+	"	move	%[v1], $3		\n"
 	"	move	$2, %[A4]		\n"
+	"	daddiu	$3, $0, 2		\n"
 	"	move	$4, %[A0]		\n"
 	"	move	$5, %[A1]		\n"
 	"	move	$6, %[A2]		\n"
 	"	move	$7, %[A3]		\n"
 	"	.word	0x42000028		\n" //hypcall
 	"	move	$2, %[val]		\n"
+	"	move	$3, %[v1]		\n"
 	"	.set	reorder			\n"
 	"	.set	pop			\n"
-	: [val] "=r" (ret)
+	: [val] "=r" (ret), [v1] "=r" (v1)
 	: [A0] "r" (address), [A1] "r" (pageshift), [A2] "r" (even_pte),
 	  [A3] "r" (odd_pte), [A4] "r" (op_type)
-	: "$2", "$4", "$5", "$6", "$7", "$8");
+	: "$2", "$3", "$4", "$5", "$6", "$7", "$8");
 	return ret;
 #endif
 }

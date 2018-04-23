@@ -1816,6 +1816,11 @@ do {									\
 #define read_c0_brcm_sleepcount()	__read_32bit_c0_register($22, 7)
 #define write_c0_brcm_sleepcount(val)	__write_32bit_c0_register($22, 7, val)
 
+#ifdef CONFIG_CPU_LOONGSON3
+#define read_c0_vpid()		__read_32bit_c0_register($22, 2)
+#define write_c0_vpid(val)	__write_32bit_c0_register($22, 2, val)
+#endif
+
 /*
  * Macros to access the guest system control coprocessor
  */

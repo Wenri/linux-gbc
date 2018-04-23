@@ -64,6 +64,7 @@ struct tlb_gprs_save {
 	unsigned long a2;
 	unsigned long a3;
 	unsigned long v0;
+	unsigned long v1;
 } ____cacheline_aligned_in_smp;
 
 struct tlb_gprs_save handler_gprs_save[NR_CPUS];

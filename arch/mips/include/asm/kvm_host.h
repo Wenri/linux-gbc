@@ -395,6 +395,9 @@ struct kvm_vcpu_arch {
 #ifdef CONFIG_KVM_MIPS_VZ
 	/* vcpu's vzguestid is different on each host cpu in an smp system */
 	u32 vzguestid[NR_CPUS];
+#ifdef CONFIG_CPU_LOONGSON3
+	u64 vpid[NR_CPUS];
+#endif
 
 	/* wired guest TLB entries */
 	struct kvm_mips_tlb *wired_tlb;
@@ -746,6 +749,10 @@ __BUILD_KVM_SET_SAVED(config2,    32, MIPS_CP0_CONFIG,       2)
 __BUILD_KVM_SET_SAVED(config3,    32, MIPS_CP0_CONFIG,       3)
 __BUILD_KVM_SET_SAVED(config4,    32, MIPS_CP0_CONFIG,       4)
 __BUILD_KVM_SET_SAVED(config5,    32, MIPS_CP0_CONFIG,       5)
+
+#ifdef CONFIG_CPU_LOONGSON3
+__BUILD_KVM_RW_SW(gsebase,          l, MIPS_CP0_COUNT,        6)
+#endif
 
 /* Helpers */
 

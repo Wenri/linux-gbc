@@ -395,25 +395,26 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_mtgc0(&p, K0, C0_STATUS);
 //	uasm_i_lui(&p, K0, 0x8010);
 //	uasm_i_mtc0(&p, K0, C0_GSEBASE);
-
-	/*if (cpu_has_guestid) {*/
+#if 0
+	if (cpu_has_guestid) {
 		/*
 		 * Set root mode GuestID, so that root TLB refill handler can
 		 * use the correct GuestID in the root TLB.
 		 */
 
 		/*[> Get current GuestID <]*/
-		/*uasm_i_mfc0(&p, T0, C0_GUESTCTL1);*/
+		uasm_i_mfc0(&p, T0, C0_GUESTCTL1);
 		/*[> Set GuestCtl1.RID = GuestCtl1.ID <]*/
-		/*uasm_i_ext(&p, T1, T0, MIPS_GCTL1_ID_SHIFT,*/
-			   /*MIPS_GCTL1_ID_WIDTH);*/
-		/*uasm_i_ins(&p, T0, T1, MIPS_GCTL1_RID_SHIFT,*/
-			   /*MIPS_GCTL1_RID_WIDTH);*/
-		/*uasm_i_mtc0(&p, T0, C0_GUESTCTL1);*/
+		uasm_i_ext(&p, T1, T0, MIPS_GCTL1_ID_SHIFT,
+			   MIPS_GCTL1_ID_WIDTH);
+		uasm_i_ins(&p, T0, T1, MIPS_GCTL1_RID_SHIFT,
+			   MIPS_GCTL1_RID_WIDTH);
+		uasm_i_mtc0(&p, T0, C0_GUESTCTL1);
 
 		/*[> GuestID handles dealiasing so we don't need to touch ASID <]*/
 		/*goto skip_asid_restore;*/
-	/*}*/
+	}
+#endif
 
 	/* Root ASID Dealias (RAD) */
 
@@ -421,6 +422,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
 		  K1);
+	goto skip_asid_restore;
 #ifndef CONFIG_CPU_LOONGSON3
 	/* Set the root ASID for the Guest */
 	UASM_i_ADDIU(&p, T1, S0,
@@ -488,7 +490,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 //	uasm_i_mtc0(&p, K0, C0_ENTRYHI);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
 #endif
-/*skip_asid_restore:*/
+skip_asid_restore:
 #endif
 	uasm_i_ehb(&p);
 
@@ -547,6 +549,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	return p;
 }
 
+#if 0
 void loongson_vz_exception(void)
 {
 	/*the real process is:
@@ -639,7 +642,7 @@ void loongson_vz_exception(void)
 	:::
 	);
 }
-#if 0
+
 /*write for test exception trigger*/
 void loongson_vz_general_exc(void)
 {
@@ -734,25 +737,6 @@ void loongson_vz_general_exc(void)
 	".set	pop\n"
 	:::
 	);
-}
-#endif
-#if 0
-static int uasm_rel_highest(long val)
-{
-#ifdef CONFIG_64BIT
-	return ((((val + 0x800080008000L) >> 48) & 0xffff) ^ 0x8000) - 0x8000;
-#else
-	return 0;
-#endif
-}
-
-static int uasm_rel_higher(long val)
-{
-#ifdef CONFIG_64BIT
-	return ((((val + 0x80008000L) >> 32) & 0xffff) ^ 0x8000) - 0x8000;
-#else
-	return 0;
-#endif
 }
 #endif
 
@@ -866,9 +850,6 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	uasm_l_not_mapped(&l, p);
 
 #if 0
-	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
-	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
-		  K1);
 
 	/* Get guest ASID */
 	UASM_i_MFGC0(&p, A0, MIPS_CP0_TLB_HI, 0);
@@ -992,11 +973,6 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 #if 1 //Debug for ASID
 	/* Restore Root.entryhi, Guest A0 from VCPU structure */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
-#if 0
-	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu, arch.guest_entryhi),
-		  K1);
-	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
-#endif
 	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
 	UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
 	UASM_i_LW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
@@ -1116,11 +1092,13 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	/* load up the host EBASE */
 	uasm_i_mfc0(&p, V0, C0_STATUS);
 
-//	uasm_i_lui(&p, AT, ST0_BEV >> 16);
-//	uasm_i_or(&p, K0, V0, AT);
-//
-//	uasm_i_mtc0(&p, K0, C0_STATUS);
-//	uasm_i_ehb(&p);
+#if 0
+	uasm_i_lui(&p, AT, ST0_BEV >> 16);
+	uasm_i_or(&p, K0, V0, AT);
+
+	uasm_i_mtc0(&p, K0, C0_STATUS);
+	uasm_i_ehb(&p);
+#endif
 
 	UASM_i_LA_mostly(&p, K0, (long)&ebase);
 	UASM_i_LW(&p, K0, uasm_rel_lo((long)&ebase), K0);
@@ -1142,38 +1120,40 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 		uasm_l_fpu_1(&l, p);
 	}
 
-	/*if (cpu_has_msa) {*/
+#if 0
+	if (cpu_has_msa) {
 		/*
 		 * If MSA is enabled, save MSACSR and clear it so that later
 		 * instructions don't trigger MSAFPE for pending exceptions.
 		 */
-		/*uasm_i_mfc0(&p, T0, C0_CONFIG5);*/
-		/*uasm_i_ext(&p, T0, T0, 27, 1); [> MIPS_CONF5_MSAEN <]*/
-		/*uasm_il_beqz(&p, &r, T0, label_msa_1);*/
-		 /*uasm_i_nop(&p);*/
-		/*uasm_i_cfcmsa(&p, T0, MSA_CSR);*/
-		/*uasm_i_sw(&p, T0, offsetof(struct kvm_vcpu_arch, fpu.msacsr),*/
-			  /*K1);*/
-		/*uasm_i_ctcmsa(&p, MSA_CSR, ZERO);*/
-		/*uasm_l_msa_1(&l, p);*/
-	/*}*/
+		uasm_i_mfc0(&p, T0, C0_CONFIG5);
+		uasm_i_ext(&p, T0, T0, 27, 1); /*[> MIPS_CONF5_MSAEN <]*/
+		uasm_il_beqz(&p, &r, T0, label_msa_1);
+		uasm_i_nop(&p);
+		uasm_i_cfcmsa(&p, T0, MSA_CSR);
+		uasm_i_sw(&p, T0, offsetof(struct kvm_vcpu_arch, fpu.msacsr),
+			  K1);
+		uasm_i_ctcmsa(&p, MSA_CSR, ZERO);
+		uasm_l_msa_1(&l, p);
+	}
+#endif
 
 #ifdef CONFIG_KVM_MIPS_VZ
+#if 0
 	/* Restore host ASID */
-	/*if (!cpu_has_guestid) {*/
-		/*UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),*/
-			  /*K1);*/
-		/*UASM_i_MTC0(&p, K0, C0_ENTRYHI);*/
-	/*}*/
-	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
-	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, guest_entryhi),
-		  K1);
+	if (!cpu_has_guestid) {
+		UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
+			  K1);
+		UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+	}
+#endif
 	UASM_i_MFC0(&p, K0, C0_PAGEMASK);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, guest_pagemask),
 		  K1);
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
 		  K1);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+	uasm_i_ehb(&p);
 
 	/*
 	 * Set up normal Linux process pgd.
@@ -1200,17 +1180,19 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	uasm_i_sw(&p, K0,
 		  offsetof(struct kvm_vcpu_arch, host_cp0_guestctl0), K1);
 
-	/*if (cpu_has_guestid) {*/
+#if 0
+	if (cpu_has_guestid) {
 		/*
 		 * Clear root mode GuestID, so that root TLB operations use the
 		 * root GuestID in the root TLB.
 		 */
-		/*uasm_i_mfc0(&p, T0, C0_GUESTCTL1);*/
+		uasm_i_mfc0(&p, T0, C0_GUESTCTL1);
 		/*[> Set GuestCtl1.RID = MIPS_GCTL1_ROOT_GUESTID (i.e. 0) <]*/
-		/*uasm_i_ins(&p, T0, ZERO, MIPS_GCTL1_RID_SHIFT,*/
-			   /*MIPS_GCTL1_RID_WIDTH);*/
-		/*uasm_i_mtc0(&p, T0, C0_GUESTCTL1);*/
-	/*}*/
+		uasm_i_ins(&p, T0, ZERO, MIPS_GCTL1_RID_SHIFT,
+			   MIPS_GCTL1_RID_WIDTH);
+		uasm_i_mtc0(&p, T0, C0_GUESTCTL1);
+	}
+#endif
 #endif
 
 	/* Now that the new EBASE has been loaded, unset BEV and KSU_USER */
@@ -1506,32 +1488,33 @@ void *kvm_mips_build_exit(void *addr)
 		uasm_l_fpu_1(&l, p);
 	}
 
-	/*if (cpu_has_msa) {*/
+#if 0
+	if (cpu_has_msa) {
 		/*
 		 * If MSA is enabled, save MSACSR and clear it so that later
 		 * instructions don't trigger MSAFPE for pending exceptions.
 		 */
-		/*uasm_i_mfc0(&p, T0, C0_CONFIG5);*/
-		/*uasm_i_ext(&p, T0, T0, 27, 1); [> MIPS_CONF5_MSAEN <]*/
-		/*uasm_il_beqz(&p, &r, T0, label_msa_1);*/
-		 /*uasm_i_nop(&p);*/
-		/*uasm_i_cfcmsa(&p, T0, MSA_CSR);*/
-		/*uasm_i_sw(&p, T0, offsetof(struct kvm_vcpu_arch, fpu.msacsr),*/
-			  /*K1);*/
-		/*uasm_i_ctcmsa(&p, MSA_CSR, ZERO);*/
-		/*uasm_l_msa_1(&l, p);*/
-	/*}*/
+		uasm_i_mfc0(&p, T0, C0_CONFIG5);
+		uasm_i_ext(&p, T0, T0, 27, 1); /*[> MIPS_CONF5_MSAEN <]*/
+		uasm_il_beqz(&p, &r, T0, label_msa_1);
+		uasm_i_nop(&p);
+		uasm_i_cfcmsa(&p, T0, MSA_CSR);
+		uasm_i_sw(&p, T0, offsetof(struct kvm_vcpu_arch, fpu.msacsr),
+			  K1);
+		uasm_i_ctcmsa(&p, MSA_CSR, ZERO);
+		uasm_l_msa_1(&l, p);
+	}
+#endif
 
 #ifdef CONFIG_KVM_MIPS_VZ
+#if 0
 	/* Restore host ASID */
-	/*if (!cpu_has_guestid) {*/
-		/*UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),*/
-			  /*K1);*/
-		/*UASM_i_MTC0(&p, K0, C0_ENTRYHI);*/
-	/*}*/
-	UASM_i_MFC0(&p, K0, C0_ENTRYHI);
-	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, guest_entryhi),
-		  K1);
+	if (!cpu_has_guestid) {
+		UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
+			  K1);
+		UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+	}
+#endif
 	UASM_i_MFC0(&p, K0, C0_PAGEMASK);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, guest_pagemask),
 		  K1);
@@ -1564,17 +1547,19 @@ void *kvm_mips_build_exit(void *addr)
 	uasm_i_sw(&p, K0,
 		  offsetof(struct kvm_vcpu_arch, host_cp0_guestctl0), K1);
 
-	/*if (cpu_has_guestid) {*/
+#if 0
+	if (cpu_has_guestid) {
 		/*
 		 * Clear root mode GuestID, so that root TLB operations use the
 		 * root GuestID in the root TLB.
 		 */
-		/*uasm_i_mfc0(&p, T0, C0_GUESTCTL1);*/
+		uasm_i_mfc0(&p, T0, C0_GUESTCTL1);
 		/*[> Set GuestCtl1.RID = MIPS_GCTL1_ROOT_GUESTID (i.e. 0) <]*/
-		/*uasm_i_ins(&p, T0, ZERO, MIPS_GCTL1_RID_SHIFT,*/
-			   /*MIPS_GCTL1_RID_WIDTH);*/
-		/*uasm_i_mtc0(&p, T0, C0_GUESTCTL1);*/
-	/*}*/
+		uasm_i_ins(&p, T0, ZERO, MIPS_GCTL1_RID_SHIFT,
+			   MIPS_GCTL1_RID_WIDTH);
+		uasm_i_mtc0(&p, T0, C0_GUESTCTL1);
+	}
+#endif
 #endif
 
 	/* Now that the new EBASE has been loaded, unset BEV and KSU_USER */
@@ -1663,6 +1648,13 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 
 	uasm_i_move(&p, K1, S1);
 	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
+	/*
+	 * Check return value, should tell us if we are returning to the
+	 * host (handle I/O etc)or resuming the guest
+	 */
+	uasm_i_andi(&p, T0, V0, RESUME_HOST);
+	uasm_il_bnez(&p, &r, T0, label_return_to_host);
+	uasm_i_nop(&p);
 
 #if 1 //Debug for fill in one tlb line,not use S0,S1,V0,K1
 	if (!update_tlb)
@@ -1688,7 +1680,7 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	   on guest TLB entrys */
 	uasm_i_addiu(&p, A4, ZERO, 1);
 	uasm_i_mfc0(&p, A2, C0_DIAG);
-	uasm_i_ins(&p, A2, A4, 18, 2);
+	uasm_i_ins(&p, A2, A4, LS_MID_SHIFT, 2);
 	uasm_i_mtc0(&p, A2, C0_DIAG);
 
 	if(update_tlb) {
@@ -1714,6 +1706,11 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 
 		/* Probe the TLB entry to be written into hardware */
 		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[1].tlb_hi), K1);
+#if 1
+		// Append guest.entryhi.asid
+		UASM_i_MFGC0(&p, A2, C0_ENTRYHI);
+		uasm_i_or(&p, V1, V1, A2);
+#endif
 		UASM_i_MTC0(&p, V1, C0_ENTRYHI);
 		uasm_i_ehb(&p);
 	}
@@ -1769,7 +1766,7 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	/* Clear Diag.MID to make sure Root.TLB refill & general
 	   exception works right */
 	uasm_i_mfc0(&p, A2, C0_DIAG);
-	uasm_i_ins(&p, A2, ZERO, 18, 2);
+	uasm_i_ins(&p, A2, ZERO, LS_MID_SHIFT, 2);
 	uasm_i_mtc0(&p, A2, C0_DIAG);
 
 	uasm_i_mtc0(&p, A0, C0_INDEX); //save index
@@ -1785,13 +1782,6 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 		uasm_l_no_hypcall(&l, p);
 	}
 #endif
-	/*
-	 * Check return value, should tell us if we are returning to the
-	 * host (handle I/O etc)or resuming the guest
-	 */
-	uasm_i_andi(&p, T0, V0, RESUME_HOST);
-	uasm_il_bnez(&p, &r, T0, label_return_to_host);
-	uasm_i_nop(&p);
 
 	p = kvm_mips_build_ret_to_guest(p);
 

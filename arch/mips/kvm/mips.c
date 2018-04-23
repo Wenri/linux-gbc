@@ -463,6 +463,10 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 
 	kvm_debug("Allocated COMM page @ %p\n", vcpu->arch.kseg0_commpage);
 	kvm_mips_commpage_init(vcpu);
+
+	//put gsebase into vcpu for migration use
+	kvm_write_sw_gc0_gsebase(vcpu->arch.cop0, (unsigned long)refill_start);
+
 	kvm_info("guest cop0 page @ %p gprs @ %p tlb @ %p pc @ %lx\n",
 		  vcpu->arch.cop0, vcpu->arch.gprs, vcpu->arch.guest_tlb,
 		  (unsigned long)&vcpu->arch.pc);
@@ -1333,12 +1337,20 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
 	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
-//	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
+	u32 __user *opc = (u32 __user *) vcpu->arch.pc;
 	u32 gsexccode = (vcpu->arch.host_cp0_gscause >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
+	u32 inst;
 	enum emulation_result er = EMULATE_DONE;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
+	if(((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE) &&
+			    ((vcpu->arch.host_cp0_badvaddr >> 40) & 0xff)) {
+		kvm_err("vpid area can not be used for addr %lx\n", vcpu->arch.host_cp0_badvaddr);
+		run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		ret = RESUME_HOST;
+		return ret;
+	}
 
 	/* re-enable HTW before enabling interrupts */
 	if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ))
@@ -1392,7 +1404,15 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		break;
 
 	default:
+		if (cause & CAUSEF_BD)
+			opc += 1;
+		inst = 0;
+		kvm_get_badinstr(opc, vcpu, &inst);
+		kvm_err("TLB general Excode: %d, not yet handled, @ PC: %p, inst: 0x%08x  BadVaddr: %#lx Status: %#x\n",
+			exccode, opc, inst, vcpu->arch.host_cp0_badvaddr,
+			kvm_read_c0_guest_status(vcpu->arch.cop0));
 		kvm_arch_vcpu_dump_regs(vcpu);
+		run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
 		ret = RESUME_GUEST;
 		break;
 	}
@@ -1657,7 +1677,7 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 			opc += 1;
 		inst = 0;
 		kvm_get_badinstr(opc, vcpu, &inst);
-		kvm_err("Exception Code: %d, not yet handled, @ PC: %p, inst: 0x%08x  BadVaddr: %#lx Status: %#x\n",
+		kvm_err("Exit Exception Code: %d, not yet handled, @ PC: %p, inst: 0x%08x  BadVaddr: %#lx Status: %#x\n",
 			exccode, opc, inst, badvaddr,
 			kvm_read_c0_guest_status(vcpu->arch.cop0));
 		kvm_arch_vcpu_dump_regs(vcpu);

@@ -145,7 +145,11 @@ void __init prom_init_env(void)
 		smp_group[1] = 0x900010003ff01000;
 		smp_group[2] = 0x900020003ff01000;
 		smp_group[3] = 0x900030003ff01000;
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+		ht_control_base = 0x900000EFFB000000;
+#else
 		ht_control_base = 0x90000EFDFB000000;
+#endif
 		loongson_chipcfg[0] = 0x900000001fe00180;
 		loongson_chipcfg[1] = 0x900010001fe00180;
 		loongson_chipcfg[2] = 0x900020001fe00180;

@@ -1001,6 +1001,9 @@ static int kvm_vz_hardware_enable(void)
 	/* clear any pending injected virtual guest interrupts */
 	if (cpu_has_guestctl2)
 		clear_c0_guestctl2(0x3f << 10);
+	//Set vpid.vpmask to fixed 0xff,so we can have 256 guest
+	write_c0_diag(read_c0_diag() | (1<<16));
+	write_c0_vpid(0xff<<8);
 
 	return 0;
 }
@@ -1934,6 +1937,87 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 	return ret;
 }
 
+/* Returns 1 if the guest TLB may be clobbered */
+static int kvm_vz_check_requests(struct kvm_vcpu *vcpu, int cpu)
+{
+	int ret = 0;
+	int i;
+
+	if (!vcpu->requests)
+		return 0;
+
+	if (kvm_check_request(KVM_REQ_TLB_FLUSH, vcpu)) {
+		if (cpu_has_guestid) {
+			/* Drop all GuestIDs for this VCPU */
+			for_each_possible_cpu(i)
+				vcpu->arch.vzguestid[i] = 0;
+			/* This will clobber guest TLB contents too */
+			ret = 1;
+		}
+		/*
+		 * For Root ASID Dealias (RAD) we don't do anything here, but we
+		 * still need the request to ensure we recheck asid_flush_mask.
+		 * We can still return 0 as only the root TLB will be affected
+		 * by a root ASID flush.
+		 */
+	}
+
+	return ret;
+}
+
+#define vpid_cache(cpu)	(cpu_data[cpu].vpid_cache)
+#define VPID_MASK	0xff
+#define VPID_VERSION_MASK  ((unsigned long)~(VPID_MASK|(VPID_MASK-1)))
+#define VPID_FIRST_VERSION ((unsigned long)(~VPID_VERSION_MASK) + 1)
+
+static void kvm_vz_get_new_vpid(unsigned long cpu, struct kvm_vcpu *vcpu)
+{
+	unsigned long guestid = vpid_cache(cpu);
+
+	if (!(++guestid & VPID_MASK)) {
+		if (!guestid)		/* fix version if needed */
+			guestid = VPID_FIRST_VERSION;
+
+		++guestid;		/* guestid 0 reserved for root */
+
+		/* start new guestid cycle */
+		local_flush_tlb_all();
+	}
+
+	vpid_cache(cpu) = guestid;
+}
+
+
+static void kvm_vz_vcpu_change_vpid(struct kvm_vcpu *vcpu, int cpu)
+{
+	bool migrated, all;
+
+	/*
+	 * Are we entering guest context on a different CPU to last time?
+	 * If so, the VCPU's guest TLB state on this CPU may be stale.
+	 */
+	migrated = (vcpu->arch.last_exec_cpu != cpu);
+	vcpu->arch.last_exec_cpu = cpu;
+	all = migrated || (last_exec_vcpu[cpu] != vcpu);
+	last_exec_vcpu[cpu] = vcpu;
+
+	/*
+	 *
+	 */
+#if 1
+	if (all ||
+	    (vcpu->arch.vpid[cpu] ^ vpid_cache(cpu)) &
+				VPID_VERSION_MASK) {
+		kvm_vz_get_new_vpid(cpu, vcpu);
+		vcpu->arch.vpid[cpu] = vpid_cache(cpu);
+//		trace_kvm_guestid_change(vcpu,
+//					 vcpu->arch.vpid[cpu]);
+	}
+	write_c0_vpid((read_c0_vpid() &0xff00) | (vcpu->arch.vpid[cpu] & 0xff));
+#endif
+}
+
+
 static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
@@ -1953,7 +2037,7 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	last_vcpu[cpu] = vcpu;
 
 	if (current->flags & PF_VCPU) {
-		tlbw_use_hazard();
+		kvm_vz_vcpu_change_vpid(vcpu, cpu);
 	}
 	/*Should we load the guest cp0s here??? FIX ME */
 
@@ -1966,6 +2050,9 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	/* Don't bother restoring registers multiple times unless necessary */
 	if (!all)
 		return 0;
+
+	write_c0_gsebase(0x800);
+	write_c0_gsebase(kvm_read_sw_gc0_gsebase(cop0));
 
 	/*
 	 * Restore config registers first, as some implementations restrict
@@ -1980,11 +2067,11 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	kvm_restore_gc0_hwrena(cop0);
 	kvm_restore_gc0_badvaddr(cop0);
 	/*Restore entryhi will cause trouble temporarily,if set guestctl0.asid=1 FIX ME!!!!!*/
-//	kvm_restore_gc0_entryhi(cop0);
+	kvm_restore_gc0_entryhi(cop0);
 	kvm_restore_gc0_status(cop0);
 	kvm_restore_gc0_intctl(cop0);
 	kvm_restore_gc0_epc(cop0);
-	kvm_vz_write_gc0_ebase(kvm_read_sw_gc0_ebase(cop0));
+	kvm_vz_write_gc0_ebase(kvm_read_sw_gc0_ebase(cop0) | vcpu->vcpu_id);
 	kvm_restore_gc0_userlocal(cop0);
 	kvm_restore_gc0_errorepc(cop0);
 
@@ -2009,11 +2096,11 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	kvm_save_gc0_hwrena(cop0);
 	kvm_save_gc0_badvaddr(cop0);
 	/*Not save entryhi for temporarily,FIX ME!!!!!!*/
-//	kvm_save_gc0_entryhi(cop0);
+	kvm_save_gc0_entryhi(cop0);
 	kvm_save_gc0_status(cop0);
 	kvm_save_gc0_intctl(cop0);
 	kvm_save_gc0_epc(cop0);
-	kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase());
+	kvm_write_sw_gc0_ebase(cop0, kvm_vz_read_gc0_ebase() |vcpu->vcpu_id);
 	kvm_save_gc0_userlocal(cop0);
 
 	/* only save implemented and writable config registers */
@@ -2035,26 +2122,26 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 
 static void kvm_vz_vcpu_reenter(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
+	int cpu = smp_processor_id();
+	kvm_vz_check_requests(vcpu, cpu);
 	save_regs_with_field_change_exception(vcpu);
+	kvm_vz_vcpu_change_vpid(vcpu, cpu);
 }
 
 static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
-//	int cpu = smp_processor_id();
+	int cpu = smp_processor_id();
 	int r;
 
 	kvm_vz_acquire_htimer(vcpu);
 	/* Check if we have any exceptions/interrupts pending */
 	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
-//
-//	kvm_vz_check_requests(vcpu, cpu);
-//	kvm_vz_vcpu_load_tlb(vcpu, cpu);
-//	kvm_vz_vcpu_load_wired(vcpu);
+
+	kvm_vz_check_requests(vcpu, cpu);
+	kvm_vz_vcpu_change_vpid(vcpu, cpu);
 	save_regs_with_field_change_exception(vcpu);
 
 	r = vcpu->arch.vcpu_run(run, vcpu);
-
-//	kvm_vz_vcpu_save_wired(vcpu);
 
 	return r;
 }

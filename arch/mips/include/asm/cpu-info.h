@@ -102,6 +102,9 @@ struct cpuinfo_mips {
 	unsigned int		gtoffset_mask;
 	unsigned int		guestid_mask;
 	unsigned int		guestid_cache;
+#ifdef CONFIG_CPU_LOONGSON3
+	unsigned int		vpid_cache;
+#endif
 } __attribute__((aligned(SMP_CACHE_BYTES)));
 
 extern struct cpuinfo_mips cpu_data[];

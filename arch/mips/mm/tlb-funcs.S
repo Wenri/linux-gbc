@@ -62,6 +62,9 @@ LEAF(handle_tlbm)
 
 	gssq	a2, a3, 16(k1)
 	sd	v0,  32(k1)
+	gssq	v0, v1, 32(k1)
+	mfc0	v1, CP0_CAUSE
+	ext	v1, v1, 2, 5
 	dmfc0	a0, CP0_BADVADDR
 	lui	a1, %hi(swapper_pg_dir)
 	dsrl32	a3, a0, 16
@@ -102,8 +105,8 @@ LEAF(handle_tlbm)
 2:
 	HYPCALL
 	gslq	a0, a1, 0(k1)
-	gslq	a2, a3,16(k1)
-	ld	v0, 32(k1)
+	gslq	a2, a3, 16(k1)
+	gslq	v0, v1, 32(k1)
 	eret
 
 3:
@@ -127,7 +130,7 @@ LEAF(handle_tlbm)
 	gslq	a0, a1, 0(k1)
 	gslq	a2, a3,16(k1)
 	j	tlb_do_page_fault_1
-	ld	v0, 32(k1)
+	gslq	v0, v1, 32(k1)
 	.set	reorder
 	.set	pop
 END(handle_tlbm)
@@ -149,7 +152,9 @@ LEAF(handle_tlbl)
 	gssq	a0, a1, 0(k1)
 
 	gssq	a2, a3, 16(k1)
-	sd	v0,  32(k1)
+	gssq	v0, v1, 32(k1)
+	mfc0	v1, CP0_CAUSE
+	ext	v1, v1, 2, 5
 	dmfc0	a0, CP0_BADVADDR
 	lui	a1, %hi(swapper_pg_dir)
 	dsrl32	a3, a0, 16
@@ -191,8 +196,8 @@ LEAF(handle_tlbl)
 2:
 	HYPCALL
 	gslq	a0, a1, 0(k1)
-	gslq	a2, a3,16(k1)
-	ld	v0, 32(k1)
+	gslq	a2, a3, 16(k1)
+	gslq	v0, v1, 32(k1)
 	eret
 
 3:
@@ -214,7 +219,7 @@ LEAF(handle_tlbl)
 	gslq	a0, a1, 0(k1)
 	gslq	a2, a3, 16(k1)
 	j	tlb_do_page_fault_0  //do_page_fault with write = 0
-	ld	v0, 32(k1)
+	gslq	v0, v1, 32(k1)
 	.set	reorder
 	.set	pop
 END(handle_tlbl)
@@ -236,7 +241,9 @@ LEAF(handle_tlbs)
 	gssq	a0, a1, 0(k1)
 
 	gssq	a2, a3, 16(k1)
-	sd	v0, 32(k1)
+	gssq	v0, v1, 32(k1)
+	mfc0	v1, CP0_CAUSE
+	ext	v1, v1, 2, 5
 	dmfc0	a0, CP0_BADVADDR
 	lui	a1, %hi(swapper_pg_dir)
 	dsrl32	a3, a0, 16
@@ -276,8 +283,8 @@ LEAF(handle_tlbs)
 2:
 	HYPCALL
 	gslq	a0, a1, 0(k1)
-	gslq	a2, a3,16(k1)
-	ld	v0, 32(k1)
+	gslq	a2, a3, 16(k1)
+	gslq	v0, v1, 32(k1)
 	eret
 
 3:
@@ -301,7 +308,7 @@ LEAF(handle_tlbs)
 	gslq	a0, a1, 0(k1)
 	gslq	a2, a3,16(k1)
 	j	tlb_do_page_fault_1  //do_page_fault with write = 1
-	ld	v0, 32(k1)
+	gslq	v0, v1 32(k1)
 	.set	reorder
 	.set	pop
 END(handle_tlbs)
@@ -311,6 +318,12 @@ LEAF(tlb_miss)
 	.set	push
 	.set	noreorder
 	.set	arch=loongson3a
+
+	dmfc0	k0, CP0_BADVADDR
+	dsrl32	k0, k0, 8
+	andi	k0, k0, 0xff
+	bnez	k0, 3f
+	nop
 
 	lui	k1,%hi(handler_gprs_save)	// tmp_save should be per cpu
 	mfc0	k0, CP0_EBASE
@@ -323,7 +336,9 @@ LEAF(tlb_miss)
 	gssq	a0, a1, 0(k1)
 
 	gssq	a2, a3, 16(k1)
-	sd	v0, 32(k1)
+	gssq	v0, v1, 32(k1)
+	mfc0	v1, CP0_CAUSE
+	ext	v1, v1, 2, 5
 	dmfc0	a0, CP0_BADVADDR
 	lui	a1, %hi(swapper_pg_dir)
 	dsrl32	a3, a0, 16
@@ -353,7 +368,7 @@ LEAF(tlb_miss)
 	HYPCALL
 	gslq	a0, a1, 0(k1)
 	gslq	a2, a3, 16(k1)
-	ld	v0, 32(k1)
+	gslq	v0, v1, 32(k1)
 	eret
 
 2:
@@ -361,6 +376,10 @@ LEAF(tlb_miss)
 	li	a1, 24
 	b	1b
 	li	v0, tlbmiss_tlbwr_huge
+3:
+	sync
+	j	tlb_do_page_fault_0  //do_page_fault with write = 0
+	nop
 	.set	reorder
 	.set	pop
 END(tlb_miss)
