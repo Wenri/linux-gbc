@@ -851,7 +851,8 @@ static enum emulation_result kvm_trap_vz_handle_gsfc(u32 cause, u32 *opc,
 			/* WP can only be cleared */
 			change &= ~CAUSEF_WP | old_cause;
 
-			arch->old_cp0_cause = val;
+			arch->old_cp0_cause = old_cause ^ change;
+			write_gc0_cause(old_cause ^ change);
 		} else if ((rd == MIPS_CP0_STATUS) && (sel == 1)) { /* IntCtl */
 			arch->old_cp0_intctl = val;
 		} else if ((rd == MIPS_CP0_TLB_HI) && (sel == 0)) {
@@ -993,11 +994,28 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 
 static void kvm_vz_hardware_disable(void)
 {
-
+	switch (current_cpu_type()) {
+	case CPU_LOONGSON3:
+		/* Flush moved entries in new (root) context */
+		local_flush_tlb_all();
+		break;
+	default:
+		break;
+	}
 }
 
 static int kvm_vz_hardware_enable(void)
 {
+	/*
+	 * Enable virtualization features granting guest direct control of
+	 * certain features:
+	 * CP0=1:	Guest coprocessor 0 context.
+	 * AT=Guest:	Guest MMU.
+	 * CG=1:	Hit (virtual address) CACHE operations (optional).
+	 * CF=1:	Guest Config registers.
+	 */
+	write_c0_guestctl0(MIPS_GCTL0_CP0 | MIPS_GCTL0_CF);
+
 	/* clear any pending injected virtual guest interrupts */
 	if (cpu_has_guestctl2)
 		clear_c0_guestctl2(0x3f << 10);
@@ -1058,7 +1076,7 @@ static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 				 _page_cachable_default >> _CACHE_SHIFT);
 
 	/* EBase */
-	kvm_write_sw_gc0_ebase(cop0, (s32)0x80000000 | vcpu->vcpu_id);
+	kvm_write_sw_gc0_ebase(cop0, (s32)0x80100000 | vcpu->vcpu_id);
 
 	/* start with no pending virtual guest interrupts */
 	if (cpu_has_guestctl2)
@@ -1117,8 +1135,8 @@ static void kvm_vz_dequeue_timer_int_cb(struct kvm_vcpu *vcpu)
 	kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_TIMER);
 }
 
-#define MIPS_EXC_INT_HT          10
-#define MIPS_EXC_INT_IPI         11
+#define MIPS_EXC_INT_HT          11
+#define MIPS_EXC_INT_IPI         14
 
 static void kvm_vz_queue_io_int_cb(struct kvm_vcpu *vcpu,
 				   struct kvm_mips_interrupt *irq)
@@ -1197,9 +1215,12 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 		 */
 		if (cpu_has_guestctl2) {
 			if (!(read_c0_guestctl2() & (irq << 14)))
-				clear_c0_guestctl2(irq);
+//				clear_gc0_cause(C_TI);
+				write_gc0_cause(0);
+				set_c0_guestctl2(0);
+				vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] &= (~irq);
 		} else {
-			clear_gc0_cause(irq);
+			kvm_err("No any other way to clear guest interrupt\n");
 		}
 		break;
 
@@ -1208,10 +1229,13 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 	case MIPS_EXC_INT_IPI:
 		/* Clear GuestCtl2.VIP irq if not using Hardware Clear */
 		if (cpu_has_guestctl2) {
-			if (!(read_c0_guestctl2() & (irq << 14)))
+			if (!(read_c0_guestctl2() & (irq << 14))) {
+				write_gc0_cause(0);
 				clear_c0_guestctl2(irq);
+				vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] &= (~irq);
+			}
 		} else {
-			clear_gc0_cause(irq);
+			kvm_err("No any other way to clear guest interrupt\n");
 		}
 		break;
 
@@ -1239,9 +1263,12 @@ static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 	case MIPS_EXC_INT_IO:
 	case MIPS_EXC_INT_HT:
 	case MIPS_EXC_INT_IPI:
-		if (cpu_has_guestctl2)
-			set_c0_guestctl2(irq);
-		else
+		if (cpu_has_guestctl2) {
+			write_gc0_cause(0);
+			write_c0_guestctl2(0);
+			vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] |= irq;
+			write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
+		} else
 			set_gc0_cause(irq);
 		break;
 
@@ -2036,9 +2063,6 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	all = migrated || (last_vcpu[cpu] != vcpu);
 	last_vcpu[cpu] = vcpu;
 
-	if (current->flags & PF_VCPU) {
-		kvm_vz_vcpu_change_vpid(vcpu, cpu);
-	}
 	/*Should we load the guest cp0s here??? FIX ME */
 
 	/*
@@ -2047,6 +2071,9 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 */
 	kvm_vz_restore_timer(vcpu);
 
+	if (current->flags & PF_VCPU) {
+		kvm_vz_vcpu_change_vpid(vcpu, cpu);
+	}
 	/* Don't bother restoring registers multiple times unless necessary */
 	if (!all)
 		return 0;
@@ -2076,9 +2103,12 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	kvm_restore_gc0_errorepc(cop0);
 
 	/* restore Root.GuestCtl2 from unused Guest guestctl2 register */
-	if (cpu_has_guestctl2)
+	if (cpu_has_guestctl2) {
+		write_gc0_cause(0);
+		write_c0_guestctl2(0);
 		write_c0_guestctl2(
 			cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
+	}
 
 	return 0;
 }
@@ -2115,7 +2145,7 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	/* save Root.GuestCtl2 in unused Guest guestctl2 register */
 	if (cpu_has_guestctl2)
 		cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] =
-			read_c0_guestctl2();
+			read_gc0_cause() & 0x4c00;
 
 	return 0;
 }

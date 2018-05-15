@@ -368,6 +368,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_LW(&p, S0, (int)offsetof(struct kvm_vcpu, kvm) -
 			  (int)offsetof(struct kvm_vcpu, arch), K1);
 	UASM_i_LW(&p, A0, offsetof(struct kvm, arch.gpa_mm.pgd), S0);
+#if 0
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
@@ -375,7 +376,10 @@ static void *kvm_mips_build_enter_guest(void *addr)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
-
+#else
+	UASM_i_MTC0(&p, A0, C0_PWBASE);
+	uasm_i_ehb(&p);
+#endif
 	/* Set GM bit to setup eret to VZ guest context */
 	uasm_i_addiu(&p, V1, ZERO, 1);
 	uasm_i_mfc0(&p, K0, C0_GUESTCTL0);
@@ -949,14 +953,13 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	UASM_i_MTGC0(&p, A0, C0_EPC);
 	UASM_i_MFC0(&p, A0, C0_BADVADDR);
 	UASM_i_MTGC0(&p, A0, C0_BADVADDR);
-	uasm_i_mfgc0(&p, A0, C0_STATUS);
-	uasm_i_andi(&p, A1, A0, 0x2);
 
 	UASM_i_MFGC0(&p, A0, C0_EBASE);
-	UASM_i_ADDIU(&p, A2, A0, 0x200);
+	UASM_i_ADDIU(&p, A2, ZERO, 0x200);
+	uasm_i_ins(&p, A0, A2, 0, 12);
 
 	/* Set Guest EPC */
-	UASM_i_MTC0(&p, A2, C0_EPC);
+	UASM_i_MTC0(&p, A0, C0_EPC);
 
 	uasm_i_mfgc0(&p, A0, C0_STATUS);
 	uasm_i_ori(&p, A0, A0, ST0_EXL);
@@ -1073,6 +1076,13 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 
 	uasm_i_mfc0(&p, K0, C0_CAUSE);
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
+#if 1
+	uasm_i_mfgc0(&p, K0, C0_CAUSE);
+	uasm_i_andi(&p, K0, K0, 0x4c00);
+	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
+			reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]), V0);
+#endif
 #if 0
 	if (cpu_has_badinstr) {
 		uasm_i_mfc0(&p, K0, C0_BADINSTR);
@@ -1163,6 +1173,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	 */
 	UASM_i_LW(&p, A0,
 		  offsetof(struct kvm_vcpu_arch, host_pgd), K1);
+#if 0
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
@@ -1170,6 +1181,10 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
+#else
+	UASM_i_MTC0(&p, A0, C0_PWBASE);
+	uasm_i_ehb(&p);
+#endif
 
 	/* Clear GM bit so we don't enter guest mode when EXL is cleared */
 	uasm_i_mfc0(&p, K0, C0_GUESTCTL0);
@@ -1441,6 +1456,13 @@ void *kvm_mips_build_exit(void *addr)
 
 	uasm_i_mfc0(&p, K0, C0_CAUSE);
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
+#if 1
+	uasm_i_mfgc0(&p, K0, C0_CAUSE);
+	uasm_i_andi(&p, K0, K0, 0x4c00);
+	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
+	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
+			reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]), V0);
+#endif
 #if 0
 	if (cpu_has_badinstr) {
 		uasm_i_mfc0(&p, K0, C0_BADINSTR);
@@ -1530,6 +1552,7 @@ void *kvm_mips_build_exit(void *addr)
 	 */
 	UASM_i_LW(&p, A0,
 		  offsetof(struct kvm_vcpu_arch, host_pgd), K1);
+#if 0
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
@@ -1537,6 +1560,10 @@ void *kvm_mips_build_exit(void *addr)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
+#else
+	UASM_i_MTC0(&p, A0, C0_PWBASE);
+	uasm_i_ehb(&p);
+#endif
 
 	/* Clear GM bit so we don't enter guest mode when EXL is cleared */
 	uasm_i_mfc0(&p, K0, C0_GUESTCTL0);
