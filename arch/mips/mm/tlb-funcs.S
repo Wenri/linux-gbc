@@ -306,9 +306,9 @@ LEAF(handle_tlbs)
 4:
 	sync
 	gslq	a0, a1, 0(k1)
-	gslq	a2, a3,16(k1)
+	gslq	a2, a3, 16(k1)
 	j	tlb_do_page_fault_1  //do_page_fault with write = 1
-	gslq	v0, v1 32(k1)
+	gslq	v0, v1, 32(k1)
 	.set	reorder
 	.set	pop
 END(handle_tlbs)
