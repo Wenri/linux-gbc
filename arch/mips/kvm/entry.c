@@ -18,7 +18,10 @@
 #include <asm/tlbex.h>
 #include <asm/uasm.h>
 
-#define CONFIG_KVM_MIPS_LSV
+//#define LSVZ_TLB_ISOLATE_DEBUG
+#ifdef LSVZ_TLB_ISOLATE_DEBUG
+int guest_vtlb_index = 0;
+#endif
 // used by ls vz
 #define C0_DIAG		22, 0
 #define C0_GSCAUSE	22, 1
@@ -941,8 +944,21 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_drotr(&p, K1, K1, 0xa);
 	uasm_i_ori(&p, K1, K1, 1); //make G=1
 	UASM_i_MTC0(&p, K1, C0_ENTRYLO1);
+#ifdef LSVZ_TLB_ISOLATE_DEBUG
+	uasm_i_mfc0(&p, A0, C0_INDEX);
+	UASM_i_LA(&p, A1, (unsigned long)&guest_vtlb_index);
+	uasm_i_lw(&p, A2, 0, A1);
+	uasm_i_mtc0(&p, A2, C0_INDEX);
+	uasm_i_ehb(&p);
+	uasm_i_tlbwi(&p);
+	uasm_i_mtc0(&p, A0, C0_INDEX);
+	uasm_i_addiu(&p, A2, A2, 1);
+	uasm_i_andi(&p, A2, A2, 0x3f);
+	uasm_i_sw(&p, A2, 0, A1);
+#else
 	uasm_i_ehb(&p);
 	uasm_i_tlbwr(&p);
+#endif
 #endif
 	uasm_il_b(&p, &r, label_refill_exit);
 	uasm_i_nop(&p);
@@ -1785,8 +1801,19 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 
 	uasm_l_no_tlb_line(&l, p);
 
+#ifdef LSVZ_TLB_ISOLATE_DEBUG
+	UASM_i_LA(&p, A2, (unsigned long)&guest_vtlb_index);
+	uasm_i_lw(&p, A3, 0, A2);
+	uasm_i_mtc0(&p, A3, C0_INDEX);
+	uasm_i_ehb(&p);
+	uasm_i_tlbwi(&p);
+	uasm_i_addiu(&p, A3, A3, 1);
+	uasm_i_andi(&p, A3, A3, 0x3f);
+	uasm_i_sw(&p, A3, 0, A2);
+#else
 	uasm_i_tlbwr(&p);
 	uasm_i_ehb(&p);
+#endif
 
 	uasm_l_finish_tlb_fill(&l, p);
 
