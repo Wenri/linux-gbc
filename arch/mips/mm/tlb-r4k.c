@@ -27,9 +27,10 @@
 extern void build_tlb_refill_handler(void);
 
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-static int emulate_tlb_ops(unsigned long address,
+static noinline int emulate_tlb_ops(unsigned long address,
 			    unsigned long pageshift, unsigned long even_pte,
-			    unsigned long odd_pte, int op_type)
+			    unsigned long odd_pte, int op_type,
+			    unsigned long flags)
 {
 #if 1
 	unsigned int ret, v1;
@@ -39,7 +40,7 @@ static int emulate_tlb_ops(unsigned long address,
 	"	move	%[val], $2		\n"
 	"	move	%[v1], $3		\n"
 	"	move	$2, %[A4]		\n"
-	"	daddiu	$3, $0, 2		\n"
+	"	move	$3, %[A5]		\n"
 	"	move	$4, %[A0]		\n"
 	"	move	$5, %[A1]		\n"
 	"	move	$6, %[A2]		\n"
@@ -51,8 +52,8 @@ static int emulate_tlb_ops(unsigned long address,
 	"	.set	pop			\n"
 	: [val] "=r" (ret), [v1] "=r" (v1)
 	: [A0] "r" (address), [A1] "r" (pageshift), [A2] "r" (even_pte),
-	  [A3] "r" (odd_pte), [A4] "r" (op_type)
-	: "$2", "$3", "$4", "$5", "$6", "$7", "$8");
+	  [A3] "r" (odd_pte), [A4] "r" (op_type), [A5] "r" (flags)
+	: "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9");
 	return ret;
 #endif
 }
@@ -111,7 +112,7 @@ void local_flush_tlb_all(void)
 	/* Blast 'em all away. */
 	if (cpu_has_tlbinv) {
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-		emulate_tlb_ops(0, 1088, 0, 0, 0x5002);
+		emulate_tlb_ops(0, 1088, 0, 0, 0x5002, 2);
 #else
 		if (current_cpu_data.tlbsizevtlb) {
 			write_c0_index(0);
@@ -185,7 +186,7 @@ void local_flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
 			htw_stop();
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 			write_c0_entryhi(newpid);
-			emulate_tlb_ops(start, end, size, 0, 0x5003);
+			emulate_tlb_ops(start, end, size, 0, 0x5003, 2);
 #else
 			while (start < end) {
 				int idx;
@@ -234,7 +235,7 @@ void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
 		end &= (PAGE_MASK << 1);
 		htw_stop();
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-		emulate_tlb_ops(start, end, size, 0, 0x5004);
+		emulate_tlb_ops(start, end, size, 0, 0x5004, 2);
 #else
 		while (start < end) {
 			int idx;
@@ -287,7 +288,7 @@ void local_flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 		write_c0_entryhi(newpid);
 
-		emulate_tlb_ops(page, page, 0, 0, 0x5001);
+		emulate_tlb_ops(page, page, 0, 0, 0x5001, 2);
 		goto finish;
 #else
 
@@ -332,7 +333,7 @@ void local_flush_tlb_one(unsigned long page)
 	oldpid = read_c0_entryhi();
 	htw_stop();
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	emulate_tlb_ops(page, page, 0, 0, 0x5005);
+	emulate_tlb_ops(page, page, 0, 0, 0x5005, 2);
 #else
 	page &= (PAGE_MASK << 1);
 	write_c0_entryhi(page);
@@ -371,6 +372,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 	unsigned long pageshift,even_pte,odd_pte;
 	unsigned long tmp_address;
+	unsigned long vm_flags;
 #else
 	int idx, pid;
 #endif
@@ -396,7 +398,12 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	even_pte = pte_val(*ptep++);
 	odd_pte = pte_val(*ptep);
 
-	emulate_tlb_ops(tmp_address, pageshift, even_pte, odd_pte, 0x4000);
+	if(vma->vm_flags & VM_WRITE)
+		vm_flags = 3;
+	else
+		vm_flags = 2;
+
+	emulate_tlb_ops(tmp_address, pageshift, even_pte, odd_pte, 0x4000, vm_flags);
 #else
 	pid = read_c0_entryhi() & ASID_MASK;
 	address &= (PAGE_MASK << 1);
