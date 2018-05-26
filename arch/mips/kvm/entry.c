@@ -352,6 +352,13 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_MTC0(&p, T0, C0_EPC);
 
 #ifdef CONFIG_KVM_MIPS_VZ
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Clear DIAG.MID */
+	uasm_i_mfc0(&p, T0, C0_DIAG);
+	uasm_i_ins(&p, T0, ZERO, LS_MID_SHIFT, 2);
+	uasm_i_mtc0(&p, T0, C0_DIAG);
+#endif
+
 	/* Save normal linux process pgd (VZ guarantees pgd_reg is set) */
 	/* Loongson use kscratch PWBASE instead of kscratch for save pgd, CAUTION!!!!!!!!!!!!! */
 	if(cpu_has_ldpte)
@@ -360,6 +367,7 @@ static void *kvm_mips_build_enter_guest(void *addr)
 		UASM_i_MFC0(&p, K0, c0_kscratch(), pgd_reg);
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, host_pgd), K1);
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/*
 	 * Set up KVM GPA pgd.
 	 * This does roughly the same as TLBMISS_HANDLER_SETUP_PGD():
@@ -371,7 +379,6 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	UASM_i_LW(&p, S0, (int)offsetof(struct kvm_vcpu, kvm) -
 			  (int)offsetof(struct kvm_vcpu, arch), K1);
 	UASM_i_LW(&p, A0, offsetof(struct kvm, arch.gpa_mm.pgd), S0);
-#if 0
 	UASM_i_LA(&p, T9, (unsigned long)tlbmiss_handler_setup_pgd);
 	uasm_i_jalr(&p, RA, T9);
 	/* delay slot */
@@ -379,9 +386,6 @@ static void *kvm_mips_build_enter_guest(void *addr)
 		UASM_i_MTC0(&p, A0, C0_PWBASE);
 	else
 		uasm_i_nop(&p);
-#else
-	UASM_i_MTC0(&p, A0, C0_PWBASE);
-	uasm_i_ehb(&p);
 #endif
 	/* Set GM bit to setup eret to VZ guest context */
 	uasm_i_addiu(&p, V1, ZERO, 1);
@@ -867,13 +871,13 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 #endif
 #endif
 
+#ifndef CONFIG_CPU_LOONGSON3
 	/*Store the guest pgd into PWBASE*/
 	UASM_i_LW(&p, K0, (int)offsetof(struct kvm_vcpu, kvm), K1);
 	UASM_i_LW(&p, K0, offsetof(struct kvm, arch.gpa_mm.pgd), K0);
 	if (cpu_has_ldpte)
 		UASM_i_MTC0(&p, K0, C0_PWBASE);
 
-#ifndef CONFIG_CPU_LOONGSON3
 	/*
 	 * Now for the actual refill bit. A lot of this can be common with the
 	 * Linux TLB refill handler, however we don't need to handle so many
@@ -924,7 +928,9 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	//start the find process in gpa_mm.pgd
 
 	uasm_i_move(&p, A0, K0);
-	UASM_i_MFC0(&p, K1, C0_PWBASE);
+	/* Use gpa_mm.pgd directly for pagetable lookup */
+	UASM_i_LW(&p, K1, (int)offsetof(struct kvm_vcpu, kvm), K1);
+	UASM_i_LW(&p, K1, offsetof(struct kvm, arch.gpa_mm.pgd), K1);
 	uasm_i_dsrl32(&p, A0, A0, 1);
 	uasm_i_andi(&p, A0, A0, 0x7ff8); //if set PGD_ORDER=1
 	UASM_i_ADDU(&p, K1, K1, A0);
@@ -1180,6 +1186,13 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 		  K1);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
 	uasm_i_ehb(&p);
+
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Clear DIAG.MID t0 get root.PWBASE*/
+	uasm_i_mfc0(&p, A0, C0_DIAG);
+	uasm_i_ins(&p, A0, ZERO, LS_MID_SHIFT, 2);
+	uasm_i_mtc0(&p, A0, C0_DIAG);
+#endif
 
 	/*
 	 * Set up normal Linux process pgd.
@@ -1559,6 +1572,13 @@ void *kvm_mips_build_exit(void *addr)
 	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, host_entryhi),
 		  K1);
 	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Clear DIAG.MID t0 get root.PWBASE*/
+	uasm_i_mfc0(&p, A0, C0_DIAG);
+	uasm_i_ins(&p, A0, ZERO, LS_MID_SHIFT, 2);
+	uasm_i_mtc0(&p, A0, C0_DIAG);
+#endif
 
 	/*
 	 * Set up normal Linux process pgd.
