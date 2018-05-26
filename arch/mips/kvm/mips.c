@@ -333,7 +333,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	if (err)
 		goto out_free_cpu;
 
-	kvm_debug("kvm @ %p: create cpu %d at %p\n", kvm, id, vcpu);
+	kvm_info("kvm @ %p: create cpu %d at %p\n", kvm, id, vcpu);
 
 	/*
 	 * Allocate space for host mode exception handlers that handle
@@ -1044,6 +1044,21 @@ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
 		r = kvm_vcpu_ioctl_enable_cap(vcpu, &cap);
 		break;
 	}
+	case KVM_CHECK_EXTENSION: {
+		unsigned int ext;
+		if (copy_from_user(&ext, argp, sizeof(ext)))
+			return -EFAULT;
+		switch (ext) {
+		case KVM_CAP_MIPS_FPU:
+			r = !!raw_cpu_has_fpu;
+			break;
+		case KVM_CAP_MIPS_MSA:
+			r = !!cpu_has_msa;
+			break;
+		default:
+			break;
+		}
+	}
 	default:
 		r = -ENOIOCTLCMD;
 	}
@@ -1457,9 +1472,11 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		 * are pending exception bits unmasked. (see
 		 * kvm_mips_csr_die_notifier() for how that is handled).
 		 */
+#if 0
 		if (kvm_mips_guest_has_fpu(&vcpu->arch) &&
 		    read_c0_status() & ST0_CU1)
 			__kvm_restore_fcsr(&vcpu->arch);
+#endif
 
 		/*if (kvm_mips_guest_has_msa(&vcpu->arch) &&*/
 		    /*read_c0_config5() & MIPS_CONF5_MSAEN)*/
@@ -1728,9 +1745,11 @@ skip_emul:
 		 * are pending exception bits unmasked. (see
 		 * kvm_mips_csr_die_notifier() for how that is handled).
 		 */
+#if 0
 		if (kvm_mips_guest_has_fpu(&vcpu->arch) &&
 		    read_c0_status() & ST0_CU1)
 			__kvm_restore_fcsr(&vcpu->arch);
+#endif
 
 		/*if (kvm_mips_guest_has_msa(&vcpu->arch) &&*/
 		    /*read_c0_config5() & MIPS_CONF5_MSAEN)*/
@@ -1782,7 +1801,7 @@ void kvm_own_fpu(struct kvm_vcpu *vcpu)
 
 	/* If guest FPU state not active, restore it now */
 	if (!(vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU)) {
-		__kvm_restore_fpu(&vcpu->arch);
+//		__kvm_restore_fpu(&vcpu->arch);
 		vcpu->arch.aux_inuse |= KVM_MIPS_AUX_FPU;
 		trace_kvm_aux(vcpu, KVM_TRACE_AUX_RESTORE, KVM_TRACE_AUX_FPU);
 	} else {
@@ -1907,6 +1926,7 @@ void kvm_lose_fpu(struct kvm_vcpu *vcpu)
 		}
 
 		__kvm_save_fpu(&vcpu->arch);
+		__kvm_save_fcsr(&vcpu->arch);
 		vcpu->arch.aux_inuse &= ~KVM_MIPS_AUX_FPU;
 		trace_kvm_aux(vcpu, KVM_TRACE_AUX_SAVE, KVM_TRACE_AUX_FPU);
 

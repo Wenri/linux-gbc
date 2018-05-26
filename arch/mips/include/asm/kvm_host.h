@@ -854,6 +854,7 @@ void *kvm_mips_build_exit(void *addr);
 void __kvm_save_fpu(struct kvm_vcpu_arch *vcpu);
 void __kvm_restore_fpu(struct kvm_vcpu_arch *vcpu);
 void __kvm_restore_fcsr(struct kvm_vcpu_arch *vcpu);
+void __kvm_save_fcsr(struct kvm_vcpu_arch *vcpu);
 void __kvm_save_msa(struct kvm_vcpu_arch *vcpu);
 void __kvm_restore_msa(struct kvm_vcpu_arch *vcpu);
 void __kvm_restore_msa_upper(struct kvm_vcpu_arch *vcpu);

@@ -114,6 +114,7 @@ enum label_id {
 	label_tlb_flush,
 	label_get_gpa,
 	label_get_hpa,
+	label_fpu_0,
 };
 
 UASM_L_LA(_fpu_1)
@@ -132,11 +133,15 @@ UASM_L_LA(_tlb_normal)
 UASM_L_LA(_tlb_flush)
 UASM_L_LA(_get_gpa)
 UASM_L_LA(_get_hpa)
+UASM_L_LA(_fpu_0)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
 static void *kvm_mips_build_ret_to_guest(void *addr);
 static void *kvm_mips_build_ret_to_host(void *addr);
+extern void __kvm_save_fpu(struct kvm_vcpu_arch *arch);
+extern void __kvm_restore_fpu(struct kvm_vcpu_arch *arch);
+extern void __kvm_restore_fcsr(struct kvm_vcpu_arch *arch);
 
 /*
  * The version of this function in tlbex.c uses current_cpu_type(), but for KVM
@@ -508,6 +513,23 @@ skip_asid_restore:
 #ifndef CONFIG_CPU_LOONGSON3
 	/* Disable RDHWR access */
 	uasm_i_mtc0(&p, ZERO, C0_HWRENA);
+#endif
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Restore guest fpu */
+	UASM_i_ADDIU(&p, AT, ZERO, 1);
+	uasm_i_mfc0(&p, T0, C0_STATUS);
+	uasm_i_ins(&p, T0, AT, 29, 1);
+	uasm_i_ins(&p, T0, AT, 26, 1);
+	uasm_i_mtc0(&p, T0, C0_STATUS);
+	uasm_i_move(&p, A0, K1);
+
+	UASM_i_LA(&p, T9, (unsigned long)__kvm_restore_fpu);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
+
+	UASM_i_LA(&p, T9, (unsigned long)__kvm_restore_fcsr);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
 #endif
 
 	/* load the guest context from VCPU and return */
@@ -1033,8 +1055,8 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 {
 	u32 *p = addr;
-	struct uasm_label labels[4];
-	struct uasm_reloc relocs[4];
+	struct uasm_label labels[6];
+	struct uasm_reloc relocs[6];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 	int i;
@@ -1059,6 +1081,27 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 			continue;
 		UASM_i_SW(&p, i, offsetof(struct kvm_vcpu_arch, gprs[i]), K1);
 	}
+
+#ifdef CONFIG_CPU_LOONGSON3
+	uasm_i_lui(&p, AT, ST0_CU1 >> 16);
+	uasm_i_mfgc0(&p, T0, C0_STATUS);
+	uasm_i_and(&p, T1, T0, AT);
+	uasm_il_beqz(&p, &r, T1, label_fpu_0);
+	uasm_i_nop(&p);
+	/* Save guest fpu */
+	UASM_i_ADDIU(&p, AT, ZERO, 1);
+	uasm_i_mfc0(&p, T0, C0_STATUS);
+	uasm_i_ins(&p, T0, AT, 29, 1); //SET ST0_CU1
+	uasm_i_ins(&p, T0, AT, 26, 1); //SET ST0_FR
+	uasm_i_mtc0(&p, T0, C0_STATUS);
+
+	uasm_i_move(&p, A0, K1);
+	UASM_i_LA(&p, T9, (unsigned long)__kvm_save_fpu);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
+
+	uasm_l_fpu_0(&l, p);
+#endif
 
 #ifndef CONFIG_CPU_MIPSR6
 	/* We need to save hi/lo and restore them on the way out */
@@ -1421,8 +1464,8 @@ void *kvm_mips_build_exit(void *addr)
 {
 	u32 *p = addr;
 	unsigned int i;
-	struct uasm_label labels[3];
-	struct uasm_reloc relocs[3];
+	struct uasm_label labels[5];
+	struct uasm_reloc relocs[5];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -1446,6 +1489,27 @@ void *kvm_mips_build_exit(void *addr)
 			continue;
 		UASM_i_SW(&p, i, offsetof(struct kvm_vcpu_arch, gprs[i]), K1);
 	}
+
+#ifdef CONFIG_CPU_LOONGSON3
+	uasm_i_lui(&p, AT, ST0_CU1 >> 16);
+	uasm_i_mfgc0(&p, T0, C0_STATUS);
+	uasm_i_and(&p, T1, T0, AT);
+	uasm_il_beqz(&p, &r, T1, label_fpu_0);
+	uasm_i_nop(&p);
+	/* Save guest fpu */
+	UASM_i_ADDIU(&p, AT, ZERO, 1);
+	uasm_i_mfc0(&p, T0, C0_STATUS);
+	uasm_i_ins(&p, T0, AT, 29, 1); //SET ST0_CU1
+	uasm_i_ins(&p, T0, AT, 26, 1); //SET ST0_FR
+	uasm_i_mtc0(&p, T0, C0_STATUS);
+
+	uasm_i_move(&p, A0, K1);
+	UASM_i_LA(&p, T9, (unsigned long)__kvm_save_fpu);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
+
+	uasm_l_fpu_0(&l, p);
+#endif
 
 #ifndef CONFIG_CPU_MIPSR6
 	/* We need to save hi/lo and restore them on the way out */

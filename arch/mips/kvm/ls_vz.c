@@ -175,7 +175,6 @@ static int kvm_trap_vz_handle_cop_unusable(struct kvm_vcpu *vcpu)
 	u32 cause = vcpu->arch.host_cp0_cause;
 	enum emulation_result er = EMULATE_FAIL;
 	int ret = RESUME_GUEST;
-	unsigned int sr;
 
 	if (((cause & CAUSEF_CE) >> CAUSEB_CE) == 1) {
 		/*
@@ -183,7 +182,7 @@ static int kvm_trap_vz_handle_cop_unusable(struct kvm_vcpu *vcpu)
 		 * treated as a reserved instruction!
 		 * If FPU already in use, we shouldn't get this at all.
 		 */
-#if 0
+#if 1
 		if (WARN_ON(!kvm_mips_guest_has_fpu(&vcpu->arch) ||
 			    vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU)) {
 			preempt_enable();
@@ -191,12 +190,11 @@ static int kvm_trap_vz_handle_cop_unusable(struct kvm_vcpu *vcpu)
 		}
 
 		kvm_own_fpu(vcpu);
-#endif
-
+#else
 		preempt_disable();
-		sr = read_c0_status();
-		write_c0_status(sr | ST0_CU1);
+		write_c0_status(read_c0_status() | ST0_CU1 | ST0_FR);
 		preempt_enable();
+#endif
 		er = EMULATE_DONE;
 	}
 	/* other coprocessors not handled */
@@ -826,6 +824,15 @@ static enum emulation_result kvm_trap_vz_handle_gsfc(u32 cause, u32 *opc,
 				 * and use XTLB REFILL exception
 				 */
 					old_val ^= ST0_KX;
+			}
+
+			if (change & ST0_FR) {
+				/*
+				 * FPU and Vector register state is made
+				 * UNPREDICTABLE by a change of FR, so don't
+				 * even bother saving it.
+				 */
+				kvm_drop_fpu(vcpu);
 			}
 
 			//Update old value
