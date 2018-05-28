@@ -1222,10 +1222,9 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 		 */
 		if (cpu_has_guestctl2) {
 			if (!(read_c0_guestctl2() & (irq << 14)))
-//				clear_gc0_cause(C_TI);
-				write_gc0_cause(0);
-				set_c0_guestctl2(0);
-				vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] &= (~irq);
+				clear_gc0_cause(C_TI);
+				vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] &= (~irq);
+				write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
 		} else {
 			kvm_err("No any other way to clear guest interrupt\n");
 		}
@@ -1237,9 +1236,8 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 		/* Clear GuestCtl2.VIP irq if not using Hardware Clear */
 		if (cpu_has_guestctl2) {
 			if (!(read_c0_guestctl2() & (irq << 14))) {
-				write_gc0_cause(0);
-				clear_c0_guestctl2(irq);
-				vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] &= (~irq);
+				vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] &= (~irq);
+				write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
 			}
 		} else {
 			kvm_err("No any other way to clear guest interrupt\n");
@@ -1271,10 +1269,8 @@ static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 	case MIPS_EXC_INT_HT:
 	case MIPS_EXC_INT_IPI:
 		if (cpu_has_guestctl2) {
-			write_gc0_cause(0);
-			write_c0_guestctl2(0);
-			vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL] |= irq;
-			write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
+			vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] |= irq;
+			write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0xcc00);
 		} else
 			set_gc0_cause(irq);
 		break;
@@ -2113,8 +2109,9 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	if (cpu_has_guestctl2) {
 		write_gc0_cause(0);
 		write_c0_guestctl2(0);
+		write_gc0_cause(cop0->reg[MIPS_CP0_CAUSE][0] & 0xffff00ff);
 		write_c0_guestctl2(
-			cop0->reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]);
+			cop0->reg[MIPS_CP0_CAUSE][0] & 0xcc00);
 	}
 
 	return 0;

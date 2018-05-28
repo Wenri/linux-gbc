@@ -1146,7 +1146,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	uasm_i_andi(&p, K0, K0, 0x4c00);
 	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
-			reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]), V0);
+			reg[MIPS_CP0_CAUSE][0]), V0);
 #endif
 #if 0
 	if (cpu_has_badinstr) {
@@ -1554,7 +1554,7 @@ void *kvm_mips_build_exit(void *addr)
 	uasm_i_andi(&p, K0, K0, 0x4c00);
 	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
-			reg[MIPS_CP0_GUESTCTL2][MIPS_CP0_GUESTCTL2_SEL]), V0);
+			reg[MIPS_CP0_CAUSE][0]), V0);
 #endif
 #if 0
 	if (cpu_has_badinstr) {
