@@ -19,7 +19,7 @@
 
 #include "virtio_pci_common.h"
 
-static bool force_legacy = false;
+static bool force_legacy = true;
 
 #if IS_ENABLED(CONFIG_VIRTIO_PCI_LEGACY)
 module_param(force_legacy, bool, 0444);
@@ -215,6 +215,8 @@ static int vp_request_intx(struct virtio_device *vdev)
 	int err;
 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
 
+	printk("%s set irq = %d\n",__func__, vp_dev->pci_dev->irq);
+	vp_dev->pci_dev->irq = 6;
 	err = request_irq(vp_dev->pci_dev->irq, vp_interrupt,
 			  IRQF_SHARED, dev_name(&vdev->dev), vp_dev);
 	if (!err)

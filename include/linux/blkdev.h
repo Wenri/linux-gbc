@@ -85,6 +85,7 @@ enum rq_cmd_type_bits {
 #ifdef __GENKSYMS__
 	REQ_TYPE_SPECIAL,		/* driver defined type */
 #else
+	REQ_TYPE_SPECIAL,		/* driver defined type */
 	REQ_TYPE_DRV_PRIV,		/* driver defined type */
 #endif
 	/*

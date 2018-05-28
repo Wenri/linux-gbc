@@ -473,8 +473,8 @@ void ide_pci_setup_ports(struct pci_dev *dev, const struct ide_port_info *d,
 
 		if (e->reg && (pci_read_config_byte(dev, e->reg, &tmp) ||
 		    (tmp & e->mask) != e->val)) {
-			printk(KERN_INFO "%s %s: IDE port disabled\n",
-				d->name, pci_name(dev));
+			printk(KERN_INFO "%s %s: IDE port %d disabled\n",
+				d->name, pci_name(dev),port);
 			continue;	/* port not enabled */
 		}
 

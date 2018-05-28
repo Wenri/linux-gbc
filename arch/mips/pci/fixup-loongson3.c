@@ -41,8 +41,17 @@ static void print_fixup_info(const struct pci_dev * pdev)
 
 int __init rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
+#if 0
 	print_fixup_info(dev);
 	return dev->irq;
+#else
+	int irq = 0;
+	if(slot == 1)
+		irq = 6;
+	else if (slot == 2)
+		irq = 6;
+	return irq;
+#endif
 }
 
 static void pci_fixup_radeon(struct pci_dev *pdev)

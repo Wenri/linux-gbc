@@ -146,6 +146,8 @@ CONFIG_ARCH_DISCARD_MEMBLOCK=y
 # CONFIG_HAVE_BOOTMEM_INFO_NODE is not set
 CONFIG_PAGEFLAGS_EXTENDED=y
 CONFIG_SPLIT_PTLOCK_CPUS=4
+CONFIG_MEMORY_BALLOON=y
+CONFIG_BALLOON_COMPACTION=y
 CONFIG_COMPACTION=y
 CONFIG_MIGRATION=y
 # CONFIG_HMM_MIGRATE is not set
@@ -1087,6 +1089,7 @@ CONFIG_BLK_DEV_RAM_COUNT=16
 CONFIG_BLK_DEV_RAM_SIZE=8192
 # CONFIG_CDROM_PKTCDVD is not set
 # CONFIG_ATA_OVER_ETH is not set
+CONFIG_VIRTIO_BLK=y
 # CONFIG_BLK_DEV_HD is not set
 # CONFIG_BLK_DEV_RBD is not set
 # CONFIG_BLK_DEV_RSXX is not set
@@ -1146,7 +1149,73 @@ CONFIG_EEPROM_AT24=m
 # CONFIG_CXL_KERNEL_API is not set
 # CONFIG_CXL_EEH is not set
 CONFIG_HAVE_IDE=y
-# CONFIG_IDE is not set
+CONFIG_IDE=y
+
+#
+# Please see Documentation/ide/ide.txt for help/info on IDE drives
+#
+CONFIG_IDE_XFER_MODE=y
+CONFIG_IDE_TIMINGS=y
+# CONFIG_BLK_DEV_IDE_SATA is not set
+# CONFIG_IDE_GD is not set
+# CONFIG_BLK_DEV_IDECD is not set
+# CONFIG_BLK_DEV_IDETAPE is not set
+# CONFIG_IDE_TASK_IOCTL is not set
+# CONFIG_IDE_PROC_FS is not set
+
+#
+# IDE chipset support/bugfixes
+#
+# CONFIG_IDE_GENERIC is not set
+# CONFIG_BLK_DEV_PLATFORM is not set
+CONFIG_BLK_DEV_IDEDMA_SFF=y
+
+#
+# PCI IDE chipsets support
+#
+CONFIG_BLK_DEV_IDEPCI=y
+# CONFIG_IDEPCI_PCIBUS_ORDER is not set
+# CONFIG_BLK_DEV_GENERIC is not set
+# CONFIG_BLK_DEV_OPTI621 is not set
+CONFIG_BLK_DEV_IDEDMA_PCI=y
+# CONFIG_BLK_DEV_AEC62XX is not set
+# CONFIG_BLK_DEV_ALI15X3 is not set
+# CONFIG_BLK_DEV_AMD74XX is not set
+CONFIG_BLK_DEV_CMD64X=y
+# CONFIG_BLK_DEV_TRIFLEX is not set
+# CONFIG_BLK_DEV_CS5520 is not set
+# CONFIG_BLK_DEV_CS5530 is not set
+# CONFIG_BLK_DEV_HPT366 is not set
+# CONFIG_BLK_DEV_JMICRON is not set
+# CONFIG_BLK_DEV_SC1200 is not set
+# CONFIG_BLK_DEV_PIIX is not set
+# CONFIG_BLK_DEV_IT8172 is not set
+# CONFIG_BLK_DEV_IT8213 is not set
+# CONFIG_BLK_DEV_IT821X is not set
+# CONFIG_BLK_DEV_NS87415 is not set
+# CONFIG_BLK_DEV_PDC202XX_OLD is not set
+# CONFIG_BLK_DEV_PDC202XX_NEW is not set
+# CONFIG_BLK_DEV_SVWKS is not set
+# CONFIG_BLK_DEV_SIIMAGE is not set
+# CONFIG_BLK_DEV_SLC90E66 is not set
+# CONFIG_BLK_DEV_TRM290 is not set
+# CONFIG_BLK_DEV_VIA82CXXX is not set
+# CONFIG_BLK_DEV_TC86C001 is not set
+
+#
+# Other IDE chipsets support
+#
+
+#
+# Note: most of these also require special kernel boot parameters
+#
+# CONFIG_BLK_DEV_4DRIVES is not set
+# CONFIG_BLK_DEV_ALI14XX is not set
+# CONFIG_BLK_DEV_DTC2278 is not set
+# CONFIG_BLK_DEV_HT6560B is not set
+# CONFIG_BLK_DEV_QD65XX is not set
+# CONFIG_BLK_DEV_UMC8672 is not set
+CONFIG_BLK_DEV_IDEDMA=y
 
 #
 # SCSI device support
@@ -1262,6 +1331,7 @@ CONFIG_SCSI_LPFC=m
 # CONFIG_SCSI_PM8001 is not set
 # CONFIG_SCSI_SRP is not set
 # CONFIG_SCSI_BFA_FC is not set
+# CONFIG_SCSI_VIRTIO is not set
 # CONFIG_SCSI_CHELSIO_FCOE is not set
 # CONFIG_SCSI_DH is not set
 # CONFIG_SCSI_OSD_INITIATOR is not set
@@ -1278,90 +1348,7 @@ CONFIG_SATA_AHCI_PLATFORM=y
 # CONFIG_SATA_INIC162X is not set
 # CONFIG_SATA_ACARD_AHCI is not set
 # CONFIG_SATA_SIL24 is not set
-CONFIG_ATA_SFF=y
-
-#
-# SFF controllers with custom DMA interface
-#
-# CONFIG_PDC_ADMA is not set
-# CONFIG_SATA_QSTOR is not set
-# CONFIG_SATA_SX4 is not set
-CONFIG_ATA_BMDMA=y
-
-#
-# SATA SFF controllers with BMDMA
-#
-# CONFIG_ATA_PIIX is not set
-# CONFIG_SATA_HIGHBANK is not set
-# CONFIG_SATA_MV is not set
-# CONFIG_SATA_NV is not set
-# CONFIG_SATA_PROMISE is not set
-# CONFIG_SATA_SIL is not set
-# CONFIG_SATA_SIS is not set
-# CONFIG_SATA_SVW is not set
-# CONFIG_SATA_ULI is not set
-# CONFIG_SATA_VIA is not set
-# CONFIG_SATA_VITESSE is not set
-
-#
-# PATA SFF controllers with BMDMA
-#
-# CONFIG_PATA_ALI is not set
-# CONFIG_PATA_AMD is not set
-# CONFIG_PATA_ARASAN_CF is not set
-# CONFIG_PATA_ARTOP is not set
-CONFIG_PATA_ATIIXP=y
-# CONFIG_PATA_ATP867X is not set
-# CONFIG_PATA_CMD64X is not set
-# CONFIG_PATA_CS5520 is not set
-# CONFIG_PATA_CS5530 is not set
-# CONFIG_PATA_CS5536 is not set
-# CONFIG_PATA_CYPRESS is not set
-# CONFIG_PATA_EFAR is not set
-# CONFIG_PATA_HPT366 is not set
-# CONFIG_PATA_HPT37X is not set
-# CONFIG_PATA_HPT3X2N is not set
-# CONFIG_PATA_HPT3X3 is not set
-# CONFIG_PATA_IT8213 is not set
-# CONFIG_PATA_IT821X is not set
-# CONFIG_PATA_JMICRON is not set
-# CONFIG_PATA_MARVELL is not set
-# CONFIG_PATA_NETCELL is not set
-# CONFIG_PATA_NINJA32 is not set
-# CONFIG_PATA_NS87415 is not set
-# CONFIG_PATA_OLDPIIX is not set
-# CONFIG_PATA_OPTIDMA is not set
-# CONFIG_PATA_PDC2027X is not set
-# CONFIG_PATA_PDC_OLD is not set
-# CONFIG_PATA_RADISYS is not set
-# CONFIG_PATA_RDC is not set
-# CONFIG_PATA_SC1200 is not set
-# CONFIG_PATA_SCH is not set
-# CONFIG_PATA_SERVERWORKS is not set
-# CONFIG_PATA_SIL680 is not set
-# CONFIG_PATA_SIS is not set
-# CONFIG_PATA_TOSHIBA is not set
-# CONFIG_PATA_TRIFLEX is not set
-# CONFIG_PATA_VIA is not set
-# CONFIG_PATA_WINBOND is not set
-
-#
-# PIO-only SFF controllers
-#
-# CONFIG_PATA_CMD640_PCI is not set
-# CONFIG_PATA_MPIIX is not set
-# CONFIG_PATA_NS87410 is not set
-# CONFIG_PATA_OPTI is not set
-# CONFIG_PATA_PLATFORM is not set
-# CONFIG_PATA_QDI is not set
-# CONFIG_PATA_RZ1000 is not set
-# CONFIG_PATA_WINBOND_VLB is not set
-
-#
-# Generic fallback / legacy drivers
-#
-# CONFIG_ATA_GENERIC is not set
-# CONFIG_PATA_LEGACY is not set
+# CONFIG_ATA_SFF is not set
 CONFIG_MD=y
 CONFIG_BLK_DEV_MD=m
 CONFIG_MD_LINEAR=m
@@ -1427,6 +1414,7 @@ CONFIG_MII=y
 CONFIG_TUN=m
 # CONFIG_TUN_VNET_CROSS_LE is not set
 # CONFIG_VETH is not set
+# CONFIG_VIRTIO_NET is not set
 # CONFIG_NLMON is not set
 # CONFIG_ARCNET is not set
 
@@ -1863,10 +1851,12 @@ CONFIG_SERIAL_CORE_CONSOLE=y
 # CONFIG_TTY_PRINTK is not set
 # CONFIG_PRINTER is not set
 # CONFIG_PPDEV is not set
+# CONFIG_VIRTIO_CONSOLE is not set
 # CONFIG_IPMI_HANDLER is not set
 CONFIG_HW_RANDOM=y
 # CONFIG_HW_RANDOM_TIMERIOMEM is not set
 # CONFIG_HW_RANDOM_ATMEL is not set
+# CONFIG_HW_RANDOM_VIRTIO is not set
 # CONFIG_HW_RANDOM_EXYNOS is not set
 # CONFIG_DTLK is not set
 # CONFIG_R3964 is not set
@@ -2422,6 +2412,7 @@ CONFIG_DRM_AST=y
 # CONFIG_DRM_CIRRUS_QEMU is not set
 # CONFIG_DRM_QXL is not set
 # CONFIG_DRM_BOCHS is not set
+# CONFIG_DRM_VIRTIO_GPU is not set
 # CONFIG_VGASTATE is not set
 CONFIG_VIDEO_OUTPUT_CONTROL=y
 CONFIG_HDMI=y
@@ -3099,13 +3090,18 @@ CONFIG_DMADEVICES=y
 # CONFIG_TIMB_DMA is not set
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
-# CONFIG_VIRT_DRIVERS is not set
+CONFIG_VIRT_DRIVERS=y
+CONFIG_VIRTIO=y
 
 #
 # Virtio drivers
 #
-# CONFIG_VIRTIO_PCI is not set
-# CONFIG_VIRTIO_MMIO is not set
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_PCI_LEGACY=y
+CONFIG_VIRTIO_BALLOON=y
+# CONFIG_VIRTIO_INPUT is not set
+CONFIG_VIRTIO_MMIO=y
+CONFIG_VIRTIO_MMIO_CMDLINE_DEVICES=y
 
 #
 # Microsoft Hyper-V guest support
@@ -3193,7 +3189,6 @@ CONFIG_COMEDI_NI_TIO=m
 # CONFIG_R8712U is not set
 # CONFIG_RTS5139 is not set
 # CONFIG_TRANZPORT is not set
-# CONFIG_IDE_PHISON is not set
 # CONFIG_LINE6_USB is not set
 # CONFIG_USB_SERIAL_QUATECH2 is not set
 # CONFIG_VT6655 is not set
