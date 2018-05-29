@@ -41,7 +41,7 @@ static void print_fixup_info(const struct pci_dev * pdev)
 
 int __init rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
-#if 0
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	print_fixup_info(dev);
 	return dev->irq;
 #else

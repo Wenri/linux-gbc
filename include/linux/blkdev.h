@@ -85,7 +85,9 @@ enum rq_cmd_type_bits {
 #ifdef __GENKSYMS__
 	REQ_TYPE_SPECIAL,		/* driver defined type */
 #else
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
 	REQ_TYPE_SPECIAL,		/* driver defined type */
+#endif
 	REQ_TYPE_DRV_PRIV,		/* driver defined type */
 #endif
 	/*
