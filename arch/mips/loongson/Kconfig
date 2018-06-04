@@ -110,6 +110,18 @@ config CS5536_MFGPT
 
 	  If unsure, say Yes.
 
+config GS464E_NODE_COUNTER
+	bool "Loongson3 Node Counter"
+	depends on LOONGSON_MACH3X
+	select MIPS_EXTERNAL_TIMER
+	help
+	  This option enables the node counter of Loongson3A(B)2000/3000.
+
+	  If you want to ease the contension of AMD RS780/SBX0 HPET device space reading,
+	  Please enable this option. This option replace HPET CSRC with node counter.
+
+	  If unsure, say No.
+
 config RS780_HPET
 	bool "RS780/SBX00 HPET Timer"
 	depends on LOONGSON_MACH3X
