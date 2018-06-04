@@ -397,6 +397,7 @@ struct kvm_vcpu_arch {
 	u32 vzguestid[NR_CPUS];
 #ifdef CONFIG_CPU_LOONGSON3
 	u64 vpid[NR_CPUS];
+	unsigned int write_count_disable;
 #endif
 
 	/* wired guest TLB entries */

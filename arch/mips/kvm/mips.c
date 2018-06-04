@@ -474,6 +474,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	/* Init */
 	vcpu->arch.last_sched_cpu = -1;
 	vcpu->arch.last_exec_cpu = -1;
+	vcpu->arch.write_count_disable = 0;
 
 	return vcpu;
 
@@ -1434,8 +1435,10 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	local_irq_disable();
 
+#ifndef CONFIG_CPU_LOONGSON3
 	if (ret == RESUME_GUEST)
 		kvm_vz_acquire_htimer(vcpu);
+#endif
 
 	if (er == EMULATE_DONE && !(ret & RESUME_HOST))
 		kvm_mips_deliver_interrupts(vcpu, cause);
@@ -1707,8 +1710,10 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 skip_emul:
 	local_irq_disable();
 
+#ifndef CONFIG_CPU_LOONGSON3
 	if (ret == RESUME_GUEST)
 		kvm_vz_acquire_htimer(vcpu);
+#endif
 
 	if (er == EMULATE_DONE && !(ret & RESUME_HOST))
 		kvm_mips_deliver_interrupts(vcpu, cause);

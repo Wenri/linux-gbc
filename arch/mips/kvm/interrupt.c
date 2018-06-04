@@ -211,9 +211,6 @@ void kvm_mips_deliver_interrupts(struct kvm_vcpu *vcpu, u32 cause)
 		return;
 
 #ifdef CONFIG_CPU_LOONGSON3
-	/* Clear last guest.cause.IP */
-	write_gc0_cause(0);
-	write_c0_guestctl2(0);
 	/* set guest.cause.IP with vcpu saved cause */
 	write_gc0_cause(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0xffff00ff);
 	write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
