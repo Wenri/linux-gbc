@@ -1060,6 +1060,16 @@ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
 			break;
 		}
 	}
+	case KVM_LSVZ_NODECOUNTER:
+	{
+		unsigned long __user *counter = argp;
+		unsigned long node_counter = *((unsigned long *)0x900000003ff00408);
+//		kvm_info("--------counter %lx\n",node_counter);
+		if (copy_to_user(counter, &node_counter, sizeof(node_counter)))
+			return -EFAULT;
+		r = 0;
+		break;
+	}
 	default:
 		r = -ENOIOCTLCMD;
 	}
