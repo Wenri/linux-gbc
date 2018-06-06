@@ -419,6 +419,18 @@ static void *kvm_mips_build_enter_guest(void *addr)
 	uasm_i_ins(&p, K0, ZERO, 2, 1);
 	uasm_i_ins(&p, K0, ZERO, 22, 1);
 	uasm_i_mtgc0(&p, K0, C0_STATUS);
+
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Get gsebase and set GSEBASE (9,6)*/
+	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, cop0), K1);
+	UASM_i_LW(&p, K0, offsetof(struct mips_coproc,
+			reg[MIPS_CP0_COUNT][6]), K0);
+	UASM_i_ADDIU(&p, V1, ZERO, 0x800);
+	UASM_i_MTC0(&p, V1, C0_GSEBASE);
+	UASM_i_MTC0(&p, K0, C0_GSEBASE);
+
+#endif
+
 //	uasm_i_lui(&p, K0, 0x8010);
 //	uasm_i_mtc0(&p, K0, C0_GSEBASE);
 #if 0
@@ -1205,7 +1217,6 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
 #if 1
 	uasm_i_mfgc0(&p, K0, C0_CAUSE);
-	uasm_i_andi(&p, K0, K0, 0x4c00);
 	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
 			reg[MIPS_CP0_CAUSE][0]), V0);
@@ -1626,7 +1637,6 @@ void *kvm_mips_build_exit(void *addr)
 	uasm_i_sw(&p, K0, offsetof(struct kvm_vcpu_arch, host_cp0_cause), K1);
 #if 1
 	uasm_i_mfgc0(&p, K0, C0_CAUSE);
-	uasm_i_andi(&p, K0, K0, 0x4c00);
 	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
 	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
 			reg[MIPS_CP0_CAUSE][0]), V0);
