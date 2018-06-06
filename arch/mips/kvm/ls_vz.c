@@ -2084,6 +2084,7 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 * if left unmaintained.
 	 */
 //	kvm_vz_restore_timer(vcpu);
+	write_gc0_cause(cop0->reg[MIPS_CP0_CAUSE][0] & 0xffff00ff);
 
 	if (current->flags & PF_VCPU) {
 		kvm_vz_vcpu_change_vpid(vcpu, cpu);
@@ -2154,6 +2155,9 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 	kvm_save_gc0_errorepc(cop0);
 
 //	kvm_vz_save_timer(vcpu);
+	kvm_write_sw_gc0_count(cop0, read_gc0_count());
+	kvm_save_gc0_compare(cop0);
+	kvm_save_gc0_cause(cop0);
 
 	/* save Root.GuestCtl2 in unused Guest guestctl2 register */
 	if (cpu_has_guestctl2)
