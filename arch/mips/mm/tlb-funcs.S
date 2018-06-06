@@ -321,7 +321,9 @@ LEAF(tlb_miss)
 
 	dmfc0	k0, CP0_BADVADDR
 	dsrl32	k0, k0, 8
-	andi	k0, k0, 0xff
+	lui	k1, 0x3f
+	ori	k1, k1, 0xffff
+	and	k0, k0, k1
 	bnez	k0, 3f
 	nop
 
