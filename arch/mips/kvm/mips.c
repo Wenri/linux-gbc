@@ -144,7 +144,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 
 	/* Allocate page table to map GPA -> RPA */
 	kvm->arch.gpa_mm.pgd = kvm_pgd_alloc();
-	printk("gpm_mm.pgd @ %p\n",kvm->arch.gpa_mm.pgd);
+	kvm_info("gpm_mm.pgd @ %p\n",kvm->arch.gpa_mm.pgd);
 	if (!kvm->arch.gpa_mm.pgd)
 		return -ENOMEM;
 
@@ -409,8 +409,8 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	kvm_mips_build_tlb_refill_target(refill_start + 0x3b80, handler);
 
 	general_start = refill_start + 0x100;
-	printk("start %lx end %lx handler %lx\n",(unsigned long)refill_start,(unsigned long)refill_end,(unsigned long)handler);
-	printk("general_start %lx\n",(unsigned long)general_start);
+	kvm_info("start %lx end %lx handler %lx\n",(unsigned long)refill_start,(unsigned long)refill_end,(unsigned long)handler);
+	kvm_info("general_start %lx\n",(unsigned long)general_start);
 	general_end = kvm_mips_build_tlb_general_exception(general_start, handler);
 
 	/*add test instructions*/
@@ -470,6 +470,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	kvm_info("guest cop0 page @ %p gprs @ %p tlb @ %p pc @ %lx\n",
 		  vcpu->arch.cop0, vcpu->arch.gprs, vcpu->arch.guest_tlb,
 		  (unsigned long)&vcpu->arch.pc);
+	kvm_info("\n\n");
 
 	/* Init */
 	vcpu->arch.last_sched_cpu = -1;

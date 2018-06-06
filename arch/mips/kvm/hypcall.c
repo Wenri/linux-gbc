@@ -283,7 +283,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		case EXCCODE_TLBXI:
 			break;
 		default:
-			kvm_info("illegal guest cause value %lx\n",args[5]);
+			kvm_info("illegal guest cause value %lx type %lx\n",args[5],args[4]);
 			break;
 		}
 		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits of odd pte
