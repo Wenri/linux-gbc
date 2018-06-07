@@ -116,6 +116,7 @@ int guest_pte_trans(const unsigned long *args,
 	return ret;
 }
 
+extern void local_flush_tlb_all(void);
 static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			      const unsigned long *args, unsigned long *hret)
 {
@@ -252,7 +253,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		local_irq_restore(flags);
 	} else if (args[4] == 0x5002) {
 		/*flush tlb all */
-		tlbinvf();
+		local_flush_tlb_all();
 	} else {
 		unsigned long prot_bits = 0;
 		unsigned long prot_bits1 = 0;
