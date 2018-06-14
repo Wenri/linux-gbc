@@ -97,7 +97,9 @@ void kvm_guest_mode_change_trace_unreg(void)
  */
 int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
 {
-	return !!(vcpu->arch.pending_exceptions);
+//	return !!(vcpu->arch.pending_exceptions);
+	return !!(vcpu->arch.pending_exceptions) ||
+		(kvm_read_sw_gc0_cause(vcpu->arch.cop0) & 0xcc00);
 }
 
 int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
@@ -1286,6 +1288,7 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 	return 0;
 }
 
+ktime_t kt;
 static void kvm_mips_comparecount_func(unsigned long data)
 {
 	struct kvm_vcpu *vcpu = (struct kvm_vcpu *)data;
@@ -1304,7 +1307,9 @@ static enum hrtimer_restart kvm_mips_comparecount_wakeup(struct hrtimer *timer)
 
 	vcpu = container_of(timer, struct kvm_vcpu, arch.comparecount_timer);
 	kvm_mips_comparecount_func((unsigned long) vcpu);
-	return kvm_mips_count_timeout(vcpu);
+	hrtimer_forward(timer, timer->base->get_time(), kt);
+	return HRTIMER_RESTART;
+//	return kvm_mips_count_timeout(vcpu);
 }
 
 int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
@@ -1317,6 +1322,8 @@ int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
 
 	hrtimer_init(&vcpu->arch.comparecount_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);
+	kt = ktime_set(8,0);
+	hrtimer_start(&vcpu->arch.comparecount_timer, kt, HRTIMER_MODE_REL);
 	vcpu->arch.comparecount_timer.function = kvm_mips_comparecount_wakeup;
 	return 0;
 }
@@ -1392,6 +1399,7 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 //			__func__,cause, gsexccode, opc, run, vcpu);
 
 	switch (exccode) {
+
 	case EXCCODE_INT:
 //		kvm_info("[%d]EXCCODE_INT\n", vcpu->vcpu_id);
 
