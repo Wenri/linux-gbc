@@ -1369,6 +1369,10 @@ enum vmtlbexc {
 
 volatile unsigned int lsvz_vcpu_dump0 = 0;
 volatile unsigned int lsvz_vcpu_dump1 = 0;
+volatile unsigned long lsvz_gpa_trans = 0;
+extern int _kvm_mips_map_page_fast(struct kvm_vcpu *vcpu, unsigned long gpa,
+				   bool write_fault,
+				   pte_t *out_entry, pte_t *out_buddy);
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
@@ -1391,6 +1395,29 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		lsvz_vcpu_dump1 = 0;
 	}
 
+{
+        if (lsvz_gpa_trans) {
+		int err = 0;
+		int gpa_index = 0;
+		unsigned long gpa_offset = 0;
+		pte_t pte_gpa[2];
+		int idx = (lsvz_gpa_trans >> PAGE_SHIFT) & 1;
+		err = _kvm_mips_map_page_fast(vcpu, lsvz_gpa_trans, 0, &pte_gpa[idx], &pte_gpa[!idx]);
+		if (err)
+			printk("#### GPA Trans Failed!\n");
+		else {
+				if (lsvz_gpa_trans & 0x4000)
+					gpa_index = 1;
+
+				gpa_offset = lsvz_gpa_trans & 0x3fff;
+				printk("\n************************************\n");
+				printk("pte_gpa[0] is %lx, pte_gpa[1] is %lx\n", pte_gpa[0].pte, pte_gpa[1].pte);
+				printk("gpa_trans is %lx, hpa is: %lx\n", lsvz_gpa_trans, ((pte_gpa[gpa_index].pte >> 18) << 14) + gpa_offset);
+				printk("\n************************************\n");
+		}
+		lsvz_gpa_trans = 0;
+	}
+}
 	if(((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE) &&
 			    ((vcpu->arch.host_cp0_badvaddr >> 40) & 0xff)) {
 		kvm_err("vpid area can not be used for addr %lx\n", vcpu->arch.host_cp0_badvaddr);
@@ -1594,6 +1621,29 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		kvm_arch_vcpu_dump_regs(vcpu);
 		lsvz_vcpu_dump1 = 0;
 	}
+{
+        if (lsvz_gpa_trans) {
+		int err = 0;
+		int gpa_index = 0;
+		unsigned long gpa_offset = 0;
+		pte_t pte_gpa[2];
+		int idx = (lsvz_gpa_trans >> PAGE_SHIFT) & 1;
+		err = _kvm_mips_map_page_fast(vcpu, lsvz_gpa_trans, 0, &pte_gpa[idx], &pte_gpa[!idx]);
+		if (err)
+			printk("#### GPA Trans Failed!\n");
+		else {
+				if (lsvz_gpa_trans & 0x4000)
+					gpa_index = 1;
+
+				gpa_offset = lsvz_gpa_trans & 0x3fff;
+				printk("\n************************************\n");
+				printk("pte_gpa[0] is %lx, pte_gpa[1] is %lx\n", pte_gpa[0].pte, pte_gpa[1].pte);
+				printk("gpa_trans is %lx, hpa is: %lx\n", lsvz_gpa_trans, ((pte_gpa[gpa_index].pte >> 18) << 14) + gpa_offset);
+				printk("\n************************************\n");
+		}
+		lsvz_gpa_trans = 0;
+	}
+}
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
 	/* re-enable HTW before enabling interrupts */
