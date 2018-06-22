@@ -1237,25 +1237,25 @@ int kvm_arch_vcpu_dump_regs(struct kvm_vcpu *vcpu)
 	if (!vcpu)
 		return -1;
 
-	kvm_debug("VCPU Register Dump:\n");
-	kvm_debug("\tpc = 0x%08lx\n", vcpu->arch.pc);
-	kvm_debug("\texceptions: %08lx\n", vcpu->arch.pending_exceptions);
+	printk("VCPU Register Dump:\n");
+	printk("\tpc = 0x%08lx\n", vcpu->arch.pc);
+	printk("\texceptions: %08lx\n", vcpu->arch.pending_exceptions);
 
 	for (i = 0; i < 32; i += 4) {
-		kvm_debug("\tgpr%02d: %08lx %08lx %08lx %08lx\n", i,
+		printk("\tgpr%02d: %08lx %08lx %08lx %08lx\n", i,
 		       vcpu->arch.gprs[i],
 		       vcpu->arch.gprs[i + 1],
 		       vcpu->arch.gprs[i + 2], vcpu->arch.gprs[i + 3]);
 	}
-	kvm_debug("\thi: 0x%08lx\n", vcpu->arch.hi);
-	kvm_debug("\tlo: 0x%08lx\n", vcpu->arch.lo);
+	printk("\thi: 0x%08lx\n", vcpu->arch.hi);
+	printk("\tlo: 0x%08lx\n", vcpu->arch.lo);
 
 	cop0 = vcpu->arch.cop0;
-	kvm_debug("\tStatus: 0x%08x, Cause: 0x%08x\n",
+	printk("\tStatus: 0x%08x, Cause: 0x%08x\n",
 		  kvm_read_c0_guest_status(cop0),
 		  kvm_read_c0_guest_cause(cop0));
 
-	kvm_debug("\tEPC: 0x%08lx\n", kvm_read_c0_guest_epc(cop0));
+	printk("\tEPC: 0x%08lx\n", kvm_read_c0_guest_epc(cop0));
 
 	return 0;
 }
@@ -1367,6 +1367,8 @@ enum vmtlbexc {
 };
 #define EXCCODE_GSEXC 0x10
 
+volatile unsigned int lsvz_vcpu_dump0 = 0;
+volatile unsigned int lsvz_vcpu_dump1 = 0;
 int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 {
 	u32 cause = vcpu->arch.host_cp0_cause;
@@ -1377,6 +1379,17 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	u32 inst;
 	enum emulation_result er = EMULATE_DONE;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
+
+        if (lsvz_vcpu_dump0 && (vcpu->vcpu_id == 0)) {
+		printk("#### TLB General Exception: vcpu[%d] dumping:\n", vcpu->vcpu_id);
+		kvm_arch_vcpu_dump_regs(vcpu);
+		lsvz_vcpu_dump0 = 0;
+	}
+        if (lsvz_vcpu_dump1 && (vcpu->vcpu_id == 1)) {
+		printk("#### TLB General Exception: vcpu[%d] dumping:\n", vcpu->vcpu_id);
+		kvm_arch_vcpu_dump_regs(vcpu);
+		lsvz_vcpu_dump1 = 0;
+	}
 
 	if(((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE) &&
 			    ((vcpu->arch.host_cp0_badvaddr >> 40) & 0xff)) {
@@ -1571,6 +1584,16 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	u32 inst;
 	int ret = RESUME_GUEST;
 
+        if (lsvz_vcpu_dump0 && (vcpu->vcpu_id == 0)) {
+		printk("#### Handle Exit: vcpu[%d] dumping:\n", vcpu->vcpu_id);
+		kvm_arch_vcpu_dump_regs(vcpu);
+		lsvz_vcpu_dump0 = 0;
+	}
+        if (lsvz_vcpu_dump1 && (vcpu->vcpu_id == 1)) {
+		printk("#### Handle Exit: vcpu[%d] dumping:\n", vcpu->vcpu_id);
+		kvm_arch_vcpu_dump_regs(vcpu);
+		lsvz_vcpu_dump1 = 0;
+	}
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
 	/* re-enable HTW before enabling interrupts */
