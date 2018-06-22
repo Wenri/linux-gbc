@@ -621,7 +621,7 @@ int kvm_test_age_hva(struct kvm *kvm, unsigned long hva)
  *		-EFAULT on failure due to absent GPA mapping or write to
  *		read-only page, in which case KVM must be consulted.
  */
-static int _kvm_mips_map_page_fast(struct kvm_vcpu *vcpu, unsigned long gpa,
+int _kvm_mips_map_page_fast(struct kvm_vcpu *vcpu, unsigned long gpa,
 				   bool write_fault,
 				   pte_t *out_entry, pte_t *out_buddy)
 {
