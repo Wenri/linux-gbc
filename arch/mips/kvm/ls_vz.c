@@ -1113,6 +1113,8 @@ static gpa_t kvm_vz_gva_to_gpa_cb(gva_t gva)
 	if((gva & CKSEG3) == CKSEG1)
 		return CPHYSADDR(gva);
 	else {
+		if((gva & 0xfffffffff0000000) == 0x9000000040000000 )
+			gva &= 0x4fffffff;
 		return gva;
 	}
 }
