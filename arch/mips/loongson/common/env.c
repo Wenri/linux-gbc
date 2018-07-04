@@ -198,7 +198,11 @@ void __init prom_init_env(void)
 	loongson_boot_cpu_id = ecpu->cpu_startup_core_id;
 	loongson_reserved_cpus_mask = ecpu->reserved_cores_mask;
 #ifdef CONFIG_KEXEC
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	loongson_boot_cpu_id = read_c0_ebase() & 0xff;
+#else
 	loongson_boot_cpu_id = read_c0_ebase() & 0x3ff;
+#endif
 	for (i = 0; i < loongson_boot_cpu_id; i++)
 		loongson_reserved_cpus_mask |= (1<<i);
 	pr_info("Boot CPU ID is being fixed from %d to %d\n",

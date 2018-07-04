@@ -697,7 +697,11 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 		"	.set	mips0					\n"
 		: "=r" (my_cpu));
 
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	my_node_id = ((my_cpu & 0xff) / 4) << 3;
+#else
 	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
+#endif
 	smp_mb__before_llsc();
 
 	__asm__ __volatile__(
@@ -779,7 +783,12 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 		"	mfc0	%0, $15, 1				\n"
 		"	.set	mips0					\n"
 		: "=r" (my_cpu));
+
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+	my_node_id = ((my_cpu & 0xff) / 4) << 3;
+#else
 	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
+#endif
 
 	__asm__ __volatile__(
 		"	.set	noreorder       # unlock for phase   	\n"

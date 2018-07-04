@@ -224,7 +224,12 @@ int kvm_vcpu_init(struct kvm_vcpu *vcpu, struct kvm *kvm, unsigned id)
 	mutex_init(&vcpu->mutex);
 	vcpu->cpu = -1;
 	vcpu->kvm = kvm;
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Distinct the guest.base.cpuno with root.ebase.cpuno */
+	vcpu->vcpu_id = id | 0x100;
+#else
 	vcpu->vcpu_id = id;
+#endif
 	vcpu->pid = NULL;
 	vcpu->halt_poll_ns = 0;
 	init_waitqueue_head(&vcpu->wq);
@@ -2248,7 +2253,11 @@ static int kvm_vm_ioctl_create_vcpu(struct kvm *kvm, u32 id)
 	}
 
 	kvm_for_each_vcpu(r, v, kvm)
+#ifdef CONFIG_CPU_LOONGSON3
+		if ((v->vcpu_id & 0xff) == id) {
+#else
 		if (v->vcpu_id == id) {
+#endif
 			r = -EEXIST;
 			goto unlock_vcpu_destroy;
 		}
