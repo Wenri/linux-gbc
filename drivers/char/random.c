@@ -1249,10 +1249,12 @@ SYSCALL_DEFINE3(getrandom, char __user *, ubuf, size_t, len, unsigned int, flags
 	if ((flags & (GRND_INSECURE | GRND_RANDOM)) == (GRND_INSECURE | GRND_RANDOM))
 		return -EINVAL;
 
-	if (!crng_ready() && !(flags & GRND_INSECURE)) {
+	if ((crng_init == 0) && !(flags & GRND_INSECURE)) {
+		int ret;
+
 		if (flags & GRND_NONBLOCK)
 			return -EAGAIN;
-		ret = wait_for_random_bytes();
+		ret = wait_event_interruptible(crng_init_wait, crng_init > 0);
 		if (unlikely(ret))
 			return ret;
 	}
