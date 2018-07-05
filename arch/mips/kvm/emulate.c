@@ -1602,7 +1602,7 @@ enum emulation_result kvm_mips_emulate_store(union mips_instruction inst,
 					     struct kvm_vcpu *vcpu)
 {
 	enum emulation_result er;
-	u32 rt, rq;
+	u32 rt;
 	void *data = run->mmio.data;
 	unsigned long curr_pc;
 	unsigned int imme;
