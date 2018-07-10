@@ -1620,7 +1620,7 @@ static struct pci_dev *pci_scan_device(struct pci_bus *bus, int devfn)
 	dev->vendor = l & 0xffff;
 	dev->device = (l >> 16) & 0xffff;
 
-//	printk("--lx dev %x %x %x %x\n",dev->bus,dev->devfn,dev->vendor,dev->device);
+	printk("--lx dev %x %x %x %x\n",dev->bus,dev->devfn,dev->vendor,dev->device);
 	pci_set_of_node(dev);
 
 	if (pci_setup_device(dev)) {

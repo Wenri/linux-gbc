@@ -47,9 +47,12 @@ int __init rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 #else
 	int irq = 0;
 	if(slot == 1)
-		irq = 6;
+		irq = 4;
 	else if (slot == 2)
+		irq = 5;
+	else if (slot == 3)
 		irq = 6;
+
 	return irq;
 #endif
 }

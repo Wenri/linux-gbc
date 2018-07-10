@@ -45,19 +45,21 @@ static bool qxl_check_device(struct qxl_device *qdev)
 	int mode_offset;
 	int i;
 
+#if 0
 	if (rom->magic != 0x4f525851) {
 		DRM_ERROR("bad rom signature %x\n", rom->magic);
 		return false;
 	}
+#endif
 
 	DRM_INFO("Device Version %d.%d\n", rom->id, rom->update_id);
 	DRM_INFO("Compression level %d log level %d\n", rom->compression_level,
 		 rom->log_level);
 	DRM_INFO("Currently using mode #%d, list at 0x%x\n",
 		 rom->mode, rom->modes_offset);
-	DRM_INFO("%d io pages at offset 0x%x\n",
+	DRM_INFO("%x io pages at offset 0x%x\n",
 		 rom->num_io_pages, rom->pages_offset);
-	DRM_INFO("%d byte draw area at offset 0x%x\n",
+	DRM_INFO("%x byte draw area at offset 0x%x\n",
 		 rom->surface0_area_size, rom->draw_area_offset);
 
 	qdev->vram_size = rom->surface0_area_size;
@@ -133,6 +135,7 @@ static int qxl_device_init(struct qxl_device *qdev,
 	mutex_init(&qdev->surf_evict_mutex);
 	INIT_LIST_HEAD(&qdev->gem.objects);
 
+	//set the direct rom load area to BAR2
 	qdev->rom_base = pci_resource_start(pdev, 2);
 	qdev->rom_size = pci_resource_len(pdev, 2);
 	qdev->vram_base = pci_resource_start(pdev, 0);

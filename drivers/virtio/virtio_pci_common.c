@@ -19,10 +19,10 @@
 
 #include "virtio_pci_common.h"
 
-static bool force_legacy = true;
+static bool force_legacy = false;
 
 #if IS_ENABLED(CONFIG_VIRTIO_PCI_LEGACY)
-module_param(force_legacy, bool, 0444);
+core_param(force_legacy, force_legacy, bool, 0644);
 MODULE_PARM_DESC(force_legacy,
 		 "Force legacy mode for transitional virtio 1 devices");
 #endif
