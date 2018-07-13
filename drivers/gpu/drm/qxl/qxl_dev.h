@@ -130,9 +130,7 @@ enum SpiceCursorType {
 
 /* qxl_dev.h */
 
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 #pragma pack(push, 1)
-#endif
 
 #define REDHAT_PCI_VENDOR_ID 0x1b36
 
@@ -876,8 +874,6 @@ struct qxl_monitors_config {
 	struct qxl_head heads[0];
 };
 
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 #pragma pack(pop)
-#endif
 
 #endif /* _H_QXL_DEV */
