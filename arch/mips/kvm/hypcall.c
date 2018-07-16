@@ -71,19 +71,21 @@ int guest_pte_trans(const unsigned long *args,
 		//we need to get the HVA????
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
-		hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+		if(slot) {
+			hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
-		if((hva >> args[1]) & 1)
-			idx = 1;
-		else
-			idx = 0;
+			if((hva >> args[1]) & 1)
+				idx = 1;
+			else
+				idx = 0;
 
-		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte[idx], &pte[!idx]);
-		if(ret)
-			kvm_info("entrylo0 map page error\n");
+			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte[idx], &pte[!idx]);
+			if(ret)
+				kvm_info("entrylo0 map page error\n");
 
-		if (args[0] < XKSSEG)
-			pte[idx].pte &= ~_PAGE_GLOBAL;
+			if (args[0] < XKSSEG)
+				pte[idx].pte &= ~_PAGE_GLOBAL;
+		}
 
 		entrylo = pte_to_entrylo(args[3]);
 		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits
@@ -93,18 +95,20 @@ int guest_pte_trans(const unsigned long *args,
 		//we need to get the HVA????
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
-		hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+		if(slot){
+			hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+		
+			if((hva >> args[1]) & 1)
+				idx = 1;
+			else
+				idx = 0;
+			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte1[idx], &pte1[!idx]);
+			if(ret)
+				kvm_info("entrylo1 map page error\n");
 
-		if((hva >> args[1]) & 1)
-			idx = 1;
-		else
-			idx = 0;
-		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte1[idx], &pte1[!idx]);
-		if(ret)
-			kvm_info("entrylo1 map page error\n");
-
-		if (args[0] < XKSSEG)
-			pte1[idx].pte &= ~_PAGE_GLOBAL;
+			if (args[0] < XKSSEG)
+				pte1[idx].pte &= ~_PAGE_GLOBAL;
+		}
 
 	if (ret)
 		ret = RESUME_HOST;
@@ -294,13 +298,15 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
-		hva1 = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+		if(slot)
+			hva1 = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
 		//Process GUEST odd pte
 		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
-		hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
+		if(slot)
+			hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
 		ret = guest_pte_trans(args, vcpu, write_fault, pte_gpa, pte_gpa1);
 		if(ret)
