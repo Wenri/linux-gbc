@@ -129,7 +129,8 @@ LEAF(__kvm_save_fcsr)
 	SET_HARDFLOAT
 	cfc1	t0, fcr31
 	sw	t0, VCPU_FCR31(a0)
-	jr	ra
 	ctc1	$0, fcr31
+	jr	ra
+	 nop
 	.set	pop
 	END(__kvm_save_fcsr)
