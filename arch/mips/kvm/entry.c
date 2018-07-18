@@ -548,11 +548,6 @@ skip_asid_restore:
 	UASM_i_LA(&p, T9, (unsigned long)__kvm_restore_fpu);
 	uasm_i_jalr(&p, RA, T9);
 	uasm_i_nop(&p);
-
-	uasm_i_move(&p, A0, K1);
-	UASM_i_LA(&p, T9, (unsigned long)__kvm_restore_fcsr);
-	uasm_i_jalr(&p, RA, T9);
-	uasm_i_nop(&p);
 #endif
 
 #ifdef CONFIG_CPU_LOONGSON3
@@ -1156,26 +1151,6 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 		UASM_i_SW(&p, i, offsetof(struct kvm_vcpu_arch, gprs[i]), K1);
 	}
 
-#ifdef CONFIG_CPU_LOONGSON3
-	uasm_i_lui(&p, AT, ST0_CU1 >> 16);
-	uasm_i_mfgc0(&p, T0, C0_STATUS);
-	uasm_i_and(&p, T1, T0, AT);
-	uasm_il_beqz(&p, &r, T1, label_fpu_0);
-	uasm_i_nop(&p);
-	/* Save guest fpu */
-	UASM_i_ADDIU(&p, AT, ZERO, 1);
-	uasm_i_mfc0(&p, T0, C0_STATUS);
-	uasm_i_ins(&p, T0, AT, 29, 1); //SET ST0_CU1
-	uasm_i_ins(&p, T0, AT, 26, 1); //SET ST0_FR
-	uasm_i_mtc0(&p, T0, C0_STATUS);
-
-	uasm_i_move(&p, A0, K1);
-	UASM_i_LA(&p, T9, (unsigned long)__kvm_save_fpu);
-	uasm_i_jalr(&p, RA, T9);
-	uasm_i_nop(&p);
-
-	uasm_l_fpu_0(&l, p);
-#endif
 
 #ifndef CONFIG_CPU_MIPSR6
 	/* We need to save hi/lo and restore them on the way out */
@@ -1266,6 +1241,20 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 			  K1);
 		uasm_i_ctc1(&p, ZERO, 31);
 		uasm_l_fpu_1(&l, p);
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Save guest fpu */
+	UASM_i_ADDIU(&p, AT, ZERO, 1);
+	uasm_i_mfc0(&p, T0, C0_STATUS);
+	uasm_i_ins(&p, T0, AT, 29, 1); //SET ST0_CU1
+	uasm_i_ins(&p, T0, AT, 26, 1); //SET ST0_FR
+	uasm_i_mtc0(&p, T0, C0_STATUS);
+
+	uasm_i_move(&p, A0, K1);
+	UASM_i_LA(&p, T9, (unsigned long)__kvm_save_fpu);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
+#endif
+
 	}
 
 #if 0
@@ -1576,26 +1565,6 @@ void *kvm_mips_build_exit(void *addr)
 		UASM_i_SW(&p, i, offsetof(struct kvm_vcpu_arch, gprs[i]), K1);
 	}
 
-#ifdef CONFIG_CPU_LOONGSON3
-	uasm_i_lui(&p, AT, ST0_CU1 >> 16);
-	uasm_i_mfgc0(&p, T0, C0_STATUS);
-	uasm_i_and(&p, T1, T0, AT);
-	uasm_il_beqz(&p, &r, T1, label_fpu_0);
-	uasm_i_nop(&p);
-	/* Save guest fpu */
-	UASM_i_ADDIU(&p, AT, ZERO, 1);
-	uasm_i_mfc0(&p, T0, C0_STATUS);
-	uasm_i_ins(&p, T0, AT, 29, 1); //SET ST0_CU1
-	uasm_i_ins(&p, T0, AT, 26, 1); //SET ST0_FR
-	uasm_i_mtc0(&p, T0, C0_STATUS);
-
-	uasm_i_move(&p, A0, K1);
-	UASM_i_LA(&p, T9, (unsigned long)__kvm_save_fpu);
-	uasm_i_jalr(&p, RA, T9);
-	uasm_i_nop(&p);
-
-	uasm_l_fpu_0(&l, p);
-#endif
 
 #ifndef CONFIG_CPU_MIPSR6
 	/* We need to save hi/lo and restore them on the way out */
@@ -1686,6 +1655,19 @@ void *kvm_mips_build_exit(void *addr)
 			  K1);
 		uasm_i_ctc1(&p, ZERO, 31);
 		uasm_l_fpu_1(&l, p);
+#ifdef CONFIG_CPU_LOONGSON3
+	/* Save guest fpu */
+	UASM_i_ADDIU(&p, AT, ZERO, 1);
+	uasm_i_mfc0(&p, T0, C0_STATUS);
+	uasm_i_ins(&p, T0, AT, 29, 1); //SET ST0_CU1
+	uasm_i_ins(&p, T0, AT, 26, 1); //SET ST0_FR
+	uasm_i_mtc0(&p, T0, C0_STATUS);
+
+	uasm_i_move(&p, A0, K1);
+	UASM_i_LA(&p, T9, (unsigned long)__kvm_save_fpu);
+	uasm_i_jalr(&p, RA, T9);
+	uasm_i_nop(&p);
+#endif
 	}
 
 #if 0
@@ -2046,6 +2028,8 @@ static void *kvm_mips_build_ret_to_guest(void *addr)
 	build_set_exc_base(&p, T0);
 
 	/* Setup status register for running guest in UM */
+	uasm_i_lui(&p, AT, 0x100); //set ST0_MX
+	uasm_i_or(&p, V1, V1, AT);
 	uasm_i_ori(&p, V1, V1, ST0_EXL | KSU_USER | ST0_IE);
 	//UASM_i_LA(&p, AT, ~(ST0_CU0 | ST0_MX | ST0_SX | ST0_UX));
 	UASM_i_LA(&p, AT, ~(ST0_CU0 | ST0_SX));

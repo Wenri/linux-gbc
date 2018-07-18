@@ -472,6 +472,8 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	kvm_info("guest cop0 page @ %p gprs @ %p tlb @ %p pc @ %lx\n",
 		  vcpu->arch.cop0, vcpu->arch.gprs, vcpu->arch.guest_tlb,
 		  (unsigned long)&vcpu->arch.pc);
+	kvm_info("pending exception @ %lx\n", (ulong)&vcpu->arch.pending_exceptions);
+	kvm_info("fcr31 @ %lx\n", (ulong)&vcpu->arch.fpu.fcr31);
 	kvm_info("\n\n");
 
 	/* Init */
@@ -550,6 +552,10 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
 	 * mode and not needing an IPI.
 	 */
 	smp_store_mb(vcpu->mode, IN_GUEST_MODE);
+
+	set_c0_status(ST0_CU1 | ST0_FR);
+	__kvm_restore_fcsr(&vcpu->arch);
+	clear_c0_status(ST0_CU1 | ST0_FR);
 
 	r = kvm_mips_callbacks->vcpu_run(run, vcpu);
 
@@ -1237,25 +1243,26 @@ int kvm_arch_vcpu_dump_regs(struct kvm_vcpu *vcpu)
 	if (!vcpu)
 		return -1;
 
-	printk("VCPU Register Dump:\n");
-	printk("\tpc = 0x%08lx\n", vcpu->arch.pc);
-	printk("\texceptions: %08lx\n", vcpu->arch.pending_exceptions);
+	kvm_info("VCPU Register Dump:\n");
+	kvm_info("\tpc = 0x%08lx\n", vcpu->arch.pc);
+	kvm_info("\texceptions: %08lx\n", vcpu->arch.pending_exceptions);
 
 	for (i = 0; i < 32; i += 4) {
-		printk("\tgpr%02d: %08lx %08lx %08lx %08lx\n", i,
+		kvm_info("\tgpr%02d: %08lx %08lx %08lx %08lx\n", i,
 		       vcpu->arch.gprs[i],
 		       vcpu->arch.gprs[i + 1],
 		       vcpu->arch.gprs[i + 2], vcpu->arch.gprs[i + 3]);
 	}
-	printk("\thi: 0x%08lx\n", vcpu->arch.hi);
-	printk("\tlo: 0x%08lx\n", vcpu->arch.lo);
+	kvm_info("\thi: 0x%08lx\n", vcpu->arch.hi);
+	kvm_info("\tlo: 0x%08lx\n", vcpu->arch.lo);
 
 	cop0 = vcpu->arch.cop0;
-	printk("\tStatus: 0x%08x, Cause: 0x%08x\n",
+	kvm_info("\tStatus: 0x%08x, Cause: 0x%08x\n",
 		  kvm_read_c0_guest_status(cop0),
 		  kvm_read_c0_guest_cause(cop0));
 
-	printk("\tEPC: 0x%08lx\n", kvm_read_c0_guest_epc(cop0));
+	kvm_info("\tEPC: 0x%08lx\n", kvm_read_c0_guest_epc(cop0));
+	kvm_info("\tfcsr: 0x%x\n", vcpu->arch.fpu.fcr31);
 
 	return 0;
 }
@@ -1439,7 +1446,7 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 //			__func__,cause, gsexccode, opc, run, vcpu);
 
 	switch (exccode) {
-
+#if 0
 	case EXCCODE_INT:
 //		kvm_info("[%d]EXCCODE_INT\n", vcpu->vcpu_id);
 
@@ -1450,6 +1457,7 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 		ret = RESUME_GUEST;
 		break;
+#endif
 
 	case EXCCODE_GSEXC:
 
@@ -1539,6 +1547,9 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 		    read_c0_status() & ST0_CU1)
 			__kvm_restore_fcsr(&vcpu->arch);
 #endif
+		set_c0_status(ST0_CU1 | ST0_FR);
+		__kvm_restore_fcsr(&vcpu->arch);
+		clear_c0_status(ST0_CU1 | ST0_FR);
 
 		/*if (kvm_mips_guest_has_msa(&vcpu->arch) &&*/
 		    /*read_c0_config5() & MIPS_CONF5_MSAEN)*/
@@ -1847,6 +1858,9 @@ skip_emul:
 		    read_c0_status() & ST0_CU1)
 			__kvm_restore_fcsr(&vcpu->arch);
 #endif
+		set_c0_status(ST0_CU1 | ST0_FR);
+		__kvm_restore_fcsr(&vcpu->arch);
+		clear_c0_status(ST0_CU1 | ST0_FR);
 
 		/*if (kvm_mips_guest_has_msa(&vcpu->arch) &&*/
 		    /*read_c0_config5() & MIPS_CONF5_MSAEN)*/
@@ -2016,6 +2030,10 @@ void kvm_lose_fpu(struct kvm_vcpu *vcpu)
 		/*}*/
 		/*vcpu->arch.aux_inuse &= ~(KVM_MIPS_AUX_FPU | KVM_MIPS_AUX_MSA);*/
 	/*} else if (vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU) {*/
+	/* Disable FPU */
+	clear_c0_status(ST0_CU1 | ST0_FR);
+	disable_fpu_hazard();
+
 	if (vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU) {
 		if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ)) {
 			set_c0_status(ST0_CU1);
