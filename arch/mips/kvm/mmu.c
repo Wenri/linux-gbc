@@ -1171,7 +1171,7 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		//1. qxl ioremap BAR2 to 0x900000004xxxxxxx
 		if(((badvaddr & 0xffffff0000000000) == 0x900000e000000000) ||
 		   ((badvaddr & 0xfffffffffff00000) == 0x900000003ff00000) ||
-		   ((badvaddr & 0xfffffffff0000000) == 0x9000000040000000) ||
+		   ((badvaddr & 0xffffffffff000000) == 0x9000000049000000) ||
 		   ((badvaddr & 0xfffffffffff00000) == 0x900000001fe00000)) {
 			return RESUME_HOST;
 		}
