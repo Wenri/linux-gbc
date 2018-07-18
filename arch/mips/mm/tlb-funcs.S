@@ -61,7 +61,6 @@ LEAF(handle_tlbm)
 	gssq	a0, a1, 0(k1)
 
 	gssq	a2, a3, 16(k1)
-	sd	v0,  32(k1)
 	gssq	v0, v1, 32(k1)
 	mfc0	v1, CP0_CAUSE
 	ext	v1, v1, 2, 5
