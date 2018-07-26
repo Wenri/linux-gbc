@@ -324,5 +324,13 @@ struct platform_controller_hub {
 };
 
 extern struct platform_controller_hub *loongson_pch;
-
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+enum virtdev_irq {
+     VIRTDEV_NET_VIRTIO_IRQ = 1,
+     VIRTDEV_QXL_IRQ = 3,
+     VIRTDEV_BLK_VIRTIO_IRQ,
+     VIRTDEV_SERIAL_VIRTIO_IRQ,
+     VIRTDEV_IRQ_MAX = 9,
+};
+#endif
 #endif
