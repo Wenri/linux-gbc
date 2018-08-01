@@ -46,13 +46,22 @@ int __init rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	return dev->irq;
 #else
 	int irq = 0;
-	if(slot == 1)
-		irq = 4;
-	else if (slot == 2)
-		irq = 5;
-	else if (slot == 3)
-		irq = 6;
-
+    switch (dev->vendor){
+        case 0x1af4:
+            if (dev->device == 0x1000)
+                irq = VIRTDEV_NET_VIRTIO_IRQ;
+            else if (dev->device == 0x1001)
+                irq = VIRTDEV_BLK_VIRTIO_IRQ;
+            else if (dev->device == 0x1003)
+                irq = VIRTDEV_SERIAL_VIRTIO_IRQ;
+        break;
+        case 0x1b36:
+            if (dev->device == 0x100)
+                irq = VIRTDEV_QXL_IRQ;
+        break;
+        default:
+        break;
+    }
 	return irq;
 #endif
 }
