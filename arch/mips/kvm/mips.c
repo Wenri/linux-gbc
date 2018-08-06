@@ -2030,10 +2030,6 @@ void kvm_lose_fpu(struct kvm_vcpu *vcpu)
 		/*}*/
 		/*vcpu->arch.aux_inuse &= ~(KVM_MIPS_AUX_FPU | KVM_MIPS_AUX_MSA);*/
 	/*} else if (vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU) {*/
-	/* Disable FPU */
-	clear_c0_status(ST0_CU1 | ST0_FR);
-	disable_fpu_hazard();
-
 	if (vcpu->arch.aux_inuse & KVM_MIPS_AUX_FPU) {
 		if (!IS_ENABLED(CONFIG_KVM_MIPS_VZ)) {
 			set_c0_status(ST0_CU1);
