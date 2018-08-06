@@ -215,10 +215,6 @@ static int vp_request_intx(struct virtio_device *vdev)
 	int err;
 	struct virtio_pci_device *vp_dev = to_vp_device(vdev);
 
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	printk("%s set irq = %d\n",__func__, vp_dev->pci_dev->irq);
-	vp_dev->pci_dev->irq = 6;
-#endif
 	err = request_irq(vp_dev->pci_dev->irq, vp_interrupt,
 			  IRQF_SHARED, dev_name(&vdev->dev), vp_dev);
 	if (!err)
