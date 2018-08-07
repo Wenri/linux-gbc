@@ -33,7 +33,6 @@ static noinline void emulate_tlb_ops(unsigned long address,
 			    unsigned long flags)
 {
 #if 1
-	unsigned int ret, v1;
 	__asm__ __volatile__(
 	"	.set	push			\n"
 	"	.set	noreorder		\n"
