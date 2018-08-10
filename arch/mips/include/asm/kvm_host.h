@@ -309,7 +309,7 @@ struct kvm_mmu_memory_cache {
 #define KVM_MIPS_AUX_FPU	0x1
 #define KVM_MIPS_AUX_MSA	0x2
 
-#define KVM_MIPS_GUEST_TLB_SIZE	64*17
+#define KVM_MIPS_GUEST_TLB_SIZE	64
 struct kvm_vcpu_arch {
 	void *guest_ebase;
 	int (*vcpu_run)(struct kvm_run *run, struct kvm_vcpu *vcpu);
