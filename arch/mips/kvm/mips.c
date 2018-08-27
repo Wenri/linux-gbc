@@ -1605,6 +1605,9 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 
 	/* setup badvaddr, context and entryhi registers for the guest */
 	kvm_write_c0_guest_badvaddr(cop0, vcpu->arch.host_cp0_badvaddr);
+	set_c0_status(ST0_CU1 | ST0_FR);
+	__kvm_restore_fcsr(&vcpu->arch);
+	clear_c0_status(ST0_CU1 | ST0_FR);
 
 	return ret;
 }
