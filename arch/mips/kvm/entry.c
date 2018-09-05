@@ -122,6 +122,7 @@ enum label_id {
 	label_not_write_count,
 	label_finish_write_count,
 	label_no_ti,
+	label_nodecounter,
 };
 
 UASM_L_LA(_fpu_1)
@@ -144,6 +145,7 @@ UASM_L_LA(_fpu_0)
 UASM_L_LA(_not_write_count)
 UASM_L_LA(_finish_write_count)
 UASM_L_LA(_no_ti)
+UASM_L_LA(_nodecounter)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -1758,8 +1760,8 @@ void *kvm_mips_build_exit(void *addr)
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 {
 	u32 *p = addr;
-	struct uasm_label labels[8];
-	struct uasm_reloc relocs[8];
+	struct uasm_label labels[9];
+	struct uasm_reloc relocs[9];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -1785,6 +1787,13 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	uasm_i_andi(&p, T0, V0, RESUME_HOST);
 	uasm_il_bnez(&p, &r, T0, label_return_to_host);
 	uasm_i_nop(&p);
+
+	//process nodecounter read passthrough
+	if(update_tlb) {
+		uasm_i_lw(&p, A3, offsetof(struct kvm_vcpu_arch, is_nodecounter), K1);
+		uasm_il_bnez(&p, &r, A3, label_nodecounter);
+		uasm_i_nop(&p);
+	}
 
 #if 1 //Debug for fill in one tlb line,not use S0,S1,V0,K1
 	if (!update_tlb)
@@ -1915,6 +1924,13 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	UASM_i_MTC0(&p, T0, C0_PAGEMASK);
 	UASM_i_MTC0(&p, T1, C0_ENTRYLO0);
 	UASM_i_MTC0(&p, T2, C0_ENTRYLO1);
+
+	//process nodecounter read passthrough
+	if(update_tlb) {
+		uasm_l_nodecounter(&l, p);
+		uasm_i_sw(&p, ZERO, offsetof(struct kvm_vcpu_arch, is_nodecounter), K1);
+		uasm_i_nop(&p);
+	}
 
 	if (!update_tlb)
 	{

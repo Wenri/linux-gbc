@@ -1866,6 +1866,7 @@ out_fail:
 	return EMULATE_FAIL;
 }
 
+#define NODE_COUNTER_ADDR 0x900000003FF00408UL
 enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 					    u32 cause, struct kvm_run *run,
 					    struct kvm_vcpu *vcpu)
@@ -1873,11 +1874,15 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 	enum emulation_result er;
 	unsigned long curr_pc;
 	u32 op, rt;
+	u32 rs;
+	int offset;
 	unsigned int imme;
 
 	rt = inst.i_format.rt;
 	op = inst.i_format.opcode;
 
+	rs = inst.i_format.rs;
+	offset = inst.i_format.simmediate;
 	/*
 	 * Find the resume PC now while we have safe and easy access to the
 	 * prior branch instruction, and save it for
@@ -1889,6 +1894,14 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 		return er;
 	vcpu->arch.io_pc = vcpu->arch.pc;
 	vcpu->arch.pc = curr_pc;
+
+	if((vcpu->arch.gprs[rs] + offset) == NODE_COUNTER_ADDR) {
+		vcpu->arch.gprs[rt] =
+			*((unsigned long *)0x900000003ff00408);
+		vcpu->arch.is_nodecounter = 1;
+		vcpu->arch.pc = vcpu->arch.io_pc;
+		return EMULATE_DONE;
+	}
 
 	vcpu->arch.io_gpr = rt;
 

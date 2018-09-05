@@ -332,6 +332,7 @@ struct kvm_vcpu_arch {
 	unsigned long guest_entryhi;
 	unsigned long guest_pagemask;
 	u32 is_hypcall;
+	u32 is_nodecounter;
 	/* GPRS */
 	unsigned long gprs[32];
 	unsigned long hi;
