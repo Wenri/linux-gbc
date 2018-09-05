@@ -495,6 +495,10 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 		  (unsigned long)&vcpu->arch.pc);
 	kvm_info("pending exception @ %lx\n", (ulong)&vcpu->arch.pending_exceptions);
 	kvm_info("fcr31 @ %lx\n", (ulong)&vcpu->arch.fpu.fcr31);
+	kvm_info("count_bias @ %lx period @ %lx\n", (ulong)&vcpu->arch.count_bias, (ulong)&vcpu->arch.count_period);
+	kvm_info("exit_reason @ %lx\n", (ulong)&vcpu->run->exit_reason);
+	kvm_info("run @ %lx\n", (ulong)vcpu->run);
+	kvm_info("wait @ %lx\n", (ulong)&vcpu->arch.wait);
 	kvm_info("\n\n");
 
 	/* Init */
