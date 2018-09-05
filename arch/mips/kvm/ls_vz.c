@@ -564,7 +564,7 @@ static enum emulation_result kvm_vz_gpsi_cop0(union mips_instruction inst,
 
 			} else if ((rd == MIPS_CP0_COUNT) &&
 			    (sel == 0)) {               /* Count */
-#if 0
+#if 1
 				kvm_vz_lose_htimer(vcpu);
 				kvm_mips_write_count(vcpu, vcpu->arch.gprs[rt]);
 #else
@@ -950,7 +950,7 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 			MIPS_GCTL0_GEXC) >> MIPS_GCTL0_GEXC_SHIFT;
 	int ret = RESUME_GUEST;
 	vcpu->arch.is_hypcall = 0;
-	vcpu->arch.write_count_disable = 0;
+//	vcpu->arch.write_count_disable = 0;
 
 #if 0
 	u32 exccode = (cause >> CAUSEB_EXCCODE) & 0x1f;
@@ -1026,7 +1026,7 @@ static int kvm_vz_hardware_enable(void)
 	 * CG=1:	Hit (virtual address) CACHE operations (optional).
 	 * CF=1:	Guest Config registers.
 	 */
-	write_c0_guestctl0(MIPS_GCTL0_CP0 | MIPS_GCTL0_CF | MIPS_GCTL0_GT);
+	write_c0_guestctl0(MIPS_GCTL0_CP0 | MIPS_GCTL0_CF);
 
 	/* clear any pending injected virtual guest interrupts */
 	if (cpu_has_guestctl2)
@@ -1334,7 +1334,6 @@ static bool kvm_vz_should_use_htimer(struct kvm_vcpu *vcpu)
 static void _kvm_vz_restore_stimer(struct kvm_vcpu *vcpu, u32 compare,
 				   u32 cause)
 {
-#if 0
 	/*
 	 * Avoid spurious counter interrupts by setting Guest CP0_Count to just
 	 * after Guest CP0_Compare.
@@ -1343,7 +1342,7 @@ static void _kvm_vz_restore_stimer(struct kvm_vcpu *vcpu, u32 compare,
 
 	back_to_back_c0_hazard();
 	write_gc0_cause(cause);
-#endif
+	write_c0_guestctl2(cause & 0x4c00);
 }
 
 /**
@@ -1374,6 +1373,7 @@ static void _kvm_vz_restore_htimer(struct kvm_vcpu *vcpu,
 	/* restore guest CP0_Cause, as TI may already be set */
 	back_to_back_c0_hazard();
 	write_gc0_cause(cause);
+	write_c0_guestctl2(cause & 0x4c00);
 
 	/*
 	 * The above sequence isn't atomic and would result in lost timer
@@ -1386,7 +1386,6 @@ static void _kvm_vz_restore_htimer(struct kvm_vcpu *vcpu,
 		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_TIMER);
 }
 
-#if 0
 /**
  * kvm_vz_restore_timer() - Restore timer state.
  * @vcpu:	Virtual CPU.
@@ -1404,7 +1403,6 @@ static void kvm_vz_restore_timer(struct kvm_vcpu *vcpu)
 	write_gc0_compare(compare);
 	_kvm_vz_restore_stimer(vcpu, compare, cause);
 }
-#endif
 
 /**
  * kvm_vz_acquire_htimer() - Switch to hard timer state.
@@ -1482,7 +1480,6 @@ static void _kvm_vz_save_htimer(struct kvm_vcpu *vcpu,
 	kvm_mips_restore_hrtimer(vcpu, before_time, end_count, -0x10000);
 }
 
-#if 0
 /**
  * kvm_vz_save_timer() - Save guest timer state.
  * @vcpu:	Virtual CPU.
@@ -1511,7 +1508,6 @@ static void kvm_vz_save_timer(struct kvm_vcpu *vcpu)
 	kvm_write_sw_gc0_cause(cop0, cause);
 	kvm_write_sw_gc0_compare(cop0, compare);
 }
-#endif
 
 /**
  * kvm_vz_lose_htimer() - Ensure hard guest timer is not in use.
@@ -1528,7 +1524,7 @@ void kvm_vz_lose_htimer(struct kvm_vcpu *vcpu)
 	gctl0 = read_c0_guestctl0();
 	if (gctl0 & MIPS_GCTL0_GT) {
 		/* disable guest use of timer */
-//		write_c0_guestctl0(gctl0 & ~MIPS_GCTL0_GT);
+		write_c0_guestctl0(gctl0 & ~MIPS_GCTL0_GT);
 
 		/* switch to soft timer */
 		_kvm_vz_save_htimer(vcpu, &compare, &cause);
@@ -2085,8 +2081,7 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	 * Restore timer state regardless, as e.g. Cause.TI can change over time
 	 * if left unmaintained.
 	 */
-//	kvm_vz_restore_timer(vcpu);
-	write_gc0_cause(cop0->reg[MIPS_CP0_CAUSE][0] & 0xffff00ff);
+	kvm_vz_restore_timer(vcpu);
 
 	if (current->flags & PF_VCPU) {
 		kvm_vz_vcpu_change_vpid(vcpu, cpu);
@@ -2121,7 +2116,6 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 
 	/* restore Root.GuestCtl2 from unused Guest guestctl2 register */
 	if (cpu_has_guestctl2) {
-		write_gc0_cause(cop0->reg[MIPS_CP0_CAUSE][0] & 0xffff00ff);
 		write_c0_guestctl2(
 			cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
 	}
@@ -2156,10 +2150,7 @@ static int kvm_vz_vcpu_put(struct kvm_vcpu *vcpu, int cpu)
 
 	kvm_save_gc0_errorepc(cop0);
 
-//	kvm_vz_save_timer(vcpu);
-	kvm_write_sw_gc0_count(cop0, read_gc0_count());
-	kvm_save_gc0_compare(cop0);
-	kvm_save_gc0_cause(cop0);
+	kvm_vz_save_timer(vcpu);
 
 	/* save Root.GuestCtl2 in unused Guest guestctl2 register */
 	if (cpu_has_guestctl2)
@@ -2182,7 +2173,7 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	int cpu = smp_processor_id();
 	int r;
 
-//	kvm_vz_acquire_htimer(vcpu);
+	kvm_vz_acquire_htimer(vcpu);
 	/* Check if we have any exceptions/interrupts pending */
 	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
 

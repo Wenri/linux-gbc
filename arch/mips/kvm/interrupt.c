@@ -210,12 +210,6 @@ void kvm_mips_deliver_interrupts(struct kvm_vcpu *vcpu, u32 cause)
 	if (!(*pending) && !(*pending_clr))
 		return;
 
-#ifdef CONFIG_CPU_LOONGSON3
-	/* set guest.cause.IP with vcpu saved cause */
-	write_gc0_cause(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0xffff00ff);
-	write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
-#endif
-
 	priority = __ffs(*pending_clr);
 	while (priority <= MIPS_EXC_MAX) {
 		if (kvm_mips_callbacks->irq_clear(vcpu, priority, cause)) {

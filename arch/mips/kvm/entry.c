@@ -550,44 +550,6 @@ skip_asid_restore:
 	uasm_i_nop(&p);
 #endif
 
-#ifdef CONFIG_CPU_LOONGSON3
-	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu_arch, cop0), K1);
-	uasm_i_lw(&p, A1, offsetof(struct mips_coproc,
-		reg[MIPS_CP0_COUNT][0]), A0);
-	UASM_i_ADDIU(&p, T0, ZERO, 1);
-	uasm_i_lw(&p, T1, offsetof(struct kvm_vcpu_arch, write_count_disable), K1);
-	uasm_il_bne(&p, &r, T1, T0, label_not_write_count);
-	uasm_i_nop(&p);
-
-	uasm_i_sw(&p, ZERO, offsetof(struct kvm_vcpu_arch, write_count_disable), K1);
-	uasm_il_b(&p, &r, label_finish_write_count);
-
-	uasm_l_not_write_count(&l, p);
-
-	UASM_i_ADDIU(&p, T0, ZERO, 0x200);
-	uasm_i_lw(&p, A2, offsetof(struct mips_coproc,
-		reg[MIPS_CP0_COMPARE][0]), A0);
-	uasm_i_subu(&p, T2, A2, A1);
-	uasm_i_sltu(&p, T2, T2, T0);
-	/*T2 == 1 means almost reach time interrupt */
-	uasm_il_beqz(&p, &r, T2, label_no_ti);
-	uasm_i_nop(&p);
-	//make guest.count just over guest.compare
-	uasm_i_addiu(&p, A1, A2, 1);
-	uasm_i_mfgc0(&p, T2, C0_CAUSE);
-	uasm_i_lui(&p, T1, CAUSEF_TI >> 16);
-	uasm_i_or(&p, T2, T2, T1);
-	uasm_i_mtgc0(&p, T2, C0_CAUSE);
-
-	uasm_l_no_ti(&l, p);
-	uasm_i_mtgc0(&p, A2, C0_COMPARE);
-
-	uasm_l_finish_write_count(&l, p);
-	uasm_i_mfc0(&p, A3, C0_COUNT);
-	uasm_i_subu(&p, A1, A1, A3);
-	uasm_i_mtc0(&p, A1, C0_GTOFFSET);
-#endif
-
 	/* load the guest context from VCPU and return */
 	for (i = 1; i < 32; ++i) {
 		/* Guest k0/k1 loaded later */
@@ -1130,19 +1092,6 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 	/* Save guest k0 into VCPU structure */
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[K0]), K1);
 
-#ifdef CONFIG_CPU_LOONGSON3
-	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, cop0), K1);
-	uasm_i_mfgc0(&p, K1, C0_COUNT);
-	uasm_i_sw(&p, K1, offsetof(struct mips_coproc,
-			reg[MIPS_CP0_COUNT][0]), K0);
-	uasm_i_mfgc0(&p, K1, C0_COMPARE);
-	uasm_i_sw(&p, K1, offsetof(struct mips_coproc,
-			reg[MIPS_CP0_COMPARE][0]), K0);
-
-	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
-	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
-#endif
-
 	/* Start saving Guest context to VCPU */
 	for (i = 0; i < 32; ++i) {
 		/* Guest k0/k1 saved later */
@@ -1500,19 +1449,6 @@ void *kvm_mips_build_exception(void *addr, void *handler)
 
 	/* Save guest k0 into VCPU structure */
 	UASM_i_SW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[K0]), K1);
-
-#ifdef CONFIG_CPU_LOONGSON3
-	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, cop0), K1);
-	uasm_i_mfgc0(&p, K1, C0_COUNT);
-	uasm_i_sw(&p, K1, offsetof(struct mips_coproc,
-			reg[MIPS_CP0_COUNT][0]), K0);
-	uasm_i_mfgc0(&p, K1, C0_COMPARE);
-	uasm_i_sw(&p, K1, offsetof(struct mips_coproc,
-			reg[MIPS_CP0_COMPARE][0]), K0);
-
-	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
-	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
-#endif
 
 	/* Branch to the common handler */
 	uasm_il_b(&p, &r, label_exit_common);

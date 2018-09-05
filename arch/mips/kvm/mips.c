@@ -97,9 +97,7 @@ void kvm_guest_mode_change_trace_unreg(void)
  */
 int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
 {
-//	return !!(vcpu->arch.pending_exceptions);
-	return !!(vcpu->arch.pending_exceptions) ||
-		(kvm_read_sw_gc0_cause(vcpu->arch.cop0) & 0xcc00);
+	return !!(vcpu->arch.pending_exceptions);
 }
 
 int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
@@ -1295,7 +1293,6 @@ int kvm_arch_vcpu_ioctl_get_regs(struct kvm_vcpu *vcpu, struct kvm_regs *regs)
 	return 0;
 }
 
-ktime_t kt;
 static void kvm_mips_comparecount_func(unsigned long data)
 {
 	struct kvm_vcpu *vcpu = (struct kvm_vcpu *)data;
@@ -1314,9 +1311,7 @@ static enum hrtimer_restart kvm_mips_comparecount_wakeup(struct hrtimer *timer)
 
 	vcpu = container_of(timer, struct kvm_vcpu, arch.comparecount_timer);
 	kvm_mips_comparecount_func((unsigned long) vcpu);
-	hrtimer_forward(timer, timer->base->get_time(), kt);
-	return HRTIMER_RESTART;
-//	return kvm_mips_count_timeout(vcpu);
+	return kvm_mips_count_timeout(vcpu);
 }
 
 int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
@@ -1329,8 +1324,6 @@ int kvm_arch_vcpu_init(struct kvm_vcpu *vcpu)
 
 	hrtimer_init(&vcpu->arch.comparecount_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);
-	kt = ktime_set(8,0);
-	hrtimer_start(&vcpu->arch.comparecount_timer, kt, HRTIMER_MODE_REL);
 	vcpu->arch.comparecount_timer.function = kvm_mips_comparecount_wakeup;
 	return 0;
 }
@@ -1502,10 +1495,8 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 
 	local_irq_disable();
 
-#ifndef CONFIG_CPU_LOONGSON3
 	if (ret == RESUME_GUEST)
 		kvm_vz_acquire_htimer(vcpu);
-#endif
 
 	if (er == EMULATE_DONE && !(ret & RESUME_HOST))
 		kvm_mips_deliver_interrupts(vcpu, cause);
@@ -1816,10 +1807,8 @@ int kvm_mips_handle_exit(struct kvm_run *run, struct kvm_vcpu *vcpu)
 skip_emul:
 	local_irq_disable();
 
-#ifndef CONFIG_CPU_LOONGSON3
 	if (ret == RESUME_GUEST)
 		kvm_vz_acquire_htimer(vcpu);
-#endif
 
 	if (er == EMULATE_DONE && !(ret & RESUME_HOST))
 		kvm_mips_deliver_interrupts(vcpu, cause);
