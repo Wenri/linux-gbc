@@ -196,7 +196,7 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		local_irq_save(flags);
 		//range size larger than TLB lines
 		if(args[2] > 1024)
-			tlbinvf();
+			local_flush_tlb_all();
 		else {
 			unsigned long tmp_entryhi, tmp_entrylo0, tmp_entrylo1;
 			unsigned long page_mask;
@@ -294,6 +294,12 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits of odd pte
 		prot_bits1 = args[2] & 0xffff; //Get all the sw/hw prot bits of even pte
 
+		/* Now the prot bits scatter as this
+		CCA D V G RI XI SP PROT S H M A W P
+		so set all CCA=3 as cached*/
+		prot_bits |= 0x6000;
+		prot_bits1 |= 0x6000;
+
 		//Process GUEST even pte
 		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
@@ -373,6 +379,11 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 	args[3] = vcpu->arch.gprs[7];	/* a3 odd pte value*/
 	args[4] = vcpu->arch.gprs[2];	/* tlb_miss/tlbl/tlbs/tlbm */
 	args[5] = vcpu->arch.gprs[3];	/* EXCCODE/_TLBL/_TLBS/_MOD */
+
+	if(((args[0] & 0xf000000000000000) > XKSSEG) &&
+			((args[0] & 0xf000000000000000) != XKSEG))
+		kvm_err("should not guest badvaddr %lx with type %lx\n",
+				 args[0], args[4]);
 
 	if ((args[0] & 0xf000000000000000) < XKSSEG)
 		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",
