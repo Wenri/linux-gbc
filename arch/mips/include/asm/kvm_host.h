@@ -172,6 +172,28 @@ struct kvm_vcpu_stat {
 	u64 vz_gpa_exits;
 	u64 vz_resvd_exits;
 #endif
+#ifdef CONFIG_CPU_LOONGSON3
+	u64 lsvz_mmio_exits;
+	u64 lsvz_general_exits;
+	u64 lsvz_ignore_exits;
+	u64 lsvz_pci_rom_exits;
+	u64 lsvz_pci_ram_exits;
+	u64 lsvz_serial_exits;
+	u64 lsvz_nc_exits;
+	u64 lsvz_ht_exits;
+	u64 lsvz_pcicfg_exits;
+	u64 lsvz_isaio_exits;
+	u64 lsvz_introute_exits;
+	u64 lsvz_mailbox_exits;
+	u64 lsvz_hc_tlbmiss_exits;
+	u64 lsvz_hc_tlbm_exits;
+	u64 lsvz_hc_tlbl_exits;
+	u64 lsvz_hc_tlbs_exits;
+	u64 lsvz_hc_emulate_exits;
+	u64 lsvz_hc_missvalid_exits;
+	u64 lsvz_successful_halt_exits;
+	u64 lsvz_hrtimer_exits;
+#endif
 	u64 halt_successful_poll;
 	u64 halt_attempted_poll;
 	u64 halt_poll_invalid;

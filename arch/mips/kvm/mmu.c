@@ -1173,8 +1173,30 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 		   ((badvaddr & 0xfffffffffff00000) == 0x900000003ff00000) ||
 		   ((badvaddr & 0xffffffffff000000) == 0x9000000049000000) ||
 		   ((badvaddr & 0xfffffffffff00000) == 0x900000001fe00000)) {
+			++vcpu->stat.lsvz_mmio_exits;
+			if((badvaddr & 0xfffffffffff00000) == 0x900000001fe00000)
+				++vcpu->stat.lsvz_serial_exits;
+			else if((badvaddr & 0xffffffffff000000) == 0x9000000049000000)
+				++vcpu->stat.lsvz_pci_rom_exits;
+			else if((badvaddr & 0xffffffffffffff00) == 0x900000003ff00400)
+				++vcpu->stat.lsvz_nc_exits;
+			else if((badvaddr & 0xffffffffffffff00) == 0x900000003ff01400)
+				++vcpu->stat.lsvz_introute_exits;
+			else if((badvaddr & 0xffffffffffffff00) == 0x900000003ff01000)
+				++vcpu->stat.lsvz_mailbox_exits;
+			else if((badvaddr & 0xffffffffff000000) == 0x900000effb000000)
+				++vcpu->stat.lsvz_ht_exits;
+			else if((badvaddr & 0xffffffffff000000) == 0x900000effc000000)
+				++vcpu->stat.lsvz_isaio_exits;
+			else if((badvaddr & 0xffffffffff000000) == 0x900000effe000000)
+				++vcpu->stat.lsvz_pcicfg_exits;
+
 			return RESUME_HOST;
 		}
+		++vcpu->stat.lsvz_general_exits;
+		if((badvaddr & 0xfffffffff0000000) == 0x9000000040000000)
+			++vcpu->stat.lsvz_pci_ram_exits;
+
 		//1.get the GPA
 		if((badvaddr & XKSEG) == XKPHYS)
 			gpa = XKPHYS_TO_PHYS(badvaddr);

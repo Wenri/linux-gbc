@@ -389,6 +389,21 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",
 				 args[0],args[1],args[2],args[3]);
 
+	if((args[4] & 0xf000) == 0)
+	{
+		++vcpu->stat.lsvz_hc_tlbmiss_exits;
+		if(((args[0] & 0x4000) && (args[3] & 0x1000)) ||
+			(!(args[0] & 0x4000) && (args[2] & 0x1000)))
+				++vcpu->stat.lsvz_hc_missvalid_exits;
+	} else if((args[4] & 0xf000) == 0x1000)
+		++vcpu->stat.lsvz_hc_tlbm_exits;
+	else if((args[4] & 0xf000) == 0x2000)
+		++vcpu->stat.lsvz_hc_tlbl_exits;
+	else if((args[4] & 0xf000) == 0x3000)
+		++vcpu->stat.lsvz_hc_tlbs_exits;
+	else if((args[4] & 0xf000) == 0x4000)
+		++vcpu->stat.lsvz_hc_emulate_exits;
+
 	return kvm_mips_hypercall(vcpu, num,
 				  args, &vcpu->arch.gprs[2] /* v0 */);
 }

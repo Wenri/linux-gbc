@@ -71,6 +71,29 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "vz_gpa",	  VCPU_STAT(vz_gpa_exits),	 KVM_STAT_VCPU },
 	{ "vz_resvd",	  VCPU_STAT(vz_resvd_exits),	 KVM_STAT_VCPU },
 #endif
+#ifdef CONFIG_CPU_LOONGSON3
+	{ "lsvz_mmio",	  VCPU_STAT(lsvz_mmio_exits),	 KVM_STAT_VCPU },
+	{ "lsvz_general", VCPU_STAT(lsvz_general_exits), KVM_STAT_VCPU },
+	{ "lsvz_ignore",  VCPU_STAT(lsvz_ignore_exits),  KVM_STAT_VCPU },
+	{ "lsvz_pcirom",  VCPU_STAT(lsvz_pci_rom_exits),  KVM_STAT_VCPU },
+	{ "lsvz_pciram",  VCPU_STAT(lsvz_pci_ram_exits),  KVM_STAT_VCPU },
+	{ "lsvz_serial",  VCPU_STAT(lsvz_serial_exits),  KVM_STAT_VCPU },
+	{ "lsvz_nodecounter",	VCPU_STAT(lsvz_nc_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ht",  VCPU_STAT(lsvz_ht_exits),  KVM_STAT_VCPU },
+	{ "lsvz_isaio",  VCPU_STAT(lsvz_isaio_exits),  KVM_STAT_VCPU },
+	{ "lsvz_pcicfg",  VCPU_STAT(lsvz_pcicfg_exits),  KVM_STAT_VCPU },
+	{ "lsvz_introute",  VCPU_STAT(lsvz_introute_exits),  KVM_STAT_VCPU },
+	{ "lsvz_mailbox",  VCPU_STAT(lsvz_mailbox_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbmiss",  VCPU_STAT(lsvz_hc_tlbmiss_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbm",  VCPU_STAT(lsvz_hc_tlbm_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbl",  VCPU_STAT(lsvz_hc_tlbl_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbs",  VCPU_STAT(lsvz_hc_tlbs_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_emulate",  VCPU_STAT(lsvz_hc_emulate_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_missvalid",  VCPU_STAT(lsvz_hc_missvalid_exits),  KVM_STAT_VCPU },
+	{ "lsvz_success_halt",  VCPU_STAT(lsvz_successful_halt_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hrtimer",  VCPU_STAT(lsvz_hrtimer_exits),  KVM_STAT_VCPU },
+
+#endif
 	{ "halt_successful_poll", VCPU_STAT(halt_successful_poll), KVM_STAT_VCPU },
 	{ "halt_attempted_poll", VCPU_STAT(halt_attempted_poll), KVM_STAT_VCPU },
 	{ "halt_poll_invalid", VCPU_STAT(halt_poll_invalid), KVM_STAT_VCPU },
@@ -1297,6 +1320,7 @@ static void kvm_mips_comparecount_func(unsigned long data)
 {
 	struct kvm_vcpu *vcpu = (struct kvm_vcpu *)data;
 
+	++vcpu->stat.lsvz_hrtimer_exits;
 	kvm_mips_callbacks->queue_timer_int(vcpu);
 
 	vcpu->arch.wait = 0;

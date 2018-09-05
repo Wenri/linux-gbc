@@ -1998,7 +1998,10 @@ void kvm_vcpu_block(struct kvm_vcpu *vcpu)
 		prepare_to_wait(&vcpu->wq, &wait, TASK_INTERRUPTIBLE);
 
 		if (kvm_vcpu_check_block(vcpu) < 0)
+		{
+			++vcpu->stat.lsvz_successful_halt_exits;
 			break;
+		}
 
 		waited = true;
 		schedule();
