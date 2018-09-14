@@ -1,5 +1,5 @@
 /*
- * Atomic operations that C can't guarantee us.  Useful for
+ * Atomic operations that C can't guarantee us.	 Useful for
  * resource counting etc..
  *
  * But use these as seldom as possible since they are much more slower
@@ -38,8 +38,23 @@
  *
  * Atomically sets the value of @v to @i.
  */
+#if defined(CONFIG_CPU_LOONGSON3) || defined(CONFIG_CPU_LOONGSON2K)
+static __inline__ void atomic_set(atomic_t * v, int i)
+{
+		__asm__ __volatile__(
+		"	.set    mips64r2	# atomic_set		\n"
+                "	.set    noreorder				\n"
+		"	sync						\n"
+		"	sw      %1, %0					\n"
+		"	sync						\n"
+		"	.set    reorder					\n"
+		"	.set    mips0					\n"
+		: "+m" (v->counter)
+		: "r" (i));
+}
+#else
 #define atomic_set(v, i)		((v)->counter = (i))
-
+#endif
 /*
  * atomic_add - add integer to atomic variable
  * @i: integer value to add
@@ -247,7 +262,6 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 		: "Ir" (i), "m" (v->counter)
 		: "memory");
 
-		result = temp - i;
 	} else if (kernel_uses_llsc && LOONGSON_LLSC_WAR) {
 		int temp;
 
@@ -278,6 +292,7 @@ static __inline__ int atomic_sub_return(int i, atomic_t * v)
 			: "Ir" (i));
 		} while (unlikely(!result));
 
+		result = temp - i;
 	} else {
 		unsigned long flags;
 
@@ -487,7 +502,23 @@ static __inline__ int __atomic_add_unless(atomic_t *v, int a, int u)
  * @v: pointer of type atomic64_t
  * @i: required value
  */
+#if defined(CONFIG_CPU_LOONGSON3) || defined(CONFIG_CPU_LOONGSON2K)
+static __inline__ void atomic64_set(atomic64_t * v, long i)
+{
+		__asm__ __volatile__(
+		"	.set    mips64r2	# atomic64_set		\n"
+                "	.set    noreorder       		    	\n"
+		"	sync						\n"
+		"	sd      %1, %0					\n"
+		"	sync						\n"
+                "	.set    reorder				    	\n"
+		"	.set    mips0					\n"
+		: "+m" (v->counter)
+		: "r" (i));
+}
+#else
 #define atomic64_set(v, i)	((v)->counter = (i))
+#endif
 
 /*
  * atomic64_add - add integer to atomic variable
@@ -683,39 +714,8 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 
 #ifdef CONFIG_PHASE_LOCK
 	unsigned long flags;
-	u32 my_node_id, my_tmp, my_cpu;
-	static u32 phase_lock[32];
-#endif
 
-
-#ifdef CONFIG_PHASE_LOCK
-	local_irq_save(flags);
-
-	__asm__ __volatile__(
-		"	.set	mips32					\n"
-		"	mfc0	%0, $15, 1				\n"
-		"	.set	mips0					\n"
-		: "=r" (my_cpu));
-
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	my_node_id = ((my_cpu & 0xff) / 4) << 3;
-#else
-	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
-#endif
-	smp_mb__before_llsc();
-
-	__asm__ __volatile__(
-                "       .set    noreorder       # lock for phase    	\n"
-                "1:	ll      %1, %2					\n"
-                "       bnez    %1, 1b					\n"
-                "       li	%1, 1					\n"
-                "       sc      %1, %0					\n"
-                "       beqz    %1, 1b					\n"
-                "       nop						\n"
-                "       .set	reorder					\n"
-                : "=m" (phase_lock[my_node_id]), "=&r" (my_tmp)
-                : "m" (phase_lock[my_node_id])
-                : "memory");
+	flags = loongson3_phase_lock_acquire();
 #endif
 
 	if (kernel_uses_llsc && R10000_LLSC_WAR) {
@@ -778,27 +778,7 @@ static __inline__ long atomic64_sub_return(long i, atomic64_t * v)
 	smp_llsc_mb();
 
 #ifdef CONFIG_PHASE_LOCK
-	__asm__ __volatile__(
-		"	.set	mips32					\n"
-		"	mfc0	%0, $15, 1				\n"
-		"	.set	mips0					\n"
-		: "=r" (my_cpu));
-
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	my_node_id = ((my_cpu & 0xff) / 4) << 3;
-#else
-	my_node_id = ((my_cpu & 0x3ff) / 4) << 3;
-#endif
-
-	__asm__ __volatile__(
-		"	.set	noreorder       # unlock for phase   	\n"
-		"	sw	$0, %0                                  \n"
-		"	.set\treorder                                 	\n"
-		: "=m" (phase_lock[my_node_id])
-		: "m" (phase_lock[my_node_id])
-		: "memory");
-
-	local_irq_restore(flags);
+	loongson3_phase_lock_release(flags);
 #endif
 
 	return result;
