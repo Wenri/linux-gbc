@@ -847,8 +847,8 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 {
 	u32 *p = addr;
-	struct uasm_label labels[8];
-	struct uasm_reloc relocs[8];
+	struct uasm_label labels[10];
+	struct uasm_reloc relocs[10];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -1031,9 +1031,25 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 
 	uasm_i_mfc0(&p, A0, C0_GSCAUSE);
 	uasm_i_ext(&p, A1, A0, 2, 5);
+	uasm_i_mfgc0(&p, A2, C0_COUNT);
 	uasm_i_mfgc0(&p, A0, C0_CAUSE);
 	uasm_i_ins(&p, A0, A1, 2, 5);
 	uasm_i_mtgc0(&p, A0, C0_CAUSE);
+	uasm_i_mfgc0(&p, A3, C0_COUNT);
+	uasm_i_mfgc0(&p, K0, C0_COMPARE);
+
+	uasm_i_addiu(&p, K0, K0, -1);
+	uasm_i_subu(&p, A3, A3, A2);
+	uasm_i_subu(&p, A1, K0, A2);
+	uasm_i_sltu(&p, A1, A1, A3);
+	uasm_il_beqz(&p, &r, A1, label_no_ti);
+	uasm_i_nop(&p);
+
+	uasm_i_lui(&p, A1, CAUSEF_TI>>16);
+	uasm_i_or(&p, A0, A0, A1);
+	uasm_i_mtgc0(&p, A0, C0_CAUSE);
+
+	uasm_l_no_ti(&l, p);
 
 	uasm_l_refill_exit(&l, p);
 
@@ -1144,7 +1160,7 @@ void *kvm_mips_build_tlb_general_exception(void *addr, void *handler)
 #if 1
 	uasm_i_mfgc0(&p, K0, C0_CAUSE);
 	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
-	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc,
 			reg[MIPS_CP0_CAUSE][0]), V0);
 #endif
 #if 0
@@ -1545,7 +1561,7 @@ void *kvm_mips_build_exit(void *addr)
 #if 1
 	uasm_i_mfgc0(&p, K0, C0_CAUSE);
 	UASM_i_LW(&p, V0, offsetof(struct kvm_vcpu_arch, cop0), K1);
-	UASM_i_SW(&p, K0, offsetof(struct mips_coproc,
+	uasm_i_sw(&p, K0, offsetof(struct mips_coproc,
 			reg[MIPS_CP0_CAUSE][0]), V0);
 #endif
 #if 0

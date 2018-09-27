@@ -292,7 +292,7 @@ static int kvm_trap_vz_handle_tlb_st_miss(struct kvm_vcpu *vcpu)
 		/* Treat as MMIO */
 		er = kvm_mips_emulate_store(inst, cause, run, vcpu);
 		if (er == EMULATE_FAIL) {
-			kvm_err("Guest Emulate Load from MMIO space failed: PC: %p, BadVaddr: %#lx\n",
+			kvm_err("Guest Emulate Store from MMIO space failed: PC: %p, BadVaddr: %#lx\n",
 				opc, badvaddr);
 			run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
 		}
@@ -1229,9 +1229,7 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 		 */
 		if (cpu_has_guestctl2) {
 			if (!(read_c0_guestctl2() & (irq << 14)))
-				clear_gc0_cause(C_TI);
-				vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] &= (~irq);
-				write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
+				;
 		} else {
 			kvm_err("No any other way to clear guest interrupt\n");
 		}
@@ -1242,7 +1240,11 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 	case MIPS_EXC_INT_IPI:
 		/* Clear GuestCtl2.VIP irq if not using Hardware Clear */
 		if (cpu_has_guestctl2) {
-			if (!(read_c0_guestctl2() & (irq << 14))) {
+			if(vcpu->arch.pending_exceptions_clr & (1<< priority)) {
+				/*To insure the other IP not affect by the clear operation for
+				* not once to clear all the pending_exception_clr
+				*/
+				vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] = read_gc0_cause();
 				vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] &= (~irq);
 				write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
 			}
@@ -1276,6 +1278,10 @@ static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 	case MIPS_EXC_INT_HT:
 	case MIPS_EXC_INT_IPI:
 		if (cpu_has_guestctl2) {
+			/*To insure the other IP not miss by the set guestctl2 for
+			* not once to set all the pending_exception
+			*/
+			vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] = read_gc0_cause();
 			vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] |= irq;
 			write_c0_guestctl2(vcpu->arch.cop0->reg[MIPS_CP0_CAUSE][0] & 0x4c00);
 		} else

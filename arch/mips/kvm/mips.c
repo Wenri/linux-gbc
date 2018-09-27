@@ -1375,13 +1375,13 @@ int kvm_arch_vcpu_setup(struct kvm_vcpu *vcpu)
 
 static void kvm_mips_set_c0_status(void)
 {
-	u32 status = read_c0_status();
-
-	if (cpu_has_dsp)
+	u32 status;
+	if (cpu_has_dsp) {
+		status = read_c0_status();
 		status |= (ST0_MX);
-
-	write_c0_status(status);
-	ehb();
+		write_c0_status(status);
+		ehb();
+	}
 }
 
 enum vmtlbexc {
@@ -1595,6 +1595,7 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	int guest_exc = 0;
 	u32 gsexccode = (vcpu->arch.host_cp0_gscause >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
+	u32 start_count,end_count,compare;
 	vcpu->mode = OUTSIDE_GUEST_MODE;
 
 	if ((kvm_read_c0_guest_status(cop0) & ST0_EXL) == 0) {
@@ -1619,8 +1620,14 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	else if(gsexccode == 4)
 		guest_exc = EXCCODE_MOD;
 
+	start_count = read_gc0_count();
 	kvm_change_c0_guest_cause(cop0, (0xff),
 				  (guest_exc << CAUSEB_EXCCODE));
+	end_count = read_gc0_count();
+	compare = read_gc0_compare();
+	if ((end_count - start_count) > (compare - start_count - 1)) {
+		set_gc0_cause(CAUSEF_TI);
+	}
 
 	/* setup badvaddr, context and entryhi registers for the guest */
 	kvm_write_c0_guest_badvaddr(cop0, vcpu->arch.host_cp0_badvaddr);
