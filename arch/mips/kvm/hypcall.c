@@ -182,6 +182,11 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 		write_c0_pagemask(page_mask);
 		write_c0_index(tmp_index);
 
+		//flush ITLB/DTLB
+		tmp_diag = read_c0_diag();
+		tmp_diag |= 0xc;
+		write_c0_diag(tmp_diag);
+
 		local_irq_restore(flags);
 
 		if ((args[0] & 0xf000000000000000) < XKSSEG)
@@ -253,6 +258,12 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			write_c0_entrylo0(tmp_entrylo1);
 			write_c0_pagemask(page_mask);
 			write_c0_index(tmp_index);
+
+			//flush ITLB/DTLB
+			tmp_diag = read_c0_diag();
+			tmp_diag |= 0xc;
+			write_c0_diag(tmp_diag);
+
 		}
 		local_irq_restore(flags);
 	} else if (args[4] == 0x5002) {

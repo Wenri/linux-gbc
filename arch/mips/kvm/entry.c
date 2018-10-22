@@ -30,6 +30,7 @@ int guest_vtlb_index = 0;
 #define C0_DIAG		22, 0
 #define C0_GSCAUSE	22, 1
 #define C0_GSEBASE	9, 6
+#define LS_ITLB_SHIFT	2
 #define LS_MODE_SHIFT	16
 #define LS_MID_SHIFT	18
 #define MIPS_GCTL0_ASID_SHIFT	20
@@ -1053,6 +1054,12 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 
 	uasm_l_refill_exit(&l, p);
 
+	//Flush ITLB/DTLB
+	uasm_i_ori(&p, A1, ZERO, 3);
+	uasm_i_mfc0(&p, A0, C0_DIAG);
+	uasm_i_ins(&p, A0, A1, LS_ITLB_SHIFT, 2);
+	uasm_i_mtc0(&p, A0, C0_DIAG);
+
 #if 1 //Debug for ASID
 	/* Restore Root.entryhi, Guest A0 from VCPU structure */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
@@ -1935,11 +1942,17 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 	uasm_i_ins(&p, A2, ZERO, LS_MID_SHIFT, 2);
 	uasm_i_mtc0(&p, A2, C0_DIAG);
 
-	uasm_i_mtc0(&p, A0, C0_INDEX); //save index
+	uasm_i_mtc0(&p, A0, C0_INDEX); //restore index
 	UASM_i_MTC0(&p, A1, C0_ENTRYHI);
 	UASM_i_MTC0(&p, T0, C0_PAGEMASK);
 	UASM_i_MTC0(&p, T1, C0_ENTRYLO0);
 	UASM_i_MTC0(&p, T2, C0_ENTRYLO1);
+
+	//Flush ITLB/DTLB
+	uasm_i_ori(&p, A1, ZERO, 3);
+	uasm_i_mfc0(&p, A0, C0_DIAG);
+	uasm_i_ins(&p, A0, A1, LS_ITLB_SHIFT, 2);
+	uasm_i_mtc0(&p, A0, C0_DIAG);
 
 	//process nodecounter read passthrough
 	if(update_tlb) {
