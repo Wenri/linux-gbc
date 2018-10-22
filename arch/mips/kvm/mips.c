@@ -1536,6 +1536,8 @@ int handle_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vcpu)
 			ret = (-EINTR << 2) | RESUME_HOST;
 			++vcpu->stat.signal_exits;
 			trace_kvm_exit(vcpu, KVM_TRACE_EXIT_SIGNAL);
+			if(vcpu->arch.is_nodecounter)
+				vcpu->arch.is_nodecounter = 0;
 		}
 	}
 
@@ -1855,6 +1857,10 @@ skip_emul:
 			ret = (-EINTR << 2) | RESUME_HOST;
 			++vcpu->stat.signal_exits;
 			trace_kvm_exit(vcpu, KVM_TRACE_EXIT_SIGNAL);
+			if(vcpu->arch.is_hypcall) {
+				vcpu->arch.is_hypcall = 0;
+				vcpu->arch.pc -= 4;
+			}
 		}
 	}
 
