@@ -551,6 +551,12 @@ skip_asid_restore:
 	UASM_i_LA(&p, T9, (unsigned long)__kvm_restore_fpu);
 	uasm_i_jalr(&p, RA, T9);
 	uasm_i_nop(&p);
+
+	//Flush ITLB to workaround read wrong root.entryhi.asid bug
+	uasm_i_ori(&p, A1, ZERO, 1);
+	uasm_i_mfc0(&p, A0, C0_DIAG);
+	uasm_i_ins(&p, A0, A1, LS_ITLB_SHIFT, 1);
+	uasm_i_mtc0(&p, A0, C0_DIAG);
 #endif
 
 	/* load the guest context from VCPU and return */
