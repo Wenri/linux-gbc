@@ -88,7 +88,7 @@ static int cards_found;
 
 /* module parameters */
 /* 30 sec default heartbeat (1 < heartbeat < 2*1023) */
-#define WATCHDOG_HEARTBEAT 30
+#define WATCHDOG_HEARTBEAT 5
 static int heartbeat = WATCHDOG_HEARTBEAT;  /* in seconds */
 module_param(heartbeat, int, 0);
 MODULE_PARM_DESC(heartbeat,
@@ -117,7 +117,7 @@ static inline void esb_unlock_registers(void)
 	writew(ESB_UNLOCK2, ESB_RELOAD_REG);
 }
 
-static int esb_timer_start(void)
+int esb_timer_start(void)
 {
 	u8 val;
 
