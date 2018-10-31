@@ -22,6 +22,8 @@
 
 #include <loongson.h>
 
+extern int esb_timer_start(void);
+
 static inline void loongson_reboot(void)
 {
 #ifndef CONFIG_CPU_JUMP_WORKAROUNDS
@@ -63,11 +65,16 @@ static void loongson_poweroff(void)
 	mach_prepare_shutdown();
 	unreachable();
 #else
+#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	extern u64 poweroff_addr;
 	void (*fw_poweroff)(void) = (void *)poweroff_addr;
 
 	fw_poweroff();
 	while (1) {}
+#else
+	esb_timer_start();
+	while (1) {}
+#endif
 #endif
 }
 
