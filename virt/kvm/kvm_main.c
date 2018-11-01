@@ -3006,9 +3006,10 @@ static struct file_operations kvm_chardev_ops = {
 };
 
 static struct miscdevice kvm_dev = {
-	KVM_MINOR,
-	"kvm",
-	&kvm_chardev_ops,
+	.minor = KVM_MINOR,
+	.name = "kvm",
+	.fops = &kvm_chardev_ops,
+	.mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
 };
 
 static void hardware_enable_nolock(void *junk)
