@@ -1862,8 +1862,10 @@ static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb)
 		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_mask), K1);
 		UASM_i_MTC0(&p, V1, C0_PAGEMASK);
 		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[0]), K1);
+		uasm_i_ori(&p, V1, V1, 1); //ensure G=1
 		UASM_i_MTC0(&p, V1, C0_ENTRYLO0);
 		UASM_i_LW(&p, V1, offsetof(struct kvm_vcpu_arch, guest_tlb[0].tlb_lo[1]), K1);
+		uasm_i_ori(&p, V1, V1, 1); //ensure G=1
 		UASM_i_MTC0(&p, V1, C0_ENTRYLO1);
 
 		/* Probe the TLB entry to be written into hardware */

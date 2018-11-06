@@ -895,20 +895,15 @@ retry:
 	if (((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG0) ||
 		   ((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG3) ||
 		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
-		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)
-			  ) {
-
+		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)) {
 		prot_bits |= _PAGE_GLOBAL;
 	}
 #endif
 
 	if (writeable) {
-		prot_bits |= _PAGE_WRITE;
-		if (write_fault) {
-			prot_bits |= __WRITEABLE;
-			mark_page_dirty(kvm, gfn);
-			kvm_set_pfn_dirty(pfn);
-		}
+		prot_bits |= __WRITEABLE;
+		mark_page_dirty(kvm, gfn);
+		kvm_set_pfn_dirty(pfn);
 	}
 	entry = pfn_pte(pfn, __pgprot(prot_bits));
 
