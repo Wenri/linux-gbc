@@ -883,11 +883,7 @@ retry:
 	/* Ensure page tables are allocated */
 	ptep = kvm_mips_pte_for_gpa(kvm, memcache, gpa);
 
-	/* Set up the PTE */
-	/* Uncached Kseg1 memory space access */
-	if((vcpu->arch.host_cp0_badvaddr & 0xffffffffb0000000) == CKSEG1)
-		prot_bits |= _PAGE_PRESENT | __READABLE | _CACHE_UNCACHED;
-	else
+	/* Set up the PTE, all should be CACHED */
 		prot_bits |= _PAGE_PRESENT | __READABLE | _page_cachable_default;
 
 #if 1
