@@ -1984,6 +1984,16 @@ void per_cpu_trap_init(bool is_boot_cpu)
 	if (!cpu_data[cpu].asid_cache)
 		cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
 
+#if defined(CONFIG_KVM) && defined(CONFIG_CPU_LOONGSON3) && !defined(CONFIG_KVM_GUEST_LOONGSON_VZ)
+#define vpid_cache(cpu)	(cpu_data[cpu].vpid_cache)
+#define VPID_MASK	0xff
+#define VPID_VERSION_MASK  ((unsigned long)~(VPID_MASK|(VPID_MASK-1)))
+#define VPID_FIRST_VERSION ((unsigned long)(~VPID_VERSION_MASK) + 1)
+	/* todo: these lines of code should be moved into arch/mips/include/asm/mmu_context.h, as does asid*/
+	if (!cpu_data[cpu].vpid_cache)
+		cpu_data[cpu].vpid_cache = VPID_FIRST_VERSION;
+#endif
+
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
 	BUG_ON(current->mm);
