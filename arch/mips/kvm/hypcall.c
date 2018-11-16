@@ -121,11 +121,13 @@ int guest_pte_trans(const unsigned long *args,
 }
 
 extern void local_flush_tlb_all(void);
+extern void flush_tlb_all(void);
 static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 			      const unsigned long *args, unsigned long *hret)
 {
 #ifdef CONFIG_CPU_LOONGSON3
 	if ((args[4] == 0x5001) || (args[4] == 0x5005)) {
+#if 0	
 		/*If guest hypcall to flush_tlb_page (0x5001)
 		 *or flush_tlb_one (0x5005)
 		 * TLB probe and then clear the TLB Line
@@ -191,8 +193,11 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 
 		if ((args[0] & 0xf000000000000000) < XKSSEG)
 			kvm_debug("%lx guest badvaddr %lx  %lx ASID %lx idx %x\n",args[4], args[0],badvaddr, read_gc0_entryhi(),idx);
+#else
+		flush_tlb_all();
+#endif
 	} else if ((args[4] == 0x5003) || (args[4] == 0x5004)) {
-
+#if 0
 		/*flush_tlb_range (0x5003) of guest XUSEG address
 		 * or flush_tlb_kernel_range (0x5004)
 		*/
@@ -266,9 +271,12 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 
 		}
 		local_irq_restore(flags);
+#else		
+		flush_tlb_all();
+#endif		
 	} else if (args[4] == 0x5002) {
 		/*flush tlb all */
-		local_flush_tlb_all();
+		flush_tlb_all();
 	} else {
 		unsigned long prot_bits = 0;
 		unsigned long prot_bits1 = 0;
