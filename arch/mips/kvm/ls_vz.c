@@ -1046,6 +1046,10 @@ static int kvm_vz_check_extension(struct kvm *kvm, long ext)
 
 static int kvm_vz_vcpu_init(struct kvm_vcpu *vcpu)
 {
+	int i;
+
+	for_each_possible_cpu(i)
+		vcpu->arch.vpid[i] = 0;
 
 	return 0;
 }
@@ -2050,7 +2054,7 @@ static void kvm_vz_vcpu_change_vpid(struct kvm_vcpu *vcpu, int cpu)
 	 *
 	 */
 #if 1
-	if (all ||
+	if (
 	    (vcpu->arch.vpid[cpu] ^ vpid_cache(cpu)) &
 				VPID_VERSION_MASK) {
 		kvm_vz_get_new_vpid(cpu, vcpu);
