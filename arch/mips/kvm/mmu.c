@@ -889,7 +889,7 @@ retry:
 #if 1
 	/*Make CKSEG0/CKSEG3/XKPHYS/XKSEG address is GLOBAL*/
 	if (((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG0) ||
-		   ((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG3) ||
+		   ((vcpu->arch.host_cp0_badvaddr & CKSEG3) == CKSEG1) ||
 		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
 		   ((vcpu->arch.host_cp0_badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)) {
 		prot_bits |= _PAGE_GLOBAL;
