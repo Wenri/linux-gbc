@@ -331,7 +331,8 @@ enum virtdev_irq {
      VIRTDEV_BLK_VIRTIO_IRQ,
      VIRTDEV_BALLOON_VIRTIO_IRQ,
      VIRTDEV_SERIAL_VIRTIO_IRQ,
-     VIRTDEV_IRQ_MAX = 9,
+     VIRTDEV_GPU_VIRTIO_IRQ,
+     VIRTDEV_IRQ_MAX = 15,
 };
 #endif
 #endif
