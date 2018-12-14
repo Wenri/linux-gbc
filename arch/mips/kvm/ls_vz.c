@@ -1119,6 +1119,8 @@ static gpa_t kvm_vz_gva_to_gpa_cb(gva_t gva)
 	else {
 		if((gva & 0xfffffffff0000000) == 0x9000000040000000 )
 			gva &= 0x4fffffff;
+		if((gva & XKSEG) == XKPHYS)
+			gva = XPHYSADDR(gva);
 		return gva;
 	}
 }
