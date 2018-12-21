@@ -79,7 +79,7 @@ int guest_pte_trans(const unsigned long *args,
 			else
 				idx = 0;
 
-			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte[idx], &pte[!idx]);
+			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, _PAGE_GLOBAL, &pte[idx], &pte[!idx]);
 			if(ret)
 				kvm_info("entrylo0 map page error\n");
 
@@ -102,7 +102,7 @@ int guest_pte_trans(const unsigned long *args,
 				idx = 1;
 			else
 				idx = 0;
-			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, prot_bits, &pte1[idx], &pte1[!idx]);
+			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, _PAGE_GLOBAL, &pte1[idx], &pte1[!idx]);
 			if(ret)
 				kvm_info("entrylo1 map page error\n");
 
@@ -422,6 +422,8 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 		++vcpu->stat.lsvz_hc_tlbs_exits;
 	else if((args[4] & 0xf000) == 0x4000)
 		++vcpu->stat.lsvz_hc_emulate_exits;
+
+	vcpu->arch.host_cp0_badvaddr = args[0];
 
 	return kvm_mips_hypercall(vcpu, num,
 				  args, &vcpu->arch.gprs[2] /* v0 */);

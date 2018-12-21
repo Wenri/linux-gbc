@@ -24,6 +24,7 @@
 #else
 #define KVM_MMU_CACHE_MIN_PAGES 2
 #endif
+//#define CHECK_PGD_ATTRIBUTE
 
 static int mmu_topup_memory_cache(struct kvm_mmu_memory_cache *cache,
 				  int min, int max)
@@ -884,7 +885,7 @@ retry:
 	ptep = kvm_mips_pte_for_gpa(kvm, memcache, gpa);
 
 	/* Set up the PTE, all should be CACHED */
-		prot_bits |= _PAGE_PRESENT | __READABLE | _page_cachable_default;
+	prot_bits |= _PAGE_PRESENT | __READABLE | _page_cachable_default;
 
 #if 1
 	/*Make CKSEG0/CKSEG3/XKPHYS/XKSEG address is GLOBAL*/
@@ -906,7 +907,35 @@ retry:
 	/* Write the PTE */
 	old_pte = *ptep;
 	set_pte(ptep, entry);
-
+#ifdef CHECK_PGD_ATTRIBUTE
+{
+	unsigned long i, j, k;
+	for(i = 0;i < PTRS_PER_PGD; i++ ) {
+		if(*((ulong *)((ulong)vcpu->kvm->arch.gpa_mm.pgd + i* 8 )) ==
+				 (ulong)invalid_pmd_table)
+			continue;
+		for(j = 0; j < PTRS_PER_PMD; j++) {
+			if(*(ulong *)((*(ulong *)((ulong)vcpu->kvm->arch.gpa_mm.pgd + i * 8)) + j * 8)
+					 == (ulong)invalid_pte_table)
+				continue;
+			for(k = 0; k < PTRS_PER_PTE; k++) {
+				if((*(ulong *)((*(ulong *)((*(ulong *)((ulong)vcpu->kvm->arch.gpa_mm.pgd + i * 8)) + j * 8)) + k * 8))  == 0)
+					continue;
+				if((*(ulong *)((*(ulong *)((*(ulong *)((ulong)vcpu->kvm->arch.gpa_mm.pgd + i * 8)) + j * 8)) + k * 8))  == 0x400)
+					continue;
+				//for bfc00000 access page
+				if((((i*8)<< 33) | ((j*8)<< 22) | ((k*8)<< 11)) == 0x1fc00000)
+					continue;
+				//for mce access page
+				if((((i*8)<< 33) | ((j*8)<< 22) | ((k*8)<< 11)) == 0xfe00000)
+					continue;
+				if(((*(ulong *)((*(ulong *)((*(ulong *)((ulong)vcpu->kvm->arch.gpa_mm.pgd + i * 8)) + j * 8)) + k * 8)) & 0x0ff00) ^ 0x7c00)
+					kvm_info("invalid map for i %lx j %lx k %lx gpa %lx \n", i, j, k, ((i*8)<< 33) | ((j*8)<< 22) | ((k*8)<< 11));
+			}
+		}
+	}
+}
+#endif
 	err = 0;
 	if (out_entry)
 		*out_entry = *ptep;
@@ -1189,9 +1218,10 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 			++vcpu->stat.lsvz_pci_ram_exits;
 
 		//1.get the GPA
-		if((badvaddr & XKSEG) == XKPHYS)
+		if((badvaddr & XKSEG) == XKPHYS) {
 			gpa = XKPHYS_TO_PHYS(badvaddr);
-		else
+			write_fault = 1;
+		} else
 			gpa = CPHYSADDR(badvaddr);
 //		printk("%s badvadd %lx,gpa %lx\n",__func__, badvaddr, gpa);
 		idx = (badvaddr >> PAGE_SHIFT) & 1;
@@ -1512,7 +1542,10 @@ int kvm_get_inst(u32 *opc, struct kvm_vcpu *vcpu, u32 *out)
 		gpa = CPHYSADDR((unsigned long)opc);
 
 	idx = ((unsigned long)opc >> PAGE_SHIFT) & 1;
-	err = kvm_lsvz_map_page(vcpu, gpa, false, 0, &pte_gpa[idx], &pte_gpa[!idx]);
+	if(((unsigned long) opc  & CKSEG3) == CKSEG1)
+		err = kvm_lsvz_map_page(vcpu, gpa, false, _PAGE_GLOBAL, &pte_gpa[idx], &pte_gpa[!idx]);
+	else
+		err = kvm_lsvz_map_page(vcpu, gpa, true, _PAGE_GLOBAL, &pte_gpa[idx], &pte_gpa[!idx]);
 	if (err)
 		return err;
 	//2. get the page of the instruction
