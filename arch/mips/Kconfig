@@ -1595,6 +1595,17 @@ config LOONGSON3_CPUAUTOPLUG
 
 	  If in doubt, say N.
 
+config ARCH_ENABLE_MEMORY_HOTPLUG
+	bool "ARCH Supports Memory Hotplug"
+
+config ARCH_ENABLE_MEMORY_HOTREMOVE
+	def_bool y
+	depends on MEMORY_HOTPLUG
+
+config ARCH_MEMORY_PROBE
+	def_bool y
+	depends on MEMORY_HOTPLUG
+
 config LOONGSON3_ENHANCEMENT
 	bool "New Loongson 3 CPU Enhancements"
 	default n
@@ -2270,6 +2281,10 @@ config NUMA
 
 config SYS_SUPPORTS_NUMA
 	bool
+
+config HAVE_ARCH_NODEDATA_EXTENSION
+	def_bool y
+	depends on NUMA
 
 config NODES_SHIFT
 	int "Maximum Number of NUMA Nodes Shift"

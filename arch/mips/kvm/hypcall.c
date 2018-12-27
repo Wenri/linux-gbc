@@ -122,9 +122,39 @@ int guest_pte_trans(const unsigned long *args,
 
 extern void local_flush_tlb_all(void);
 extern void flush_tlb_all(void);
-static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
+static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			      const unsigned long *args, unsigned long *hret)
 {
+	/* organize parameters as follow
+	 * a0        a1          a2         a3
+	 *badvaddr  PAGE_SHIFT  even pte  odd pte
+	 *
+	*/
+	if(((args[0] & 0xf000000000000000) > XKSSEG) &&
+			((args[0] & 0xf000000000000000) != XKSEG))
+		kvm_err("should not guest badvaddr %lx with type %lx\n",
+				 args[0], args[4]);
+
+	if ((args[0] & 0xf000000000000000) < XKSSEG)
+		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",
+				 args[0],args[1],args[2],args[3]);
+
+	if((args[4] & 0xf000) == 0)
+	{
+		++vcpu->stat.lsvz_hc_tlbmiss_exits;
+		if(((args[0] & 0x4000) && (args[3] & 0x1000)) ||
+			(!(args[0] & 0x4000) && (args[2] & 0x1000)))
+				++vcpu->stat.lsvz_hc_missvalid_exits;
+	} else if((args[4] & 0xf000) == 0x1000)
+		++vcpu->stat.lsvz_hc_tlbm_exits;
+	else if((args[4] & 0xf000) == 0x2000)
+		++vcpu->stat.lsvz_hc_tlbl_exits;
+	else if((args[4] & 0xf000) == 0x3000)
+		++vcpu->stat.lsvz_hc_tlbs_exits;
+	else if((args[4] & 0xf000) == 0x4000)
+		++vcpu->stat.lsvz_hc_emulate_exits;
+
+	vcpu->arch.host_cp0_badvaddr = args[0];
 #ifdef CONFIG_CPU_LOONGSON3
 	if ((args[4] == 0x5001) || (args[4] == 0x5005)) {
 #if 0	
@@ -380,17 +410,42 @@ static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
 	return RESUME_GUEST;
 }
 
+static int kvm_mips_hypercall(struct kvm_vcpu *vcpu, unsigned long num,
+		const unsigned long *args, unsigned long *hret)
+{
+	struct kvm_run *run = vcpu->run;
+	int ret;
+
+	/* Here is existing tlb hypercall
+	   #define tlbmiss_tlbwr_normal    0x0
+	   #define tlbmiss_tlbwr_huge      0x1
+	   #define tlbm_tlbp_and_tlbwi_normal 0x1000
+	   #define tlbm_tlbp_and_tlbwi_huge 0x1001
+	   #define tlbl_tlbp_and_tlbwi_normal 0x2000
+	   #define tlbl_tlbp_and_tlbwi_huge 0x2001
+	   #define tlbs_tlbp_and_tlbwi_normal 0x3000
+	   #define tlbs_tlbp_and_tlbwi_huge 0x3001
+	*/
+	if (num != KVM_MIPS_GET_RTAS_INFO)
+		return kvm_mips_hcall_tlb(vcpu, num, args, hret);
+
+	run->hypercall.nr = num;
+	run->hypercall.args[0] = args[0];
+	run->hypercall.args[1] = args[1];
+	run->hypercall.args[2] = args[2];
+	run->hypercall.args[3] = args[3];
+	run->hypercall.args[4] = args[4];
+	run->hypercall.args[5] = args[5];
+	run->exit_reason = KVM_EXIT_HYPERCALL;
+	ret = RESUME_HOST;
+	return ret;
+}
+
 int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 {
 	unsigned long num, args[MAX_HYPCALL_ARGS];
 
 	/* read hypcall number and arguments */
-	/* organize parameters as follow
-	 * a0        a1          a2         a3
-	 *badvaddr  PAGE_SHIFT  even pte  odd pte
-	 *
-	*/
-
 	num = vcpu->arch.gprs[2];	/* v0 */
 	args[0] = vcpu->arch.gprs[4];	/* a0 badvaddr*/
 	args[1] = vcpu->arch.gprs[5];	/* a1 PAGE_SHIFT */
@@ -398,32 +453,6 @@ int kvm_mips_handle_hypcall(struct kvm_vcpu *vcpu)
 	args[3] = vcpu->arch.gprs[7];	/* a3 odd pte value*/
 	args[4] = vcpu->arch.gprs[2];	/* tlb_miss/tlbl/tlbs/tlbm */
 	args[5] = vcpu->arch.gprs[3];	/* EXCCODE/_TLBL/_TLBS/_MOD */
-
-	if(((args[0] & 0xf000000000000000) > XKSSEG) &&
-			((args[0] & 0xf000000000000000) != XKSEG))
-		kvm_err("should not guest badvaddr %lx with type %lx\n",
-				 args[0], args[4]);
-
-	if ((args[0] & 0xf000000000000000) < XKSSEG)
-		kvm_debug("1 guest badvaddr %lx pgshift %lu a2 %lx a3 %lx\n",
-				 args[0],args[1],args[2],args[3]);
-
-	if((args[4] & 0xf000) == 0)
-	{
-		++vcpu->stat.lsvz_hc_tlbmiss_exits;
-		if(((args[0] & 0x4000) && (args[3] & 0x1000)) ||
-			(!(args[0] & 0x4000) && (args[2] & 0x1000)))
-				++vcpu->stat.lsvz_hc_missvalid_exits;
-	} else if((args[4] & 0xf000) == 0x1000)
-		++vcpu->stat.lsvz_hc_tlbm_exits;
-	else if((args[4] & 0xf000) == 0x2000)
-		++vcpu->stat.lsvz_hc_tlbl_exits;
-	else if((args[4] & 0xf000) == 0x3000)
-		++vcpu->stat.lsvz_hc_tlbs_exits;
-	else if((args[4] & 0xf000) == 0x4000)
-		++vcpu->stat.lsvz_hc_emulate_exits;
-
-	vcpu->arch.host_cp0_badvaddr = args[0];
 
 	return kvm_mips_hypercall(vcpu, num,
 				  args, &vcpu->arch.gprs[2] /* v0 */);

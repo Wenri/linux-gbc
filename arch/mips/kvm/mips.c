@@ -558,6 +558,10 @@ int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu, struct kvm_run *run)
 		if (!vcpu->mmio_is_write)
 			kvm_mips_complete_mmio_load(vcpu, run);
 		vcpu->mmio_needed = 0;
+	} else if(vcpu->arch.is_hypcall) {
+                /* set return value for hypercall v0 register */
+		vcpu->arch.gprs[2] = run->hypercall.ret;
+		vcpu->arch.is_hypcall = 0;
 	}
 
 	if (run->immediate_exit)
