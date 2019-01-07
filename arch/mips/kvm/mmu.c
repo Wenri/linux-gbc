@@ -1538,8 +1538,18 @@ int kvm_get_inst(u32 *opc, struct kvm_vcpu *vcpu, u32 *out)
 	//1. get the pte of the instruction
 	if(((unsigned long) opc & XKSEG) == XKPHYS)
 		gpa = XKPHYS_TO_PHYS((unsigned long)opc);
-	else
+	else if((((unsigned long) opc & CKSEG3) == CKSEG0) ||
+		(((unsigned long) opc & CKSEG3) == CKSEG1))
 		gpa = CPHYSADDR((unsigned long)opc);
+	else if(((unsigned long) opc & CKSEG3) == CKSSEG) {
+		//Should use the saved CKSSEG GVA-->GPA map to find the GPA
+		int offset;
+		offset = ((((unsigned long) opc)- CKSSEG) & 0x3fffffff ) >> 14;
+		gpa = vcpu->kvm->arch.cksseg_map[offset][1];
+	} else {
+		gpa = CPHYSADDR((unsigned long)opc);
+		kvm_err("get pc %lx not supported now\n", (ulong)opc);
+	}
 
 	idx = ((unsigned long)opc >> PAGE_SHIFT) & 1;
 	if(((unsigned long) opc  & CKSEG3) == CKSEG1)

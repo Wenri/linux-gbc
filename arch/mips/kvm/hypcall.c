@@ -131,7 +131,8 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 	 *
 	*/
 	if(((args[0] & 0xf000000000000000) > XKSSEG) &&
-			((args[0] & 0xf000000000000000) != XKSEG))
+			((args[0] & 0xf000000000000000) != XKSEG) &&
+			((args[0] & CKSEG3) != CKSSEG))
 		kvm_err("should not guest badvaddr %lx with type %lx\n",
 				 args[0], args[4]);
 
@@ -210,7 +211,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		//Restore tmp registers
 		write_c0_entryhi(tmp_entryhi);
 		write_c0_entrylo0(tmp_entrylo0);
-		write_c0_entrylo0(tmp_entrylo1);
+		write_c0_entrylo1(tmp_entrylo1);
 		write_c0_pagemask(page_mask);
 		write_c0_index(tmp_index);
 
@@ -290,7 +291,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			//Restore tmp registers
 			write_c0_entryhi(tmp_entryhi);
 			write_c0_entrylo0(tmp_entrylo0);
-			write_c0_entrylo0(tmp_entrylo1);
+			write_c0_entrylo1(tmp_entrylo1);
 			write_c0_pagemask(page_mask);
 			write_c0_index(tmp_index);
 
@@ -321,6 +322,9 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		struct kvm_memory_slot* slot;
 		unsigned long hva = 0, hva1 = 0;
 
+		unsigned long cksseg_gva;
+		int offset, cksseg_odd = 0;
+
 		//Distinct TLBL/TLBS/TLBM
 		switch(gsexccode) {
 		case EXCCODE_TLBL:
@@ -349,14 +353,14 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		prot_bits |= 0x6000;
 		prot_bits1 |= 0x6000;
 
-		//Process GUEST even pte
+		//Process GUEST odd pte
 		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
 		if(slot)
 			hva1 = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
-		//Process GUEST odd pte
+		//Process GUEST even pte
 		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
@@ -385,9 +389,29 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		else
 			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[0]) & 0xffffffffffff0000) | prot_bits);
 
-		if ((args[0] & 0xf000000000000000) == XKSEG) {
+		if (((args[0] & 0xf000000000000000) == XKSEG) ||
+			((args[0] & CKSEG3) == CKSSEG)) {
 			vcpu->arch.guest_tlb[1].tlb_lo[0] |= 1;
 			vcpu->arch.guest_tlb[1].tlb_lo[1] |= 1;
+		}
+
+		/*Save CKSSEG address GVA-->GPA mapping*/
+		if (((args[0] & CKSEG3) == CKSSEG)) {
+			cksseg_gva = args[0] & (PAGE_MASK);
+			cksseg_odd = (cksseg_gva >> 14) & 1;
+			offset = ((cksseg_gva - CKSSEG) & 0x3fffffff ) >> 14;
+			/*If the cksseg address is odd */
+			if(cksseg_odd) {
+				vcpu->kvm->arch.cksseg_map[offset - 1][0] = cksseg_gva - PAGE_SIZE;
+				vcpu->kvm->arch.cksseg_map[offset - 1][1] = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
+				vcpu->kvm->arch.cksseg_map[offset][0] = cksseg_gva;
+				vcpu->kvm->arch.cksseg_map[offset][1] = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
+			} else {
+				vcpu->kvm->arch.cksseg_map[offset][0] = cksseg_gva;
+				vcpu->kvm->arch.cksseg_map[offset][1] = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
+				vcpu->kvm->arch.cksseg_map[offset + 1][0] = cksseg_gva + PAGE_SIZE;
+				vcpu->kvm->arch.cksseg_map[offset + 1][1] = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
+			}
 		}
 
 		if ((args[0] & 0xf000000000000000) < XKSSEG)

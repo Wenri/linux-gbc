@@ -319,13 +319,18 @@ LEAF(tlb_miss)
 	.set	arch=loongson3a
 
 	dmfc0	k0, CP0_BADVADDR
+	lui	k1, 0xc000
+	sltu	k1, k0, k1
+	beqz	k1, 4f
+	nop
+
 	dsrl32	k0, k0, 8
 	lui	k1, 0x3f
 	ori	k1, k1, 0xffff
 	and	k0, k0, k1
 	bnez	k0, 3f
 	nop
-
+4:
 	lui	k1,%hi(handler_gprs_save)	// tmp_save should be per cpu
 	mfc0	k0, CP0_EBASE
 	daddiu	k1,%lo(handler_gprs_save)

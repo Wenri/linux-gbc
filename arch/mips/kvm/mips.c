@@ -150,6 +150,7 @@ void kvm_arch_check_processor_compat(void *rtn)
 
 int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 {
+	unsigned long row = (1 << 14);
 #ifdef CONFIG_CPU_LOONGSON3
 	type = KVM_VM_MIPS_VZ;
 #endif
@@ -169,6 +170,11 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 	kvm->arch.gpa_mm.pgd = kvm_pgd_alloc();
 	kvm_info("gpm_mm.pgd @ %p\n",kvm->arch.gpa_mm.pgd);
 	if (!kvm->arch.gpa_mm.pgd)
+		return -ENOMEM;
+
+	kvm->arch.cksseg_map = (unsigned long(*)[2])kzalloc(sizeof(unsigned long)*2*row, GFP_KERNEL);
+	kvm_info("cksseg_map @ %p\n",kvm->arch.cksseg_map);
+	if (!kvm->arch.cksseg_map)
 		return -ENOMEM;
 
 	return 0;
@@ -208,6 +214,7 @@ static void kvm_mips_free_gpa_pt(struct kvm *kvm)
 	/* It should always be safe to remove after flushing the whole range */
 	WARN_ON(!kvm_mips_flush_gpa_pt(kvm, 0, ~0));
 	pgd_free(NULL, kvm->arch.gpa_mm.pgd);
+	kfree(kvm->arch.cksseg_map);
 }
 
 void kvm_arch_destroy_vm(struct kvm *kvm)
