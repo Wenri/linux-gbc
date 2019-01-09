@@ -53,6 +53,7 @@ enum loongson_cpu_type cputype;
 u16 loongson_boot_cpu_id;
 u16 loongson_reserved_cpus_mask;
 u32 nr_cpus_loongson = NR_CPUS;
+u32 possible_cpus_loongson = NR_CPUS;
 u32 nr_nodes_loongson = MAX_NUMNODES;
 int cores_per_node;
 int cores_per_package;
@@ -211,6 +212,7 @@ void __init prom_init_env(void)
 	if (nr_cpus_loongson > NR_CPUS || nr_cpus_loongson == 0)
 		nr_cpus_loongson = NR_CPUS;
 	nr_nodes_loongson = (nr_cpus_loongson + cores_per_node - 1) / cores_per_node;
+	possible_cpus_loongson = nr_nodes_loongson * cores_per_node;
 
 	pci_mem_start_addr = eirq_source->pci_mem_start_addr;
 	pci_mem_end_addr = eirq_source->pci_mem_end_addr;

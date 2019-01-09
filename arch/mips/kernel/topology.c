@@ -29,4 +29,15 @@ static int __init topology_init(void)
 	return 0;
 }
 
+void setup_cpu_topology(int cpu)
+{
+	int ret;
+	struct cpu *c = &per_cpu(cpu_devices, cpu);
+	c->hotpluggable = 1;
+	ret = register_cpu(c, cpu);
+	if (ret)
+		printk(KERN_WARNING "topology_init: register_cpu %d "
+			"failed (%d)\n", cpu, ret);
+}
+
 subsys_initcall(topology_init);
