@@ -48,6 +48,30 @@ extern int autoplug_verbose;
 #define verbose 1
 #endif
 
+struct cpu_up_info{
+	struct delayed_work work;
+	struct cpumask up_mask;
+};
+static struct cpu_up_info cpu_up_work;
+
+void setup_cpu_topology(int cpu);
+struct device *get_cpu_device(unsigned cpu);
+
+static void do_cpu_up_timer(struct work_struct *work)
+{
+			int cpu;
+
+			lock_device_hotplug();
+			cpu = cpumask_first(&cpu_up_work.up_mask);
+			cpumask_clear_cpu(cpu,&cpu_up_work.up_mask);
+			cpu_set(cpu, __node_data[(cpu/cores_per_node)]->cpumask);
+			setup_cpu_topology(cpu);
+			get_cpu_device(cpu)->offline = false;
+			cpu_up(cpu);
+			unlock_device_hotplug();
+
+}
+
 /* read a 64bit value from ipi register */
 uint64_t loongson3_ipi_read64(void * addr)
 {
@@ -226,6 +250,15 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 		__wbflush(); /* Let others see the result ASAP */
 	}
 
+	if(action & SMP_CPU_UP){
+		cpu = irqs;
+		if((!cpumask_test_cpu(cpu,cpu_present_mask))&&(system_state != SYSTEM_BOOTING)){
+			set_cpu_present(cpu,true);
+			cpumask_set_cpu(cpu,&cpu_up_work.up_mask);
+			schedule_delayed_work(&cpu_up_work.work, msecs_to_jiffies(1000));
+		}
+	}
+
 	if (irqs) {
 		int irq;
 		while ((irq = ffs(irqs))) {
@@ -293,10 +326,10 @@ void __init loongson3_smp_setup(void)
 	int i = 0, num = 0; /* i: physical id, num: logical id */
 
 	init_cpu_possible(cpu_none_mask);
-
+	INIT_DEFERRABLE_WORK(&cpu_up_work.work, do_cpu_up_timer);
 	/* For unified kernel, NR_CPUS is the maximum possible value,
 	 * nr_cpus_loongson is the really present value */
-	while (i < nr_cpus_loongson) {
+	while (i < possible_cpus_loongson) {
 		if (loongson_reserved_cpus_mask & (1<<i)) {
 			/* Reserved physical CPU cores */
 			__cpu_number_map[i] = -1;
@@ -310,7 +343,7 @@ void __init loongson3_smp_setup(void)
 	}
 	printk(KERN_INFO "Detected %i available CPU(s)\n", num);
 
-	while (num < nr_cpus_loongson) {
+	while (num < possible_cpus_loongson) {
 		__cpu_logical_map[num] = -1;
 		num++;
 	}
@@ -321,7 +354,7 @@ void __init loongson3_smp_setup(void)
 	ipi_en0_regs_init();
 	ipi_mailbox_buf_init();
 
-	for (i = 0; i < nr_cpus_loongson; i++)
+	for (i = 0; i < possible_cpus_loongson; i++)
 		loongson3_ipi_write64(0, (void *)(ipi_mailbox_buf[i]+0x0));
 
 	cpu_data[0].core = cpu_logical_map(0) % cores_per_package;
@@ -330,7 +363,12 @@ void __init loongson3_smp_setup(void)
 
 void __init loongson3_prepare_cpus(unsigned int max_cpus)
 {
-	init_cpu_present(cpu_possible_mask);
+	int i = 0;
+
+	while(i < nr_cpus_loongson){
+		set_cpu_present(i,true);
+		i++;
+	}
 	per_cpu(cpu_state, smp_processor_id()) = CPU_ONLINE;
 }
 
