@@ -324,6 +324,11 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 
 		unsigned long cksseg_gva;
 		int offset, cksseg_odd = 0;
+		unsigned long tmp_entryhi, tmp_entrylo0, tmp_entrylo1;
+		unsigned long page_mask;
+		unsigned int tmp_diag;
+		unsigned long flags;
+		int tmp_index,idx;
 
 		//Distinct TLBL/TLBS/TLBM
 		switch(gsexccode) {
@@ -394,6 +399,55 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			vcpu->arch.guest_tlb[1].tlb_lo[0] |= 1;
 			vcpu->arch.guest_tlb[1].tlb_lo[1] |= 1;
 		}
+
+		local_irq_save(flags);
+		//Save tmp registers
+		tmp_entryhi  = read_c0_entryhi();
+		tmp_entrylo0 = read_c0_entrylo0();
+		tmp_entrylo1 = read_c0_entrylo1();
+		page_mask = read_c0_pagemask();
+		tmp_index = read_c0_index();
+
+		//Enable diag.MID for guest
+		tmp_diag = read_c0_diag();
+		tmp_diag |= (1<<18);
+		write_c0_diag(tmp_diag);
+
+		write_c0_entryhi(vcpu->arch.guest_tlb[1].tlb_hi | read_gc0_entryhi());
+		mtc0_tlbw_hazard();
+
+		write_c0_pagemask(vcpu->arch.guest_tlb[1].tlb_mask);
+		write_c0_entrylo0(vcpu->arch.guest_tlb[1].tlb_lo[0]);
+		write_c0_entrylo1(vcpu->arch.guest_tlb[1].tlb_lo[1]);
+		mtc0_tlbw_hazard();
+		tlb_probe();
+		tlb_probe_hazard();
+
+		idx = read_c0_index();
+		mtc0_tlbw_hazard();
+		if (idx >= 0)
+			tlb_write_indexed();
+		 else
+			tlb_write_random();
+		tlbw_use_hazard();
+		//Disable diag.MID
+		tmp_diag = read_c0_diag();
+		tmp_diag &= ~(3<<18);
+		write_c0_diag(tmp_diag);
+
+		//Restore tmp registers
+		write_c0_entryhi(tmp_entryhi);
+		write_c0_entrylo0(tmp_entrylo0);
+		write_c0_entrylo1(tmp_entrylo1);
+		write_c0_pagemask(page_mask);
+		write_c0_index(tmp_index);
+
+		//flush ITLB/DTLB
+		tmp_diag = read_c0_diag();
+		tmp_diag |= 0xc;
+		write_c0_diag(tmp_diag);
+
+		local_irq_restore(flags);
 
 		/*Save CKSSEG address GVA-->GPA mapping*/
 		if (((args[0] & CKSEG3) == CKSSEG)) {
