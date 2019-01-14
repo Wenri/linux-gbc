@@ -441,6 +441,11 @@ struct kvm_s390_interrupt {
 	__u64 parm64;
 };
 
+struct kvm_mips_vcpu_state {
+         unsigned long nodecounter_value;
+	 __u32 is_migrate;
+ };
+
 /* for KVM_SET_GUEST_DEBUG */
 
 #define KVM_GUESTDBG_ENABLE		0x00000001
@@ -1094,6 +1099,8 @@ struct kvm_s390_ucas_mapping {
 #define KVM_SMI                   _IO(KVMIO,   0xb7)
 /* Add for LOONGSON read nodecounter */
 #define KVM_LSVZ_NODECOUNTER       _IOR(KVMIO,   0xb8, unsigned long)
+#define KVM_MIPS_GET_VCPU_STATE   _IOR(KVMIO,   0xb9, struct kvm_mips_vcpu_state)
+#define KVM_MIPS_SET_VCPU_STATE   _IOW(KVMIO,   0xba, struct kvm_mips_vcpu_state)
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
 #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)

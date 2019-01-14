@@ -1103,12 +1103,13 @@ static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 
 static void kvm_vz_flush_shadow_all(struct kvm *kvm)
 {
+        flush_tlb_all();
 }
 
 static void kvm_vz_flush_shadow_memslot(struct kvm *kvm,
 					const struct kvm_memory_slot *slot)
 {
-	/*kvm_vz_flush_shadow_all(kvm);*/
+	kvm_vz_flush_shadow_all(kvm);
 }
 
 static gpa_t kvm_vz_gva_to_gpa_cb(gva_t gva)

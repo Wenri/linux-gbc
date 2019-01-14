@@ -1166,8 +1166,40 @@ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
 long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long r;
+	struct kvm *kvm = filp->private_data;
+	void __user *argp = (void __user *)arg;
 
 	switch (ioctl) {
+	case KVM_MIPS_GET_VCPU_STATE:
+	{
+		struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
+		struct  kvm_mips_vcpu_state *vcpu_state;
+		vcpu_state = kmalloc(sizeof(struct kvm_mips_vcpu_state),GFP_KERNEL);
+
+		vcpu_state->is_migrate = 1;
+		vcpu_state->nodecounter_value =  kvm->arch.nodecounter_value;
+		if (copy_to_user(vcpu_state_user, vcpu_state, sizeof(struct kvm_mips_vcpu_state)))
+			return -EFAULT;
+		r = 0;
+		break;
+	}
+
+       case KVM_MIPS_SET_VCPU_STATE:
+       {
+               struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
+               struct  kvm_mips_vcpu_state *vcpu_state;
+	       vcpu_state = kmalloc(sizeof(struct kvm_mips_vcpu_state),GFP_KERNEL);
+ 
+               if (copy_from_user(vcpu_state, vcpu_state_user, sizeof(struct kvm_mips_vcpu_state)))
+                       return -EFAULT;
+		
+               kvm->arch.is_migrate = vcpu_state->is_migrate;
+               kvm->arch.nodecounter_value = vcpu_state->nodecounter_value;
+               r = 0;
+               break;
+       }
+
+
 	default:
 		r = -ENOIOCTLCMD;
 	}

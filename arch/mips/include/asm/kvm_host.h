@@ -209,6 +209,9 @@ struct kvm_arch {
 	/* Mask of CPUs needing GPA ASID flush */
 	cpumask_t asid_flush_mask;
 	unsigned long (*cksseg_map)[2];
+	int is_migrate;
+	long nodecounter_offset;
+	unsigned long nodecounter_value;
 };
 
 #define N_MIPS_COPROC_REGS     32
