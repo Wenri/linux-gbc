@@ -898,9 +898,12 @@ retry:
 #endif
 
 	if (writeable) {
-		prot_bits |= __WRITEABLE;
-		mark_page_dirty(kvm, gfn);
-		kvm_set_pfn_dirty(pfn);
+		prot_bits |= _PAGE_WRITE;
+		if (write_fault) {
+			prot_bits |= __WRITEABLE;
+			mark_page_dirty(kvm, gfn);
+			kvm_set_pfn_dirty(pfn);
+		}
 	}
 	entry = pfn_pte(pfn, __pgprot(prot_bits));
 
@@ -1218,10 +1221,9 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 			++vcpu->stat.lsvz_pci_ram_exits;
 
 		//1.get the GPA
-		if((badvaddr & XKSEG) == XKPHYS) {
+		if((badvaddr & XKSEG) == XKPHYS)
 			gpa = XKPHYS_TO_PHYS(badvaddr);
-			write_fault = 1;
-		} else
+		else
 			gpa = CPHYSADDR(badvaddr);
 //		printk("%s badvadd %lx,gpa %lx\n",__func__, badvaddr, gpa);
 		idx = (badvaddr >> PAGE_SHIFT) & 1;

@@ -385,14 +385,18 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x1fff800; //huge pagesize 16MB
 
 		if((hva >> args[1]) & 1)
-			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) | prot_bits1);
+			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) |
+										(prot_bits1 & (pte_val(pte_gpa[1]) & 0xffff)));
 		else
-			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[0]) & 0xffffffffffff0000) | prot_bits1);
+			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[0]) & 0xffffffffffff0000) |
+										(prot_bits1 & (pte_val(pte_gpa[0]) & 0xffff)));
 
 		if((hva1 >> args[1]) & 1)
-			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[1]) & 0xffffffffffff0000) | prot_bits);
+			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[1]) & 0xffffffffffff0000) |
+										(prot_bits & (pte_val(pte_gpa1[1]) & 0xffff)));
 		else
-			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[0]) & 0xffffffffffff0000) | prot_bits);
+			vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1[0]) & 0xffffffffffff0000) |
+										(prot_bits & (pte_val(pte_gpa1[0]) & 0xffff)));
 
 		if (((args[0] & 0xf000000000000000) == XKSEG) ||
 			((args[0] & CKSEG3) == CKSSEG)) {
