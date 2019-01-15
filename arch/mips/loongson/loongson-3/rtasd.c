@@ -49,6 +49,7 @@ static struct rtas_event_log_hp response;
 typedef struct rtas_reply{
 	struct list_head         entry;
 	struct rtas_event_log_hp response;
+        int sect_index;
 	int times;
 }rtas_reply;
 
@@ -129,7 +130,7 @@ static int rtas_call(int token, unsigned int eventmask, unsigned long pa)
 void handle_rtas_event(const struct rtas_error_log *log)
 {
 	struct rtas_event_log_hp *hp;
-	unsigned long start_addr, len, start_section;
+	unsigned long start_addr, len, sect_index;
 	int ret, node;
 	rtas_reply *reply_node;
 
@@ -150,25 +151,29 @@ void handle_rtas_event(const struct rtas_error_log *log)
 				return;
 			}
 
-			start_section =  start_addr >> SECTION_SIZE_BITS;
-			memory_block_action(start_section, MEM_ONLINE);
+			sect_index = 0;
+			while (sect_index < hp->count) {
+				memory_block_action(hp->index + sect_index, MEM_ONLINE);
+				sect_index++;
+			}
 		} else if (RTAS_HP_ACTION_REMOVE == hp->hotplug_action) {
-			reply_node = vmalloc(sizeof(rtas_reply));
+			reply_node = kmalloc(sizeof(rtas_reply), GFP_KERNEL);
 			if (reply_node == NULL)
 				return;
 			memcpy(&reply_node->response, hp, sizeof(struct rtas_event_log_hp));
 			reply_node->times = 0;
+			reply_node->sect_index = 0;
 			list_add_tail(&reply_node->entry, &pending_reply_list);
 		}
 	}
 }
 
-void handle_rtas_reply(void)
+static void handle_rtas_reply(void)
 {
 	struct list_head *node, *next;
 	rtas_reply *reply_node;
 	struct rtas_event_log_hp *hp;
-	unsigned long start_addr, len, start_section;
+	unsigned long start_addr, len, sect_index;
 	int ret, nid;
 
 	if (list_empty(&pending_reply_list))
@@ -181,18 +186,24 @@ void handle_rtas_reply(void)
 			start_addr = hp->index << SECTION_SIZE_BITS;
 			len = hp->count << SECTION_SIZE_BITS;
 			if (RTAS_HP_ACTION_REMOVE == hp->hotplug_action) {
-				start_section =  start_addr >> SECTION_SIZE_BITS;
-				ret = memory_block_action(start_section, MEM_OFFLINE);
-				if (ret == 0) {
+
+				sect_index = reply_node->sect_index;
+				ret = 0;
+				while ((ret == 0) && (sect_index < hp->count)) {
+					ret = memory_block_action(hp->index + sect_index, MEM_OFFLINE);
+					if (ret == 0)
+						reply_node->sect_index = ++sect_index;
+				}
+
+				if (sect_index == hp->count) {
 					nid = memory_add_physaddr_to_nid(start_addr);
 					remove_memory(nid, start_addr, len);
 					memcpy(&response, hp, sizeof(struct rtas_event_log_hp));
 					rtas_call(RTAS_EVENT_REPLY, RTAS_EVENT_SCAN_ALL_EVENTS, __pa(&response));
 					list_del(node);
-					vfree(reply_node);
+					kfree(reply_node);
 					printk( "Succeed to offline memory start %lx len %lx\n", start_addr, len);
 				} else {
-					memory_block_action(start_section, MEM_ONLINE);
 					printk(KERN_ERR "Fail to offline memory start %lx len %lx ret %d\n", start_addr, len, ret);
 					reply_node->times++;
 				}
@@ -267,18 +278,14 @@ static void do_event_scan(void)
 {
 	int error;
 	do {
-		handle_rtas_reply();
 		memset(logdata, 0, rtas_error_log_max);
 		error = rtas_call(event_scan, RTAS_EVENT_SCAN_ALL_EVENTS, __pa(logdata));
-		if (error == -1) {
-			break;
-		}
-
 		if (error == 0) {
 			rtas_log_error(logdata, ERR_TYPE_RTAS_LOG, 0);
 			handle_rtas_event((struct rtas_error_log *)logdata);
 		}
 
+		handle_rtas_reply();
 	} while(error == 0);
 }
 
