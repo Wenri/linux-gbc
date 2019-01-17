@@ -65,16 +65,12 @@ static void loongson_poweroff(void)
 	mach_prepare_shutdown();
 	unreachable();
 #else
-#ifndef CONFIG_KVM_GUEST_LOONGSON_VZ
 	extern u64 poweroff_addr;
 	void (*fw_poweroff)(void) = (void *)poweroff_addr;
+        printk("---------liuxue: fw_poweroff 0x%llx\n",(unsigned long long)fw_poweroff);
 
 	fw_poweroff();
 	while (1) {}
-#else
-	esb_timer_start();
-	while (1) {}
-#endif
 #endif
 }
 
