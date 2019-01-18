@@ -49,7 +49,7 @@ extern int autoplug_verbose;
 #endif
 
 struct cpu_up_info{
-	struct delayed_work work;
+	struct delayed_work work[NR_CPUS];
 	struct cpumask up_mask;
 };
 static struct cpu_up_info cpu_up_work;
@@ -59,17 +59,16 @@ struct device *get_cpu_device(unsigned cpu);
 
 static void do_cpu_up_timer(struct work_struct *work)
 {
-			int cpu;
+	int cpu;
 
-			lock_device_hotplug();
-			cpu = cpumask_first(&cpu_up_work.up_mask);
-			cpumask_clear_cpu(cpu,&cpu_up_work.up_mask);
-			cpu_set(cpu, __node_data[(cpu/cores_per_node)]->cpumask);
-			setup_cpu_topology(cpu);
-			get_cpu_device(cpu)->offline = false;
-			cpu_up(cpu);
-			unlock_device_hotplug();
-
+	lock_device_hotplug();
+	cpu = cpumask_first(&cpu_up_work.up_mask);
+	cpumask_clear_cpu(cpu,&cpu_up_work.up_mask);
+	cpu_set(cpu, __node_data[(cpu/cores_per_node)]->cpumask);
+	setup_cpu_topology(cpu);
+	get_cpu_device(cpu)->offline = false;
+	cpu_up(cpu);
+	unlock_device_hotplug();
 }
 
 /* read a 64bit value from ipi register */
@@ -255,7 +254,7 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 		if((!cpumask_test_cpu(cpu,cpu_present_mask))&&(system_state != SYSTEM_BOOTING)){
 			set_cpu_present(cpu,true);
 			cpumask_set_cpu(cpu,&cpu_up_work.up_mask);
-			schedule_delayed_work(&cpu_up_work.work, msecs_to_jiffies(1000));
+			schedule_delayed_work(&cpu_up_work.work[cpu], msecs_to_jiffies(1000));
 		}
 	}
 
@@ -326,7 +325,6 @@ void __init loongson3_smp_setup(void)
 	int i = 0, num = 0; /* i: physical id, num: logical id */
 
 	init_cpu_possible(cpu_none_mask);
-	INIT_DEFERRABLE_WORK(&cpu_up_work.work, do_cpu_up_timer);
 	/* For unified kernel, NR_CPUS is the maximum possible value,
 	 * nr_cpus_loongson is the really present value */
 	while (i < possible_cpus_loongson) {
@@ -339,6 +337,7 @@ void __init loongson3_smp_setup(void)
 			set_cpu_possible(num, true);
 			num++;
 		}
+		INIT_DEFERRABLE_WORK(&cpu_up_work.work[i], do_cpu_up_timer);
 		i++;
 	}
 	printk(KERN_INFO "Detected %i available CPU(s)\n", num);
