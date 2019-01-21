@@ -627,14 +627,14 @@ int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,
 		dvcpu = vcpu->kvm->vcpus[irq->cpu];
 
 #ifdef CONFIG_CPU_LOONGSON3
-	if (intr == 2 || intr == 3 || intr == 6) {
+	if (intr == 2 || intr == 3 || intr == 4 || intr == 6) {
 #else
 	if (intr == 2 || intr == 3 || intr == 4) {
 #endif
 		kvm_mips_callbacks->queue_io_int(dvcpu, irq);
 
 #ifdef CONFIG_CPU_LOONGSON3
-	} else if (intr == -2 || intr == -3 || intr == -6) {
+	} else if (intr == -2 || intr == -3 || intr == -4 || intr == -6) {
 #else
 	} else if (intr == -2 || intr == -3 || intr == -4) {
 #endif
