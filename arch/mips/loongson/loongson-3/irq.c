@@ -8,6 +8,7 @@
 #include <asm/mipsregs.h>
 
 #include <loongson-pch.h>
+#include <linux/reboot.h>
 
 extern unsigned long long smp_group[4];
 extern void loongson3_ipi_interrupt(struct pt_regs *regs);
@@ -32,7 +33,7 @@ int plat_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity,
 	return IRQ_SET_MASK_OK_NOCOPY;
 }
 
-#define UNUSED_IPS (CAUSEF_IP5 | CAUSEF_IP4 | CAUSEF_IP1 | CAUSEF_IP0)
+#define UNUSED_IPS (CAUSEF_IP5 | CAUSEF_IP1 | CAUSEF_IP0)
 
 void mach_irq_dispatch(unsigned int pending)
 {
@@ -42,6 +43,10 @@ void mach_irq_dispatch(unsigned int pending)
 	if (pending & CAUSEF_IP6)
 		loongson3_ipi_interrupt(NULL);
 #endif
+	if (pending & CAUSEF_IP4) {
+		clear_c0_status(STATUSF_IP4);
+		orderly_poweroff(true);
+	}
 	if (pending & CAUSEF_IP3)
 		loongson_pch->irq_dispatch();
 	if (pending & CAUSEF_IP2)
@@ -122,7 +127,7 @@ void __init mach_init_irq(void)
 	irq_set_chip_and_handler(LOONGSON_UART_IRQ,
 			&loongson_irq_chip, handle_level_irq);
 
-	set_c0_status(STATUSF_IP2 | STATUSF_IP6);
+	set_c0_status(STATUSF_IP2 | STATUSF_IP4 | STATUSF_IP6);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU

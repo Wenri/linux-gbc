@@ -67,7 +67,6 @@ static void loongson_poweroff(void)
 #else
 	extern u64 poweroff_addr;
 	void (*fw_poweroff)(void) = (void *)poweroff_addr;
-        printk("---------liuxue: fw_poweroff 0x%llx\n",(unsigned long long)fw_poweroff);
 
 	fw_poweroff();
 	while (1) {}
