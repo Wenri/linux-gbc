@@ -352,6 +352,15 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 	int i;
 
 	struct kvm_vcpu *vcpu = kzalloc(sizeof(struct kvm_vcpu), GFP_KERNEL);
+	vcpu->arch.stlb = kzalloc(STLB_BUF_SIZE * sizeof(soft_tlb), GFP_KERNEL);
+	vcpu->arch.asid_we = kzalloc(STLB_ASID_SIZE * sizeof(unsigned long), GFP_KERNEL);
+	if (!vcpu->arch.stlb) {
+		kvm_info("Soft TLB init Failed\n");
+		err = -ENOMEM;
+		goto out;
+	}
+	else
+		kvm_info("Soft TLB in %p, asid weight in %p\n",(void *)vcpu->arch.stlb, (void *)vcpu->arch.asid_we);
 
 	if (!vcpu) {
 		err = -ENOMEM;
@@ -1142,8 +1151,6 @@ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
  */
 int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
 {
-	struct kvm_memslots *slots;
-	struct kvm_memory_slot *memslot;
 	bool is_dirty = false;
 	int r;
 
@@ -1152,11 +1159,7 @@ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
 	r = kvm_get_dirty_log_protect(kvm, log, &is_dirty);
 
 	if (is_dirty) {
-		slots = kvm_memslots(kvm);
-		memslot = id_to_memslot(slots, log->slot);
-
-		/* Let implementation handle TLB/GVA invalidation */
-		kvm_mips_callbacks->flush_shadow_memslot(kvm, memslot);
+		kvm_flush_remote_tlbs(kvm);
 	}
 
 	mutex_unlock(&kvm->slots_lock);
