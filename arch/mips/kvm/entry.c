@@ -18,6 +18,7 @@
 #include <asm/tlbex.h>
 #include <asm/uasm.h>
 
+#define issidepass 0
 //#define LSVZ_TLB_ISOLATE_DEBUG
 #ifdef LSVZ_TLB_ISOLATE_DEBUG
 int guest_vtlb_index = 0;
@@ -123,6 +124,15 @@ enum label_id {
 	label_finish_write_count,
 	label_no_ti,
 	label_nodecounter,
+	label_soft_asid2,
+	label_nor_exit,
+	label_fast_inv1,
+	label_fast_inv2,
+	label_inv1_ret,
+	label_inv2_ret,
+	label_deb_soft1,
+	label_soft_nouser,
+	label_soft_selasid,
 };
 
 UASM_L_LA(_fpu_1)
@@ -145,6 +155,15 @@ UASM_L_LA(_not_write_count)
 UASM_L_LA(_finish_write_count)
 UASM_L_LA(_no_ti)
 UASM_L_LA(_nodecounter)
+UASM_L_LA(_soft_asid2)
+UASM_L_LA(_nor_exit)
+UASM_L_LA(_inv1_ret)
+UASM_L_LA(_inv2_ret)
+UASM_L_LA(_fast_inv1)
+UASM_L_LA(_fast_inv2)
+UASM_L_LA(_deb_soft1)
+UASM_L_LA(_soft_nouser)
+UASM_L_LA(_soft_selasid)
 
 static void *kvm_mips_build_enter_guest(void *addr);
 static void *kvm_mips_build_ret_from_exit(void *addr, int update_tlb);
@@ -852,8 +871,8 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 {
 	u32 *p = addr;
-	struct uasm_label labels[10];
-	struct uasm_reloc relocs[10];
+	struct uasm_label labels[15];
+	struct uasm_reloc relocs[20];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
@@ -902,7 +921,197 @@ void *kvm_mips_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_dsll32(&p, A1, A1, 16);
 	uasm_i_sltu(&p, A1, K0, A1);
 	/* A1 == 1 means (badvaddr < 0x4000000000000000) */
-	uasm_il_bnez(&p, &r, A1, label_mapped);
+//	uasm_il_bnez(&p, &r, A1, label_mapped);
+	uasm_il_beqz(&p, &r, A1, label_not_mapped);
+	uasm_i_nop(&p);
+
+	/* use soft TLB */
+	
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.asid_we), K1);
+	//++weight
+	UASM_i_MFGC0(&p, A1, C0_ENTRYHI);
+	uasm_i_dsll(&p, A1, A1, 3);	// A1 = offset
+	UASM_i_ADDU(&p, A0, A0, A1);	// A0 = &asid_we[asid]
+	UASM_i_LW(&p, A1, 0, A0);
+	uasm_i_daddiu(&p, A1, A1, 1);
+	UASM_i_SW(&p, A1, 0, A0);
+	//find index
+	uasm_i_dsrl(&p, A1, K0, 15);	//A1 = badv >> 15
+	uasm_i_andi(&p, A1, A1, 0x7fff);//A1 = index
+	uasm_i_dsll(&p, A1, A1, 5);	//A1 = offset
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.stlb), K1);
+	UASM_i_ADDU(&p, A1, A1, A0);	//A1 = &stlb[s_index]
+	
+	UASM_i_LW(&p, A0, 0, A1);	//A0 = lo0 x tag
+	uasm_i_dsrl(&p, A2, K0, 30);	//A2 = badv >> 31
+	UASM_i_LA(&p, A3, 0xffffffff);
+	uasm_i_and(&p, A2, A2, A3);
+	uasm_i_and(&p, A3, A0, A3);
+	uasm_il_bne(&p, &r, A2, A3, label_soft_asid2);	//vatag not match
+	uasm_i_nop(&p);
+	
+	UASM_i_LW(&p, A2, offsetof(soft_tlb, lo1), A1);	//A2 = ? x asid x rx1 x rx0 x lo1
+	UASM_i_MFGC0(&p, A1, C0_ENTRYHI);
+	uasm_i_dsrl32(&p, A3, A2, 16);	
+	uasm_i_andi(&p, A3, A3, 0xff); 
+	uasm_il_bne(&p, &r, A1, A3, label_soft_asid2);
+	uasm_i_nop(&p);
+	//vatag match, asid match, check if Entrylo = 0, data in A0, A2 
+	uasm_i_dsrl32(&p, A1, A0, 0);	//A1 = lo0
+	uasm_il_beqz(&p, &r, A1, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_dsrl32(&p, A3, A2, 0);	
+	uasm_i_dsll32(&p, A3, A3, 24);	//move rx to top 8 bit
+	uasm_i_or(&p, A0, A3, A1);
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO0);
+	
+	UASM_i_LA(&p, A3, 0xffffffff);
+	uasm_i_and(&p, A3, A2, A3);	//A3 = lo1
+	uasm_il_beqz(&p, &r, A3, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_dsrl32(&p, A0, A2, 8);	
+	uasm_i_dsll32(&p, A0, A0, 24);
+	uasm_i_or(&p, A0, A0, A3);	
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO1);
+	
+	
+#if 0
+//do not use multi load and store
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, vatag), A1);	//A0 = vatag
+	uasm_i_dsrl(&p, A2, K0, 30);	//A2 = badv >> 31
+	UASM_i_LA(&p, A3, 0xffffffff);
+	uasm_i_and(&p, A2, A2, A3);
+	uasm_il_bne(&p, &r, A2, A0, label_mapped);	//vatag not match
+	uasm_i_nop(&p);
+	//vatag match, then asid
+	UASM_i_MFGC0(&p, A0, C0_ENTRYHI);
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, asid), A1);	//A2 = asid
+	uasm_il_bne(&p, &r, A2, A0, label_mapped);	//asid not match
+	uasm_i_nop(&p);
+	//vatag match, asid match, write Entrylo
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, lo0), A1);	//A0 = lo0
+	uasm_il_beqz(&p, &r, A0, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, rx0), A1);	//A2 = rx
+	uasm_i_dsll32(&p, A2, A2, 24);	//move rx to top 8 bit
+	uasm_i_or(&p, A0, A0, A2);	//entrylo0
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO0);
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, lo1), A1);	//A0 = lo0
+	uasm_il_beqz(&p, &r, A0, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, rx1), A1);	//A2 = rx
+	uasm_i_dsll32(&p, A2, A2, 24);	//move rx to top 8 bit
+	uasm_i_or(&p, A0, A0, A2);	//entrylo0
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO1);
+#endif
+	UASM_i_MFC0(&p, A0, C0_ENTRYHI);//save root entryhi
+	uasm_i_dsrl(&p, A3, A0, 8);	
+	uasm_i_dsll(&p, A3, A3, 8);	//A3 = hi & ~0xff
+	UASM_i_MFGC0(&p, A2, C0_ENTRYHI);
+	uasm_i_or(&p, A2, A3, A2);
+	UASM_i_MTC0(&p, A2, C0_ENTRYHI);//write entryhi
+	//lo0, lo1 and entryhi ready
+	uasm_i_tlbwr(&p);
+	UASM_i_MTC0(&p, A0, C0_ENTRYHI);//restore root entryhi
+	
+	uasm_il_b(&p, &r, label_refill_exit);
+	uasm_i_nop(&p);
+	 
+	uasm_l_soft_asid2(&l, p);
+	
+	//asid1 match failed, match asid2
+	uasm_i_dsrl(&p, A1, K0, 15);	//A1 = badv >> 15
+	uasm_i_andi(&p, A1, A1, 0x7fff);//A1 = index
+	uasm_i_dsll(&p, A1, A1, 5);	//A1 = offset
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.stlb), K1);
+	UASM_i_ADDU(&p, A1, A1, A0);	//A1 = &stlb[s_index]
+	UASM_i_ADDIU(&p, A1, A1, sizeof(soft_tlb));	//A1 = &asid2
+	
+	UASM_i_LW(&p, A0, 0, A1);	//A0 = lo0 x tag
+	uasm_i_dsrl(&p, A2, K0, 30);	//A2 = badv >> 31
+	UASM_i_LA(&p, A3, 0xffffffff);
+	uasm_i_and(&p, A2, A2, A3);
+	uasm_i_and(&p, A3, A0, A3);
+	uasm_il_bne(&p, &r, A2, A3, label_mapped);	//vatag not match
+	uasm_i_nop(&p);
+	
+	UASM_i_LW(&p, A2, offsetof(soft_tlb, lo1), A1);	//A2 = ? x asid x rx1 x rx0 x lo1
+	UASM_i_MFGC0(&p, A1, C0_ENTRYHI);
+	uasm_i_dsrl32(&p, A3, A2, 16);	
+	uasm_i_andi(&p, A3, A3, 0xff); 
+	uasm_il_bne(&p, &r, A1, A3, label_mapped);
+	uasm_i_nop(&p);
+	//vatag match, asid match, check if Entrylo = 0, data in A0, A2 
+	uasm_i_dsrl32(&p, A1, A0, 0);	//A1 = lo0
+	uasm_il_beqz(&p, &r, A1, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_dsrl32(&p, A3, A2, 0);	
+	uasm_i_dsll32(&p, A3, A3, 24);	//move rx to top 8 bit
+	uasm_i_or(&p, A0, A3, A1);
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO0);
+	
+	UASM_i_LA(&p, A3, 0xffffffff);
+	uasm_i_and(&p, A3, A2, A3);	//A3 = lo1
+	uasm_il_beqz(&p, &r, A3, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_dsrl32(&p, A0, A2, 8);	
+	uasm_i_dsll32(&p, A0, A0, 24);
+	uasm_i_or(&p, A0, A0, A3);	
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO1);
+	
+	
+#if 0
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, vatag), A1);	//A0 = vatag
+	uasm_i_dsrl(&p, A2, K0, 30);	//A2 = badv >> 31
+	UASM_i_LA(&p, A3, 0xffffffff);
+	uasm_i_and(&p, A2, A2, A3);
+	uasm_il_bne(&p, &r, A2, A0, label_mapped);	//vatag not match
+	uasm_i_nop(&p);
+	//vatag match, then asid
+	UASM_i_MFGC0(&p, A0, C0_ENTRYHI);
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, asid), A1);	//A2 = asid
+	uasm_il_bne(&p, &r, A2, A0, label_mapped);	//asid not match
+	uasm_i_nop(&p);
+	//vatag match, asid match, write Entrylo
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, lo0), A1);	//A0 = lo0
+	uasm_il_beqz(&p, &r, A0, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, rx0), A1);	//A2 = rx
+	uasm_i_dsll32(&p, A2, A2, 24);	//move rx to top 8 bit
+	uasm_i_or(&p, A0, A0, A2);	//entrylo0
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO0);
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, lo1), A1);	//A0 = lo0
+	uasm_il_beqz(&p, &r, A0, label_mapped);
+	uasm_i_nop(&p);
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, rx1), A1);	//A2 = rx
+	uasm_i_dsll32(&p, A2, A2, 24);	//move rx to top 8 bit
+	uasm_i_or(&p, A0, A0, A2);	//entrylo0
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO1);
+#endif
+	UASM_i_MFC0(&p, A0, C0_ENTRYHI);//save root entryhi
+	uasm_i_dsrl(&p, A3, A0, 8);	
+	uasm_i_dsll(&p, A3, A3, 8);	//A3 = hi & ~0xff
+	UASM_i_MFGC0(&p, A2, C0_ENTRYHI);
+	uasm_i_or(&p, A2, A3, A2);
+	UASM_i_MTC0(&p, A2, C0_ENTRYHI);//write entryhi
+	//lo0, lo1 and entryhi ready
+	uasm_i_tlbwr(&p);
+	UASM_i_MTC0(&p, A0, C0_ENTRYHI);//restore root entryhi
+	//Flush ITLB to workaround read wrong root.entryhi.asid bug
+	uasm_i_ori(&p, A1, ZERO, 1);
+	uasm_i_mfc0(&p, A0, C0_DIAG);
+	uasm_i_ins(&p, A0, A1, LS_ITLB_SHIFT, 1);
+	uasm_i_mtc0(&p, A0, C0_DIAG);
+	//UASM_i_MFC0(&p, A0, C0_COUNT);
+	//uasm_i_dsubu(&p, A0, A0, T0);
+	//UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, stat.oric), K1);
+	//UASM_i_ADDU(&p, A0, A1, A0);
+	//UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, stat.oric), K1);
+	//uasm_i_dsrl(&p, A0, A0, 16);	
+	//UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, stat.count), K1);
+	
+	
+	uasm_il_b(&p, &r, label_refill_exit);
 	uasm_i_nop(&p);
 
 	uasm_l_not_mapped(&l, p);
@@ -1507,13 +1716,370 @@ void *kvm_mips_build_exit(void *addr)
 {
 	u32 *p = addr;
 	unsigned int i;
-	struct uasm_label labels[5];
-	struct uasm_reloc relocs[5];
+	struct uasm_label labels[15];
+	struct uasm_reloc relocs[15];
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
 
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
+#if issidepass
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+
+	uasm_i_mfc0(&p, K0, C0_CAUSE);
+	uasm_i_ext(&p, K0, K0, 2, 5);			//hypcall
+	UASM_i_ADDIU(&p, K1, ZERO, 0x1b);
+	uasm_il_bne(&p, &r, K0, K1, label_nor_exit);
+	uasm_i_nop(&p);
+
+	uasm_i_mfc0(&p, K0, C0_GUESTCTL0);
+	uasm_i_andi(&p, K0, K0, 0x8);			//hypcall
+	uasm_il_beqz(&p, &r, K0, label_nor_exit);
+	uasm_i_nop(&p);
+
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+
+	//UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu, slight_call.re_enable), K1);
+	uasm_il_bnez(&p, &r, V0, label_nor_exit);	// =0 to normal exit
+	//br 1
+	uasm_i_nop(&p);
+	//****fast path****
+
+	UASM_i_SW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+	UASM_i_SW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
+	UASM_i_SW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
+	UASM_i_SW(&p, A3, offsetof(struct kvm_vcpu, arch.gprs[A3]), K1);
+	UASM_i_SW(&p, T0, offsetof(struct kvm_vcpu, arch.gprs[T0]), K1);
+
+	//UASM_i_SW(&p, ZERO, offsetof(struct kvm_vcpu, slight_call.re_enable), K1);
+	uasm_i_move(&p, T0, A0);			//T0 = badv
+
+	UASM_i_LA(&p, A1, (unsigned long)0xc000ffffffffe000);  //A0 to hi
+	uasm_i_and(&p, K0, A0, A1);
+	UASM_i_MFGC0(&p, A0, MIPS_CP0_TLB_HI, 0);
+	uasm_i_dsrl(&p, K0, K0, 8);
+	uasm_i_dsll(&p, K0, K0, 8);
+	uasm_i_or(&p, K0, K0, A0);
+	UASM_i_MTC0(&p, K0, C0_ENTRYHI);
+
+	/*we have hi and mask from refill
+	 *A0 = badvaddr
+	 *A2 = even_pte  A3 = odd_pte
+	 */
+	//even pte
+
+	UASM_i_ROTR(&p, K0, A2, 10); // _PAGE_GLOBAL=2^10
+
+	uasm_i_andi(&p, A1, A2, 0xffff);		//A1 = prot_bits
+	uasm_i_andi(&p, A0, A1, 0x800);
+	uasm_il_beqz(&p, &r, A0, label_fast_inv1);
+	//br 2
+	uasm_i_nop(&p);
+	uasm_i_dsrl_safe(&p, A2, A2, 16);
+	uasm_i_dsll_safe(&p, A2, A2, 12);
+	uasm_i_move(&p, K0, A2);			//K0 = gpa
+
+	UASM_i_LW(&p, K1, (int)offsetof(struct kvm_vcpu, kvm), K1);
+	UASM_i_LW(&p, K1, offsetof(struct kvm, arch.gpa_mm.pgd), K1);
+
+	uasm_i_dsrl_safe(&p, A0, K0, 33);
+	uasm_i_andi(&p, A0, A0, 0x7ff8);
+	uasm_i_daddu(&p, K1, K1, A0);			//K1 = **pmd
+	UASM_i_LW(&p, K1, 0, K1);			//k1= *pmd
+
+	uasm_i_dsrl_safe(&p, A0, K0, 22);
+	uasm_i_andi(&p, A0, A0, 0x3ff8);
+	uasm_i_daddu(&p, K1, K1, A0);			//K1 = **pte
+	UASM_i_LW(&p, K1, 0, K1);			//K1 = *pte
+
+	uasm_i_dsrl_safe(&p, A0, K0, 11);
+	uasm_i_andi(&p, A0, A0, 0x3ff8);
+	uasm_i_daddu(&p, K1, K1, A0);			//K1 = ls_map_page ptep
+	UASM_i_LW(&p, A0, 0, K1);			//A0 = *ptep
+	uasm_i_move(&p, A2, K1);
+
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_PRESENT | _PAGE_PROTNONE));	//!pte_present
+	uasm_i_and(&p, K1, A0, K1);
+	UASM_i_LA(&p, K0, (unsigned long)(_PAGE_WRITE));	//!pte_write
+	uasm_i_and(&p, K0, A0, K0);
+	uasm_i_slt(&p, K1, ZERO, K1);
+	uasm_i_slt(&p, K0, ZERO, K0);
+	uasm_i_and(&p, K1, K0, K1);
+	uasm_il_beqz(&p, &r, K1, label_fast_inv1);
+	//br 3
+	uasm_i_nop(&p);
+
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_ACCESSED));	//pte_young
+	uasm_i_or(&p, A0, A0, K1);
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_NO_READ));
+	uasm_i_and(&p, K1, A0, K1);
+	UASM_i_LA(&p, K0, (unsigned long)(_PAGE_SILENT_READ));
+	uasm_i_or(&p, K0, A0, K0);
+	uasm_i_movz(&p, A0, K0, K1);
+	UASM_i_SW(&p, A0, 0, A2);			//set_pte
+
+	uasm_i_ori(&p, K0, ZERO, 0x1);
+	UASM_i_SUBU(&p, K0, V1, K0);
+	uasm_i_ori(&p, K1, ZERO, 0x3);
+	UASM_i_SUBU(&p, K1, V1, K1);
+	uasm_i_and(&p, K0, K0, K1);	//K0 = 0 => V1 = 1 || V1 = 3
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_MODIFIED));	//!pte_dirty
+	uasm_i_and(&p, K1, A0, K1);
+	uasm_i_and(&p, K0, K0, K1);	//K0 = 0 => (V1 = 1 || V1 = 3) || PG_M = 1
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_SILENT_WRITE));	//pte_mkdirty
+	uasm_i_or(&p, K1, A0, K1);
+	uasm_i_movn(&p, A0, K0, K0);
+	UASM_i_SW(&p, A0, 0, A2);			//set_pte
+
+	//	UASM_i_LA(&p, A2, (unsigned long)0xffffffffffff0000);
+	//	uasm_i_or(&p, A1, A2, A1);
+	//	uasm_i_and(&p, A0, A0, A1);
+	uasm_i_dsrl(&p, A0, A0, 16);
+	uasm_i_dsll(&p, A0, A0, 16);
+	uasm_i_or(&p, A0, A0, A1);
+
+	UASM_i_ROTR(&p, A0, A0, 10); // _PAGE_GLOBAL=2^10
+
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO0);	//A0 = lo , A2 = ld pte
+	uasm_l_inv1_ret(&l, p);
+
+	//odd_pte
+	//#if 0
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+	UASM_i_ROTR(&p, K0, A3, 10); // _PAGE_GLOBAL=2^10
+
+	uasm_i_andi(&p, A1, A3, 0xffff);		//A1 = prot_bits
+	uasm_i_andi(&p, A0, A1, 0x800);
+	uasm_il_beqz(&p, &r, A0, label_fast_inv2);
+	//br 4
+	uasm_i_nop(&p);
+	//uasm_i_move(&p, A3, A2);
+	uasm_i_dsrl_safe(&p, A3, A3, 16);
+	uasm_i_dsll_safe(&p, A3, A3, 12);
+	uasm_i_move(&p, K0, A3);			//K0 = gpa
+
+	UASM_i_LW(&p, K1, (int)offsetof(struct kvm_vcpu, kvm), K1);
+	UASM_i_LW(&p, K1, offsetof(struct kvm, arch.gpa_mm.pgd), K1);
+
+	uasm_i_dsrl_safe(&p, A0, K0, 33);
+	uasm_i_andi(&p, A0, A0, 0x7ff8);
+	uasm_i_daddu(&p, K1, K1, A0);			//K1 = **pmd
+	UASM_i_LW(&p, K1, 0, K1);			//k1= *pmd
+
+	uasm_i_dsrl_safe(&p, A0, K0, 22);
+	uasm_i_andi(&p, A0, A0, 0x3ff8);
+	uasm_i_daddu(&p, K1, K1, A0);			//K1 = **pte
+	UASM_i_LW(&p, K1, 0, K1);			//K1 = *pte
+
+	uasm_i_dsrl_safe(&p, A0, K0, 11);
+	uasm_i_andi(&p, A0, A0, 0x3ff8);
+	uasm_i_daddu(&p, K1, K1, A0);			//K1 = ls_map_page ptep
+
+	UASM_i_LW(&p, A0, 0, K1);			//A0 = pte
+	uasm_i_move(&p, A3, K1);
+
+
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_PRESENT | _PAGE_PROTNONE));	//!pte_present
+	uasm_i_and(&p, K1, A0, K1);
+	UASM_i_LA(&p, K0, (unsigned long)(_PAGE_WRITE));	//!pte_write
+	uasm_i_and(&p, K0, A0, K0);
+	uasm_i_slt(&p, K1, ZERO, K1);
+	uasm_i_slt(&p, K0, ZERO, K0);
+	uasm_i_and(&p, K1, K0, K1);
+	uasm_il_beqz(&p, &r, K1, label_fast_inv2);
+	//br 5
+	uasm_i_nop(&p);
+
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_ACCESSED));	//pte_young
+	uasm_i_or(&p, A0, A0, K1);
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_NO_READ));
+	uasm_i_and(&p, K1, A0, K1);
+	UASM_i_LA(&p, K0, (unsigned long)(_PAGE_SILENT_READ));
+	uasm_i_or(&p, K0, A0, K0);
+	uasm_i_movz(&p, A0, K0, K1);
+	UASM_i_SW(&p, A0, 0, A3);			//set_pte
+
+	uasm_i_ori(&p, K0, ZERO, 0x1);
+	UASM_i_SUBU(&p, K0, V1, K0);
+	uasm_i_ori(&p, K1, ZERO, 0x3);                
+	UASM_i_SUBU(&p, K1, V1, K1);
+	uasm_i_and(&p, K0, K0, K1);	//K0 = 0 => V1 = 1 || V1 = 3
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_MODIFIED));	//!pte_dirty
+	uasm_i_and(&p, K1, A0, K1);
+	uasm_i_and(&p, K0, K0, K1);	//K0 = 0 => (V1 = 1 || V1 = 3) || PG_M = 1
+	UASM_i_LA(&p, K1, (unsigned long)(_PAGE_SILENT_WRITE));	//pte_mkdirty
+	uasm_i_or(&p, K1, A0, K1);
+	uasm_i_movn(&p, A0, K0, K0);
+	UASM_i_SW(&p, A0, 0, A3);			//set_pte
+
+	//	UASM_i_LA(&p, A2, (unsigned long)0xffffffffffff0000);
+	//	uasm_i_or(&p, A1, A2, A1);
+	//	uasm_i_and(&p, A0, A0, A1);
+	uasm_i_dsrl(&p, A0, A0, 16);
+	uasm_i_dsll(&p, A0, A0, 16);
+	uasm_i_or(&p, A0, A0, A1);
+
+	UASM_i_ROTR(&p, A0, A0, 10); // _PAGE_GLOBAL=2^10
+
+	UASM_i_MTC0(&p, A0, C0_ENTRYLO1);	//A0 = lo , A2 = ld pte
+	//UASM_i_MTC0(&p, ZERO, C0_ENTRYLO1);	//A0 = lo , A2 = ld pte
+	uasm_l_inv2_ret(&l, p);
+	//#endif
+
+	uasm_i_ori(&p, K0, ZERO, 0x7800);
+	UASM_i_MTC0(&p, K0, C0_PAGEMASK);
+	//write soft TLB
+	//
+	UASM_i_ADDIU(&p, A1, ZERO, 0x4000);
+	uasm_i_dsll32(&p, A1, A1, 16);
+	uasm_i_sltu(&p, A1, T0, A1);
+	/* A1 == 1 means (badvaddr < 0x4000000000000000) ;badv = user */
+	uasm_il_beqz(&p, &r, A1, label_soft_nouser);	//A1 = 0; badv = 0xC000
+	uasm_i_nop(&p);
+
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+
+	uasm_i_dsrl(&p, A1, T0, 15);	//A1 = badv >> 15
+	uasm_i_andi(&p, A1, A1, 0x7fff);//A1 = index
+	uasm_i_dsll(&p, A1, A1, 5);	//A1 = offset
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.stlb), K1);
+	UASM_i_ADDU(&p, A1, A1, A0);	//A1 = &stlb[s_index]
+
+	//repalce one asid
+
+	UASM_i_MFC0(&p, A3, C0_ENTRYHI);
+	uasm_i_andi(&p, A3, A3, 0xff);
+	//check already have same asid
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, asid), A1);
+	uasm_il_beq(&p, &r, A3, A2, label_soft_selasid);
+	uasm_i_nop(&p);
+	UASM_i_ADDIU(&p, A2, A1, sizeof(struct soft_tlb));
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, asid), A2);
+	uasm_il_beq(&p, &r, A3, A2, label_soft_selasid);
+	UASM_i_ADDIU(&p, A1, A1, sizeof(struct soft_tlb));
+	//restore A1 = asid1
+	uasm_i_ori(&p, A2, ZERO, sizeof(struct soft_tlb));
+	UASM_i_SUBU(&p, A1, A1, A2);
+	//get we1
+	uasm_i_lbu(&p, A2, offsetof(struct soft_tlb, asid), A1);
+	UASM_i_LW(&p, A3, offsetof(struct kvm_vcpu, arch.asid_we), K1);
+	uasm_i_dsll(&p, A2, A2, 3);	//size = long
+	UASM_i_ADDU(&p, A2, A2, A3);	//A2 = &asid[we]
+	UASM_i_LW(&p, A2, 0, A2);	//A2 = we[asid1]
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, lo0), A1);
+	uasm_il_beqz(&p, &r, A0, label_soft_selasid);	//lo = 0, replace
+	uasm_i_nop(&p);
+
+	//get we2
+	UASM_i_ADDIU(&p, A1, A1, sizeof(struct soft_tlb));
+	uasm_i_lbu(&p, A0, offsetof(struct soft_tlb, asid), A1);
+	uasm_i_dsll(&p, A0, A0, 3);	//size = long
+	UASM_i_ADDU(&p, A0, A0, A3);	//A0 = &asid[we]
+	UASM_i_LW(&p, A0, 0, A0);	//A0 = we[asid2]
+	uasm_i_lwu(&p, A0, offsetof(struct soft_tlb, lo0), A1);
+	uasm_il_beqz(&p, &r, A0, label_soft_selasid);	//lo = 0, replace
+	uasm_i_nop(&p);
+
+	//compare A2, A0, now A1 = asid2
+	uasm_i_sltu(&p, A3, A2, A0);	//if A3 = 0, movz, A2 > A0, A1 = asid1
+	uasm_i_ori(&p, A2, ZERO, sizeof(struct soft_tlb));
+	UASM_i_SUBU(&p, A2, A1, A2);
+	uasm_i_movz(&p, A1, A2, A3);
+
+	uasm_l_soft_selasid(&l, p);
+	//A1 = &stlb[asid]
+	uasm_i_dsrl(&p, A0, T0, 30);
+	UASM_i_LA(&p, A2, 0xffffffff);
+	uasm_i_and(&p, A0, A0, A2);
+	uasm_i_sw(&p, A0, offsetof(struct soft_tlb, vatag), A1);	//A0 = vatag
+
+	UASM_i_MFC0(&p, A0, C0_ENTRYLO0);	//A0 = lo , A2 = ld pte
+	uasm_i_and(&p, A3, A0, A2);
+	uasm_i_sw(&p, A3, offsetof(struct soft_tlb, lo0), A1);
+	uasm_i_dsrl32(&p, A3, A0, 24);		//A2 = rx1 in 8-15 bit
+	uasm_i_sb(&p, A3, offsetof(struct soft_tlb, rx0), A1);
+
+	UASM_i_MFC0(&p, A0, C0_ENTRYLO1);	//A0 = lo , A2 = ld pte
+	uasm_i_and(&p, A3, A0, A2);
+	uasm_i_sw(&p, A3, offsetof(struct soft_tlb, lo1), A1);
+	uasm_i_dsrl32(&p, A3, A0, 24);		//A2 = rx1 in 8-15 bit
+	uasm_i_sb(&p, A3, offsetof(struct soft_tlb, rx1), A1);
+
+	UASM_i_MFC0(&p, A2, C0_ENTRYHI);
+	uasm_i_andi(&p, A2, A2, 0xff);
+	uasm_i_sb(&p, A2, offsetof(struct soft_tlb, asid), A1);
+#if 0
+	UASM_i_MFC0(&p, A0, C0_ENTRYLO0);
+	uasm_i_and(&p, A0, A0, A2);
+	uasm_i_sw(&p, A0, offsetof(struct soft_tlb, lo0), A1);
+	//A0 top 8 bit = rx0
+	//group rx0 rx1 asid in a word with little endian
+	UASM_i_LA(&p, A3, (unsigned long)0xff00000000000000);
+	uasm_i_and(&p, A0, A0, A3);
+	uasm_i_dsrl32(&p, A0, A0, 24);		//A2 = rx0 in 0-7 bit
+	UASM_i_MFC0(&p, A2, C0_ENTRYLO1);
+	uasm_i_and(&p, A2, A2, A3);
+	uasm_i_dsll32(&p, A0, A0, 16);		//A2 = rx1 in 8-15 bit
+	uasm_i_or(&p, A0, A0, A2);
+	UASM_i_MFC0(&p, A2, C0_ENTRYHI);
+	uasm_i_andi(&p, A2, A2, 0xff);
+	uasm_i_dsll(&p, A2, A2, 16);		//A2 = asid in 16 - 23 bit
+	uasm_i_or(&p, A0, A0, A2);
+	uasm_i_sw(&p, A0, offsetof(struct soft_tlb, rx0), A1);	//A0 = vatag
+#endif
+	uasm_l_soft_nouser(&l, p);
+
+	uasm_i_tlbwr(&p);
+
+	UASM_i_MFC0(&p, K0, C0_EPC);
+	uasm_i_addiu(&p, K0, K0, 0x4);
+	UASM_i_MTC0(&p, K0, C0_EPC);
+
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+	UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
+	UASM_i_LW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
+	UASM_i_LW(&p, A3, offsetof(struct kvm_vcpu, arch.gprs[A3]), K1);
+	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu, arch.gprs[T0]), K1);
+
+
+	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
+	UASM_i_LW(&p, K0, offsetof(struct kvm_vcpu_arch, gprs[K0]), K1);
+	UASM_i_MFC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
+
+
+	uasm_i_eret(&p);	//epc = guest tlb_miss
+
+	uasm_l_fast_inv1(&l, p);
+	UASM_i_MTC0(&p, ZERO, C0_ENTRYLO0);
+	//UASM_i_MTC0(&p, ZERO, C0_ENTRYLO1);
+	uasm_i_move(&p, T0, ZERO);
+	uasm_il_b(&p, &r, label_inv1_ret);
+	//br 6
+	uasm_i_nop(&p);
+
+	uasm_l_fast_inv2(&l, p);
+	//UASM_i_MTC0(&p, ZERO, C0_ENTRYLO0);
+	UASM_i_MTC0(&p, ZERO, C0_ENTRYLO1);
+	uasm_i_move(&p, T0, ZERO);
+	uasm_il_b(&p, &r, label_inv2_ret);
+	//br 7
+	uasm_i_nop(&p);
+
+
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+
+	UASM_i_LW(&p, A0, offsetof(struct kvm_vcpu, arch.gprs[A0]), K1);
+	UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, arch.gprs[A1]), K1);
+	UASM_i_LW(&p, A2, offsetof(struct kvm_vcpu, arch.gprs[A2]), K1);
+	UASM_i_LW(&p, A3, offsetof(struct kvm_vcpu, arch.gprs[A3]), K1);
+	UASM_i_LW(&p, T0, offsetof(struct kvm_vcpu, arch.gprs[T0]), K1);
+
+
+	uasm_l_nor_exit(&l, p);
+	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);
+	UASM_i_ADDIU(&p, K1, K1, offsetof(struct kvm_vcpu, arch));
+#endif
 
 	/*
 	 * Generic Guest exception handler. We end up here when the guest

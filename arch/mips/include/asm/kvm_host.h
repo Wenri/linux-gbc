@@ -336,6 +336,22 @@ struct kvm_mmu_memory_cache {
 #define KVM_MIPS_AUX_MSA	0x2
 
 #define KVM_MIPS_GUEST_TLB_SIZE	64
+
+#define STLB_WAY		(0x1 << 15)
+#define STLB_WAY_MASK		(STLB_WAY - 1)
+#define STLB_SET		2
+#define STLB_BUF_SIZE		(STLB_WAY * STLB_SET)
+#define STLB_ASID_SIZE		256
+typedef struct {
+	u32 vatag;
+	u32 lo0;
+	u32 lo1;
+	unsigned char rx0;
+	unsigned char rx1;
+	unsigned char asid;
+	unsigned char reserved;
+} soft_tlb;
+
 struct kvm_vcpu_arch {
 	void *guest_ebase;
 	int (*vcpu_run)(struct kvm_run *run, struct kvm_vcpu *vcpu);
@@ -446,6 +462,8 @@ struct kvm_vcpu_arch {
 
 	u8 fpu_enabled;
 	u8 msa_enabled;
+	soft_tlb *stlb;
+	unsigned long *asid_we;
 };
 
 static inline void _kvm_atomic_set_c0_guest_reg(unsigned long *reg,
