@@ -393,10 +393,16 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	even_pte = pte_val(*ptep++);
 	odd_pte = pte_val(*ptep);
 
-	if(vma->vm_flags & VM_WRITE)
-		vm_flags = 3;
+	if((tmp_address >> PAGE_SIZE) & 0x1)
+		if(odd_pte & _PAGE_DIRTY)
+			vm_flags = 3;
+		else
+			vm_flags = 2;
 	else
-		vm_flags = 2;
+		if(even_pte & _PAGE_DIRTY)
+			vm_flags = 3;
+		else
+			vm_flags = 2;
 
 	emulate_tlb_ops(tmp_address, pageshift, even_pte, odd_pte, 0x4000, vm_flags);
 #else

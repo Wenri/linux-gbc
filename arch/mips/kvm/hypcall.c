@@ -376,7 +376,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		flush_tlb_all();
 		memset(vcpu->arch.stlb, 0, STLB_BUF_SIZE * sizeof(soft_tlb));
 		memset(vcpu->arch.asid_we, 0, STLB_ASID_SIZE * sizeof(unsigned long));
-	} else {
+	} else if ((args[4] >> 12) < 5) {
 		unsigned long prot_bits = 0;
 		unsigned long prot_bits1 = 0;
 		unsigned long gpa = 0;
@@ -423,27 +423,38 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		/* Now the prot bits scatter as this
 		CCA D V G RI XI SP PROT S H M A W P
 		so set all CCA=3 as cached*/
-		prot_bits |= 0x6000;
-		prot_bits1 |= 0x6000;
+		prot_bits |= _page_cachable_default;
+		prot_bits1 |= _page_cachable_default;
 
 		//Process GUEST odd pte
 		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
-		if(slot)
+		if(!slot) {
+			pte_gpa1[0].pte = 0;
+			pte_gpa1[1].pte = 0;
+			kvm_err("gpa %lx not in guest memory area\n", gpa);
+			goto out;
+		} else
 			hva1 = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
 		//Process GUEST even pte
 		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
 		gfn = gpa >> PAGE_SHIFT;
 		slot = gfn_to_memslot(vcpu->kvm, gfn);
-		if(slot)
+		if(!slot) {
+			pte_gpa[0].pte = 0;
+			pte_gpa[1].pte = 0;
+			kvm_err("gpa %lx not in guest memory area\n", gpa);
+			goto out;
+		} else
 			hva = slot->userspace_addr + (gfn - slot->base_gfn) * PAGE_SIZE;
 
 		ret = guest_pte_trans(args, vcpu, write_fault, pte_gpa, pte_gpa1);
 		if(ret)
 			kvm_info("translate gpa error\n");
 
+out:
 		/*update software tlb
 		*/
 		vcpu->arch.guest_tlb[1].tlb_hi = (args[0] & 0xc000ffffffffe000);
@@ -582,6 +593,10 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 					pte_val(pte_gpa[0]),pte_val(pte_gpa[1]),
 					(unsigned long)pte_to_entrylo((pte_val(pte_gpa[0]) & 0xffffffffffff0000) | prot_bits1),
 					(unsigned long)pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) | prot_bits));
+	} else {
+		/* Report unimplemented hypercall to guest */
+		*hret = -KVM_ENOSYS;
+		kvm_err("unsupported hypcall operation from guest %lx\n", vcpu->arch.pc);
 	}
 #endif
 
