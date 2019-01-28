@@ -2050,8 +2050,6 @@ static void kvm_vz_get_new_vpid(unsigned long cpu, struct kvm_vcpu *vcpu)
 
 		/* start new guestid cycle */
 		local_flush_tlb_all();
-                memset(vcpu->arch.stlb, 0, STLB_BUF_SIZE * sizeof(soft_tlb));
-                memset(vcpu->arch.asid_we, 0, STLB_ASID_SIZE * sizeof(unsigned long));
 	}
 
 	vpid_cache(cpu) = guestid;

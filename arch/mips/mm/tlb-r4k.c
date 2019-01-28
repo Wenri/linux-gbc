@@ -393,7 +393,7 @@ void __update_tlb(struct vm_area_struct * vma, unsigned long address, pte_t pte)
 	even_pte = pte_val(*ptep++);
 	odd_pte = pte_val(*ptep);
 
-	if((tmp_address >> PAGE_SIZE) & 0x1)
+	if((tmp_address >> PAGE_SHIFT) & 0x1)
 		if(odd_pte & _PAGE_DIRTY)
 			vm_flags = 3;
 		else

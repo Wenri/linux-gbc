@@ -458,10 +458,14 @@ out:
 		/*update software tlb
 		*/
 		vcpu->arch.guest_tlb[1].tlb_hi = (args[0] & 0xc000ffffffffe000);
+		/* only normal pagesize is supported now */
+		vcpu->arch.guest_tlb[1].tlb_mask = 0x7800; //normal pagesize 16KB
+		#if 0
 		if (args[1] == 14)
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x7800; //normal pagesize 16KB
 		else if (args[1] == 24)
 			vcpu->arch.guest_tlb[1].tlb_mask = 0x1fff800; //huge pagesize 16MB
+		#endif
 
 		if((hva >> args[1]) & 1)
 			vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa[1]) & 0xffffffffffff0000) |
