@@ -160,7 +160,7 @@ static inline void cpu_probe_vmbits(struct cpuinfo_mips *c)
 {
 #ifdef __NEED_VMBITS_PROBE
 #ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-	c->vmbits = 48;
+	c->vmbits = 40;
 #else
 	write_c0_entryhi(0x3fffffffffffe000ULL);
 	back_to_back_c0_hazard();
