@@ -64,6 +64,7 @@ int __init rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
                 irq = VIRTDEV_QXL_IRQ;
         break;
         default:
+		irq = VIRTDEV_IRQ_DEFAULT;
         break;
     }
 	return irq;
