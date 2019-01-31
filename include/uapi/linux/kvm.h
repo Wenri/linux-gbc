@@ -443,7 +443,10 @@ struct kvm_s390_interrupt {
 
 struct kvm_mips_vcpu_state {
          unsigned long nodecounter_value;
-	 __u32 is_migrate;
+	  __u32 is_migrate;
+	  __u32 online_vcpus;
+         unsigned long pending_exceptions;
+         unsigned long pending_exceptions_clr;
  };
 
 /* for KVM_SET_GUEST_DEBUG */

@@ -374,6 +374,7 @@ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
 
 	kvm_info("kvm @ %p: create cpu %d at %p\n", kvm, id, vcpu);
 
+	kvm->arch.online_vcpus = id + 1;
 	/*
 	 * Allocate space for host mode exception handlers that handle
 	 * guest mode exits
@@ -1170,17 +1171,28 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long r;
 	struct kvm *kvm = filp->private_data;
+	struct kvm_vcpu *vcpu; 
 	void __user *argp = (void __user *)arg;
+	int i;
 
 	switch (ioctl) {
 	case KVM_MIPS_GET_VCPU_STATE:
 	{
 		struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
 		struct  kvm_mips_vcpu_state *vcpu_state;
-		vcpu_state = kmalloc(sizeof(struct kvm_mips_vcpu_state),GFP_KERNEL);
+		int num_vcpus = kvm->arch.online_vcpus;
+		vcpu_state = kmalloc(sizeof(struct kvm_mips_vcpu_state), GFP_KERNEL);
 
 		vcpu_state->is_migrate = 1;
 		vcpu_state->nodecounter_value =  kvm->arch.nodecounter_value;
+		vcpu_state->online_vcpus = num_vcpus; 
+
+	        for (i = 0; i < num_vcpus; i++){
+	            vcpu = kvm->vcpus[i];
+		    vcpu_state->pending_exceptions |=  vcpu->arch.pending_exceptions_save << (i * 16);
+		    vcpu_state->pending_exceptions_clr |=  vcpu->arch.pending_exceptions_clr_save << (i * 16);
+	        }
+
 		if (copy_to_user(vcpu_state_user, vcpu_state, sizeof(struct kvm_mips_vcpu_state)))
 			return -EFAULT;
 		r = 0;
@@ -1198,6 +1210,14 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		
                kvm->arch.is_migrate = vcpu_state->is_migrate;
                kvm->arch.nodecounter_value = vcpu_state->nodecounter_value;
+               kvm->arch.online_vcpus = vcpu_state->online_vcpus;
+	      
+	        for (i = 0; i < kvm->arch.online_vcpus; i++){
+		    vcpu = kvm->vcpus[i];
+		    vcpu->arch.pending_exceptions |= ((vcpu_state->pending_exceptions >> (i * 16)) & 0xffff);
+		    vcpu->arch.pending_exceptions_clr |= ((vcpu_state->pending_exceptions_clr >> (i * 16)) & 0xffff);
+		}
+
                r = 0;
                break;
        }

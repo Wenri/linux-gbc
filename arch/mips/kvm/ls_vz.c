@@ -1130,12 +1130,16 @@ static void kvm_vz_queue_irq(struct kvm_vcpu *vcpu, unsigned int priority)
 {
 	set_bit(priority, &vcpu->arch.pending_exceptions);
 	clear_bit(priority, &vcpu->arch.pending_exceptions_clr);
+	vcpu->arch.pending_exceptions_save = vcpu->arch.pending_exceptions;
+	vcpu->arch.pending_exceptions_clr_save = vcpu->arch.pending_exceptions_clr;
 }
 
 static void kvm_vz_dequeue_irq(struct kvm_vcpu *vcpu, unsigned int priority)
 {
 	clear_bit(priority, &vcpu->arch.pending_exceptions);
 	set_bit(priority, &vcpu->arch.pending_exceptions_clr);
+	vcpu->arch.pending_exceptions_save = vcpu->arch.pending_exceptions;
+	vcpu->arch.pending_exceptions_clr_save = vcpu->arch.pending_exceptions_clr;
 }
 
 static void kvm_vz_queue_timer_int_cb(struct kvm_vcpu *vcpu)
