@@ -1171,7 +1171,7 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long r;
 	struct kvm *kvm = filp->private_data;
-	struct kvm_vcpu *vcpu; 
+	struct kvm_vcpu *vcpu;
 	void __user *argp = (void __user *)arg;
 	int i;
 
@@ -1181,11 +1181,11 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
 		struct  kvm_mips_vcpu_state *vcpu_state;
 		int num_vcpus = kvm->arch.online_vcpus;
-		vcpu_state = kmalloc(sizeof(struct kvm_mips_vcpu_state), GFP_KERNEL);
+		vcpu_state = kzalloc(sizeof(struct kvm_mips_vcpu_state), GFP_KERNEL);
 
 		vcpu_state->is_migrate = 1;
 		vcpu_state->nodecounter_value =  kvm->arch.nodecounter_value;
-		vcpu_state->online_vcpus = num_vcpus; 
+		vcpu_state->online_vcpus = num_vcpus;
 
 	        for (i = 0; i < num_vcpus; i++){
 	            vcpu = kvm->vcpus[i];
@@ -1203,15 +1203,15 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
        {
                struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
                struct  kvm_mips_vcpu_state *vcpu_state;
-	       vcpu_state = kmalloc(sizeof(struct kvm_mips_vcpu_state),GFP_KERNEL);
- 
+	       vcpu_state = kzalloc(sizeof(struct kvm_mips_vcpu_state),GFP_KERNEL);
+
                if (copy_from_user(vcpu_state, vcpu_state_user, sizeof(struct kvm_mips_vcpu_state)))
                        return -EFAULT;
-		
+
                kvm->arch.is_migrate = vcpu_state->is_migrate;
                kvm->arch.nodecounter_value = vcpu_state->nodecounter_value;
                kvm->arch.online_vcpus = vcpu_state->online_vcpus;
-	      
+
 	        for (i = 0; i < kvm->arch.online_vcpus; i++){
 		    vcpu = kvm->vcpus[i];
 		    vcpu->arch.pending_exceptions |= ((vcpu_state->pending_exceptions >> (i * 16)) & 0xffff);
