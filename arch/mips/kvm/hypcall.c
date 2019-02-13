@@ -299,13 +299,11 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		memset(vcpu->arch.asid_we, 0, STLB_ASID_SIZE * sizeof(unsigned long));
 	} else if ((args[4] >> 12) < 5) {
 		unsigned long prot_bits = 0;
-		unsigned long prot_bits1 = 0;
 		unsigned long gpa;
 		int write_fault = 0;
 		pte_t pte_gpa;
 		pte_t pte_gpa1;
 		int ret = 0;
-		u32 gsexccode = args[5];
 
 		unsigned long cksseg_gva;
 		int offset, cksseg_odd = 0;
@@ -315,46 +313,38 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		unsigned long flags;
 		int tmp_index,idx;
 
-		//Distinct TLBL/TLBS/TLBM
-		switch(gsexccode) {
-		case EXCCODE_TLBL:
-			write_fault = 0;
-			break;
-		case EXCCODE_TLBS:
-			write_fault = 1;
-			break;
-		case EXCCODE_MOD:
-			write_fault = 1;
-			break;
-		case EXCCODE_TLBRI:
-			break;
-		case EXCCODE_TLBXI:
-			break;
-		default:
-			kvm_info("illegal guest cause value %lx type %lx\n",args[5],args[4]);
-			break;
-		}
-		prot_bits = args[2] & 0xffff; //Get all the sw/hw prot bits of odd pte
-		prot_bits1 = args[3] & 0xffff; //Get all the sw/hw prot bits of even pte
-
 		/* Now the prot bits scatter as this
 		CCA D V G RI XI SP PROT S H M A W P
 		so set all CCA=3 as cached*/
-		prot_bits |= _page_cachable_default;
-		prot_bits1 |= _page_cachable_default;
 
-		pte_gpa.pte = 0;
-		pte_gpa1.pte = 0;
-		gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
-		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, _PAGE_GLOBAL, &pte_gpa, NULL);
-		if (ret) {
-			kvm_err("gpa %lx not in guest memory area gva %lx hypercall num %lx\n", gpa, args[0], num);
+		pte_val(pte_gpa) = 0;
+		pte_val(pte_gpa1) = 0;
+		if (args[2] & _PAGE_VALID) {
+			write_fault = args[2] & _PAGE_DIRTY;
+			gpa = ((pte_to_entrylo(args[2]) & 0x3ffffffffff) >> 6) << 12;
+			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, _PAGE_GLOBAL, &pte_gpa, NULL);
+			if (ret == 0) {
+				prot_bits = args[2] & 0xffff;
+				prot_bits = (prot_bits & ~_CACHE_MASK) | _page_cachable_default;
+				pte_val(pte_gpa) = (pte_val(pte_gpa) & _PFN_MASK) | (prot_bits & pte_val(pte_gpa) & ~_PFN_MASK);
+				/* NI/RI attribute does not support now */
+				//pte_val(pte_gpa) = (pte_val(pte_gpa) & _PFN_MASK) | ((_PAGE_NO_EXEC | _PAGE_NO_READ) & prot_bits & ~_PFN_MASK);
+			} else
+				kvm_err("gpa %lx not in guest memory area gva %lx hypercall num %lx\n", gpa, args[0], num);
 		}
 
-		gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
-		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, _PAGE_GLOBAL, &pte_gpa1, NULL);
-		if (ret) {
-			kvm_err("gpa %lx not in guest memory area gva %lx hypercall num %lx\n", gpa, args[0], num);
+		if (args[3] & _PAGE_VALID) {
+			write_fault = args[3] & _PAGE_DIRTY;
+			gpa = ((pte_to_entrylo(args[3]) & 0x3ffffffffff) >> 6) << 12;
+			ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, _PAGE_GLOBAL, &pte_gpa1, NULL);
+			if (ret == 0) {
+				prot_bits = args[3] & 0xffff; //Get all the sw/hw prot bits of even pte
+				prot_bits = (prot_bits & ~_CACHE_MASK) | _page_cachable_default;
+				pte_val(pte_gpa1) = (pte_val(pte_gpa1) & _PFN_MASK) | (prot_bits & pte_val(pte_gpa1) & ~_PFN_MASK);
+				/* NI/RI attribute does not support now */
+				//pte_val(pte_gpa1) = (pte_val(pte_gpa1) & _PFN_MASK) | ((_PAGE_NO_EXEC|_PAGE_NO_READ) & prot_bits & ~_PFN_MASK);
+			} else
+				kvm_err("gpa %lx not in guest memory area gva %lx hypercall num %lx\n", gpa, args[0], num);
 		}
 
 		/*update software tlb
@@ -363,11 +353,8 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		/* only normal pagesize is supported now */
 		vcpu->arch.guest_tlb[1].tlb_mask = 0x7800; //normal pagesize 16KB
 
-		vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo((pte_val(pte_gpa) & 0xffffffffffff0000) |
-									(prot_bits & (pte_val(pte_gpa) & 0xffff)));
-
-		vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo((pte_val(pte_gpa1) & 0xffffffffffff0000) |
-									(prot_bits1 & (pte_val(pte_gpa1) & 0xffff)));
+		vcpu->arch.guest_tlb[1].tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa));
+		vcpu->arch.guest_tlb[1].tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa1));
 
 		if ((args[0] & 0xf000000000000000) == XKUSEG) {
 			/* user space use soft TLB*/
@@ -412,7 +399,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		tmp_diag |= (1<<18);
 		write_c0_diag(tmp_diag);
 
-		write_c0_entryhi(vcpu->arch.guest_tlb[1].tlb_hi | read_gc0_entryhi());
+		write_c0_entryhi(vcpu->arch.guest_tlb[1].tlb_hi | (read_gc0_entryhi() & MIPS_ENTRYHI_ASID));
 		mtc0_tlbw_hazard();
 
 		write_c0_pagemask(vcpu->arch.guest_tlb[1].tlb_mask);
@@ -471,14 +458,14 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			kvm_debug("%lx guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx tlb0 %lx tlb1 %lx\n",args[4], args[0],
 					vcpu->arch.guest_tlb[1].tlb_hi, args[2], args[3],
 					pte_val(pte_gpa),pte_val(pte_gpa1),
-					(unsigned long)pte_to_entrylo((pte_val(pte_gpa) & 0xffffffffffff0000) | prot_bits),
-					(unsigned long)pte_to_entrylo((pte_val(pte_gpa1) & 0xffffffffffff0000) | prot_bits1));
+					(unsigned long)pte_to_entrylo(pte_val(pte_gpa)),
+					(unsigned long)pte_to_entrylo(pte_val(pte_gpa1)));
 		if((args[4] != 0) && ((args[0] & 0xf000000000000000) < XKSSEG))
 			kvm_debug("%lx guest badvaddr %lx entryhi %lx guest pte %lx %lx pte %lx %lx tlb0 %lx tlb1 %lx\n",args[4], args[0],
 					vcpu->arch.guest_tlb[1].tlb_hi, args[2], args[3],
 					pte_val(pte_gpa),pte_val(pte_gpa1),
-					(unsigned long)pte_to_entrylo((pte_val(pte_gpa) & 0xffffffffffff0000) | prot_bits),
-					(unsigned long)pte_to_entrylo((pte_val(pte_gpa1) & 0xffffffffffff0000) | prot_bits1));
+					(unsigned long)pte_to_entrylo(pte_val(pte_gpa)),
+					(unsigned long)pte_to_entrylo(pte_val(pte_gpa1)));
 	} else {
 		/* Report unimplemented hypercall to guest */
 		*hret = -KVM_ENOSYS;
