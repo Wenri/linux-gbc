@@ -1184,78 +1184,44 @@ int kvm_mips_handle_vz_root_tlb_fault(unsigned long badvaddr,
 	/*the badvaddr we get maybe guest unmmaped or mmapped address,
 	  but not a GPA */
 
-	if (((badvaddr & CKSEG3) == CKSEG0) ||
-		   ((badvaddr & 0xffffffffffff0000) == 0xffffffffbfc00000) ||
+	if (((badvaddr & CKSSEG) == CKSEG0) ||
 		   ((badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
-		   ((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE) ||
-		   ((badvaddr & 0xffffffffb0000000) == CKSEG1)) {
-
-		//0. exclude the 0x90000exxxxxxxxxx and 0x900000003ff0xxxx
-		//1. qxl ioremap BAR2 to 0x900000004xxxxxxx
-		if(((badvaddr & 0xfffffff000000000) == 0x900000e000000000) ||
-		   ((badvaddr & 0xfffffffffff00000) == 0x900000003ff00000) ||
-		   ((badvaddr & 0xffffffffff000000) == 0x9000000049000000) ||
-		   ((badvaddr & 0xfffffffffff00000) == 0x900000001fe00000)) {
-			++vcpu->stat.lsvz_mmio_exits;
-			if((badvaddr & 0xfffffffffff00000) == 0x900000001fe00000)
-				++vcpu->stat.lsvz_serial_exits;
-			else if((badvaddr & 0xffffffffff000000) == 0x9000000049000000)
-				++vcpu->stat.lsvz_pci_rom_exits;
-			else if((badvaddr & 0xffffffffffffff00) == 0x900000003ff00400)
-				++vcpu->stat.lsvz_nc_exits;
-			else if((badvaddr & 0xffffffffffffff00) == 0x900000003ff01400)
-				++vcpu->stat.lsvz_introute_exits;
-			else if((badvaddr & 0xffffffffffffff00) == 0x900000003ff01000)
-				++vcpu->stat.lsvz_mailbox_exits;
-			else if((badvaddr & 0xffffffffff000000) == 0x900000effb000000)
-				++vcpu->stat.lsvz_ht_exits;
-			else if((badvaddr & 0xffffffffff000000) == 0x900000effc000000)
-				++vcpu->stat.lsvz_isaio_exits;
-			else if((badvaddr & 0xffffffffff000000) == 0x900000effe000000)
-				++vcpu->stat.lsvz_pcicfg_exits;
-
-			return RESUME_HOST;
-		}
-		++vcpu->stat.lsvz_general_exits;
-		if((badvaddr & 0xfffffffff0000000) == 0x9000000040000000)
-			++vcpu->stat.lsvz_pci_ram_exits;
+		   ((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)) {
 
 		//1.get the GPA
 		if((badvaddr & XKSEG) == XKPHYS)
 			gpa = XKPHYS_TO_PHYS(badvaddr);
 		else
 			gpa = CPHYSADDR(badvaddr);
-//		printk("%s badvadd %lx,gpa %lx\n",__func__, badvaddr, gpa);
+
+		if (kvm_is_visible_gfn(vcpu->kvm, gpa >> PAGE_SHIFT) == 0) {
+			++vcpu->stat.lsvz_mmio_exits;
+			ret = RESUME_HOST;
+			return ret;
+		}
+
 		idx = (badvaddr >> PAGE_SHIFT) & 1;
 		ret = kvm_lsvz_map_page(vcpu, gpa, write_fault, 0, &pte_gpa[idx], &pte_gpa[!idx]);
-		if (ret)
+		if (ret) {
+			++vcpu->stat.lsvz_mmio_exits;
+			ret = RESUME_HOST;
 			return ret;
+		}
+
+		++vcpu->stat.lsvz_general_exits;
 
 		pte_gpa[!idx].pte |= _PAGE_GLOBAL;
-
 		vcpu->arch.guest_tlb[0].tlb_hi = badvaddr & 0xc000ffffffffe000;
 		vcpu->arch.guest_tlb[0].tlb_mask = 0x7800;
 		vcpu->arch.guest_tlb[0].tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa[0]));
 		vcpu->arch.guest_tlb[0].tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa[1]));
-	} else if (((badvaddr & CKSEG3) == CKSEG1)) {
-		/*the MMIO address space*/
-		ret = RESUME_HOST;
-		return ret;
-	} else if (((badvaddr & CKSEG3) == CKSSEG) || ((badvaddr & CKSEG3) == CKSSEG) ||
-			  ((badvaddr & 0xf000000000000000) == XKSEG) ||
-			  ((badvaddr & 0xf000000000000000) < XKSSEG)) {
-
-		/* This should never reached,because all guest mapped address trigger
-		 * tlbl/tlbs/tlbm exceptions are processed in uasm code and return back
-		 * to guest ebase+0x180 to handle guest tlbl/tlbs/tlbm handlers and
-		 * get the GPA for trans
-		*/
-		ret = RESUME_GUEST;
-		return ret;
-	} else
+	} else {
 		printk("unhandled guest addr %lx\n", badvaddr);
+		return RESUME_HOST;
 
-	return 0;
+	}
+
+	return RESUME_GUEST;
 	/* Invalidate this entry in the TLB */
 //	return kvm_vz_host_tlb_inv(vcpu, badvaddr);
 }
