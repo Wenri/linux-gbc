@@ -1214,7 +1214,7 @@ static void kvm_vz_dequeue_io_int_cb(struct kvm_vcpu *vcpu,
 		break;
 
 	case -4:
-		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_PM);
+		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_PM);
 		break;
 
 	case -6:

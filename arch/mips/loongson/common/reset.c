@@ -82,6 +82,20 @@ static void loongson_halt(void)
 	}
 }
 
+#define HT_MEM_BASE_ADDR                0x900000e000000000
+#define PM_ADDR                         0x10080000
+#define LsVirt_PM_BASE                  HT_MEM_BASE_ADDR + PM_ADDR
+#define LsVirt_PM_CNT_IRQ_CLEAR         (LsVirt_PM_BASE + 0x18)
+
+#define READW(addr) (*(volatile uint32_t *)(addr))
+#define WRITEW(addr,Value) (*(volatile uint32_t *)(addr))=Value
+
+void LsVirt_button_poweroff(void)
+{
+     READW(LsVirt_PM_CNT_IRQ_CLEAR) = 0;
+     loongson_poweroff();
+}
+
 #ifdef CONFIG_KEXEC
 
 /* 0X80000000~0X80200000 is safe */
