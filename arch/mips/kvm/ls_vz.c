@@ -1115,15 +1115,13 @@ static void kvm_vz_flush_shadow_memslot(struct kvm *kvm,
 static gpa_t kvm_vz_gva_to_gpa_cb(gva_t gva)
 {
 	/* VZ guest has already converted gva to gpa */
-	if((gva & CKSEG3) == CKSEG1)
+	if((gva & CKSSEG) == CKSEG0)
 		return CPHYSADDR(gva);
-	else {
-		if((gva & 0xfffffffff0000000) == 0x9000000040000000 )
-			gva &= 0x4fffffff;
-		if((gva & XKSEG) == XKPHYS)
-			gva = XPHYSADDR(gva);
-		return gva;
-	}
+	else if((gva & XKSEG) == XKPHYS)
+		gva = XPHYSADDR(gva);
+	else
+		gva = KVM_INVALID_ADDR;
+	return gva;
 }
 
 static void kvm_vz_queue_irq(struct kvm_vcpu *vcpu, unsigned int priority)

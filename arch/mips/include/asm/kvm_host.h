@@ -79,7 +79,7 @@
 
 
 #define KVM_MAX_VCPUS		8
-#define KVM_USER_MEM_SLOTS	256
+#define KVM_USER_MEM_SLOTS	16
 /* memory slots that does not exposed to userspace */
 #define KVM_PRIVATE_MEM_SLOTS	0
 
