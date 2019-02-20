@@ -44,8 +44,7 @@ void mach_irq_dispatch(unsigned int pending)
 		loongson3_ipi_interrupt(NULL);
 #endif
 	if (pending & CAUSEF_IP4) {
-		clear_c0_status(STATUSF_IP4);
-		orderly_poweroff(true);
+		LsVirt_button_poweroff();
 	}
 	if (pending & CAUSEF_IP3)
 		loongson_pch->irq_dispatch();
