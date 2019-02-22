@@ -19,14 +19,10 @@
 
 #include "virtio_pci_common.h"
 
-#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
-static bool force_legacy = true;
-#else
 static bool force_legacy = false;
-#endif
 
 #if IS_ENABLED(CONFIG_VIRTIO_PCI_LEGACY)
-core_param(force_legacy, force_legacy, bool, 0644);
+module_param(force_legacy, bool, 0444);
 MODULE_PARM_DESC(force_legacy,
 		 "Force legacy mode for transitional virtio 1 devices");
 #endif
