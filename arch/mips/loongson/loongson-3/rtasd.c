@@ -37,7 +37,6 @@ static unsigned int rtas_error_log_max;
 static unsigned int rtas_error_log_buffer_max;
 static unsigned int rtas_event_scan_rate;
 static unsigned long event_scan_delay = 1*HZ;
-static int first_pass = 1;
 static unsigned char logdata[RTAS_ERROR_LOG_MAX];
 static unsigned int event_scan;
 static char *rtas_log_buf;
@@ -127,18 +126,19 @@ static int rtas_call(int token, unsigned int eventmask, unsigned long pa)
 	return ret;
 }
 
+void clear_cpu_topology(int cpu);
+void setup_cpu_topology(int cpu);
 void handle_rtas_event(const struct rtas_error_log *log)
 {
 	struct rtas_event_log_hp *hp;
 	unsigned long start_addr, len, sect_index;
-	int ret, node;
+	int ret, node,cpu;
 	rtas_reply *reply_node;
 
 	if (log->type != RTAS_TYPE_HOTPLUG)
 		return;
 
 	hp = (struct rtas_event_log_hp *)(log->buffer);
-	printk("handle_rtas_event1 type %x action %d  index %x count %x\n", hp->hotplug_type, hp->hotplug_action, hp->index, hp->count);
 	if (hp->hotplug_type == RTAS_HP_TYPE_MEMORY) {
 		start_addr = hp->index << SECTION_SIZE_BITS;
 		len = hp->count << SECTION_SIZE_BITS;
@@ -157,6 +157,30 @@ void handle_rtas_event(const struct rtas_error_log *log)
 				sect_index++;
 			}
 		} else if (RTAS_HP_ACTION_REMOVE == hp->hotplug_action) {
+			reply_node = kmalloc(sizeof(rtas_reply), GFP_KERNEL);
+			if (reply_node == NULL)
+				return;
+			memcpy(&reply_node->response, hp, sizeof(struct rtas_event_log_hp));
+			reply_node->times = 0;
+			reply_node->sect_index = 0;
+			list_add_tail(&reply_node->entry, &pending_reply_list);
+		}
+	} else if (hp->hotplug_type == RTAS_HP_TYPE_CPU) {
+		cpu = hp->index;
+		if (RTAS_HP_ACTION_ADD == hp->hotplug_action) {
+			set_cpu_present(cpu,true);
+			cpu_set(cpu, __node_data[(cpu/cores_per_node)]->cpumask);
+			setup_cpu_topology(cpu);
+			cpu_up(cpu);
+			get_cpu_device(cpu)->offline = false;
+
+		} else if (RTAS_HP_ACTION_REMOVE == hp->hotplug_action) {
+			cpu_down(cpu);
+			set_cpu_present(cpu,false);
+			get_cpu_device(cpu)->offline = true;
+			cpu_clear(cpu, __node_data[(cpu/cores_per_node)]->cpumask);
+			clear_cpu_topology(cpu);
+
 			reply_node = kmalloc(sizeof(rtas_reply), GFP_KERNEL);
 			if (reply_node == NULL)
 				return;
@@ -207,6 +231,14 @@ static void handle_rtas_reply(void)
 					printk(KERN_ERR "Fail to offline memory start %lx len %lx ret %d\n", start_addr, len, ret);
 					reply_node->times++;
 				}
+			}
+		} else if (hp->hotplug_type == RTAS_HP_TYPE_CPU) {
+			if (RTAS_HP_ACTION_REMOVE == hp->hotplug_action) {
+				memcpy(&response, hp, sizeof(struct rtas_event_log_hp));
+				rtas_call(RTAS_EVENT_REPLY, RTAS_EVENT_SCAN_ALL_EVENTS, __pa(&response));
+				list_del(node);
+				kfree(reply_node);
+
 			}
 		}
 	}
@@ -291,24 +323,12 @@ static void do_event_scan(void)
 
 static void rtas_event_scan(struct work_struct *w)
 {
-	unsigned int cpu;
-
 	do_event_scan();
 	get_online_cpus();
 
-	/* raw_ OK because just using CPU as starting point. */
-	cpu = cpumask_next(raw_smp_processor_id(), cpu_online_mask);
-	if (cpu >= nr_cpu_ids) {
-		cpu = cpumask_first(cpu_online_mask);
-
-		if (first_pass) {
-			first_pass = 0;
-			event_scan_delay = 30*HZ/rtas_event_scan_rate;
-		}
-	}
-
-	schedule_delayed_work_on(cpu, &event_scan_work,
-			__round_jiffies_relative(event_scan_delay, cpu));
+	event_scan_delay = 30*HZ/rtas_event_scan_rate;
+	schedule_delayed_work_on(0, &event_scan_work,
+			__round_jiffies_relative(event_scan_delay, 0));
 	put_online_cpus();
 }
 
@@ -324,7 +344,6 @@ static void start_event_scan(void)
 	printk(KERN_DEBUG "RTAS daemon started\n");
 	pr_debug("rtasd: will sleep for %d milliseconds\n",
 			(30000 / rtas_event_scan_rate));
-
 	schedule_delayed_work_on(cpumask_first(cpu_online_mask),
 			&event_scan_work, event_scan_delay);
 }
