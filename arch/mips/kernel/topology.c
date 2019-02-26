@@ -40,4 +40,11 @@ void setup_cpu_topology(int cpu)
 			"failed (%d)\n", cpu, ret);
 }
 
+void clear_cpu_topology(int cpu)
+{
+	struct cpu *c = &per_cpu(cpu_devices, cpu);
+	c->hotpluggable = 0;
+	unregister_cpu(c);
+}
+
 subsys_initcall(topology_init);

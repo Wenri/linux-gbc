@@ -42,8 +42,9 @@ extern int __cpu_logical_map[NR_CPUS];
 /* Octeon - Tell another core to flush its icache */
 #define SMP_ICACHE_FLUSH	0x4
 #define SMP_ASK_C0COUNT		0x8
-#define SMP_CPU_UP		0x10
-
+#ifdef CONFIG_KVM_GUEST_LOONGSON_VZ
+#define SMP_CPU_HOTPLUG		0x10
+#endif
 extern volatile cpumask_t cpu_callin_map;
 
 /* Mask of CPUs which are currently definitely operating coherently */
