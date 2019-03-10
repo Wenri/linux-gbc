@@ -718,7 +718,7 @@ static int ls_nand_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node) {
 		const char *pm;
 		struct nand_chip *this = &info->nand_chip;
-			if (of_property_read_string(pdev->dev.of_node, "nand-ecc-algo", &pm))
+			if (!of_property_read_string(pdev->dev.of_node, "nand-ecc-algo", &pm))
 			{
 				if(!strcmp(pm, "none"))
 				{
