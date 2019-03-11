@@ -1112,7 +1112,7 @@ static int kvm_vz_vcpu_setup(struct kvm_vcpu *vcpu)
 
 static void kvm_vz_flush_shadow_all(struct kvm *kvm)
 {
-        flush_tlb_all();
+	kvm_flush_remote_tlbs(kvm);
 }
 
 static void kvm_vz_flush_shadow_memslot(struct kvm *kvm,

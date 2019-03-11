@@ -130,10 +130,10 @@ int kvm_mips_gva_to_hpa(struct kvm_vcpu *vcpu, unsigned long gva, unsigned long 
 	unsigned long hpa;
 
 	/* user space use soft TLB*/
-	s_index = ((gva >> 15) & STLB_WAY_MASK) * STLB_SET;
+	s_index = ((gva >> STLB_ENTRYHI_SHIFT) & STLB_WAY_MASK) * STLB_SET;
 	s_asid = read_gc0_entryhi() & MIPS_ENTRYHI_ASID;
 	ptlb = &vcpu->arch.stlb[s_index];
-	vatag = (gva >> 30) & 0xffffffff;
+	vatag = (gva >> STLB_VATAG_SHIFT) & 0xffffffff;
 	for (i=0; i<STLB_SET; i++) {
 		if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {
 			/* found it */
@@ -152,14 +152,135 @@ int kvm_mips_gva_to_hpa(struct kvm_vcpu *vcpu, unsigned long gva, unsigned long 
 	return 0;
 }
 
+static void kvm_flush_stlb_one(struct kvm_vcpu *vcpu, unsigned long gva)
+{
+	unsigned int s_index;
+	unsigned int s_asid, vatag;
+	soft_tlb *ptlb;
+	int i;
+
+	s_index = ((gva >> STLB_ENTRYHI_SHIFT) & STLB_WAY_MASK) * STLB_SET;
+	s_asid = (0xff) & read_gc0_entryhi();
+	vatag = (gva >> STLB_VATAG_SHIFT) & 0xffffffff;
+	ptlb = &vcpu->arch.stlb[s_index];
+	for (i=0; i<STLB_SET; i++) {
+		if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {
+			memset(ptlb, 0, sizeof(soft_tlb));
+			break;
+		}
+	}
+
+	return;
+}
+
+static void kvm_flush_stlb_range(struct kvm_vcpu *vcpu, unsigned long gva_start, unsigned long gva_end)
+{
+        unsigned int s_index, start, end;
+        unsigned int s_asid, vatag;
+        soft_tlb *ptlb;
+        int i;
+
+	i = (gva_end - gva_start) >> (PAGE_SHIFT + 1);
+	if (i > 1024) {
+		/* flush all stlb items */
+		memset(vcpu->arch.stlb, 0, STLB_BUF_SIZE * sizeof(soft_tlb));
+		memset(vcpu->arch.asid_we, 0, STLB_ASID_SIZE * sizeof(unsigned long));
+		return;
+	}
+
+	start = (gva_start >> STLB_ENTRYHI_SHIFT) & STLB_WAY_MASK;
+	end   = (gva_end >> STLB_ENTRYHI_SHIFT) & STLB_WAY_MASK;
+	s_asid = (0xff) & read_gc0_entryhi();
+
+	if (start <= end) {
+		s_index = end;
+	} else {
+		s_index = STLB_WAY;
+	}
+
+	/* flush start to min(end, bottom) stlb items */
+	vatag = (gva_start >> STLB_VATAG_SHIFT) & 0xffffffff;
+	while (start < s_index) {
+		ptlb = &vcpu->arch.stlb[start * STLB_SET];
+		for (i=0; i<STLB_SET; i++) {
+			if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {
+				memset(ptlb, 0, sizeof(soft_tlb));
+				break;
+			}
+			ptlb++;
+		}
+		start++;
+	}
+
+	if (start == STLB_WAY) {
+		/* flush 0 to end stlb items */
+		start = 0;
+		s_index = end;
+		vatag = (gva_end >> STLB_VATAG_SHIFT) & 0xffffffff;
+		while (start < s_index) {
+			ptlb = &vcpu->arch.stlb[start * STLB_SET];
+			for (i=0; i<STLB_SET; i++) {
+				if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {
+					memset(ptlb, 0, sizeof(soft_tlb));
+					break;
+				}
+				ptlb++;
+			}
+			start++;
+		}
+	}
+	return;
+}
+
+static void kvm_add_stlb(struct kvm_vcpu *vcpu, unsigned long gva, struct kvm_mips_tlb *hosttlb)
+{
+        unsigned int s_index;
+        unsigned int s_asid, vatag;
+	unsigned long min_weight;
+        soft_tlb *ptlb;
+        int i, min_set, priority;
+
+	/* not commpage */
+	if ((gva & (PAGE_MASK << 1)) == 0)
+		return;
+
+	/* user space use soft TLB*/
+	s_index = ((gva >> STLB_ENTRYHI_SHIFT) & STLB_WAY_MASK) * STLB_SET;
+	s_asid = (0xff) & read_gc0_entryhi();
+	vatag = (gva >> STLB_VATAG_SHIFT) & 0xffffffff;
+	ptlb = &vcpu->arch.stlb[s_index];
+	min_weight = -1;
+	min_set = 0;
+	priority = 0;
+
+	for (i=0; i<STLB_SET; i++) {
+		if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {
+			min_set = i;
+			priority = 2;
+			break;
+		} else if ((ptlb->flag & STLB_FLAG_VALID) == 0) {
+			min_set = i;
+			priority = 1;
+		} else if ((min_weight < vcpu->arch.asid_we[ptlb->asid]) && (priority == 0)) {
+			min_weight = vcpu->arch.asid_we[ptlb->asid];
+			min_set = i;
+		}
+		ptlb++;
+	}
+
+	ptlb = &vcpu->arch.stlb[s_index + min_set];
+	ptlb->vatag = 0xffffffff & (gva >> STLB_VATAG_SHIFT);
+	ptlb->lo0 = hosttlb->tlb_lo[0];
+	ptlb->lo1 = hosttlb->tlb_lo[1];
+	ptlb->asid = s_asid;
+	ptlb->flag = ptlb->flag | STLB_FLAG_VALID;
+
+	return;
+}
+
 static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			      const unsigned long *args, unsigned long *hret)
 {
-	unsigned int s_index, start, end;
-	unsigned int s_asid;
-	unsigned long min_weight;
-	soft_tlb *ptlb;
-	int i, min_set;
 
 	/* organize parameters as follow
 	 * a0        a1          a2         a3
@@ -247,17 +368,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 #endif
 
 		if (args[4] == 0x5001) {
-			s_index = ((args[0] >> 15) & STLB_WAY_MASK) * STLB_SET;
-			s_asid = (0xff) & read_gc0_entryhi();
-			ptlb = &vcpu->arch.stlb[s_index];
-			for (i=0; i<STLB_SET; i++) {
-				if (ptlb->asid == s_asid) {
-					ptlb->lo0 = 0;
-					ptlb->lo1 = 0;
-					break;
-				}
-				ptlb++;
-			}
+			kvm_flush_stlb_one(vcpu, args[0]); 
 		}
 	} else if ((args[4] == 0x5003) || (args[4] == 0x5004)) {
 #if 1
@@ -336,50 +447,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		local_flush_tlb_all();
 #endif
 		if (args[4] == 0x5003) {
-			if (args[2] > 1024) {
-				memset(vcpu->arch.stlb, 0, STLB_BUF_SIZE * sizeof(soft_tlb));
-				memset(vcpu->arch.asid_we, 0, STLB_ASID_SIZE * sizeof(unsigned long));
-			} else {
-				start = (args[0] >> 15) & STLB_WAY_MASK;
-				end   = (args[1] >> 15) & STLB_WAY_MASK;
-				s_asid = (0xff) & read_gc0_entryhi();
-
-				if (start <= end) {
-					s_index = end;
-				} else {
-					s_index = STLB_WAY;
-				}
-
-				while (start < s_index) {
-					ptlb = &vcpu->arch.stlb[start * STLB_SET];
-					for (i=0; i<STLB_SET; i++) {
-						if (ptlb->asid == s_asid) {
-							ptlb->lo0 = 0;
-							ptlb->lo1 = 0;
-							break;
-						}
-						ptlb++;
-					}
-					start++;
-				}
-
-				if (start == STLB_WAY) {
-					start = 0;
-					s_index = end;
-					while (start < s_index) {
-						ptlb = &vcpu->arch.stlb[start * STLB_SET];
-						for (i=0; i<STLB_SET; i++) {
-							if (ptlb->asid == s_asid) {
-								ptlb->lo0 = 0;
-								ptlb->lo1 = 0;
-								break;
-							}
-							ptlb++;
-						}
-						start++;
-					}
-				}
-			}
+			kvm_flush_stlb_range(vcpu, args[0], args[1]);
 		}
 	} else if (args[4] == 0x5002) {
 		/*flush tlb all */
@@ -462,33 +530,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 				set_bit(index, vcpu->arch.tlbmap);
 			}
 
-			/* user space use soft TLB*/
-			s_index = ((args[0] >> 15) & STLB_WAY_MASK) * STLB_SET;
-			s_asid = (0xff) & read_gc0_entryhi();
-                        ptlb = &vcpu->arch.stlb[s_index];
-			min_weight = -1;
-			min_set = 0;
-
-                        for (i=0; i<STLB_SET; i++) {
-                                if (ptlb->asid == s_asid) {
-					min_set = i;
-					break;
-				}
-
-				if (min_weight < vcpu->arch.asid_we[ptlb->asid]) {
-					min_weight = vcpu->arch.asid_we[ptlb->asid];
-					min_set = i;
-				}
-				ptlb++;
-                        }
-
-			ptlb = &vcpu->arch.stlb[s_index + min_set];
-			ptlb->vatag = 0xffffffff & (args[0] >> 30);
-			ptlb->lo0 = 0xffffffff & tlb.tlb_lo[0];
-			ptlb->lo1 = 0xffffffff & tlb.tlb_lo[1];
-			ptlb->rx0 = tlb.tlb_lo[0] >> 56;
-			ptlb->rx1 = tlb.tlb_lo[1] >> 56;
-			ptlb->asid = s_asid;
+			kvm_add_stlb(vcpu, args[0], &tlb);
 		}
 
 		/*Save CKSSEG address GVA-->GPA mapping*/

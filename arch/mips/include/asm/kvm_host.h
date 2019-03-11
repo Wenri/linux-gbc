@@ -315,19 +315,23 @@ struct kvm_mmu_memory_cache {
 
 #define KVM_MIPS_GUEST_TLB_SIZE	64
 
-#define STLB_WAY		(0x1 << 15)
+#define STLB_ENTRYHI_SHIFT      (PAGE_SHIFT + 1)
+#define STLB_WAY_SHIFT          (14)
+#define STLB_VATAG_SHIFT        (STLB_ENTRYHI_SHIFT + STLB_WAY_SHIFT)
+#define STLB_WAY                (0x1 << STLB_WAY_SHIFT)
 #define STLB_WAY_MASK		(STLB_WAY - 1)
-#define STLB_SET		2
+#define STLB_SET_SHIFT		(2)
+#define STLB_SET		(0x1 << STLB_SET_SHIFT)
 #define STLB_BUF_SIZE		(STLB_WAY * STLB_SET)
 #define STLB_ASID_SIZE		256
+#define STLB_FLAG_VALID         0x1
 typedef struct {
 	u32 vatag;
-	u32 lo0;
-	u32 lo1;
-	unsigned char rx0;
-	unsigned char rx1;
 	unsigned char asid;
-	unsigned char reserved;
+	unsigned char flag;
+	unsigned char reserved[2];
+	u64 lo0;
+	u64 lo1;
 } soft_tlb;
 
 struct kvm_vcpu_arch {
