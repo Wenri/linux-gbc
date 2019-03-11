@@ -465,17 +465,11 @@ static int ioctl_get_bo_vram_base(struct drm_device *dev, void *data,
         ret = loongson_bo_reserve(bo, false);
         if (ret)
                 return ret;
-
-        ret = loongson_bo_pin(bo, TTM_PL_FLAG_VRAM, &gpu_addr);
-        if (ret) {
-                loongson_bo_unreserve(bo);
-                return ret;
-        }
+	gpu_addr = loongson_bo_gpu_offset(bo);
+        loongson_bo_unreserve(bo);
         ldev->fb_vram_base = gpu_addr;
         args->value = gpu_addr;
-        DRM_DEBUG("loongson_get_bo_vram_base bo=%x, fb_vram_base=%x\n", gpu_addr);
-        loongson_bo_unpin(bo);
-        loongson_bo_unreserve(bo);
+        DRM_DEBUG("loongson_get_bo_vram_base bo=%x, fb_vram_base=%x\n", bo, gpu_addr);
 	return 0;
 }
 
@@ -569,7 +563,9 @@ int loongson_dumb_create(struct drm_file *file,
 {
 	int ret;
 	struct drm_gem_object *gobj;
+	struct loongson_bo *bo;
 	u32 handle;
+	unsigned long gpu_addr;
 
 	args->pitch = args->width * ((args->bpp + 7) / 8);
 	args->size = args->pitch * args->height;
@@ -585,6 +581,18 @@ int loongson_dumb_create(struct drm_file *file,
 		return ret;
 
 	args->handle = handle;
+
+	bo = gem_to_loongson_bo(gobj);
+	ret = loongson_bo_reserve(bo, false);
+	if (ret)
+		return ret;
+	ret = loongson_bo_pin(bo, TTM_PL_FLAG_VRAM, &gpu_addr);
+	if (ret) {
+		loongson_bo_unreserve(bo);
+		return ret;
+	}
+	loongson_bo_unreserve(bo);
+
 	return 0;
 }
 
@@ -662,6 +670,27 @@ loongson_dumb_mmap_offset(struct drm_file *file,
 	return 0;
 }
 
+int loongson_dumb_destroy(struct drm_file *file,
+			 struct drm_device *dev,
+			 uint32_t handle)
+{
+	struct drm_gem_object *obj;
+	struct loongson_bo *bo;
+	int ret;
+
+	obj = drm_gem_object_lookup(file, handle);
+	if (obj == NULL)
+		return -ENOENT;
+
+	bo = gem_to_loongson_bo(obj);
+
+	ret = loongson_bo_reserve(bo, false);
+        if (ret)
+                return ret;
+	ret = loongson_bo_unpin(bo);
+	loongson_bo_unreserve(bo);
+	return drm_gem_dumb_destroy(file, dev, handle);
+}
 /**
  * loongson_vga_open -Driver callback when a new struct drm_file is opened.
  * Useful for setting up driver-private data structures like buffer allocators,
@@ -787,7 +816,7 @@ static struct drm_driver loongson_vga_drm_driver = {
 		.gem_free_object = loongson_gem_free_object,
 		.dumb_create = loongson_dumb_create,
 		.dumb_map_offset = loongson_dumb_mmap_offset,
-		.dumb_destroy = drm_gem_dumb_destroy,
+		.dumb_destroy = loongson_dumb_destroy,
 		.ioctls = ioctls,
 		.num_ioctls = DRM_LOONGSON_VGA_NUM_IOCTLS,
 		.name = DRIVER_NAME,

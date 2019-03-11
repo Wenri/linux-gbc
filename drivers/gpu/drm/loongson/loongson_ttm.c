@@ -535,7 +535,7 @@ int loongson_bo_create(struct drm_device *dev, int size, int align,
  *
  * return GPU address space offset
  */
-static inline u64 loongson_bo_gpu_offset(struct loongson_bo *bo)
+u64 loongson_bo_gpu_offset(struct loongson_bo *bo)
 {
 	return (bo->bo.offset + bo->mc.vram_base);
 }

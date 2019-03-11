@@ -309,6 +309,7 @@ struct drm_connector *loongson_vga_init(struct drm_device *dev,unsigned int conn
 int loongson_bo_push_sysram(struct loongson_bo *bo);
 int loongson_bo_pin(struct loongson_bo *bo, u32 pl_flag, u64 *gpu_addr);
 int loongson_bo_unpin(struct loongson_bo *bo);
+u64 loongson_bo_gpu_offset(struct loongson_bo *bo);
 int loongson_gem_create(struct drm_device *dev, u32 size, bool iskernel,struct drm_gem_object **obj);
 int loongson_framebuffer_init(struct drm_device *dev,struct loongson_framebuffer *lfb,const struct drm_mode_fb_cmd2 *mode_cmd,struct drm_gem_object *obj);
 
