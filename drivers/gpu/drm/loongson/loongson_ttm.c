@@ -224,8 +224,8 @@ static int loongson_bo_move(struct ttm_buffer_object *bo,
 static int loongson_bo_verify_access(struct ttm_buffer_object *bo, struct file *filp)
 {
 	struct loongson_bo *loongsonbo = loongson_bo(bo);
-
-	return drm_vma_node_verify_access(&loongsonbo->gem.vma_node, filp);
+	return drm_vma_node_verify_access(&loongsonbo->gem.vma_node,
+						filp->private_data);
 }
 
 /**
@@ -365,11 +365,14 @@ struct ttm_bo_driver loongson_bo_driver = {
 	.ttm_tt_populate = loongson_ttm_tt_populate,
 	.ttm_tt_unpopulate = loongson_ttm_tt_unpopulate,
 	.init_mem_type = loongson_bo_init_mem_type,
+	.eviction_valuable = ttm_bo_eviction_valuable,
 	.evict_flags = loongson_bo_evict_flags,
-	.move = loongson_bo_move,
+	.move = NULL,
 	.verify_access = loongson_bo_verify_access,
 	.io_mem_reserve = &loongson_ttm_io_mem_reserve,
 	.io_mem_free = &loongson_ttm_io_mem_free,
+	.lru_tail = &ttm_bo_default_lru_tail,
+	.swap_lru_tail = &ttm_bo_default_swap_lru_tail,
 };
 
 /**

@@ -780,7 +780,6 @@ static struct drm_driver loongson_vga_drm_driver = {
 		.unload = loongson_vga_unload,
 		.open = loongson_vga_open,
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-		.set_busid = drm_platform_set_busid,
 #else
 		.set_busid = drm_pci_set_busid,
 #endif
