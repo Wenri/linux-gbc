@@ -367,12 +367,12 @@ static inline unsigned int decode_config3(struct cpuinfo_mips *c)
 		c->ases |= MIPS_ASE_VZ;
 
 	if (config3 & MIPS_CONF3_SC)
-		c->guest.options |= MIPS_CPU_SEGMENTS;
+		c->options |= MIPS_CPU_SEGMENTS;
 
 	if (config3 & MIPS_CONF3_BI)
-		c->guest.options |= MIPS_CPU_BADINSTR;
+		c->options |= MIPS_CPU_BADINSTR;
 	if (config3 & MIPS_CONF3_BP)
-		c->guest.options |= MIPS_CPU_BADINSTRP;
+		c->options |= MIPS_CPU_BADINSTRP;
 
 	if (config3 & MIPS_CONF3_MSA)
 		c->ases |= MIPS_ASE_MSA;
