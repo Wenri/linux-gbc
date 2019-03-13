@@ -1775,6 +1775,10 @@ static int __init kvm_mips_init(void)
 
 	if(current_cpu_type() == CPU_LOONGSON3) {
 		build_lsvz_guest_mode_reenter();
+		/* Invalidate the icache for these ranges */
+		flush_icache_range((unsigned long)0xffffffff80100180,
+			   (unsigned long)0xffffffff801001a8);
+
 		ret = kvm_mips_ls3a3000_entry_setup();
 		if (ret)
 			return ret;
