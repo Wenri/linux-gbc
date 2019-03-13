@@ -2203,10 +2203,6 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	int cpu = smp_processor_id();
 	int r;
 
-	set_c0_status(ST0_CU1 | ST0_FR);
-	__kvm_restore_fcsr(&vcpu->arch);
-	clear_c0_status(ST0_CU1 | ST0_FR);
-
 	kvm_ls3a3000_vz_acquire_htimer(vcpu);
 	/* Check if we have any exceptions/interrupts pending */
 	kvm_mips_deliver_interrupts(vcpu, read_gc0_cause());
@@ -2214,6 +2210,10 @@ static int kvm_vz_vcpu_run(struct kvm_run *run, struct kvm_vcpu *vcpu)
 	kvm_vz_check_requests(vcpu, cpu);
 	kvm_vz_vcpu_change_vpid(vcpu, cpu);
 	save_regs_with_field_change_exception(vcpu);
+
+	set_c0_status(ST0_CU1 | ST0_FR);
+	__kvm_restore_fcsr(&vcpu->arch);
+	clear_c0_status(ST0_CU1 | ST0_FR);
 
 	r = vcpu->arch.vcpu_run(run, vcpu);
 
