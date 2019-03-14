@@ -1899,6 +1899,8 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 		vcpu->arch.gprs[rt] =
 			*((unsigned long *)0x900000003ff00408);
 
+		++vcpu->stat.lsvz_nc_exits;
+
 		vcpu->arch.is_nodecounter = 1;
 		vcpu->arch.pc = vcpu->arch.io_pc;
 		return EMULATE_DONE;

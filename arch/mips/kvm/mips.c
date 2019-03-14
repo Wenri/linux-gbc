@@ -69,6 +69,21 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "vz_gpa",	  VCPU_STAT(vz_gpa_exits),	 KVM_STAT_VCPU },
 	{ "vz_resvd",	  VCPU_STAT(vz_resvd_exits),	 KVM_STAT_VCPU },
 #endif
+#ifdef CONFIG_CPU_LOONGSON3
+	{ "lsvz_mmio",	  VCPU_STAT(lsvz_mmio_exits),	 KVM_STAT_VCPU },
+	{ "lsvz_general", VCPU_STAT(lsvz_general_exits), KVM_STAT_VCPU },
+	{ "lsvz_ignore",  VCPU_STAT(lsvz_ignore_exits),  KVM_STAT_VCPU },
+	{ "lsvz_nodecounter",	VCPU_STAT(lsvz_nc_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbmiss",  VCPU_STAT(lsvz_hc_tlbmiss_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbm",  VCPU_STAT(lsvz_hc_tlbm_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbl",  VCPU_STAT(lsvz_hc_tlbl_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_tlbs",  VCPU_STAT(lsvz_hc_tlbs_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_emulate",  VCPU_STAT(lsvz_hc_emulate_exits),  KVM_STAT_VCPU },
+	{ "lsvz_hc_missvalid",  VCPU_STAT(lsvz_hc_missvalid_exits),  KVM_STAT_VCPU },
+	{ "lsvz_gpsi_cop0",  VCPU_STAT(lsvz_gpsi_cop0_exits),  KVM_STAT_VCPU },
+	{ "lsvz_gpsi_cache",  VCPU_STAT(lsvz_gpsi_cache_exits),  KVM_STAT_VCPU },
+	{ "lsvz_gpsi_spec3",  VCPU_STAT(lsvz_gpsi_spec3_exits),  KVM_STAT_VCPU },
+#endif
 	{ "halt_successful_poll", VCPU_STAT(halt_successful_poll), KVM_STAT_VCPU },
 	{ "halt_attempted_poll", VCPU_STAT(halt_attempted_poll), KVM_STAT_VCPU },
 	{ "halt_poll_invalid", VCPU_STAT(halt_poll_invalid), KVM_STAT_VCPU },

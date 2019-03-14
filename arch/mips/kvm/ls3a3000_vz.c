@@ -738,13 +738,16 @@ static enum emulation_result kvm_trap_vz_handle_gpsi(u32 cause, u32 *opc,
 
 	switch (inst.r_format.opcode) {
 	case cop0_op:
+		++vcpu->stat.lsvz_gpsi_cop0_exits;
 		er = kvm_vz_gpsi_cop0(inst, opc, cause, run, vcpu);
 		break;
 	case cache_op:
 		trace_kvm_exit(vcpu, KVM_TRACE_EXIT_CACHE);
+		++vcpu->stat.lsvz_gpsi_cache_exits;
 		er = kvm_vz_gpsi_cache(inst, opc, cause, run, vcpu);
 		break;
 	case spec3_op:
+		++vcpu->stat.lsvz_gpsi_spec3_exits;
 		switch (inst.spec3_format.func) {
 		case rdhwr_op:
 			if (inst.r_format.rs || (inst.r_format.re >> 3))
@@ -2696,6 +2699,8 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	u32 gsexccode = (vcpu->arch.host_cp0_gscause >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 
+	++vcpu->stat.lsvz_ignore_exits;
+
 	if ((kvm_read_c0_guest_status(cop0) & ST0_EXL) == 0) {
 		/* save old pc */
 		kvm_write_c0_guest_epc(cop0, arch->pc);
@@ -3117,6 +3122,8 @@ int kvm_mips_handle_ls3a3000_vz_root_tlb_fault(unsigned long badvaddr,
 	/*the badvaddr we get maybe guest unmmaped or mmapped address,
 	  but not a GPA */
 
+	++vcpu->stat.lsvz_general_exits;
+
 	if (((badvaddr & CKSSEG) == CKSEG0) ||
 		   ((badvaddr & ~TO_PHYS_MASK) == CAC_BASE) ||
 		   ((badvaddr & ~TO_PHYS_MASK) == UNCAC_BASE)) {
@@ -3128,6 +3135,7 @@ int kvm_mips_handle_ls3a3000_vz_root_tlb_fault(unsigned long badvaddr,
 			gpa = CPHYSADDR(badvaddr);
 
 		if (kvm_is_visible_gfn(vcpu->kvm, gpa >> PAGE_SHIFT) == 0) {
+			++vcpu->stat.lsvz_mmio_exits;
 			ret = RESUME_HOST;
 		} else {
 
