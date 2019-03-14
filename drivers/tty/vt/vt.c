@@ -2146,6 +2146,7 @@ static int do_con_write(struct tty_struct *tty, const unsigned char *buf, int co
 	param.vc = vc;
 
 	while (!tty->stopped && count) {
+		int is_utf8 = 0;
 		int orig = *buf;
 		c = orig;
 		buf++;
@@ -2154,7 +2155,6 @@ static int do_con_write(struct tty_struct *tty, const unsigned char *buf, int co
 		rescan = 0;
 		inverse = 0;
 		width = 1;
-		int is_utf8 = 0;
 
 		/* Do no translation at all in control states */
 		if (vc->vc_state != ESnormal) {
