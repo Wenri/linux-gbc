@@ -168,6 +168,7 @@ static void kvm_flush_stlb_one(struct kvm_vcpu *vcpu, unsigned long gva)
 			memset(ptlb, 0, sizeof(soft_tlb));
 			break;
 		}
+		ptlb++;
 	}
 
 	return;
