@@ -137,7 +137,7 @@ int dbg_set_reg(int regno, void *mem, struct pt_regs *regs)
 	if (dbg_reg_def[regno].offset != -1 && regno < 38) {
 		memcpy((void *)regs + dbg_reg_def[regno].offset, mem,
 		       dbg_reg_def[regno].size);
-	} else if (current && dbg_reg_def[regno].offset != -1 && regno < 72) {
+	} else if (current && dbg_reg_def[regno].offset != -1 && regno < 72 && is_fpu_owner()) {
 		/* FP registers 38 -> 69 */
 		if (!(regs->cp0_status & ST0_CU1))
 			return 0;
@@ -171,7 +171,7 @@ char *dbg_get_reg(int regno, void *mem, struct pt_regs *regs)
 		/* First 38 registers */
 		memcpy(mem, (void *)regs + dbg_reg_def[regno].offset,
 		       dbg_reg_def[regno].size);
-	} else if (current && dbg_reg_def[regno].offset != -1 && regno < 72) {
+	} else if (current && dbg_reg_def[regno].offset != -1 && regno < 72 && is_fpu_owner()) {
 		/* FP registers 38 -> 69 */
 		if (!(regs->cp0_status & ST0_CU1))
 			goto out;
