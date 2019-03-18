@@ -2696,6 +2696,7 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	struct mips_coproc *cop0 = vcpu->arch.cop0;
 	struct kvm_vcpu_arch *arch = &vcpu->arch;
 	int guest_exc = 0;
+	u32 start_count, end_count,compare;
 	u32 gsexccode = (vcpu->arch.host_cp0_gscause >> CAUSEB_EXCCODE) & 0x1f;
 	int ret = RESUME_GUEST;
 
@@ -2723,8 +2724,14 @@ int handle_ignore_tlb_general_exception(struct kvm_run *run, struct kvm_vcpu *vc
 	else if(gsexccode == 4)
 		guest_exc = EXCCODE_MOD;
 
+	start_count = read_gc0_count();
 	kvm_change_c0_guest_cause(cop0, (0xff),
 				  (guest_exc << CAUSEB_EXCCODE));
+
+	end_count = read_gc0_count();
+	compare = read_gc0_compare();
+	if ((end_count - start_count) > (compare - start_count - 1))
+		set_gc0_cause(CAUSEF_TI);
 
 	/* setup badvaddr, context and entryhi registers for the guest */
 	kvm_write_c0_guest_badvaddr(cop0, vcpu->arch.host_cp0_badvaddr);
