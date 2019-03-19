@@ -77,6 +77,7 @@ int __init init_node_counter_clocksource(void)
 		default:
 			return 0;
 		}
+		break;
 	case CPU_LOONGSON3_COMP:
 		return 0;
 	default:
