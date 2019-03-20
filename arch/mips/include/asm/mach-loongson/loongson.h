@@ -165,6 +165,10 @@ static inline void do_perfcnt_IRQ(void)
 #define LOONGSON_PCILTIMER_BUSLATENCY	0x0000ff00
 #define LOONGSON_PCILTIMER_BUSLATENCY_SHIFT	8
 
+/* Register offset and bit definition for CSR access */
+#define LOONGSON_CPU_FEATURE_OFFSET		0x00000008
+#define LOONGSON_CPU_FEATURE_IPI_PERCORE	(1ULL << 4)
+
 /* Loongson h/w Configuration */
 
 #define LOONGSON_GENCFG_OFFSET		0x4

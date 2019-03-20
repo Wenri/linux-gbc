@@ -39,6 +39,7 @@
 DEFINE_PER_CPU(int, cpu_state);
 extern int hpet_enabled;
 
+static int csr_ipi_enabled = 0;
 static void *ipi_set0_regs[16];
 static void *ipi_clear0_regs[16];
 static void *ipi_status0_regs[16];
@@ -91,6 +92,59 @@ void loongson3_ipi_write32(uint32_t action, void * addr)
 {
 	*((volatile uint32_t *)addr) = action;
 	__wbflush();
+};
+
+/* read a 32bit value from ipi register through CSR */
+uint32_t loongson3_ipi_read32_csr(int reg)
+{
+	return read_csr(reg);
+};
+
+/* write a 32bit value to ipi register through CSR */
+void loongson3_ipi_write32_csr(uint32_t action, int reg)
+{
+	write_csr(reg, action);
+};
+
+/* read a 64bit value from ipi register through CSR */
+uint64_t loongson3_ipi_read64_csr(int reg)
+{
+	return dread_csr(reg);
+};
+
+/* write a 64bit value to ipi register through CSR */
+void loongson3_ipi_write64_csr(uint64_t action, int reg)
+{
+	dwrite_csr(reg, action);
+};
+
+/* send ipi through IPI_Send */
+void loongson3_ipi_send_csr(uint32_t action, int cpu)
+{
+	unsigned int irq = 0;
+	uint32_t val = (1 << LOONGSON_IPI_SEND_BLOCK_SHIFT);
+	while ((irq = ffs(action))) {
+		val |= (irq - 1);
+		val |= (cpu << LOONGSON_IPI_SEND_CPU_SHIFT);
+		write_csr(LOONGSON_IPI_SEND_OFFSET, val);
+		action &= ~(1 << (irq - 1));
+	}
+};
+
+/* send mail through Mail_Send */
+void loongson3_mail_send_csr(uint64_t mail, int cpu, int mailbox)
+{
+	uint64_t val = (uint32_t)(1 << LOONGSON_MAIL_SEND_BLOCK_SHIFT);
+	val |= (LOONGSON_MAIL_SEND_BOX_TO_HIGHT(mailbox) << LOONGSON_MAIL_SEND_BOX_SHIFT);
+	val |= (cpu << LOONGSON_MAIL_SEND_CPU_SHIFT);
+	val |= (mail & LOONGSON_MAIL_SEND_H32_MASK);
+	dwrite_csr(LOONGSON_MAIL_SEND_OFFSET, val);
+
+	val = (uint32_t)(1 << LOONGSON_MAIL_SEND_BLOCK_SHIFT);
+	val |= (LOONGSON_MAIL_SEND_BOX_TO_LOW(mailbox) << LOONGSON_MAIL_SEND_BOX_SHIFT);
+	val |= (cpu << LOONGSON_MAIL_SEND_CPU_SHIFT);
+	val |= (mail << LOONGSON_MAIL_SEND_VAL_SHIFT);
+	dwrite_csr(LOONGSON_MAIL_SEND_OFFSET, val);
 };
 
 static void ipi_set0_regs_init(void)
@@ -198,15 +252,23 @@ static void ipi_mailbox_buf_init(void)
  */
 static void loongson3_send_ipi_single(int cpu, unsigned int action)
 {
-	loongson3_ipi_write32((u32)action, ipi_set0_regs[cpu_logical_map(cpu)]);
+	if (csr_ipi_enabled) {
+		loongson3_ipi_send_csr(action, cpu_logical_map(cpu));
+	} else {
+		loongson3_ipi_write32((u32)action, ipi_set0_regs[cpu_logical_map(cpu)]);
+	}
 }
 
 static void loongson3_send_ipi_mask(const struct cpumask *mask, unsigned int action)
 {
 	unsigned int i;
-
-	for_each_cpu(i, mask)
-		loongson3_ipi_write32((u32)action, ipi_set0_regs[cpu_logical_map(i)]);
+	if (csr_ipi_enabled) {
+		for_each_cpu(i, mask)
+			loongson3_ipi_send_csr(action, cpu_logical_map(i));
+	} else {
+		for_each_cpu(i, mask)
+			loongson3_ipi_write32((u32)action, ipi_set0_regs[cpu_logical_map(i)]);
+	}
 }
 
 extern unsigned char ls7a_ipi_pos2irq[];
@@ -215,7 +277,11 @@ extern unsigned int rs780e_pos2irq[];
 
 void loongson3_send_irq_by_ipi(int cpu, int irqs)
 {
-	loongson3_ipi_write32(irqs << IPI_IRQ_OFFSET, ipi_set0_regs[cpu_logical_map(cpu)]);
+	if (csr_ipi_enabled) {
+		loongson3_ipi_send_csr(irqs << IPI_IRQ_OFFSET, cpu_logical_map(cpu));
+	} else {
+		loongson3_ipi_write32(irqs << IPI_IRQ_OFFSET, ipi_set0_regs[cpu_logical_map(cpu)]);
+	}
 }
 
 void loongson3_ipi_interrupt(struct pt_regs *regs)
@@ -224,11 +290,17 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 	unsigned int action, c0count, irqs;
 
 	/* Load the ipi register to figure out what we're supposed to do */
-	action = loongson3_ipi_read32(ipi_status0_regs[cpu_logical_map(cpu)]);
-	irqs = action >> IPI_IRQ_OFFSET;
-
-	/* Clear the ipi register to clear the interrupt */
-	loongson3_ipi_write32((u32)action, ipi_clear0_regs[cpu_logical_map(cpu)]);
+	if (csr_ipi_enabled) {
+		action = loongson3_ipi_read32_csr(LOONGSON_IPI_STATUS_OFFSET);
+		irqs = action >> IPI_IRQ_OFFSET;
+		/* Clear the ipi register to clear the interrupt */
+		loongson3_ipi_write32_csr((u32)action, LOONGSON_IPI_CLEAR_OFFSET);
+	} else {
+		action = loongson3_ipi_read32(ipi_status0_regs[cpu_logical_map(cpu)]);
+		irqs = action >> IPI_IRQ_OFFSET;
+		/* Clear the ipi register to clear the interrupt */
+		loongson3_ipi_write32((u32)action, ipi_clear0_regs[cpu_logical_map(cpu)]);
+	}
 
 	if (action & SMP_RESCHEDULE_YOURSELF) {
 		scheduler_ipi();
@@ -299,10 +371,10 @@ void __cpuinit loongson3_init_secondary(void)
 
 	/* Set interrupt mask, but don't enable */
 	change_c0_status(ST0_IM, imask);
-
-	for (i = 0; i < num_possible_cpus(); i++) {
-		loongson3_ipi_write32(0xffffffff, ipi_en0_regs[cpu_logical_map(i)]);
-	}
+	if (csr_ipi_enabled)
+		loongson3_ipi_write32_csr(0xffffffff, LOONGSON_IPI_EN_OFFSET);
+	else
+		loongson3_ipi_write32(0xffffffff, ipi_en0_regs[cpu_logical_map(cpu)]);		
 
 	per_cpu(cpu_state, cpu) = CPU_ONLINE;
 	cpu_data[cpu].core = cpu_logical_map(cpu) % cores_per_package;
@@ -332,7 +404,10 @@ void __cpuinit loongson3_smp_finish(void)
 
 	write_c0_compare(read_c0_count() + mips_hpt_frequency/HZ);
 	local_irq_enable();
-	loongson3_ipi_write64(0, (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x0));
+	if (csr_ipi_enabled)
+		loongson3_ipi_write64_csr(0, LOONGSON_MAIL_BUF_OFFSET);
+	else 
+		loongson3_ipi_write64(0, (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x0));
 	if (verbose || system_state == SYSTEM_BOOTING)
 		printk(KERN_INFO "CPU#%d finished, CP0_ST=%x\n",
 			smp_processor_id(), read_c0_status());
@@ -367,15 +442,25 @@ void __init loongson3_smp_setup(void)
 		__cpu_logical_map[num] = -1;
 		num++;
 	}
-
 	ipi_set0_regs_init();
 	ipi_clear0_regs_init();
 	ipi_status0_regs_init();
 	ipi_en0_regs_init();
 	ipi_mailbox_buf_init();
+	if ((current_cpu_type() == CPU_LOONGSON3_COMP) &&
+		(read_csr(LOONGSON_CPU_FEATURE_OFFSET) & LOONGSON_CPU_FEATURE_IPI_PERCORE)) {
+		
+		csr_ipi_enabled = 1;
 
-	for (i = 0; i < possible_cpus_loongson; i++)
-		loongson3_ipi_write64(0, (void *)(ipi_mailbox_buf[i]+0x0));
+		loongson3_ipi_write32_csr(0xffffffff, LOONGSON_IPI_EN_OFFSET);
+		for (i = 0; i < possible_cpus_loongson; i++)
+			loongson3_mail_send_csr(0, i, 0);
+	} else {
+		/* Enable ipi interrupt on boot cpu */
+		loongson3_ipi_write32(0xffffffff, ipi_en0_regs[cpu_logical_map(0)]);		
+		for (i = 0; i < possible_cpus_loongson; i++)
+			loongson3_ipi_write64(0, (void *)(ipi_mailbox_buf[i]+0x0));
+	}	
 
 	cpu_data[0].core = cpu_logical_map(0) % cores_per_package;
 	cpu_data[0].package = cpu_logical_map(0) / cores_per_package;
@@ -413,10 +498,17 @@ void __cpuinit loongson3_boot_secondary(int cpu, struct task_struct *idle)
 		printk(KERN_DEBUG "CPU#%d, func_pc=%lx, sp=%lx, gp=%lx\n",
 			cpu, startargs[0], startargs[1], startargs[2]);
 
-	loongson3_ipi_write64(startargs[3], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x18));
-	loongson3_ipi_write64(startargs[2], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x10));
-	loongson3_ipi_write64(startargs[1], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x8));
-	loongson3_ipi_write64(startargs[0], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x0));
+	if (csr_ipi_enabled) {
+		loongson3_mail_send_csr(startargs[3], cpu_logical_map(cpu), 3);
+		loongson3_mail_send_csr(startargs[2], cpu_logical_map(cpu), 2);
+		loongson3_mail_send_csr(startargs[1], cpu_logical_map(cpu), 1);
+		loongson3_mail_send_csr(startargs[0], cpu_logical_map(cpu), 0);
+	} else {
+		loongson3_ipi_write64(startargs[3], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x18));
+		loongson3_ipi_write64(startargs[2], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x10));
+		loongson3_ipi_write64(startargs[1], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x8));
+		loongson3_ipi_write64(startargs[0], (void *)(ipi_mailbox_buf[cpu_logical_map(cpu)]+0x0));
+	}
 }
 
 /*
