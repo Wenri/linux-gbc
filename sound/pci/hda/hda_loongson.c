@@ -142,7 +142,7 @@ MODULE_PARM_DESC(power_save_controller, "Reset controller in power save mode.");
 #else
 #define power_save	0
 #endif /* CONFIG_PM */
-
+static int use_pci_probe = 0;
 static int align_buffer_size = -1;
 module_param(align_buffer_size, bint, 0644);
 MODULE_PARM_DESC(align_buffer_size,
@@ -283,7 +283,12 @@ static void azx_clear_irq_pending(struct azx *chip)
 static int azx_acquire_irq(struct azx *chip, int do_disconnect)
 {
 	struct hdac_bus *bus = azx_bus(chip);
-	int irq = platform_get_irq(to_platform_device(chip->card->dev), 0);
+	int irq;
+	
+	if (use_pci_probe)
+		irq = chip->pci->irq;
+	else
+		irq = platform_get_irq(to_platform_device(chip->card->dev), 0);
 
 	if (request_irq(irq, azx_interrupt, chip->msi ? 0 : IRQF_SHARED,
 			KBUILD_MODNAME, chip)) {
@@ -530,9 +535,8 @@ static void azx_probe_work(struct work_struct *work)
 	azx_probe_continue(&hda->chip);
 }
 
-static int azx_create(struct snd_card *card, struct platform_device *pdev,
-		      int dev, unsigned int driver_caps,
-		      struct azx **rchip)
+static int azx_create(struct snd_card *card, struct pci_dev *pci, int dev, 
+				unsigned int driver_caps, struct azx **rchip)
 {
 	static struct snd_device_ops ops = {
 		.dev_disconnect = azx_dev_disconnect,
@@ -553,7 +557,7 @@ static int azx_create(struct snd_card *card, struct platform_device *pdev,
 	chip = &hda->chip;
 	mutex_init(&chip->open_mutex);
 	chip->card = card;
-	chip->pci = NULL;
+	chip->pci = pci;
 	chip->ops = &loongson_hda_ops;
 	chip->driver_caps = driver_caps;
 	chip->driver_type = driver_caps & 0xff;
@@ -580,7 +584,7 @@ static int azx_create(struct snd_card *card, struct platform_device *pdev,
 			break;
 		}
 	}
-	chip->bdl_pos_adj = bdl_pos_adj;
+	chip->bdl_pos_adj = bdl_pos_adj[dev];
 
 	err = azx_bus_init(chip, model[dev], &loongson_hda_io_ops);
 	if (err < 0) {
@@ -610,9 +614,19 @@ static int azx_first_init(struct azx *chip)
 	int err;
 	unsigned short gcap;
 
-	bus->addr = platform_resource_start(to_platform_device(chip->card->dev), 0);
-	bus->remap_addr = ioremap_nocache(bus->addr,
+	if (use_pci_probe) {
+		err = pci_request_regions(chip->pci, "LS HD audio");
+		if (err < 0)
+			return err;
+		chip->region_requested = 1;
+
+		bus->addr = pci_resource_start(chip->pci, 0);
+		bus->remap_addr = pci_ioremap_bar(chip->pci, 0);
+	} else {
+		bus->addr = platform_resource_start(to_platform_device(chip->card->dev), 0);
+		bus->remap_addr = ioremap_nocache(bus->addr,
 					   platform_resource_len(to_platform_device(chip->card->dev), 0));
+	}
 	if (bus->remap_addr == NULL) {
 		dev_err(card->dev, "ioremap error\n");
 		return -ENXIO;
@@ -793,7 +807,7 @@ static int azx_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	err = azx_create(card, pdev, dev, AZX_DRIVER_ICH | AZX_DCAPS_LS_HDA_WORKAROUND, &chip);
+	err = azx_create(card, NULL, dev, AZX_DRIVER_ICH | AZX_DCAPS_LS_HDA_WORKAROUND, &chip);
 	if (err < 0)
 		goto out_free;
 	card->private_data = chip;
@@ -912,62 +926,55 @@ static DEFINE_PCI_DEVICE_TABLE(azx_id_table) = {
 
 MODULE_DEVICE_TABLE(pci, azx_id_table);
 
-
-static struct resource ls_hda_resources[] = {
-	[0] = {
-		.flags	= IORESOURCE_MEM,
-	},
-	[1] = {
-		.flags	= IORESOURCE_IRQ,
-	},
-};
-
-
-static struct platform_device ls_hda_device = {
-	.name		= "ls-audio",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(ls_hda_resources),
-	.resource	= ls_hda_resources,
-};
-
-
-static int azx_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
+static int azx_pci_probe(struct pci_dev *pci, const struct pci_device_id *pci_id)
 {
-	int ret;
-	unsigned char v8;
+	static int dev;
+	struct snd_card *card;
+	struct hda_loongson *hda;
+	struct azx *chip;
+	bool schedule_probe;
+	int err;
 
-	/* Enable device in PCI config */
-	ret = pci_enable_device(pdev);
-	if (ret < 0) {
-		printk(KERN_ERR "ls hda (%s): Cannot enable PCI device\n", pci_name(pdev));
-		goto err_out;
+	if (dev >= SNDRV_CARDS)
+		return -ENODEV;
+	if (!enable[dev]) {
+		dev++;
+		return -ENOENT;
 	}
 
+	use_pci_probe = 1;
 
-	/* request the mem regions */
-	ret = pci_request_region(pdev, 0, "lshda io");
-	if (ret < 0) {
-		printk( KERN_ERR "lshda (%s): cannot request region 0.\n",
-			pci_name(pdev));
-		goto err_out;
+	err = pci_enable_device(pci);
+	if (err < 0)
+		return err;
+
+	err = snd_card_new(&pci->dev, index[dev], id[dev], THIS_MODULE, 0, &card);
+	if (err < 0) {
+		dev_err(&pci->dev, "Error creating card!\n");
+		return err;
 	}
 
-	ls_hda_resources[0].start = pci_resource_start (pdev, 0);
-	ls_hda_resources[0].end = pci_resource_end(pdev, 0);
+	err = azx_create(card, pci, dev, AZX_DRIVER_ICH | AZX_DCAPS_LS_HDA_WORKAROUND, &chip);
+	if (err < 0)
+		goto out_free;
+	card->private_data = chip;
+	hda = container_of(chip, struct hda_loongson, chip);
 
-	ret = pci_read_config_byte(pdev, PCI_INTERRUPT_LINE, &v8); //need api from pci irq
+	pci_set_drvdata(pci, card);
 
-	if (ret == PCIBIOS_SUCCESSFUL) {
+	schedule_probe = !chip->disabled;
 
-		ls_hda_resources[1].start = v8;
-		ls_hda_resources[1].end = v8;
+	if (schedule_probe)
+		schedule_work(&hda->probe_work);
 
-		platform_device_register(&ls_hda_device);
-
-	}
+	dev++;
+	if (chip->disabled)
+		complete_all(&hda->probe_wait);
 	return 0;
-err_out:
-	return ret;
+
+out_free:
+	snd_card_free(card);
+	return err;
 }
 
 static void azx_pci_remove(struct pci_dev *pdev)
