@@ -92,11 +92,7 @@ out:
 
 struct irqaction c0_compare_irqaction = {
 	.handler = c0_compare_interrupt,
-#ifdef CONFIG_CPU_LOONGSON3
 	.flags = IRQF_PERCPU | IRQF_SHARED | IRQF_TIMER,
-#else
-	.flags = IRQF_PERCPU | IRQF_TIMER,
-#endif
 	.name = "timer",
 };
 
