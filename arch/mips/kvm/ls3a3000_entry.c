@@ -19,7 +19,7 @@
 #include <asm/uasm.h>
 
 #define issidepass 0
-unsigned int stlb = 0;
+unsigned int stlb = 1;
 module_param(stlb, uint, S_IRUGO | S_IWUSR);
 EXPORT_SYMBOL_GPL(stlb);
 
