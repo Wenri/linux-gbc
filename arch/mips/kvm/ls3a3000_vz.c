@@ -904,6 +904,7 @@ static enum emulation_result kvm_trap_vz_handle_gsfc(u32 cause, u32 *opc,
 	return er;
 }
 
+#if 0
 static enum emulation_result kvm_trap_vz_handle_hc(u32 cause, u32 *opc,
 						   struct kvm_vcpu *vcpu)
 {
@@ -933,6 +934,7 @@ static enum emulation_result kvm_trap_vz_handle_hc(u32 cause, u32 *opc,
 
 	return er;
 }
+#endif
 
 static enum emulation_result kvm_trap_vz_no_handler_guest_exit(u32 gexccode,
 							u32 cause,
@@ -989,7 +991,8 @@ static int kvm_trap_vz_handle_guest_exit(struct kvm_vcpu *vcpu)
 	case MIPS_GCTL0_GEXC_HC:
 		vcpu->arch.is_hypcall = 1;
 		++vcpu->stat.vz_hc_exits;
-		er = kvm_trap_vz_handle_hc(cause, opc, vcpu);
+		vcpu->arch.pc += 4;
+		er = EMULATE_HYPERCALL;
 		break;
 	case MIPS_GCTL0_GEXC_GRR:
 		++vcpu->stat.vz_grr_exits;
