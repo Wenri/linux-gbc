@@ -23,6 +23,10 @@ unsigned int stlb = 1;
 module_param(stlb, uint, S_IRUGO | S_IWUSR);
 EXPORT_SYMBOL_GPL(stlb);
 
+unsigned int stlb_debug = 0;
+module_param(stlb_debug, uint, S_IRUGO | S_IWUSR);
+EXPORT_SYMBOL_GPL(stlb_debug);
+
 //#define LSVZ_TLB_ISOLATE_DEBUG
 #ifdef LSVZ_TLB_ISOLATE_DEBUG
 int guest_vtlb_index = 0;
@@ -463,11 +467,25 @@ skip_asid_restore:
 	uasm_i_jalr(&p, RA, T9);
 	uasm_i_nop(&p);
 
+	/* Copy root entryhi asid with guest entryhi asid info,
+         * a workaround read wrong root.entryhi.asid bug
+         */
+        UASM_i_MFC0(&p, A0, C0_ENTRYHI);//save root entryhi
+        uasm_i_dsrl(&p, A3, A0, 8);
+        uasm_i_dsll(&p, A3, A3, 8);    //A3 = hi & ~0xff
+        UASM_i_MFGC0(&p, A2, C0_ENTRYHI);
+        uasm_i_andi(&p, A2, A2, 0xff);
+        uasm_i_or(&p, A2, A3, A2);
+        UASM_i_MTC0(&p, A2, C0_ENTRYHI);//write entryhi
+        uasm_i_ehb(&p);
+
+#if 0
 	//Flush ITLB to workaround read wrong root.entryhi.asid bug
 	uasm_i_ori(&p, A1, ZERO, 1);
 	uasm_i_mfc0(&p, A0, C0_DIAG);
 	uasm_i_ins(&p, A0, A1, LS_ITLB_SHIFT, 1);
 	uasm_i_mtc0(&p, A0, C0_DIAG);
+#endif
 
 	/* load the guest context from VCPU and return */
 	for (i = 1; i < 32; ++i) {
@@ -770,6 +788,24 @@ void *kvm_mips_ls3a3000_build_tlb_refill_target(void *addr, void *handler)
 	/* Is badvaddr userspace or kernel mapped */
 	UASM_i_MFC0(&p, K0, C0_BADVADDR);
 
+	/* Copy root entryhi asid with guest entryhi asid info,
+         * a workaround read wrong root.entryhi.asid bug
+         */
+	UASM_i_MFC0(&p, A0, C0_ENTRYHI);//save root entryhi
+	uasm_i_dsrl(&p, A3, K0, STLB_ENTRYHI_SHIFT);    //A3 = badv >> 15
+	uasm_i_dsll(&p, A3, A3, STLB_ENTRYHI_SHIFT);    //A3 = hi & ~0xff
+	UASM_i_MFGC0(&p, A2, C0_ENTRYHI);
+	uasm_i_andi(&p, A2, A2, 0xff);
+	uasm_i_or(&p, A2, A3, A2);
+	UASM_i_MTC0(&p, A2, C0_ENTRYHI);//write entryhi
+	uasm_i_ehb(&p);
+
+	if (stlb_debug == 1) {
+		UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_exits), K1);
+		uasm_i_daddiu(&p, A1, A1, 1);
+		UASM_i_SW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_exits), K1);
+	}
+
 	UASM_i_LA(&p, A0, (unsigned long)0xffffffffc0000000);
 	uasm_i_sltu(&p, A0, K0, A0);
 	/* A0 == 0 means (badvaddr >= 0xffffffffc0000000) */
@@ -854,26 +890,10 @@ void *kvm_mips_ls3a3000_build_tlb_refill_target(void *addr, void *handler)
 //		uasm_i_ori(&p, A0, ZERO, 0x7800);   // only small page supported
 //		UASM_i_MTC0(&p, A0, C0_PAGEMASK);
 
-		UASM_i_MFC0(&p, A0, C0_ENTRYHI);//save root entryhi
-		uasm_i_dsrl(&p, A3, K0, STLB_ENTRYHI_SHIFT);	//A3 = badv >> 15
-		uasm_i_dsll(&p, A3, A3, STLB_ENTRYHI_SHIFT);	//A3 = hi & ~0xff
-		UASM_i_MFGC0(&p, A2, C0_ENTRYHI);
-		uasm_i_andi(&p, A2, A2, 0xff);
-		uasm_i_or(&p, A2, A3, A2);
-		UASM_i_MTC0(&p, A2, C0_ENTRYHI);//write entryhi
-		uasm_i_nop(&p);
 		//lo0, lo1 and entryhi ready
 		uasm_i_tlbwr(&p);
 		uasm_i_nop(&p);
 		uasm_i_nop(&p);
-
-		UASM_i_MTC0(&p, A0, C0_ENTRYHI);//restore root entryhi
-		uasm_i_nop(&p);
-		// Flush ITLB to workaround read wrong root.entryhi.asid bug
-		uasm_i_ori(&p, A2, ZERO, 1);
-		uasm_i_mfc0(&p, A3, C0_DIAG);
-		uasm_i_ins(&p, A3, A2, LS_ITLB_SHIFT, 1);
-		uasm_i_mtc0(&p, A3, C0_DIAG);
 
 		uasm_il_b(&p, &r, label_refill_exit);
 		uasm_i_nop(&p);
@@ -1002,15 +1022,23 @@ void *kvm_mips_ls3a3000_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_or(&p, A0, A0, A1);
 	uasm_i_mtgc0(&p, A0, C0_CAUSE);
 
+        if (stlb_debug == 1) {
+		UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_fail), K1);
+		uasm_i_daddiu(&p, A1, A1, 1);
+		UASM_i_SW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_fail), K1);
+        }
+
 	uasm_l_no_ti(&l, p);
 
 	uasm_l_refill_exit(&l, p);
 
 	//Flush ITLB/DTLB
+#if 0
 	uasm_i_ori(&p, A1, ZERO, 3);
 	uasm_i_mfc0(&p, A0, C0_DIAG);
 	uasm_i_ins(&p, A0, A1, LS_ITLB_SHIFT, 2);
 	uasm_i_mtc0(&p, A0, C0_DIAG);
+#endif
 
 	/* Restore Root.entryhi, Guest A0 from VCPU structure */
 	UASM_i_MFC0(&p, K1, scratch_vcpu[0], scratch_vcpu[1]);

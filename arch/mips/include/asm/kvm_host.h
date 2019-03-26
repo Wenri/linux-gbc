@@ -187,6 +187,8 @@ struct kvm_vcpu_stat {
 	u64 lsvz_gpsi_cop0_exits;
 	u64 lsvz_gpsi_cache_exits;
 	u64 lsvz_gpsi_spec3_exits;
+	u64 lsvz_tlb_refill_exits;
+	u64 lsvz_tlb_refill_fail;
 #endif
 	u64 halt_successful_poll;
 	u64 halt_attempted_poll;
