@@ -39,14 +39,14 @@
 /*#include "platform_driver.h"*/
 #include "loongson_drv.h"
 
-
-
 #define DRIVER_NAME	"loongson-vga-drm"
 #define DRIVER_DESC	"Loongson VGA DRM"
 #define DRIVER_DATE	"20180328"
 #define DRIVER_MAJOR	0
 #define DRIVER_MINOR	1
 #define DRIVER_PATCHLEVEL	0
+
+struct semaphore ls_dc_init_sem;
 
 /**
  * loongson_user_framebuffer_destroy -- release framebuffer, clean up framebuffer resource
@@ -493,6 +493,8 @@ static int loongson_vga_load(struct drm_device *dev, unsigned long flags)
 {
 	struct loongson_drm_device *ldev;
 	int ret,r;
+
+	sema_init(&ls_dc_init_sem, 1);
 
 	ldev = devm_kzalloc(dev->dev, sizeof(struct loongson_drm_device), GFP_KERNEL);
 	if (ldev == NULL)

@@ -68,16 +68,26 @@
 #define LS_PIX1_PLL				(LS7A_PCH_CFG_REG_BASE + 0x04c0)
 #endif
 
+extern struct semaphore ls_dc_init_sem;
+
+#define ls_dc_write(val, addr)          \
+    do {                                \
+        down(&ls_dc_init_sem);          \
+        *(volatile unsigned long __force *)TO_UNCAC(addr) = (val);          \
+        up(&ls_dc_init_sem);        \
+    }while(0)
+
+
 #ifdef CONFIG_CPU_LOONGSON2K
 #define ls_readl					ls2k_readl
 #define ls_readq					ls2k_readq
-#define ls_writel					ls2k_writel
-#define ls_writeq					ls2k_writeq
+#define ls_writel					ls_dc_write
+#define ls_writeq					ls_dc_write
 #else
 #define ls_readl					ls7a_readl
 #define ls_readq					ls7a_readq
-#define ls_writel					ls7a_writel
-#define ls_writeq					ls7a_writeq
+#define ls_writel					ls_dc_write
+#define ls_writeq					ls_dc_write
 #endif
 
 #define CURIOSET_CORLOR		0x4607
