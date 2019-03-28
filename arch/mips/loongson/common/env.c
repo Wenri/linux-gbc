@@ -368,3 +368,15 @@ void __init prom_init_env(void)
 	}
 	pr_info("CpuClock = %u\n", cpu_clock_freq);
 }
+
+static int __init init_cpu_fullname(void)
+{
+	int cpu;
+
+	/* get the __cpu_full_name from bios */
+	if((ecpu->vers > 1) && (ecpu->cpuname[0] != 0))
+		for(cpu = 0; cpu < NR_CPUS; cpu++)
+		__cpu_full_name[cpu] = ecpu->cpuname;
+	return 0;
+}
+arch_initcall(init_cpu_fullname);
