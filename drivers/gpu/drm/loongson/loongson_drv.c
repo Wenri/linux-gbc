@@ -46,7 +46,7 @@
 #define DRIVER_MINOR	1
 #define DRIVER_PATCHLEVEL	0
 
-struct semaphore ls_dc_init_sem;
+struct mutex ls_dc_mutex;
 
 /**
  * loongson_user_framebuffer_destroy -- release framebuffer, clean up framebuffer resource
@@ -494,8 +494,7 @@ static int loongson_vga_load(struct drm_device *dev, unsigned long flags)
 	struct loongson_drm_device *ldev;
 	int ret,r;
 
-	sema_init(&ls_dc_init_sem, 1);
-
+	mutex_init(&ls_dc_mutex);
 	ldev = devm_kzalloc(dev->dev, sizeof(struct loongson_drm_device), GFP_KERNEL);
 	if (ldev == NULL)
 		return -ENOMEM;

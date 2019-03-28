@@ -77,9 +77,9 @@ static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned int
 			.buf = buf,
 		}
 	};
-	down(&ls_dc_init_sem);
+	mutex_lock(&ls_dc_mutex);
 	if (i2c_transfer(adapter, msgs, 2) == 2) {
-		up(&ls_dc_init_sem);
+		mutex_unlock(&ls_dc_mutex);
 		if (buf[126] != 0) {
 			buf[126] = 0;
 			che_tmp = 0;
@@ -93,7 +93,7 @@ static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned int
                         return false;
                 }
         } else {
-		up(&ls_dc_init_sem);
+		mutex_unlock(&ls_dc_mutex);
                  dev_warn_once(&adapter->dev, "unable to read EDID block\n");
                  return false;
         }

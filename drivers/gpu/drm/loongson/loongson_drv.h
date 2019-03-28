@@ -68,13 +68,13 @@
 #define LS_PIX1_PLL				(LS7A_PCH_CFG_REG_BASE + 0x04c0)
 #endif
 
-extern struct semaphore ls_dc_init_sem;
+extern struct mutex ls_dc_mutex;
 
 #define ls_dc_write(val, addr)          \
     do {                                \
-        down(&ls_dc_init_sem);          \
+        mutex_lock(&ls_dc_mutex);          \
         *(volatile unsigned long __force *)TO_UNCAC(addr) = (val);          \
-        up(&ls_dc_init_sem);        \
+        mutex_unlock(&ls_dc_mutex);        \
     }while(0)
 
 
