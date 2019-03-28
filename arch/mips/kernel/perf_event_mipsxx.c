@@ -187,9 +187,7 @@ static inline bool cpu_is_new_loongson3(void)
 {
 	if (boot_cpu_type() == CPU_LOONGSON3)
 		return  ((boot_cpu_data.processor_id & PRID_REV_MASK) >= PRID_REV_LOONGSON3A_R2);
-	else if (boot_cpu_type() == CPU_LOONGSON3_COMP)
-		return 1;
-	else 
+	else
 		return 0;
 }
 
@@ -946,8 +944,7 @@ static const struct mips_perf_event loongson3_event_map2[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_BRANCH_MISSES] = { 0x9c, CNTR_ALL },
 };
 
-#ifdef CONFIG_CPU_LOONGSON2K
-static const struct mips_perf_event loongson2k_event_map[PERF_COUNT_HW_MAX] = {
+static const struct mips_perf_event loongson_new_event_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES] = { 0x00, CNTR_ALL },
 	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x01, CNTR_ALL },
 	[PERF_COUNT_HW_CACHE_REFERENCES] = { 0x1c, CNTR_ALL },
@@ -958,81 +955,8 @@ static const struct mips_perf_event loongson2k_event_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_STALLED_CYCLES_FRONTEND] = { UNSUPPORTED_PERF_EVENT_ID },
 	[PERF_COUNT_HW_STALLED_CYCLES_BACKEND] = { UNSUPPORTED_PERF_EVENT_ID },
 	[PERF_COUNT_HW_REF_CPU_CYCLES] = { UNSUPPORTED_PERF_EVENT_ID },
-
-	[PERF_COUNT_HW_UNLIKELY_INSTRUCTIONS] = { 0x03, CNTR_ALL },
-	[PERF_COUNT_HW_LIKELY_INSTRUCTIONS] = { 0x04, CNTR_ALL },
-	[PERF_COUNT_HW_JR31_INSTRUCTIONS] = { 0x05, CNTR_ALL },
-	[PERF_COUNT_HW_JR_HB_INSTRUCTIONS] = { 0x06, CNTR_ALL },
-	[PERF_COUNT_HW_UNRETURN_INSTRUCTIONS] = { 0x07, CNTR_ALL },
-	[PERF_COUNT_HW_UNLIKELY_MISSES] = { 0x09, CNTR_ALL },
-	[PERF_COUNT_HW_JR_MISSES] = { 0x0a, CNTR_ALL },
-	[PERF_COUNT_HW_UNRETURN_MISSES] = { 0x0b, CNTR_ALL },
-	[PERF_COUNT_HW_FLOAT_OPERAND] = { 0x0c, CNTR_ALL },
-	[PERF_COUNT_HW_VECTOR_OPERAND] = { 0x0d, CNTR_ALL },
-
-	[PERF_COUNT_HW_LOAD_INSTRUCTIONS] = { 0x0e, CNTR_ALL },
-	[PERF_COUNT_HW_STORE_INSTRUCTIONS] = { 0x0f, CNTR_ALL },
-	[PERF_COUNT_HW_UNCACHE_ACCESS_MEMORY] = { 0x10, CNTR_ALL },
-	[PERF_COUNT_HW_FIXED_PART_OPERAND] = { 0x11, CNTR_ALL },
-	[PERF_COUNT_HW_SC_INSTRUCTIONS] = { 0x12, CNTR_ALL },
-	[PERF_COUNT_HW_SC_MISSES] = { 0x13, CNTR_ALL },
-	[PERF_COUNT_HW_SOFTWARE_TLB] = { 0x14, CNTR_ALL },
-	[PERF_COUNT_HW_ADDRESS_NON_ALIGNING_ADE] = { 0x15, CNTR_ALL },
-	[PERF_COUNT_HW_TLB_REFILL_EXCEPRION] = { 0x16, CNTR_ALL },
-	[PERF_COUNT_HW_TAKE_TLB_REFILL_EXCEPRION] = { 0x17, CNTR_ALL },
-
-	[PERF_COUNT_HW_LOAD_TLB_REFILL] = { 0x18, CNTR_ALL },
-	[PERF_COUNT_HW_STORE_TLB_REFILL] = { 0x19, CNTR_ALL },
-	[PERF_COUNT_HW_ITLB_REFILL] = { 0x1a, CNTR_ALL },
-	[PERF_COUNT_HW_D_CACHE_REFERENCES] = { 0x1e, CNTR_ALL },
-	[PERF_COUNT_HW_D_CACHE_MISSES] = { 0x1f, CNTR_ALL },
-	[PERF_COUNT_HW_SMP_COHERENCE_REQUEST_D_CACHE_SHIFT] = { 0x22, CNTR_ALL },
-	[PERF_COUNT_HW_SMP_COHERENCE_REQUEST_D_CACHE_DATA_DIRTY] = { 0x23, CNTR_ALL },
-	[PERF_COUNT_HW_I_CACHE_MISSES_FRONT_LINE_EMPTY] = { 0x40, CNTR_ALL },
-	[PERF_COUNT_HW_I_CACHE_MISSES_FRONT_END_PIPELINING] = { 0x41, CNTR_ALL },
-	[PERF_COUNT_HW_TAKEN_FRONT_LINE_EMPTY] = { 0x42, CNTR_ALL },
-
-	[PERF_COUNT_HW_TAKEN_FRONT_END_PIPELINING] = { 0x43, CNTR_ALL },
-	[PERF_COUNT_HW_INSTRUCTION_OF_SENT_BACKEND] = { 0x44, CNTR_ALL },
-	[PERF_COUNT_HW_ROQ_FULL_BLOCK_MAP_CYCLES] = { 0x45, CNTR_ALL },
-	[PERF_COUNT_HW_BRQ_FULL_BLOCK_MAP_CYCLES] = { 0x46, CNTR_ALL },
-	[PERF_COUNT_HW_CP0Q_FULL_BLOCK_MAP_CYCLES] = { 0x47, CNTR_ALL },
-	[PERF_COUNT_HW_FTQ_FULL_BLOCK_MAP_CYCLES] = { 0x48, CNTR_ALL },
-	[PERF_COUNT_HW_FXQ_FULL_BLOCK_MAP_CYCLES] = { 0x49, CNTR_ALL },
-	[PERF_COUNT_HW_GRMT_FULL_BLOCK_MAP_CYCLES] = { 0x4a, CNTR_ALL },
-	[PERF_COUNT_HW_FRMT_FULL_BLOCK_MAP_CYCLES] = { 0x4b, CNTR_ALL },
-	[PERF_COUNT_HW_DELAY_LOAD_NOEXEC_BLOCK_MAP_CYCLES] = { 0x4c, CNTR_ALL },
-
-	[PERF_COUNT_HW_0_BEAM_BUS_OPERAND] = { 0x4d, CNTR_ALL },
-	[PERF_COUNT_HW_1_BEAM_BUS_OPERAND] = { 0x4e, CNTR_ALL },
-	[PERF_COUNT_HW_2_BEAM_BUS_OPERAND] = { 0x4f, CNTR_ALL },
-	[PERF_COUNT_HW_3_BEAM_BUS_OPERAND] = { 0x50, CNTR_ALL },
-	[PERF_COUNT_HW_BRANCH_MISSES_GLIDE_STALL_CYCLES] = { 0x51, CNTR_ALL },
-	[PERF_COUNT_HW_EXCEPTION_GLIDE_STALL_CYCLES] = { 0x52, CNTR_ALL },
-	[PERF_COUNT_HW_STALLF_IN_EXECPTION] = { 0x53, CNTR_ALL },
-	[PERF_COUNT_HW_STALLF_IN_GLID_STALL_CYCLES] = { 0x54, CNTR_ALL },
-	[PERF_COUNT_HW_MISPEC_IN_EXECPTION] = { 0x55, CNTR_ALL },
-	[PERF_COUNT_HW_MISPEC_IN_GLID_STALL_CYCLES] = { 0x56, CNTR_ALL },
-
-	[PERF_COUNT_HW_CORE_OUT_CACHED_READ_REQUEST] = { 0x57, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_CACHED_READ_REQUEST_DELAY] = { 0x58, CNTR_ALL },
-	[PERF_COUNT_HW_SOFT_PREFETCH_OUT_CORE_REQUEST] = { 0x59, CNTR_ALL },
-	[PERF_COUNT_HW_STORE_FILL_FULL] = { 0x5a, CNTR_ALL },
-	[PERF_COUNT_HW_MISSQ_CACHE_MISSES_BLOCK_CYCLES] = { 0x5b, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_UNCACHED_READ_REQUEST] = { 0x5c, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_UNCACHED_READ_DELAY] = { 0x5d, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_UNCACHED_WRITE_REQUEST] = { 0x5e, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_UNCACHED_WRITE_DELAY] = { 0x5f, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_UNCACHED_ACC_REQUEST] = { 0x60, CNTR_ALL },
-
-	[PERF_COUNT_HW_CORE_OUT_UNCACHED_ACC_REQUEST_FULL_CACHELINE] = { 0x61, CNTR_ALL },
-	[PERF_COUNT_HW_UCQ_FULL_UNCACHE_REQUEST_BLOCK_CYCLES] = { 0x62, CNTR_ALL },
-	[PERF_COUNT_HW_WTBUF_FULL_BLOCK_CYCLES] = { 0x63, CNTR_ALL },
-	[PERF_COUNT_HW_WTQID_FULL_BLOCK_CYCLES] = { 0x64, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_CACHED_WRITE_REQUEST] = { 0x65, CNTR_ALL },
-	[PERF_COUNT_HW_CORE_OUT_CACHED_WRITE_DELAY] = { 0x66, CNTR_ALL },
 };
-#endif
+
 static const struct mips_perf_event octeon_event_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES] = { 0x01, CNTR_ALL },
 	[PERF_COUNT_HW_INSTRUCTIONS] = { 0x03, CNTR_ALL },
@@ -1332,14 +1256,12 @@ static const struct mips_perf_event loongson3_cache_map2
 	},
 },
 };
-#ifdef CONFIG_CPU_LOONGSON2K
 /* LS2K */
 static const struct mips_perf_event loongson2k_cache_map
 				[PERF_COUNT_HW_CACHE_MAX]
 				[PERF_COUNT_HW_CACHE_OP_MAX]
 				[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 };
-#endif
 
 /* BMIPS5000 */
 static const struct mips_perf_event bmips5000_cache_map
@@ -1813,9 +1735,12 @@ static const struct mips_perf_event *mipsxx_pmu_map_raw_event(u64 config)
 				raw_id > 127 ? CNTR_ODD : CNTR_EVEN;
 		break;
 	case CPU_LOONGSON3:
-	case CPU_LOONGSON3_COMP:
 		raw_event.cntr_mask = raw_id > 127 ? CNTR_ODD : CNTR_EVEN;
-	break;
+		break;
+	case CPU_LOONGSON3_COMP:
+	case CPU_LOONGSON2K:
+		raw_event.cntr_mask = CNTR_ALL;
+		break;
 	}
 
 	return &raw_event;
@@ -1953,7 +1878,6 @@ init_hw_perf_events(void)
 		mipspmu.cache_event_map = &mipsxxcore_cache_map;
 		break;
 	case CPU_LOONGSON3:
-	case CPU_LOONGSON3_COMP:
 		mipspmu.name = "mips/loongson3";
 		if (!cpu_is_new_loongson3()) {
 			counters = 2;
@@ -1966,13 +1890,16 @@ init_hw_perf_events(void)
 			mipspmu.map_raw_event = loongson3_pmu_map_raw_event;
 		}
 		break;
-#ifdef CONFIG_CPU_LOONGSON2K
+	case CPU_LOONGSON3_COMP:
+		mipspmu.name = "mips/loongson_rev2+";
+		mipspmu.general_event_map = &loongson_new_event_map;
+		mipspmu.cache_event_map = &loongson3_cache_map2;
+		break;
 	case CPU_LOONGSON2K:
 		mipspmu.name = "mips/loongson2k";
-		mipspmu.general_event_map = &loongson2k_event_map;
+		mipspmu.general_event_map = &loongson_new_event_map;
 		mipspmu.cache_event_map = &loongson2k_cache_map;
 		break;
-#endif
 	case CPU_CAVIUM_OCTEON:
 	case CPU_CAVIUM_OCTEON_PLUS:
 	case CPU_CAVIUM_OCTEON2:
