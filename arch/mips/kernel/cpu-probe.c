@@ -1378,6 +1378,7 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 					MIPS_CPU_PREFETCH;
 				c->cputype = CPU_LOONGSON2K;
 				__cpu_name[cpu] = "Loongson-2K";
+				__cpu_full_name[cpu] = "Loongson-2K1000";
 				decode_configs(c);
 				break;
 		}
