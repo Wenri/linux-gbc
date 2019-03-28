@@ -2076,12 +2076,12 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 		/*
 		 * Loongson-3 overridden ldc2 instructions.
 		 * opcode1              instruction
-		 *   0x0          gslbx: store 1 bytes from GPR
-		 *   0x1          gslhx: store 2 bytes from GPR
-		 *   0x2          gslwx: store 4 bytes from GPR
-		 *   0x3          gsldx: store 8 bytes from GPR
-		 *   0x6          gslwxc1: store 4 bytes from FPR
-		 *   0x7          gsldxc1: store 8 bytes from FPR
+		 *   0x0          gslbx: load 1 bytes from GPR
+		 *   0x1          gslhx: load 2 bytes from GPR
+		 *   0x2          gslwx: load 4 bytes from GPR
+		 *   0x3          gsldx: load 8 bytes from GPR
+		 *   0x6          gslwxc1: load 4 bytes from FPR
+		 *   0x7          gsldxc1: load 8 bytes from FPR
 		 */
 		case 0x0:
 			run->mmio.len = 1;
