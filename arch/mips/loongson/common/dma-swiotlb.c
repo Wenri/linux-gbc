@@ -340,4 +340,8 @@ void __init plat_swiotlb_setup(void)
 			loongson_linear_dma_map_ops.dma_to_phys = loongson_ls7a_dma_to_phys;
 		}
 	}
+#ifdef CONFIG_KVM_GUEST_LS3A3000
+	loongson_linear_dma_map_ops.phys_to_dma = loongson_ls7a_phys_to_dma;
+	loongson_linear_dma_map_ops.dma_to_phys = loongson_ls7a_dma_to_phys;
+#endif
 }
