@@ -1382,6 +1382,7 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 				break;
 		}
 		break;
+#ifdef CONFIG_CPU_LOONGSON3
 	default:
 		c->cputype = CPU_LOONGSON3_COMP;
 		__cpu_name[cpu] = "ICT Loongson-3";
@@ -1392,6 +1393,7 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		decode_configs(c);
 		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
 		break;
+#endif
 	}
 }
 
