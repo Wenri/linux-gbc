@@ -719,11 +719,18 @@ int process_fpemu_return(int sig, void __user *fault_addr)
  */
 asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
+	enum ctx_state prev_state;
 	siginfo_t info = {0};
 
+	prev_state = exception_enter();
 	if (notify_die(DIE_FP, "FP exception", regs, 0, regs_to_trapnr(regs), SIGFPE)
 	    == NOTIFY_STOP)
-		return;
+		goto out;
+
+	/* Clear FCSR.Cause before enabling interrupts */
+	write_32bit_cp1_register(CP1_STATUS, fcr31 & ~FPU_CSR_ALL_X);
+	local_irq_enable();
+
 	die_if_kernel("FP exception in kernel code", regs);
 
 	if (fcr31 & FPU_CSR_UNI_X) {
@@ -759,7 +766,7 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 		/* If something went wrong, signal */
 		process_fpemu_return(sig, fault_addr);
 
-		return;
+		goto out;
 	} else if (fcr31 & FPU_CSR_INV_X)
 		info.si_code = FPE_FLTINV;
 	else if (fcr31 & FPU_CSR_DIV_X)
@@ -776,6 +783,8 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 	info.si_errno = 0;
 	info.si_addr = (void __user *) regs->cp0_epc;
 	force_sig_info(SIGFPE, &info, current);
+out:
+	exception_exit(prev_state);
 }
 
 static void do_trap_or_bp(struct pt_regs *regs, unsigned int code,
@@ -1249,13 +1258,22 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 	force_sig(SIGILL, current);
 }
 
-asmlinkage void do_msa_fpe(struct pt_regs *regs)
+asmlinkage void do_msa_fpe(struct pt_regs *regs, unsigned int msacsr)
 {
 	enum ctx_state prev_state;
 
 	prev_state = exception_enter();
+	if (notify_die(DIE_MSAFP, "MSA FP exception", regs, 0,
+		    regs_to_trapnr(regs), SIGFPE) == NOTIFY_STOP)
+		goto out;
+
+	/* Clear MSACSR.Cause before enabling interrupts */
+	write_msa_csr(msacsr & ~MSA_CSR_CAUSEF);
+	local_irq_enable();
+
 	die_if_kernel("do_msa_fpe invoked from kernel context!", regs);
 	force_sig(SIGFPE, current);
+out:
 	exception_exit(prev_state);
 }
 
