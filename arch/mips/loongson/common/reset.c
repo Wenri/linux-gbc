@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/kexec.h>
+#include <linux/reboot.h>
 
 #include <asm/idle.h>
 #include <asm/reboot.h>
@@ -91,7 +92,7 @@ static void loongson_halt(void)
 void lsvirt_button_poweroff(void)
 {
      READW(LsVirt_PM_CNT_IRQ_CLEAR) = 0;
-     loongson_poweroff();
+     orderly_poweroff(true);
 }
 
 #ifdef CONFIG_KEXEC
