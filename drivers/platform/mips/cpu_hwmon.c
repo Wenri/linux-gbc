@@ -50,17 +50,18 @@ int loongson_cpu_temp(int cpu)
 		case PRID_REV_LOONGSON3A_R3_1:
 			reg = (reg & 0xffff)*731/0x4000 - 273;
 			break;
-		case PRID_REV_LOONGSON2K_R1:
-		case PRID_REV_LOONGSON2K_R2:
-			reg = (reg & 0xff) - 100;
-			break;
 		}
-		cputemp = (int)reg * 1000;
-		return fixup_cpu_temp(cpu, cputemp);
+		break;
+	case CPU_LOONGSON2K:
+		reg = (LOONGSON_CHIPTEMP(cpu) & 0xffff) - 100;
+		break;
+#ifdef CONFIG_CPU_LOONGSON3
 	case CPU_LOONGSON3_COMP:
-	default:
-		return 50;
+		reg = (read_csr(LOONGSON_CPU_TEMPERATURE_OFFSET) & 0xff);
+#endif
 	}
+	cputemp = (int)reg * 1000;
+	return fixup_cpu_temp(cpu, cputemp);
 
 }
 EXPORT_SYMBOL(loongson_cpu_temp);
