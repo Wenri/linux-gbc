@@ -13,7 +13,11 @@ extern void loongson3_send_irq_by_ipi(int cpu, int irqs);
 extern void loongson3_ipi_interrupt(struct pt_regs *regs);
 
 unsigned int irq_cpu[16] = {[0 ... 15] = -1};
+#ifdef CONFIG_KVM_GUEST_LS3A3000
+unsigned int ht_irq[] = {0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+#else
 unsigned int ht_irq[] = {0, 1, 3, 4, 5, 6, 7, 8, 12, 14, 15};
+#endif
 unsigned int local_irq = 1<<0 | 1<<1 | 1<<2 | 1<<7 | 1<<8 | 1<<12;
 
 static int bootcore_int_mask2 = 1;
