@@ -508,7 +508,7 @@ static int handle_hva_to_gpa(struct kvm *kvm,
 static int kvm_unmap_hva_handler(struct kvm *kvm, gfn_t gfn, gfn_t gfn_end,
 				 struct kvm_memory_slot *memslot, void *data)
 {
-	kvm_mips_flush_gpa_pt(kvm, gfn, gfn_end);
+	kvm_mips_flush_gpa_pt(kvm, gfn, gfn_end - 1);
 	return 1;
 }
 
