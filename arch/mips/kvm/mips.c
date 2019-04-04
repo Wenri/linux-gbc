@@ -83,6 +83,8 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "lsvz_gpsi_cop0",  VCPU_STAT(lsvz_gpsi_cop0_exits),  KVM_STAT_VCPU },
 	{ "lsvz_gpsi_cache",  VCPU_STAT(lsvz_gpsi_cache_exits),  KVM_STAT_VCPU },
 	{ "lsvz_gpsi_spec3",  VCPU_STAT(lsvz_gpsi_spec3_exits),  KVM_STAT_VCPU },
+	{ "lsvz_tlb_refill",  VCPU_STAT(lsvz_tlb_refill_exits),  KVM_STAT_VCPU },
+	{ "lsvz_tlb_refill_fail",  VCPU_STAT(lsvz_tlb_refill_fail),  KVM_STAT_VCPU },
 #endif
 	{ "halt_successful_poll", VCPU_STAT(halt_successful_poll), KVM_STAT_VCPU },
 	{ "halt_attempted_poll", VCPU_STAT(halt_attempted_poll), KVM_STAT_VCPU },

@@ -97,11 +97,6 @@ void kvm_mips_tlbw(struct kvm_mips_tlb *ptlb)
 	write_c0_pagemask(page_mask);
 	write_c0_index(tmp_index);
 
-	//flush ITLB/DTLB
-	tmp_diag = read_c0_diag();
-	tmp_diag |= 0xc;
-	write_c0_diag(tmp_diag);
-
 	local_irq_restore(flags);
 }
 
