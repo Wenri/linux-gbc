@@ -182,12 +182,12 @@ int plat_device_is_ls3a_pci(struct device *dev)
 {
 	struct pci_dev *pcidev;
 	if(!dev || !dev->bus || strcmp(dev->bus->name,"pci"))
-	 return 0;
+		return 0;
 
-	 pcidev = to_pci_dev(dev);
-	 if(pcidev->bus->sysdata == &loongson_pci_controller)
+	pcidev = to_pci_dev(dev);
+	if(pcidev->bus->sysdata == &loongson_pci_controller)
 		return 1;
-	 else 
+	else
 		return 0;
 }
 

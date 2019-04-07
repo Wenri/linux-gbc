@@ -260,15 +260,15 @@ void ls2h_irq_dispatch(void)
 		if ((intstatus = (int_ctrl_regs + i)->int_isr) == 0)
 			continue;
 
-			if ((i == 0) && (intstatus & (1 << 13)) && ls_lpc_reg_base == LS2H_LPC_REG_BASE) {
-				irqs = ls2h_readl(LS_LPC_INT_ENA) & ls2h_readl(LS_LPC_INT_STS) & 0xfeff;
-				if (irqs)
-					while ((lpc_irq = ffs(irqs))) {
-						do_IRQ(lpc_irq - 1);
-						irqs &= ~(1 << (lpc_irq-1));
-					}
-			} else
-				__ls2h_irq_dispatch(i, intstatus);
+		if ((i == 0) && (intstatus & (1 << 13)) && ls_lpc_reg_base == LS2H_LPC_REG_BASE) {
+			irqs = ls2h_readl(LS_LPC_INT_ENA) & ls2h_readl(LS_LPC_INT_STS) & 0xfeff;
+			if (irqs)
+				while ((lpc_irq = ffs(irqs))) {
+					do_IRQ(lpc_irq - 1);
+					irqs &= ~(1 << (lpc_irq-1));
+				}
+		} else
+			__ls2h_irq_dispatch(i, intstatus);
 
 	}
 }
