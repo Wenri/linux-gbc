@@ -1848,7 +1848,11 @@ static void configure_hwrena(void)
 	hwrena = cpu_hwrena_impl_bits;
 
 	if (cpu_has_mips_r2)
+#ifdef CONFIG_KVM_GUEST_LS3A3000
+		hwrena |=
+#else
 		hwrena |= MIPS_HWRENA_CPUNUM |
+#endif
 			  MIPS_HWRENA_SYNCISTEP |
 			  MIPS_HWRENA_CC |
 			  MIPS_HWRENA_CCRES;
