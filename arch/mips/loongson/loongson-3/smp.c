@@ -902,7 +902,7 @@ static int loongson3_ipi_suspend(void)
 
 static void loongson3_ipi_resume(void)
 {
-	ls64_conf_write32(0xffffffff, ipi_en0_regs[cpu_logical_map(0)]);
+	loongson3_ipi_write32(0xffffffff, ipi_en0_regs[cpu_logical_map(0)]);
 }
 
 static struct syscore_ops loongson3_ipi_syscore_ops = {
