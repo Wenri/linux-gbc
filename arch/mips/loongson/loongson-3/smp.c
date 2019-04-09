@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/cpu.h>
 #include <linux/sched.h>
+#include <linux/syscore_ops.h>
 #include <linux/smp.h>
 #include <linux/cpufreq.h>
 #include <asm/processor.h>
@@ -888,3 +889,57 @@ struct plat_smp_ops loongson3_smp_ops = {
 	.cpu_die = loongson3_cpu_die,
 #endif
 };
+
+/*
+ * Power management
+ */
+#ifdef CONFIG_PM
+
+static int loongson3_ipi_suspend(void)
+{
+	return 0;
+}
+
+static void loongson3_ipi_resume(void)
+{
+	ls64_conf_write32(0xffffffff, ipi_en0_regs[cpu_logical_map(0)]);
+}
+
+static struct syscore_ops loongson3_ipi_syscore_ops = {
+	.resume		= loongson3_ipi_resume,
+	.suspend	= loongson3_ipi_suspend,
+};
+
+static int loongson3_comp_ipi_suspend(void)
+{
+	return 0;
+}
+
+static void loongson3_comp_ipi_resume(void)
+{
+	write_csr(LOONGSON_IPI_EN_OFFSET, 0xffffffff);
+}
+
+static struct syscore_ops loongson3_comp_ipi_syscore_ops = {
+	.resume		= loongson3_comp_ipi_resume,
+	.suspend	= loongson3_comp_ipi_suspend,
+};
+
+/*
+ * Enable boot cpu ipi before enabling nonboot cpus
+ * during syscore_resume.
+ * */
+static int __init init_ipi_sysfs(void)
+{
+	if ((current_cpu_type() == CPU_LOONGSON3_COMP) &&
+		(read_csr(LOONGSON_CPU_FEATURE_OFFSET) & LOONGSON_CPU_FEATURE_IPI_PERCORE)) {
+		register_syscore_ops(&loongson3_comp_ipi_syscore_ops);
+	} else {
+		register_syscore_ops(&loongson3_ipi_syscore_ops);
+	}
+
+	return 0;
+}
+
+core_initcall(init_ipi_sysfs);
+#endif
