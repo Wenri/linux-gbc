@@ -170,6 +170,8 @@ static inline void do_perfcnt_IRQ(void)
 #define LOONGSON_CPU_TEMPERATURE_OFFSET		0x00000428
 #define LOONGSON_CPU_FEATURE_IPI_PERCORE	(1ULL << 4)
 
+#define LOONGSON_NODE_COUNTER_EN        (_ULCAST_(1) <<  1)
+
 /* Loongson h/w Configuration */
 
 #define LOONGSON_GENCFG_OFFSET		0x4
