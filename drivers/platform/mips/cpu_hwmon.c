@@ -198,6 +198,14 @@ static int __init loongson_hwmon_init(void)
 
 	printk(KERN_INFO "Loongson Hwmon Enter...\n");
 
+#ifdef CONFIG_CPU_LOONGSON3
+	if ((boot_cpu_type() == CPU_LOONGSON3_COMP) && (!(read_csr(LOONGSON_CPU_FEATURE_OFFSET) & LOONGSON_CPU_FEATURE_TEMP))) {
+		printk(KERN_NOTICE "Notice: There isn't any Temperature!");
+		ret = -ENXIO;
+		goto fail_hwmon_device_register;
+	}
+#endif
+
 	cpu_hwmon_dev = hwmon_device_register(NULL);
 	if (IS_ERR(cpu_hwmon_dev)) {
 		ret = -ENOMEM;
