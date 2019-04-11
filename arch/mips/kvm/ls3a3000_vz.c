@@ -3160,7 +3160,7 @@ int kvm_mips_handle_ls3a3000_vz_root_tlb_fault(unsigned long badvaddr,
 				kvm_mips_tlbw(&tlb);
 			}
 		}
-	} else if ((badvaddr & CKSSEG) == CKSSEG) {
+	} else if (((badvaddr & CKSSEG) == CKSSEG) || ((badvaddr & 0xF000000000000000) == XKSEG)) {
 		/* mapped kernel space address
 		 * return to guest and let guest fill guest tlb
 		 */
