@@ -977,8 +977,46 @@ out_free:
 	return err;
 }
 
-static void azx_pci_remove(struct pci_dev *pdev)
+static void azx_pci_remove(struct pci_dev *pci)
 {
+	struct snd_card *card = pci_get_drvdata(pci);
+	struct azx *chip;
+	struct hda_loongson *hda;
+
+	if (card) {
+		/* cancel the pending probing work */
+		chip = card->private_data;
+		hda = container_of(chip, struct hda_loongson, chip);
+		/* FIXME: below is an ugly workaround.
+		 * Both device_release_driver() and driver_probe_device()
+		 * take *both* the device's and its parent's lock before
+		 * calling the remove() and probe() callbacks.  The codec
+		 * probe takes the locks of both the codec itself and its
+		 * parent, i.e. the PCI controller dev.  Meanwhile, when
+		 * the PCI controller is unbound, it takes its lock, too
+		 * ==> ouch, a deadlock!
+		 * As a workaround, we unlock temporarily here the controller
+		 * device during cancel_work_sync() call.
+		 */
+		device_unlock(&pci->dev);
+		cancel_work_sync(&hda->probe_work);
+		device_lock(&pci->dev);
+
+		snd_card_free(card);
+	}
+
+}
+
+static void azx_pci_shutdown(struct pci_dev *pci)
+{
+	struct snd_card *card = pci_get_drvdata(pci);
+	struct azx *chip;
+
+	if (!card)
+		return;
+	chip = card->private_data;
+	if (chip && chip->running)
+		azx_stop_chip(chip);
 }
 
 /* pci_driver definition */
@@ -987,6 +1025,10 @@ static struct pci_driver azx_pci_driver = {
 	.id_table = azx_id_table,
 	.probe = azx_pci_probe,
 	.remove = azx_pci_remove,
+	.shutdown = azx_pci_shutdown,
+	.driver = {
+		.pm = AZX_PM_OPS,
+	},
 };
 
 static int __init alsa_card_azx_init(void)
