@@ -367,11 +367,6 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 		write_c0_pagemask(page_mask);
 		write_c0_index(tmp_index);
 
-		//flush ITLB/DTLB
-		tmp_diag = read_c0_diag();
-		tmp_diag |= 0xc;
-		write_c0_diag(tmp_diag);
-
 		local_irq_restore(flags);
 
 #else
@@ -379,7 +374,7 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 #endif
 
 		if (args[4] == 0x5001) {
-			kvm_flush_stlb_one(vcpu, args[0]); 
+			kvm_flush_stlb_one(vcpu, args[0]);
 		}
 	} else if ((args[4] == 0x5003) || (args[4] == 0x5004)) {
 #if 1
@@ -447,10 +442,6 @@ static int kvm_mips_hcall_tlb(struct kvm_vcpu *vcpu, unsigned long num,
 			write_c0_pagemask(page_mask);
 			write_c0_index(tmp_index);
 
-			//flush ITLB/DTLB
-			tmp_diag = read_c0_diag();
-			tmp_diag |= 0xc;
-			write_c0_diag(tmp_diag);
 
 		}
 		local_irq_restore(flags);

@@ -986,6 +986,12 @@ void *kvm_mips_ls3a3000_build_tlb_refill_target(void *addr, void *handler)
 
 	uasm_l_mapped(&l, p);
 
+        if (stlb_debug == 1) {
+		UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_fail), K1);
+		uasm_i_daddiu(&p, A1, A1, 1);
+		UASM_i_SW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_fail), K1);
+        }
+
 	UASM_i_MFC0(&p, A0, C0_EPC);
 	UASM_i_MTGC0(&p, A0, C0_EPC);
 	UASM_i_MFC0(&p, A0, C0_BADVADDR);
@@ -1021,12 +1027,6 @@ void *kvm_mips_ls3a3000_build_tlb_refill_target(void *addr, void *handler)
 	uasm_i_lui(&p, A1, CAUSEF_TI>>16);
 	uasm_i_or(&p, A0, A0, A1);
 	uasm_i_mtgc0(&p, A0, C0_CAUSE);
-
-        if (stlb_debug == 1) {
-		UASM_i_LW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_fail), K1);
-		uasm_i_daddiu(&p, A1, A1, 1);
-		UASM_i_SW(&p, A1, offsetof(struct kvm_vcpu, stat.lsvz_tlb_refill_fail), K1);
-        }
 
 	uasm_l_no_ti(&l, p);
 
