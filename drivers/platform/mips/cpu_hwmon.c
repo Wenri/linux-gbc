@@ -31,7 +31,8 @@ int __weak fixup_cpu_temp(int cpu, int cputemp)
 int loongson_cpu_temp(int cpu)
 {
 	int cputemp;
-	u32 reg, prid_rev;
+	u32 prid_rev;
+	u32 reg = 0;
 
 	switch(current_cpu_type()){
 	case CPU_LOONGSON3:
@@ -319,7 +320,8 @@ static struct platform_driver ls_hwmon_driver = {
 
 static int __init ls_hwmon_init_driver(void)
 {
-	loongson_hwmon_init();
+	if (loongson_hwmon_init())
+		return 0;
 	return platform_driver_register(&ls_hwmon_driver);
 }
 
