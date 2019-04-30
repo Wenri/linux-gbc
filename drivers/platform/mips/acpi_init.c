@@ -4,10 +4,20 @@
 #include <linux/init.h>
 #include <linux/export.h>
 #include <linux/interrupt.h>
+#include <linux/notifier.h>
 #include <loongson-pch.h>
 
+typedef enum {
+	ACPI_PCI_HOTPLUG_STATUS = 2,
+	ACPI_CPU_HOTPLUG_STATUS = 4,
+	ACPI_MEMORY_HOTPLUG_STATUS = 8,
+} AcpiEventStatusBits;
+
+static ATOMIC_NOTIFIER_HEAD(mips_hotplug_notifier_list);
 static int acpi_irq;
+static int acpi_hotplug_mask = 0;
 static void *gpe0_status_reg;
+static void *gpe0_enable_reg;
 static void *acpi_status_reg;
 static void *acpi_enable_reg;
 static void *acpi_control_reg;
@@ -113,6 +123,14 @@ static irqreturn_t acpi_int_routine(int irq, void *dev_id)
 		input_sync(button);
 		input_report_key(button, KEY_POWER, 0);
 		input_sync(button);
+		return IRQ_HANDLED;
+	}
+
+	value = readw(gpe0_status_reg);
+	if (value & acpi_hotplug_mask) {
+		writew(value, gpe0_status_reg);
+		printk("ACPI GPE HOTPLUG event 0x%x \n", value);
+		atomic_notifier_call_chain(&mips_hotplug_notifier_list, value, NULL);
 		return IRQ_HANDLED;
 	}
 
@@ -228,7 +246,37 @@ enable_power_button:
     value = readw(acpi_enable_reg);
     value |= 1 << 8;
     writew(value, acpi_enable_reg);
+
+	value = readl(gpe0_enable_reg);
+	#ifdef CONFIG_HOTPLUG_PCI
+	value |= ACPI_PCI_HOTPLUG_STATUS;
+	acpi_hotplug_mask |= ACPI_PCI_HOTPLUG_STATUS;
+	#endif
+
+	#ifdef CONFIG_HOTPLUG_CPU
+	value |= ACPI_CPU_HOTPLUG_STATUS;
+	acpi_hotplug_mask |= ACPI_CPU_HOTPLUG_STATUS;
+	#endif
+
+	#ifdef CONFIG_MEMORY_HOTPLUG
+	value |= ACPI_MEMORY_HOTPLUG_STATUS;
+	acpi_hotplug_mask |= ACPI_MEMORY_HOTPLUG_STATUS;
+	#endif
+	if (acpi_hotplug_mask)
+		writel(value, gpe0_enable_reg);
 }
+
+int register_mips_hotplug_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&mips_hotplug_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(register_mips_hotplug_notifier);
+
+int unregister_mips_hotplug_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&mips_hotplug_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_mips_hotplug_notifier);
 
 int __init loongson_acpi_init(void)
 {
@@ -239,6 +287,7 @@ int __init loongson_acpi_init(void)
             acpi_status_reg  = LS2H_PM1_STS_REG;
             acpi_enable_reg  = LS2H_PM1_EN_REG;
             gpe0_status_reg  = LS2H_GPE0_STS_REG;
+		gpe0_enable_reg = LS2H_GPE0_EN_REG;
             break;
         case LS7A:
             acpi_irq = LS7A_IOAPIC_ACPI_INT_IRQ;
@@ -246,6 +295,7 @@ int __init loongson_acpi_init(void)
             acpi_status_reg  = LS7A_PM1_EVT_REG;
             acpi_enable_reg  = LS7A_PM1_ENA_REG;
             gpe0_status_reg  = LS7A_GPE0_STS_REG;
+		gpe0_enable_reg = LS7A_GPE0_ENA_REG;
             break;
         case RS780E:
             acpi_irq = RS780_PCH_ACPI_IRQ;
@@ -253,6 +303,7 @@ int __init loongson_acpi_init(void)
             acpi_status_reg  = (void *)(mips_io_port_base + SBX00_PM_EVT_BLK + 0);
             acpi_enable_reg  = (void *)(mips_io_port_base + SBX00_PM_EVT_BLK + 2);
             gpe0_status_reg  = (void *)(mips_io_port_base + SBX00_GPE0_BLK   + 0);
+		gpe0_enable_reg = (void *)(mips_io_port_base + SBX00_GPE0_BLK   + 4);
             register_acpi_resource();
             break;
         default:

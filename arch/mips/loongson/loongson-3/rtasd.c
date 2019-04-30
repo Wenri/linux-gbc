@@ -24,6 +24,7 @@
 #include <linux/printk.h>
 #include <linux/mm.h>
 #include <linux/memory.h>
+#include <linux/notifier.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/kvm_para.h>
@@ -36,7 +37,6 @@ DECLARE_DELAYED_WORK(event_scan_work, rtas_event_scan);
 static unsigned int rtas_error_log_max;
 static unsigned int rtas_error_log_buffer_max;
 static unsigned int rtas_event_scan_rate;
-static unsigned long event_scan_delay = 1*HZ;
 static unsigned char logdata[RTAS_ERROR_LOG_MAX];
 static unsigned int event_scan;
 static char *rtas_log_buf;
@@ -328,12 +328,6 @@ static void do_event_scan(void)
 static void rtas_event_scan(struct work_struct *w)
 {
 	do_event_scan();
-	get_online_cpus();
-
-	event_scan_delay = 30*HZ/rtas_event_scan_rate;
-	schedule_delayed_work_on(0, &event_scan_work,
-			__round_jiffies_relative(event_scan_delay, 0));
-	put_online_cpus();
 }
 
 /* Cancel the rtas event scan work */
@@ -343,14 +337,18 @@ void rtas_cancel_event_scan(void)
 }
 EXPORT_SYMBOL_GPL(rtas_cancel_event_scan);
 
-static void start_event_scan(void)
-{
-	printk(KERN_DEBUG "RTAS daemon started\n");
-	pr_debug("rtasd: will sleep for %d milliseconds\n",
-			(30000 / rtas_event_scan_rate));
+extern int register_mips_hotplug_notifier(struct notifier_block *nb);
+static int hotplug_notifier_call(struct notifier_block *,
+                                  unsigned long code, void *param);
+static struct notifier_block hotplug_notifier_block = {
+        .notifier_call = hotplug_notifier_call,
+};
 
-	schedule_delayed_work_on(cpumask_first(cpu_online_mask),
-			&event_scan_work, event_scan_delay);
+static int hotplug_notifier_call(struct notifier_block *nb,
+                                  unsigned long code, void *_param)
+{
+	queue_delayed_work_on(0, system_wq, &event_scan_work, 0);
+	return NOTIFY_OK;
 }
 
 static int __init rtas_event_scan_init(void)
@@ -367,7 +365,7 @@ static int __init rtas_event_scan_init(void)
 		return -ENOMEM;
 	}
 
-	start_event_scan();
+	register_mips_hotplug_notifier(&hotplug_notifier_block);
 	return 0;
 }
 arch_initcall(rtas_event_scan_init);
