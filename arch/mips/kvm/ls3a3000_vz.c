@@ -104,26 +104,20 @@ static inline unsigned int kvm_vz_config1_guest_wrmask(struct kvm_vcpu *vcpu)
 	return MIPS_CONF1_TLBS;
 }
 
+static inline unsigned int kvm_vz_config2_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+static inline unsigned int kvm_vz_config3_guest_wrmask(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
 static inline unsigned int kvm_vz_config4_guest_wrmask(struct kvm_vcpu *vcpu)
 {
 	/* no need to be exact */
 	return MIPS_CONF4_VFTLBPAGESIZE;
-}
-
-static inline unsigned int kvm_vz_config5_guest_wrmask(struct kvm_vcpu *vcpu)
-{
-	unsigned int mask = MIPS_CONF5_K | MIPS_CONF5_CV | MIPS_CONF5_SBRI;
-
-	/*
-	 * Permit guest FPU mode changes if FPU is enabled and the relevant
-	 * feature exists according to FIR register.
-	 */
-	if (kvm_mips_guest_has_fpu(&vcpu->arch)) {
-		if (cpu_has_fre)
-			mask |= MIPS_CONF5_FRE | MIPS_CONF5_UFE;
-	}
-
-	return mask;
 }
 
 /*
@@ -155,12 +149,15 @@ static inline unsigned int kvm_vz_config1_user_wrmask(struct kvm_vcpu *vcpu)
 
 static inline unsigned int kvm_vz_config2_user_wrmask(struct kvm_vcpu *vcpu)
 {
-	return 0;
+	return kvm_vz_config2_guest_wrmask(vcpu) | MIPS_CONF_M;
 }
 
 static inline unsigned int kvm_vz_config3_user_wrmask(struct kvm_vcpu *vcpu)
 {
-	return 0;
+	unsigned int mask = kvm_vz_config3_guest_wrmask(vcpu) | MIPS_CONF_M |
+		MIPS_CONF3_ULRI | MIPS_CONF3_RXI | MIPS_CONF3_LPA | MIPS_CONF3_VINT;
+
+	return mask;
 }
 
 static inline unsigned int kvm_vz_config4_user_wrmask(struct kvm_vcpu *vcpu)
@@ -170,9 +167,8 @@ static inline unsigned int kvm_vz_config4_user_wrmask(struct kvm_vcpu *vcpu)
 
 static inline unsigned int kvm_vz_config5_user_wrmask(struct kvm_vcpu *vcpu)
 {
-	return kvm_vz_config5_guest_wrmask(vcpu) | MIPS_CONF5_MRP;
+	return 0;
 }
-
 
 static inline void save_regs_with_field_change_exception(struct kvm_vcpu *vcpu)
 {
@@ -1940,10 +1936,20 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		}
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG2:
-		ret = -EINVAL;
+		cur = read_gc0_config2();
+		change = (cur ^ v) & kvm_vz_config2_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config2(v);
+		}
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG3:
-		ret = -EINVAL;
+		cur = read_gc0_config3();
+		change = (cur ^ v) & kvm_vz_config3_user_wrmask(vcpu);
+		if (change) {
+			v = cur ^ change;
+			write_gc0_config3(v);
+		}
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG4:
 		cur = read_gc0_config4();
