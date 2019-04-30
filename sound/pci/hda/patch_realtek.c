@@ -4984,6 +4984,7 @@ enum {
 	ALC221_FIXUP_HP_FRONT_MIC,
 	ALC292_FIXUP_TPT460,
 	ALC269_FIXUP_CZC_B20,
+	ALC269_FIXUP_CZC_TMI,
 	ALC269_FIXUP_LS3A7A,
 	ALC298_FIXUP_SPK_VOLUME,
 	ALC256_FIXUP_DELL_INSPIRON_7559_SUBWOOFER,
@@ -5706,6 +5707,24 @@ static const struct hda_fixup alc269_fixups[] = {
 		},
 		.chain_id =ALC269_FIXUP_DMIC,
 	},
+	[ALC269_FIXUP_CZC_TMI] = {
+        .type = HDA_FIXUP_PINS,
+        .v.pins = (const struct hda_pintbl[]) {
+             { 0x12, 0x4000C000 },
+             { 0x14, 0x90170110 }, /* speaker */
+             { 0x15, 0x0421401F }, /* HP out */
+             { 0x17, 0x411111F0 },
+             { 0x18, 0x04A19020 }, /* mic */
+             { 0x19, 0x411111F0 },
+             { 0x1a, 0x411111F0 },
+             { 0x1b, 0x411111F0 },
+             { 0x1d, 0x40448505 },
+             { 0x1e, 0x411111F0 },
+             { 0x20, 0x8000FFFF },
+			 { }
+		},
+		.chain_id =ALC269_FIXUP_DMIC,
+	},
 	[ALC269_FIXUP_LS3A7A] = {
 		.type = HDA_FIXUP_PINS,
 		.v.pins = (const struct hda_pintbl[]) {
@@ -5993,6 +6012,7 @@ static const struct snd_pci_quirk alc269_fixup_tbl[] = {
 	SND_PCI_QUIRK(0x17aa, 0x3bf8, "Quanta FL1", ALC269_FIXUP_PCM_44K),
 	SND_PCI_QUIRK(0x17aa, 0x9e54, "LENOVO NB", ALC269_FIXUP_LENOVO_EAPD),
 	SND_PCI_QUIRK(0x1b35, 0x1235, "CZC B20", ALC269_FIXUP_CZC_B20),
+	SND_PCI_QUIRK(0x1b35, 0x1236, "CZC TMI", ALC269_FIXUP_CZC_TMI),
 	SND_PCI_QUIRK(0x1b7d, 0xa831, "Ordissimo EVE2 ", ALC269VB_FIXUP_ORDISSIMO_EVE2), /* Also known as Malata PC-B1303 */
 	SND_PCI_QUIRK(0x10ec, 0x0269, "ls3a7a", ALC269_FIXUP_LS3A7A),
 #if 0
