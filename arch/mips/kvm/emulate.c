@@ -24,6 +24,7 @@
 #include <asm/mmu_context.h>
 #include <asm/tlbflush.h>
 #include <asm/inst.h>
+#include <asm/mach-loongson/loongson.h>
 
 #undef CONFIG_MIPS_MT
 #include <asm/r4kcache.h>
@@ -1867,6 +1868,36 @@ out_fail:
 }
 
 #define NODE_COUNTER_ADDR 0x900000003FF00408UL
+cycle_t node_counter_read_for_guest(void)
+{
+	cycle_t count;
+	unsigned long mask, delta, tmp;
+	volatile unsigned long *counter = (unsigned long *)NODE_COUNTER_ADDR;
+
+	asm volatile (
+		"ld	%[count], %[counter] \n\t"
+		"andi	%[tmp], %[count], 0xff \n\t"
+		"sltiu	%[delta], %[tmp], 0xf9 \n\t"
+		"li	%[mask], -1 \n\t"
+		"bnez	%[delta], 1f \n\t"
+		"addiu	%[tmp], -0xf8 \n\t"
+		"sll	%[tmp], 3 \n\t"
+		"dsrl	%[mask], %[tmp] \n\t"
+		"daddiu %[delta], %[mask], 1 \n\t"
+		"dins	%[mask], $0, 0, 8 \n\t"
+		"dsubu	%[delta], %[count], %[delta] \n\t"
+		"and	%[tmp], %[count], %[mask] \n\t"
+		"dsubu	%[tmp], %[mask] \n\t"
+		"movz	%[count], %[delta], %[tmp] \n\t"
+		"1:	\n\t"
+		:[count]"=&r"(count), [mask]"=&r"(mask),
+		 [delta]"=&r"(delta), [tmp]"=&r"(tmp)
+		:[counter]"m"(*counter)
+	);
+
+	return count;
+}
+
 enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 					    u32 cause, struct kvm_run *run,
 					    struct kvm_vcpu *vcpu)
@@ -1896,12 +1927,34 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 	vcpu->arch.pc = curr_pc;
 
 	if((vcpu->arch.gprs[rs] + offset) == NODE_COUNTER_ADDR) {
-		vcpu->arch.gprs[rt] =
-			*((unsigned long *)0x900000003ff00408);
+		vcpu->arch.gprs[rt] = node_counter_read_for_guest();
 
+		//when we do live migrate update the time between two machine
+		if(vcpu->kvm->arch.is_migrate){
+			if(!vcpu->kvm->arch.nodecounter_offset){
+		        	vcpu->kvm->arch.nodecounter_offset = vcpu->kvm->arch.nodecounter_value - vcpu->arch.gprs[rt];
+			}
+			vcpu->arch.gprs[rt] += vcpu->kvm->arch.nodecounter_offset;
+		}
+		vcpu->kvm->arch.nodecounter_value = vcpu->arch.gprs[rt];
+		
 		++vcpu->stat.lsvz_nc_exits;
 
 		vcpu->arch.is_nodecounter = 1;
+		vcpu->arch.pc = vcpu->arch.io_pc;
+		return EMULATE_DONE;
+	}
+
+	if((vcpu->arch.gprs[rs] + offset) == 0x900000001fe001d0) {
+		if(vcpu->kvm->arch.is_migrate){
+			struct kvm_mips_interrupt irq = {0};
+			irq.irq = -5;
+			kvm_mips_callbacks->dequeue_io_int(vcpu, &irq);
+		}
+
+		vcpu->arch.gprs[rt] = cpu_clock_freq;
+		++vcpu->stat.lsvz_nc_exits;
+
 		vcpu->arch.pc = vcpu->arch.io_pc;
 		return EMULATE_DONE;
 	}

@@ -1,11 +1,14 @@
 #include <linux/init.h>
 #include <asm/time.h>
 #include <loongson.h>
+#include <linux/timekeeper_internal.h>
+#include <asm/cevt-r4k.h>
 
 #define NODE_COUNTER_FREQ cpu_clock_freq
 #define NODE_COUNTER_PTR 0x900000003FF00408UL
 #define LOONGSON_CSR_NODE_CONTER    0x408
 
+#ifndef CONFIG_KVM_GUEST_LS3A3000
 static cycle_t node_counter_read(struct clocksource *cs)
 {
 	cycle_t count;
@@ -35,6 +38,17 @@ static cycle_t node_counter_read(struct clocksource *cs)
 
 	return count;
 }
+#else
+static cycle_t node_counter_read(struct clocksource *cs)
+{
+	cycle_t count;
+	volatile unsigned long *counter = (unsigned long *)NODE_COUNTER_PTR;
+
+	count = *counter;
+
+	return count;
+}
+#endif
 
 static cycle_t node_counter_csr_read(struct clocksource *cs)
 {
@@ -62,6 +76,29 @@ static struct clocksource csrc_node_counter = {
 	.mult = 0,
 	.shift = 10,
 };
+
+extern void update_clocksource_for_loongson(struct clocksource *cs);
+extern unsigned long loops_per_jiffy;
+
+//used for adjust clocksource and clockevent for guest when migrate to a diffrent cpu freq
+void loongson_nodecounter_adjust(void)
+{
+	unsigned int cpu;
+	struct clock_event_device *cd;
+	struct clocksource *cs = &csrc_node_counter;
+	u32 cpu_freq;
+
+	cpu_freq = LOONGSON_FREQCTRL(0);
+
+	for_each_online_cpu(cpu){
+		cd = &per_cpu(mips_clockevent_device, cpu);
+		clockevents_update_freq(cd, cpu_freq / 2);
+		cpu_data[cpu].udelay_val = cpufreq_scale(loops_per_jiffy, cpu_clock_freq / 1000, cpu_freq / 1000);
+	}
+
+	__clocksource_updatefreq_scale(cs, 1, cpu_freq);
+	update_clocksource_for_loongson(cs);
+}
 
 int __init init_node_counter_clocksource(void)
 {

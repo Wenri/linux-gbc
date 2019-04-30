@@ -205,7 +205,11 @@ struct kvm_arch {
 	/* Mask of CPUs needing GPA ASID flush */
 	cpumask_t asid_flush_mask;
 	unsigned long (*cksseg_map)[2];
-	int online_vcpus;
+
+	unsigned char online_vcpus;
+	unsigned char is_migrate;
+	s64 nodecounter_offset;
+	u64 nodecounter_value;
 
 };
 

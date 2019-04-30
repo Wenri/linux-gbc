@@ -451,9 +451,13 @@ struct kvm_s390_interrupt {
 };
 
 struct kvm_mips_vcpu_state {
-	  __u32 online_vcpus;
-         unsigned long pending_exceptions;
-         unsigned long pending_exceptions_clr;
+	__u8 online_vcpus;
+	__u8 is_migrate;
+	__u64 nodecounter_value;
+	__u32 cpu_freq;
+	__u32 count_ctl;
+	__u64 pending_exceptions;
+	__u64 pending_exceptions_clr;
  };
 
 

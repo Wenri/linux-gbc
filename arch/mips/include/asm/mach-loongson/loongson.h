@@ -384,4 +384,6 @@ static inline void disable_unused_cpus(void) {}
 #endif
 
 extern void prom_printf(char *fmt, ...);
+
+void loongson_nodecounter_adjust(void);
 #endif /* __ASM_MACH_LOONGSON_LOONGSON_H */

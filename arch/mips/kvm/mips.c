@@ -540,14 +540,14 @@ int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,
 		dvcpu = vcpu->kvm->vcpus[irq->cpu];
 
 #ifdef CONFIG_CPU_LOONGSON3
-	if (intr == 2 || intr == 3 || intr == 4 || intr == 6) {
+	if (intr == 2 || intr == 3 || intr == 4 || intr == 5 || intr == 6) {
 #else
 	if (intr == 2 || intr == 3 || intr == 4) {
 #endif
 		kvm_mips_callbacks->queue_io_int(dvcpu, irq);
 
 #ifdef CONFIG_CPU_LOONGSON3
-	} else if (intr == -2 || intr == -3 || intr == -4 || intr == -6) {
+	} else if (intr == -2 || intr == -3 || intr == -4 || intr == -5 || intr == -6) {
 #else
 	} else if (intr == -2 || intr == -3 || intr == -4) {
 #endif
@@ -1018,6 +1018,54 @@ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
 			break;
 		}
 	}
+
+	case KVM_MIPS_GET_VCPU_STATE:
+	{
+		struct  kvm_mips_vcpu_state vcpu_state;
+		r = -EFAULT;
+
+		vcpu_state.online_vcpus = vcpu->kvm->arch.online_vcpus;
+		vcpu_state.is_migrate = 1;
+		vcpu_state.nodecounter_value =  vcpu->kvm->arch.nodecounter_value;
+
+		vcpu_state.pending_exceptions =  vcpu->arch.pending_exceptions_save;
+		vcpu_state.pending_exceptions_clr =  vcpu->arch.pending_exceptions_clr_save;
+		vcpu_state.cpu_freq =  vcpu->arch.count_hz;
+		vcpu_state.count_ctl =  vcpu->arch.count_ctl;
+
+		if (copy_to_user(argp, &vcpu_state, sizeof(struct kvm_mips_vcpu_state)))
+			break;
+		r = 0;
+		break;
+	}
+
+       case KVM_MIPS_SET_VCPU_STATE:
+       {
+	        struct  kvm_mips_vcpu_state vcpu_state;
+	        r = -EFAULT;
+
+                if (copy_from_user(&vcpu_state, argp, sizeof(struct kvm_mips_vcpu_state)))
+                        return -EFAULT;
+
+                vcpu->kvm->arch.online_vcpus = vcpu_state.online_vcpus;
+                vcpu->kvm->arch.is_migrate = vcpu_state.is_migrate;
+                vcpu->kvm->arch.nodecounter_value = vcpu_state.nodecounter_value;
+
+                vcpu->arch.pending_exceptions = vcpu_state.pending_exceptions;
+                vcpu->arch.pending_exceptions_clr = vcpu_state.pending_exceptions_clr;
+                vcpu->arch.count_ctl = vcpu_state.count_ctl;
+
+	        if((vcpu_state.cpu_freq != vcpu->arch.count_hz) && (vcpu->vcpu_id == 0)){
+			struct kvm_mips_interrupt irq = {0};
+			irq.irq = 5;
+			kvm_mips_callbacks->queue_io_int(vcpu, &irq);
+	        }
+
+                r = 0;
+                break;
+       }
+
+
 	default:
 		r = -ENOIOCTLCMD;
 	}
@@ -1069,54 +1117,8 @@ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
 long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
 	long r;
-	struct kvm *kvm = filp->private_data;
-	struct kvm_vcpu *vcpu;
-	void __user *argp = (void __user *)arg;
-	int i;
 
 	switch (ioctl) {
-	case KVM_MIPS_GET_VCPU_STATE:
-	{
-		struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
-		struct  kvm_mips_vcpu_state *vcpu_state;
-		int num_vcpus = kvm->arch.online_vcpus;
-		vcpu_state = kzalloc(sizeof(struct kvm_mips_vcpu_state), GFP_KERNEL);
-
-		vcpu_state->online_vcpus = num_vcpus;
-
-	        for (i = 0; i < num_vcpus; i++){
-	            vcpu = kvm->vcpus[i];
-		    vcpu_state->pending_exceptions |=  vcpu->arch.pending_exceptions_save << (i * 16);
-		    vcpu_state->pending_exceptions_clr |=  vcpu->arch.pending_exceptions_clr_save << (i * 16);
-	        }
-
-		if (copy_to_user(vcpu_state_user, vcpu_state, sizeof(struct kvm_mips_vcpu_state)))
-			return -EFAULT;
-		r = 0;
-		break;
-	}
-
-       case KVM_MIPS_SET_VCPU_STATE:
-       {
-               struct __user kvm_mips_vcpu_state *vcpu_state_user = argp;
-               struct  kvm_mips_vcpu_state *vcpu_state;
-	       vcpu_state = kzalloc(sizeof(struct kvm_mips_vcpu_state),GFP_KERNEL);
-
-               if (copy_from_user(vcpu_state, vcpu_state_user, sizeof(struct kvm_mips_vcpu_state)))
-                       return -EFAULT;
-
-               kvm->arch.online_vcpus = vcpu_state->online_vcpus;
-
-	        for (i = 0; i < kvm->arch.online_vcpus; i++){
-		    vcpu = kvm->vcpus[i];
-		    vcpu->arch.pending_exceptions |= ((vcpu_state->pending_exceptions >> (i * 16)) & 0xffff);
-		    vcpu->arch.pending_exceptions_clr |= ((vcpu_state->pending_exceptions_clr >> (i * 16)) & 0xffff);
-		}
-
-               r = 0;
-               break;
-       }
-
 	default:
 		r = -ENOIOCTLCMD;
 	}
