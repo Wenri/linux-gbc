@@ -140,10 +140,11 @@ void handle_rtas_event(const struct rtas_error_log *log)
 		return;
 
 	hp = (struct rtas_event_log_hp *)(log->buffer);
-	printk("handle_rtas_event1 type %x action %d  index %x count %x\n", hp->hotplug_type, hp->hotplug_action, hp->index, hp->count);
+	printk("handle_rtas_event1 type %x action %d  index 0x%x count 0x%x\n",
+		hp->hotplug_type, hp->hotplug_action, hp->index, hp->count);
 	if (hp->hotplug_type == RTAS_HP_TYPE_MEMORY) {
-		start_addr = hp->index << SECTION_SIZE_BITS;
-		len = hp->count << SECTION_SIZE_BITS;
+		start_addr = (unsigned long)(hp->index) << SECTION_SIZE_BITS;
+		len = (unsigned long)(hp->count) << SECTION_SIZE_BITS;
 		if (RTAS_HP_ACTION_ADD == hp->hotplug_action) {
 			/* add memory here */
 			node = memory_add_physaddr_to_nid(start_addr);
@@ -210,8 +211,8 @@ static void handle_rtas_reply(void)
 		reply_node = container_of(node, rtas_reply, entry);
 		hp = &reply_node->response;
 		if (hp->hotplug_type == RTAS_HP_TYPE_MEMORY) {
-			start_addr = hp->index << SECTION_SIZE_BITS;
-			len = hp->count << SECTION_SIZE_BITS;
+			start_addr = (unsigned long)(hp->index) << SECTION_SIZE_BITS;
+			len = (unsigned long)(hp->count) << SECTION_SIZE_BITS;
 			if (RTAS_HP_ACTION_REMOVE == hp->hotplug_action) {
 
 				sect_index = reply_node->sect_index;
