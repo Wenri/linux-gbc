@@ -1051,8 +1051,26 @@ static int kvm_vz_hardware_enable(void)
 
 static int kvm_vz_check_extension(struct kvm *kvm, long ext)
 {
+	int r;
 
-	return 0;
+	switch (ext) {
+	case KVM_CAP_IRQCHIP:
+	case KVM_CAP_MIPS_VZ:
+		/* we wouldn't be here unless cpu_has_vz */
+		r = 1;
+		break;
+#ifdef CONFIG_64BIT
+	case KVM_CAP_MIPS_64BIT:
+		/* We support 64-bit registers/operations and addresses */
+		r = 2;
+		break;
+#endif
+	default:
+		r = 0;
+		break;
+	}
+
+	return r;
 }
 
 static int kvm_vz_vcpu_init(struct kvm_vcpu *vcpu)
