@@ -4028,6 +4028,7 @@ gckHARDWARE_SetPowerManagementState(
         if (isAfter
         /* Expect a transition start from IDLE or SUSPEND. */
         ||  (Hardware->chipPowerState == gcvPOWER_ON)
+        ||  (Hardware->chipPowerState == gcvPOWER_SUSPEND)
         ||  (Hardware->chipPowerState == gcvPOWER_OFF)
         )
         {
