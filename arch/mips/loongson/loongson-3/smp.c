@@ -31,9 +31,6 @@
 #include <irq.h>
 #include <workarounds.h>
 #include <loongson-pch.h>
-#ifdef CONFIG_KVM_GUEST_LS3A3000
-#include <linux/workqueue.h>
-#endif
 
 #include "smp.h"
 
@@ -54,20 +51,6 @@ extern int autoplug_verbose;
 #else
 #define verbose 1
 #endif
-
-#ifdef CONFIG_KVM_GUEST_LS3A3000
-struct cpu_hotplug_info{
-	struct delayed_work work;
-};
-static struct cpu_hotplug_info cpu_hotplug_work;
-extern struct delayed_work event_scan_work;
-
-static void do_cpu_hotplug_timer(struct work_struct *work)
-{
-	flush_delayed_work(&event_scan_work);
-}
-#endif
-
 
 /* read a 64bit value from ipi register */
 uint64_t loongson3_ipi_read64(void * addr)
@@ -320,12 +303,6 @@ void loongson3_ipi_interrupt(struct pt_regs *regs)
 		__wbflush(); /* Let others see the result ASAP */
 	}
 
-#ifdef CONFIG_KVM_GUEST_LS3A3000
-	if(action & SMP_CPU_HOTPLUG){
-		schedule_delayed_work(&cpu_hotplug_work.work, msecs_to_jiffies(100));
-	}
-#endif
-
 	if (irqs) {
 		int irq, irq1;
 		switch (loongson_pch->board_type) {
@@ -418,9 +395,6 @@ void __init loongson3_smp_setup(void)
 {
 	int i = 0, num = 0; /* i: physical id, num: logical id */
 
-#ifdef CONFIG_KVM_GUEST_LS3A3000
-	INIT_DEFERRABLE_WORK(&cpu_hotplug_work.work, do_cpu_hotplug_timer);
-#endif
 	init_cpu_possible(cpu_none_mask);
 
 	/* For unified kernel, NR_CPUS is the maximum possible value,
