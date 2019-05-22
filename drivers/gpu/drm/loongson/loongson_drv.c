@@ -884,7 +884,7 @@ static void loongson_vga_pci_unregister(struct pci_dev *pdev)
  * Suspend & resume.
  */
 /*
- * loongson_drm_drm_suspend - initiate device suspend
+ * loongson_drm_suspend - initiate device suspend
  *
  * @pdev: drm dev pointer
  * @state: suspend state
@@ -893,81 +893,23 @@ static void loongson_vga_pci_unregister(struct pci_dev *pdev)
  * Returns 0 for success or an error on failure.
  * Called at driver suspend.
  */
-int loongson_drm_drm_suspend(struct drm_device *dev, bool suspend,
-                                   bool fbcon, bool freeze)
+int loongson_drm_suspend(struct drm_device *dev)
 {
-        struct loongson_drm_device *ldev;
-        struct drm_crtc *crtc;
-        struct drm_connector *connector;
-        int i, r;
-
-	return 0;
-        if (dev == NULL || dev->dev_private == NULL) {
-                return -ENODEV;
-        }
-
-        ldev = dev->dev_private;
+        struct loongson_drm_device *ldev = dev->dev_private;
 
         if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
                 return 0;
 
         drm_kms_helper_poll_disable(dev);
 
-        drm_modeset_lock_all(dev);
-        /* turn off display hw */
-        list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-                drm_helper_connector_dpms(connector, DRM_MODE_DPMS_OFF);
-        }
-        drm_modeset_unlock_all(dev);
-        /* unpin the front buffers and cursors */
-        list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-                struct loongson_framebuffer *lfb = to_loongson_framebuffer(crtc->primary->fb);
-                struct loongson_bo *lobj;
-                /*
-                if (lcursor->pixels_current) {
-                        struct loongson_bo *lobj = gem_to_loongson_bo(lcursor->pixels_current);
-                        r = loongson_bo_reserve(lobj, false);
-                        if (r == 0) {
-                                loongson_bo_unpin(robj);
-                                loongson_bo_unreserve(robj);
-                        }
-                }
-                */
-                if (lfb == NULL || lfb->obj == NULL) {
-                        continue;
-                }
-                lobj = gem_to_loongson_bo(lfb->obj);
-                /* don't unpin kernel fb objects */
-                if (!loongson_fbdev_lobj_is_fb(ldev, lobj)) {
-                        r = loongson_bo_reserve(lobj, false);
-                        if (r == 0) {
-                                loongson_bo_unpin(lobj);
-                                loongson_bo_unreserve(lobj);
-                        }
-                }
-        }
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
-        pci_save_state(dev->pdev);
-        if (freeze) {
-                pci_restore_state(dev->pdev);
-        } else if (suspend) {
-                /* Shut down the device */
-                pci_disable_device(dev->pdev);
-                pci_set_power_state(dev->pdev, PCI_D3hot);
-        }
-#endif
-        if (fbcon) {
-                console_lock();
-                loongson_fbdev_set_suspend(ldev, 1);
-                console_unlock();
-        }
+	console_lock();
+	loongson_fbdev_set_suspend(ldev, 1);
+	console_unlock();
         return 0;
 }
 
 /*
- *  * loongson_drm_drm_resume - initiate device suspend
+ *  * loongson_drm_resume - initiate device suspend
  *
  * @pdev: drm dev pointer
  * @state: suspend state
@@ -977,75 +919,19 @@ int loongson_drm_drm_suspend(struct drm_device *dev, bool suspend,
  * Called at driver suspend.
  */
 
-int loongson_drm_drm_resume(struct drm_device *dev, bool resume, bool fbcon)
+int loongson_drm_resume(struct drm_device *dev)
 {
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-	struct platform_device *pdev = dev->pdev;
-#else
-	struct pci_dev *pdev = dev->pdev;
-#endif
 	struct loongson_drm_device *ldev = dev->dev_private;
-	struct drm_crtc *crtc;
-        struct drm_connector *connector;
-        int r;
 
-	return 0;
         if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
-                return 0;
+		return 0;
 
-        if (fbcon) {
-                console_lock();
-        }
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
-        if (resume) {
-                pci_set_power_state(dev->pdev, PCI_D0);
-                pci_restore_state(dev->pdev);
-                if (pci_enable_device(dev->pdev)) {
-                        if (fbcon)
-                                console_unlock();
-                        return -1;
-                }
-        }
-#endif
-        /* pin cursors */
-        list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-                struct loongson_crtc *lcrtc = to_loongson_crtc(crtc);
-
-               /* if (radeon_crtc->cursor_bo) {
-                        struct radeon_bo *robj = gem_to_radeon_bo(radeon_crtc->cursor_bo);
-                        r = radeon_bo_reserve(robj, false);
-                        if (r == 0) {
-                                r = radeon_bo_pin_restricted(robj,
-                                                             RADEON_GEM_DOMAIN_VRAM,
-                                                             ASIC_IS_AVIVO(rdev) ?
-                                                             0 : 1 << 27,
-                                                             &radeon_crtc->cursor_addr);
-                                if (r != 0)
-                                        DRM_ERROR("Failed to pin cursor BO (%d)\n", r);
-                                radeon_bo_unreserve(robj);
-                        }
-                }*/
-        }
-
-        /* blat the mode back in */
-        if (fbcon) {
-                drm_helper_resume_force_mode(dev);
-                /* turn on display hw */
-                drm_modeset_lock_all(dev);
-                list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-                    drm_helper_connector_dpms(connector, DRM_MODE_DPMS_ON);
-                }
-                drm_modeset_unlock_all(dev);
-        }
-
+	loongson_connector_resume(ldev);
+	console_lock();
+	drm_helper_resume_force_mode(dev);
         drm_kms_helper_poll_enable(dev);
-
-        if (fbcon) {
-                loongson_fbdev_set_suspend(ldev, 0);
-                console_unlock();
-        }
+	loongson_fbdev_set_suspend(ldev, 0);
+	console_unlock();
 	return 0;
 }
 
@@ -1065,7 +951,7 @@ static int loongson_drm_pm_suspend(struct device *dev)
         struct pci_dev *pdev = to_pci_dev(dev);
         struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	DRM_DEBUG("loongson_drm_pm_suspend");
-        return loongson_drm_drm_suspend(drm_dev, true, true, false);
+        return loongson_drm_suspend(drm_dev);
 #endif
 }
 
@@ -1085,71 +971,35 @@ static int loongson_drm_pm_resume(struct device *dev)
         struct pci_dev *pdev = to_pci_dev(dev);
         struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	DRM_DEBUG("loongson_drm_pm_resume");
-        return loongson_drm_drm_resume(drm_dev, true, true);
+        return loongson_drm_resume(drm_dev);
 #endif
 }
 
 /**
- *  loongson_drm_pm_freeze
+ * loongson_drm_pm_freeze
  *
- *  @dev pointer to device
+ * @dev pointer to the device
  *
- *  Hibernation-specific, executed before creating a hibernation image.
- *  Analogous to @suspend(), but it should not enable the device to signal
- *  wakeup events or change its power state.
+ * Executed after waking the system up from a freezz state in which the
+ * contents of main memory were preserved.
  */
 static int loongson_drm_pm_freeze(struct device *dev)
 {
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 
 #else
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+        struct pci_dev *pdev = to_pci_dev(dev);
+        struct drm_device *drm_dev = pci_get_drvdata(pdev);
+        struct drm_connector *connector;
 	DRM_DEBUG("loongson_drm_pm_freeze");
-	return loongson_drm_drm_suspend(drm_dev, false, true, true);
-#endif
-}
 
-/**
- * loongson_drm_pm_draw
- *
- * @dev pointer to device
- *
- * Hibernation-specific, executed after creating a hibernation image OR
- * if the creation of an image has failed.  Also executed after a failing
- * attempt to restore the contents of main memory from such an image.
- * Undo the changes made by the preceding @freeze(), so the device can be
- * operated in the same way as immediately before the call to @freeze().
- */
-static int loongson_drm_pm_thaw(struct device *dev)
-{
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
-        struct pci_dev *pdev = to_pci_dev(dev);
-        struct drm_device *drm_dev = pci_get_drvdata(pdev);
-	DRM_DEBUG("loongson_drm_pm_thaw");
-        return loongson_drm_drm_resume(drm_dev, false, true);
-#endif
-}
-
-/**
- *  loongson_drm_pm_restore
- *
- * @dev   pointer to device
- *
- *  Hibernation-specific, executed after restoring the contents of main
- *  memory from a hibernation image, analogous to @resume()
- */
-static int loongson_drm_pm_restore(struct device *dev)
-{
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
-        struct pci_dev *pdev = to_pci_dev(dev);
-        struct drm_device *drm_dev = pci_get_drvdata(pdev);
-	DRM_DEBUG("loongson_drm_pm_restore");
-        return loongson_drm_drm_resume(drm_dev, true, true);
+	drm_modeset_lock_all(drm_dev);
+	/*turn off display hw*/
+	list_for_each_entry(connector, &drm_dev->mode_config.connector_list, head){
+		drm_helper_connector_dpms(connector, DRM_MODE_DPMS_OFF);
+	}
+	drm_modeset_unlock_all(drm_dev);
+        return 0;
 #endif
 }
 
@@ -1178,9 +1028,6 @@ static struct platform_driver loongson_vga_platform_driver = {
 #endif
 	},
 };
-
-
-
 
 /**
  * loongson_vga_pci_init()  -- kernel module init function
@@ -1237,9 +1084,6 @@ static const struct dev_pm_ops loongson_drm_pm_ops = {
 	.suspend = loongson_drm_pm_suspend,
 	.resume = loongson_drm_pm_resume,
 	.freeze = loongson_drm_pm_freeze,
-	.thaw = loongson_drm_pm_thaw,
-	.poweroff = loongson_drm_pm_freeze,
-	.restore = loongson_drm_pm_restore,
 };
 
 

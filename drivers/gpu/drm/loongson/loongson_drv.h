@@ -341,4 +341,7 @@ int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y);
 void * loongson_vbios_test(void);
 int loongson_vbios_init(struct loongson_drm_device *ldev);
 int loongson_vbios_information_display(struct loongson_drm_device *ldev);
+
+void loongson_connector_resume(struct loongson_drm_device *ldev);
+
 #endif
