@@ -86,8 +86,8 @@ extern struct mutex ls_dc_mutex;
 #else
 #define ls_readl					ls7a_readl
 #define ls_readq					ls7a_readq
-#define ls_writel					ls_dc_write
-#define ls_writeq					ls_dc_write
+#define ls_writel					ls7a_writel
+#define ls_writeq					ls7a_writeq
 #endif
 
 #define CURIOSET_CORLOR		0x4607

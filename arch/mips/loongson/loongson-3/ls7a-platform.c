@@ -26,6 +26,8 @@ extern int ls7a_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc);
 extern void ls7a_teardown_msi_irq(unsigned int irq);
 unsigned long ls7a_dc_writeflags;
 DEFINE_SPINLOCK(ls7a_dc_writelock);
+unsigned long ls7a_rwflags;
+DEFINE_RWLOCK(ls7a_rwlock);
 
 static void ls7a_early_config(void)
 {
