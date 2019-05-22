@@ -662,7 +662,7 @@
  */
 
 #ifndef gcdPOWEROFF_TIMEOUT
-#   define gcdPOWEROFF_TIMEOUT                  300
+#   define gcdPOWEROFF_TIMEOUT                  0
 #endif
 
 /*
