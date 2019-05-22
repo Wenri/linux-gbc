@@ -53,6 +53,7 @@ __set_direction(struct loongson_gpio_chip *lgpio, unsigned pin, int input)
 {
 	u64 u;
 	u32 temp;
+        unsigned long flags;
 
 	if (!strcmp(lgpio->chip.label,"loongson-gpio")){
 		temp = readl(GPIO_IO_CONF(lgpio));
@@ -63,18 +64,20 @@ __set_direction(struct loongson_gpio_chip *lgpio, unsigned pin, int input)
 		writel(temp, GPIO_IO_CONF(lgpio));
 		return ;
 	}
-	u = readq(GPIO_IO_CONF(lgpio));
+
+	ls7a_read(u, (unsigned long)GPIO_IO_CONF(lgpio));
 	if (input)
 		u |= 1UL << pin;
 	else
 		u &= ~(1UL << pin);
-	ls7a_dc_write(u, (unsigned long)GPIO_IO_CONF(lgpio));
+	ls7a_write(u, (unsigned long)GPIO_IO_CONF(lgpio));
 }
 
 static void __set_level(struct loongson_gpio_chip *lgpio, unsigned pin, int high)
 {
 	u64 u;
 	u32 temp;
+  	unsigned long flags;
 
 	/* If GPIO controller is on 3A,then... */
 	if (!strcmp(lgpio->chip.label,"loongson-gpio")){
@@ -87,12 +90,12 @@ static void __set_level(struct loongson_gpio_chip *lgpio, unsigned pin, int high
 		return;
 	}
 
-	u = readq(GPIO_OUT(lgpio));
+	ls7a_read(u, (unsigned long)GPIO_OUT(lgpio));
 	if (high)
 		u |= 1UL << pin;
 	else
 		u &= ~(1UL << pin);
-	ls7a_dc_write(u, (unsigned long)GPIO_OUT(lgpio));
+	ls7a_write(u, (unsigned long)GPIO_OUT(lgpio));
 }
 
 static int loongson_gpio_direction_input(struct gpio_chip *chip, unsigned pin)
@@ -127,8 +130,9 @@ static int loongson_gpio_get(struct gpio_chip *chip, unsigned pin)
 {
 	struct loongson_gpio_chip *lgpio =
 		container_of(chip, struct loongson_gpio_chip, chip);
-	u64 val;
+	u64 val, u;
 	u32 temp;
+  	unsigned long flags;
 
 	/* GPIO controller in 3A is different for 7A */
 	if (!strcmp(lgpio->chip.label,"loongson-gpio")){
@@ -136,10 +140,11 @@ static int loongson_gpio_get(struct gpio_chip *chip, unsigned pin)
 		return ((temp & (1 << (pin + LOONGSON_GPIO_IN_OFFSET))) != 0);
 	}
 
-	if (readq(GPIO_IO_CONF(lgpio)) & (1UL << pin))
-		val = readq(GPIO_IN(lgpio));
+	ls7a_read(u, (unsigned long)GPIO_IO_CONF(lgpio));
+	if (u & (1UL << pin))
+		ls7a_read(val, (unsigned long)GPIO_IN(lgpio));
 	else
-		val = readq(GPIO_OUT(lgpio));
+		ls7a_read(val, (unsigned long)GPIO_OUT(lgpio));
 
 	return (val >> pin) & 1;
 }
