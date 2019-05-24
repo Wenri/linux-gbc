@@ -3748,7 +3748,6 @@ gckHARDWARE_SetPowerManagementState(
     gctUINT32 process, thread;
     gctBOOL commitEntered = gcvFALSE;
     gctBOOL commandStarted = gcvFALSE;
-    gctBOOL isrStarted = gcvFALSE;
 
 #if gcdENABLE_PROFILING
     gctUINT64 time, freq, mutexTime, onTime, stallTime, stopTime, delayTime,
@@ -4283,12 +4282,6 @@ gckHARDWARE_SetPowerManagementState(
     {
         /* Stop the command parser. */
         gcmkONERROR(gckCOMMAND_Stop(command, gcvFALSE));
-
-        /* Stop the Isr. */
-        if (Hardware->stopIsr)
-        {
-            gcmkONERROR(Hardware->stopIsr(Hardware->isrContext));
-        }
     }
 
     /* Get time until stopped. */
@@ -4377,13 +4370,6 @@ gckHARDWARE_SetPowerManagementState(
         /* Start the command processor. */
         gcmkONERROR(gckCOMMAND_Start(command));
         commandStarted = gcvTRUE;
-
-        if (Hardware->startIsr)
-        {
-            /* Start the Isr. */
-            gcmkONERROR(Hardware->startIsr(Hardware->isrContext));
-            isrStarted = gcvTRUE;
-        }
 
         /* Set NEW MMU. */
         if (Hardware->mmuVersion != 0 && configMmu)
@@ -4483,11 +4469,6 @@ OnError:
     if (commandStarted)
     {
         gcmkVERIFY_OK(gckCOMMAND_Stop(command, gcvFALSE));
-    }
-
-    if (isrStarted)
-    {
-        gcmkVERIFY_OK(Hardware->stopIsr(Hardware->isrContext));
     }
 
     if (commitEntered)
