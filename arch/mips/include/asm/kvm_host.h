@@ -142,6 +142,19 @@ static inline bool kvm_is_error_hva(unsigned long addr)
 
 struct kvm_vm_stat {
 	ulong remote_tlb_flush;
+#ifdef CONFIG_CPU_LOONGSON3
+	u64 lsvz_kvm_vm_ioctl_irq_line;
+	u64 lsvz_kvm_ls7a_ioapic_update;
+	u64 lsvz_kvm_ls7a_ioapic_set_irq;
+	u64 lsvz_ls7a_ioapic_reg_write;
+	u64 lsvz_ls7a_ioapic_reg_read;
+	u64 lsvz_kvm_set_ls7a_ioapic;
+	u64 lsvz_kvm_get_ls7a_ioapic;
+	u64 lsvz_kvm_set_ls3a_ht_irq;
+	u64 lsvz_kvm_get_ls3a_ht_irq;
+	u64 lsvz_kvm_set_ls3a_router_irq;
+	u64 lsvz_kvm_get_ls3a_router_irq;
+#endif
 };
 
 struct kvm_vcpu_stat {
@@ -189,6 +202,14 @@ struct kvm_vcpu_stat {
 	u64 lsvz_gpsi_spec3_exits;
 	u64 lsvz_tlb_refill_exits;
 	u64 lsvz_tlb_refill_fail;
+	u64 lsvz_ls7a_pic_read_exits;
+	u64 lsvz_ls7a_pic_write_exits;
+	u64 lsvz_ls3a_pip_read_exits;
+	u64 lsvz_ls3a_pip_write_exits;
+	u64 lsvz_ls3a_ht_write_exits;
+	u64 lsvz_ls3a_ht_read_exits;
+	u64 lsvz_ls3a_router_write_exits;
+	u64 lsvz_ls3a_router_read_exits;
 #endif
 	u64 halt_successful_poll;
 	u64 halt_attempted_poll;
@@ -210,7 +231,10 @@ struct kvm_arch {
 	unsigned char is_migrate;
 	s64 nodecounter_offset;
 	u64 nodecounter_value;
-
+	struct loongson_kvm_7a_ioapic *v_ioapic;
+	struct loongson_kvm_ls3a_ipi *v_gipi;
+	struct loongson_kvm_ls3a_htirq *v_htirq;
+	struct loongson_kvm_ls3a_routerirq *v_routerirq; 
 };
 
 #define N_MIPS_COPROC_REGS     32
@@ -1232,5 +1256,8 @@ static inline void kvm_arch_sched_in(struct kvm_vcpu *vcpu, int cpu) {}
 static inline void kvm_arch_vcpu_blocking(struct kvm_vcpu *vcpu) {}
 static inline void kvm_arch_vcpu_unblocking(struct kvm_vcpu *vcpu) {}
 static inline void kvm_arch_vcpu_block_finish(struct kvm_vcpu *vcpu) {}
+
+
+int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,struct kvm_mips_interrupt *irq);
 
 #endif /* __MIPS_KVM_HOST_H__ */

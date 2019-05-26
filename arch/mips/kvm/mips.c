@@ -31,6 +31,7 @@
 
 #include "interrupt.h"
 #include "commpage.h"
+#include "ls3a3000.h"
 
 #define CREATE_TRACE_POINTS
 #include "trace.h"
@@ -40,6 +41,7 @@
 #endif
 
 #define VCPU_STAT(x) offsetof(struct kvm_vcpu, stat.x)
+#define VM_STAT(x) offsetof(struct kvm, stat.x)
 struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "wait",	  VCPU_STAT(wait_exits),	 KVM_STAT_VCPU },
 	{ "cache",	  VCPU_STAT(cache_exits),	 KVM_STAT_VCPU },
@@ -85,11 +87,33 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "lsvz_gpsi_spec3",  VCPU_STAT(lsvz_gpsi_spec3_exits),  KVM_STAT_VCPU },
 	{ "lsvz_tlb_refill",  VCPU_STAT(lsvz_tlb_refill_exits),  KVM_STAT_VCPU },
 	{ "lsvz_tlb_refill_fail",  VCPU_STAT(lsvz_tlb_refill_fail),  KVM_STAT_VCPU },
+	{ "lsvz_ls7a_pic_read_exits",  VCPU_STAT(lsvz_ls7a_pic_read_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls7a_pic_write_exits",  VCPU_STAT(lsvz_ls7a_pic_write_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls3a_pip_read_exits",  VCPU_STAT(lsvz_ls3a_pip_read_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls3a_pip_write_exits",  VCPU_STAT(lsvz_ls3a_pip_write_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls3a_ht_write_exits",  VCPU_STAT(lsvz_ls3a_ht_write_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls3a_ht_read_exits",  VCPU_STAT(lsvz_ls3a_ht_read_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls3a_router_write_exits",  VCPU_STAT(lsvz_ls3a_router_write_exits),  KVM_STAT_VCPU },
+	{ "lsvz_ls3a_router_read_exits",  VCPU_STAT(lsvz_ls3a_router_read_exits),  KVM_STAT_VCPU },
 #endif
 	{ "halt_successful_poll", VCPU_STAT(halt_successful_poll), KVM_STAT_VCPU },
 	{ "halt_attempted_poll", VCPU_STAT(halt_attempted_poll), KVM_STAT_VCPU },
 	{ "halt_poll_invalid", VCPU_STAT(halt_poll_invalid), KVM_STAT_VCPU },
 	{ "halt_wakeup",  VCPU_STAT(halt_wakeup),	 KVM_STAT_VCPU },
+
+
+	{ "lsvz_kvm_vm_ioctl_irq_line",  VM_STAT(lsvz_kvm_vm_ioctl_irq_line),  KVM_STAT_VM },
+	{ "lsvz_kvm_ls7a_ioapic_update",  VM_STAT(lsvz_kvm_ls7a_ioapic_update),  KVM_STAT_VM },
+	{ "lsvz_kvm_ls7a_ioapic_set_irq",  VM_STAT(lsvz_kvm_ls7a_ioapic_set_irq),  KVM_STAT_VM },
+	{ "lsvz_ls7a_ioapic_reg_write",  VM_STAT(lsvz_ls7a_ioapic_reg_write),  KVM_STAT_VM },
+	{ "lsvz_ls7a_ioapic_reg_read",  VM_STAT(lsvz_ls7a_ioapic_reg_read),  KVM_STAT_VM },
+	{ "lsvz_kvm_set_ls7a_ioapic",  VM_STAT(lsvz_kvm_set_ls7a_ioapic),  KVM_STAT_VM },
+	{ "lsvz_kvm_get_ls7a_ioapic",  VM_STAT(lsvz_kvm_get_ls7a_ioapic),  KVM_STAT_VM },
+	{ "lsvz_kvm_set_ls3a_ht_irq",  VM_STAT(lsvz_kvm_set_ls3a_ht_irq),  KVM_STAT_VM },
+	{ "lsvz_kvm_get_ls3a_ht_irq",  VM_STAT(lsvz_kvm_get_ls3a_ht_irq),  KVM_STAT_VM },
+	{ "lsvz_kvm_set_ls3a_router_irq",  VM_STAT(lsvz_kvm_set_ls3a_router_irq),  KVM_STAT_VM },
+	{ "lsvz_kvm_get_ls3a_router_irq",  VM_STAT(lsvz_kvm_get_ls3a_router_irq),  KVM_STAT_VM },
+
 	{NULL}
 };
 
@@ -525,7 +549,6 @@ int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,
 {
 	int intr = (int)irq->irq;
 	struct kvm_vcpu *dvcpu = NULL;
-
 #ifdef CONFIG_CPU_LOONGSON3
 	if (intr == 3 || intr == -3 || intr == 6 || intr == -6)
 #else
@@ -949,6 +972,38 @@ static int kvm_vcpu_ioctl_enable_cap(struct kvm_vcpu *vcpu,
 	return r;
 }
 
+
+int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *irq_level,
+			  bool line_status)
+{
+	u32 irq = irq_level->irq;
+	unsigned int irq_type, vcpu_idx, irq_num,ret;
+	int nrcpus = atomic_read(&kvm->online_vcpus);
+	bool level = irq_level->level;
+
+	irq_type = (irq >> KVM_LOONGSON_IRQ_TYPE_SHIFT) & KVM_LOONGSON_IRQ_TYPE_MASK;
+	vcpu_idx = (irq >> KVM_LOONGSON_IRQ_VCPU_SHIFT) & KVM_LOONGSON_IRQ_VCPU_MASK;
+	irq_num = (irq >> KVM_LOONGSON_IRQ_NUM_SHIFT) & KVM_LOONGSON_IRQ_NUM_MASK;
+
+	switch (irq_type) {
+	case KVM_LOONGSON_IRQ_TYPE_IOAPIC:
+		if (!ls7a_ioapic_in_kernel(kvm))
+			return -ENXIO;
+
+		if (vcpu_idx >= nrcpus)
+			return -EINVAL;
+
+		ls7a_ioapic_lock(ls7a_ioapic_irqchip(kvm));
+		ret = kvm_ls7a_ioapic_set_irq(kvm,irq_num,level);
+		ls7a_ioapic_unlock(ls7a_ioapic_irqchip(kvm));
+		return ret;
+	}
+	kvm->stat.lsvz_kvm_vm_ioctl_irq_line++;
+
+	return -EINVAL;
+}
+
+
 long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
 			 unsigned long arg)
 {
@@ -1116,13 +1171,126 @@ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm, struct kvm_dirty_log *log)
 
 long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 {
+	struct kvm *kvm = filp->private_data;
+	void __user *argp = (void __user *)arg;
 	long r;
 
 	switch (ioctl) {
+	case KVM_CREATE_IRQCHIP:
+	{
+		struct loongson_kvm_7a_ioapic *vpic;
+		struct loongson_kvm_ls3a_ipi *v_gipi;
+		struct loongson_kvm_ls3a_htirq *v_htirq;
+        	struct loongson_kvm_ls3a_routerirq *v_routerirq;
+		mutex_lock(&kvm->lock);
+		r = -EEXIST;
+		if (kvm->arch.v_ioapic)
+			goto create_irqchip_unlock;
+		r = -EINVAL;
+		vpic = kvm_create_ls7a_ioapic(kvm);
+		if (vpic == NULL) {
+			goto create_irqchip_unlock;
+		}
+		v_gipi = kvm_create_ls3a_ipi(kvm);
+		if(v_gipi == NULL){
+			mutex_lock(&kvm->slots_lock);
+			kvm_destroy_ls7a_ioapic(vpic);
+			mutex_unlock(&kvm->slots_lock);
+			goto create_irqchip_unlock;
+		}
+		v_htirq = kvm_create_ls3a_ht_irq(kvm);
+		if(v_htirq == NULL){
+			mutex_lock(&kvm->slots_lock);
+			kvm_destroy_ls7a_ioapic(vpic);
+			kvm_destroy_ls3a_ipi(v_gipi);
+			mutex_unlock(&kvm->slots_lock);
+			goto create_irqchip_unlock;
+		}
+		v_routerirq = kvm_create_ls3a_router_irq(kvm);
+		if(v_routerirq == NULL){
+			mutex_lock(&kvm->slots_lock);
+			kvm_destroy_ls7a_ioapic(vpic);
+			kvm_destroy_ls3a_ipi(v_gipi);
+			kvm_destroy_ls3a_htirq(v_htirq);
+			mutex_unlock(&kvm->slots_lock);
+			goto create_irqchip_unlock;
+		}
+		r = 0;
+		/* Write kvm->irq_routing before kvm->arch.vpic.  */
+		smp_wmb();
+		kvm->arch.v_ioapic = vpic;
+		kvm->arch.v_gipi = v_gipi;
+		kvm->arch.v_htirq = v_htirq;
+		kvm->arch.v_routerirq = v_routerirq;
+	create_irqchip_unlock:
+		mutex_unlock(&kvm->lock);
+		break;
+	}
+	case KVM_GET_IRQCHIP: {
+		struct kvm_ls3a_irq_state *chip;
+
+		chip = memdup_user(argp, sizeof(struct kvm_ls3a_irq_state));
+		if (IS_ERR(chip)) {
+			r = PTR_ERR(chip);
+			goto out;
+		}
+
+		r = -ENXIO;
+		if (!ls7a_ioapic_in_kernel(kvm))
+			goto get_irqchip_out;
+		r = kvm_get_ls7a_ioapic(kvm, &(chip->ls7a_ioapic));
+		if (r)
+			goto get_irqchip_out;
+		r = kvm_get_ls3a_ipi(kvm, &(chip->ls3a_gipistate));
+		if (r)
+			goto get_irqchip_out;
+		r = kvm_get_ls3a_ht_irq(kvm,chip->ht_irq_reg);
+		if (r)
+			goto get_irqchip_out;
+		r = kvm_get_ls3a_router_irq(kvm,&(chip->ls3a_route));
+		if (r)
+			goto get_irqchip_out;
+		r = -EFAULT;
+		if (copy_to_user(argp, chip, sizeof (struct kvm_ls3a_irq_state)))
+			goto get_irqchip_out;
+		r = 0;
+	get_irqchip_out:
+		kfree(chip);
+		break;
+	}
+	case KVM_SET_IRQCHIP: {
+		struct kvm_ls3a_irq_state *chip;
+
+		chip = memdup_user(argp, sizeof(struct kvm_ls3a_irq_state));
+		if (IS_ERR(chip)) {
+			r = PTR_ERR(chip);
+			goto out;
+		}
+
+		r = -ENXIO;
+		if (!ls7a_ioapic_in_kernel(kvm))
+			goto set_irqchip_out;
+		r = kvm_set_ls7a_ioapic(kvm, &(chip->ls7a_ioapic));
+		if (r)
+			goto set_irqchip_out;
+		r = kvm_set_ls3a_ipi(kvm, &(chip->ls3a_gipistate));
+		if (r)
+			goto set_irqchip_out;
+		r = kvm_set_ls3a_ht_irq(kvm,chip->ht_irq_reg);
+		if (r)
+			goto set_irqchip_out;
+		r = kvm_set_ls3a_router_irq(kvm,&(chip->ls3a_route));
+		if (r)
+			goto set_irqchip_out;
+		r = 0;
+	set_irqchip_out:
+		kfree(chip);
+		break;
+	}
 	default:
 		r = -ENOIOCTLCMD;
 	}
-
+out:
 	return r;
 }
 

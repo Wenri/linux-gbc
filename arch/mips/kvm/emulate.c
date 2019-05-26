@@ -34,6 +34,10 @@
 #include "commpage.h"
 
 #include "trace.h"
+#include "ls7a_irq.h"
+#include "ls3a3000_ipi.h"
+#include "ls3a3000_ht_irq.h"
+#include "ls3a3000_router_irq.h"
 
 /*
  * Compute the return address and do emulate branch simulation, if required.
@@ -1604,6 +1608,9 @@ enum emulation_result kvm_mips_emulate_store(union mips_instruction inst,
 {
 	enum emulation_result er;
 	u32 rt;
+	u32 rs;
+	int offset;
+
 	void *data = run->mmio.data;
 	unsigned long curr_pc;
 	unsigned int imme;
@@ -1618,6 +1625,8 @@ enum emulation_result kvm_mips_emulate_store(union mips_instruction inst,
 		return er;
 
 	rt = inst.i_format.rt;
+	rs = inst.i_format.rs;
+	offset = inst.i_format.simmediate;
 
 	run->mmio.phys_addr = kvm_mips_callbacks->gva_to_gpa(
 						vcpu->arch.host_cp0_badvaddr);
@@ -1856,9 +1865,48 @@ enum emulation_result kvm_mips_emulate_store(union mips_instruction inst,
 		goto out_fail;
 	}
 
+	if(((run->mmio.phys_addr & (~0xfffUL))== LS7A_IOAPIC_GUSET_REG_BASE)
+	&& ls7a_ioapic_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls7a_pic_write_exits++;
+		ls7a_ioapic_lock(vcpu->kvm->arch.v_ioapic);
+		ls7a_ioapic_reg_write(vcpu->kvm->arch.v_ioapic,run->mmio.phys_addr,run->mmio.len,data);
+		ls7a_ioapic_unlock(vcpu->kvm->arch.v_ioapic);
+		return EMULATE_DONE;
+	}
+
+
+	if(((run->mmio.phys_addr & (~0xffUL))== HT_CONTROL_REGS_BASE)
+	&& ls3a_htirq_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls3a_ht_write_exits++;
+		ls7a_ioapic_lock(vcpu->kvm->arch.v_ioapic);
+		ls3a_ht_intctl_write(vcpu->kvm,run->mmio.phys_addr,run->mmio.len,data);
+		ls7a_ioapic_unlock(vcpu->kvm->arch.v_ioapic);
+		return EMULATE_DONE;
+	}
+
+	if(((run->mmio.phys_addr & (~0xffUL))== INT_ROUTER_REGS_BASE)
+	&& ls3a_router_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls3a_router_write_exits++;
+		ls7a_ioapic_lock(vcpu->kvm->arch.v_ioapic);
+		ls3a_router_intctl_write(vcpu->kvm,run->mmio.phys_addr,run->mmio.len,data);
+		ls7a_ioapic_unlock(vcpu->kvm->arch.v_ioapic);
+		return EMULATE_DONE;
+	}
+
+	if(((run->mmio.phys_addr & (~(0x3ffUL|(0x3UL<<44)))) == SMP_MAILBOX)
+	&& ls3a_ipi_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls3a_pip_write_exits++;
+		ls3a_ipi_lock(vcpu->kvm->arch.v_gipi);
+		ls3a_gipi_writel(vcpu->kvm->arch.v_gipi,run->mmio.phys_addr,run->mmio.len,data);
+		ls3a_ipi_unlock(vcpu->kvm->arch.v_gipi);
+ 		return EMULATE_DONE;
+ 	}
+
 	run->mmio.is_write = 1;
 	vcpu->mmio_needed = 1;
 	vcpu->mmio_is_write = 1;
+
+
 	return EMULATE_DO_MMIO;
 
 out_fail:
@@ -2171,6 +2219,51 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 		vcpu->mmio_needed = 0;
 		return EMULATE_FAIL;
 	}
+
+	if(((run->mmio.phys_addr & (~0xfffUL))== LS7A_IOAPIC_GUSET_REG_BASE)
+	&& ls7a_ioapic_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls7a_pic_read_exits++;
+		ls7a_ioapic_lock(vcpu->kvm->arch.v_ioapic);
+		ls7a_ioapic_reg_read(vcpu->kvm->arch.v_ioapic,run->mmio.phys_addr,run->mmio.len,&vcpu->arch.gprs[rt]);
+		ls7a_ioapic_unlock(vcpu->kvm->arch.v_ioapic);
+		vcpu->arch.pc = vcpu->arch.io_pc;
+		vcpu->mmio_needed = 0;
+		return EMULATE_DONE;
+	}
+
+	if(((run->mmio.phys_addr & (~0xffUL))== HT_CONTROL_REGS_BASE)
+	&& ls3a_htirq_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls3a_ht_read_exits++;
+		ls7a_ioapic_lock(vcpu->kvm->arch.v_ioapic);
+		ls3a_ht_intctl_read(vcpu->kvm,run->mmio.phys_addr,run->mmio.len,&vcpu->arch.gprs[rt]);
+		ls7a_ioapic_unlock(vcpu->kvm->arch.v_ioapic);
+		vcpu->arch.pc = vcpu->arch.io_pc;
+		vcpu->mmio_needed = 0;
+		return EMULATE_DONE;
+	}
+
+	if(((run->mmio.phys_addr & (~0xffUL))== INT_ROUTER_REGS_BASE)
+	&& ls3a_router_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls3a_router_read_exits++;
+		ls7a_ioapic_lock(vcpu->kvm->arch.v_ioapic);
+		ls3a_router_intctl_read(vcpu->kvm,run->mmio.phys_addr,run->mmio.len,&vcpu->arch.gprs[rt]);
+		ls7a_ioapic_unlock(vcpu->kvm->arch.v_ioapic);
+		vcpu->arch.pc = vcpu->arch.io_pc;
+		vcpu->mmio_needed = 0;
+		return EMULATE_DONE;
+	}
+
+	if(((run->mmio.phys_addr & (~(0x3ffUL|(0x3UL<<44)))) == SMP_MAILBOX)
+	&& ls3a_ipi_in_kernel(vcpu->kvm)){
+		vcpu->stat.lsvz_ls3a_pip_read_exits++;
+		ls3a_ipi_lock(vcpu->kvm->arch.v_gipi);
+		ls3a_gipi_readl(vcpu->kvm->arch.v_gipi,run->mmio.phys_addr,run->mmio.len,&vcpu->arch.gprs[rt]);
+		ls3a_ipi_unlock(vcpu->kvm->arch.v_gipi);
+		vcpu->arch.pc = vcpu->arch.io_pc;
+		vcpu->mmio_needed = 0;
+ 		return EMULATE_DONE;
+ 	}
+
 
 	run->mmio.is_write = 0;
 	vcpu->mmio_is_write = 0;
@@ -3010,7 +3103,7 @@ enum emulation_result kvm_mips_complete_mmio_load(struct kvm_vcpu *vcpu,
 	enum emulation_result er = EMULATE_DONE;
 
 	if (run->mmio.len > sizeof(*gpr)) {
-		kvm_err("Bad MMIO length: %d", run->mmio.len);
+		kvm_err("Bad MMIO length: %d,addr is 0x%lx", run->mmio.len,vcpu->arch.host_cp0_badvaddr);
 		er = EMULATE_FAIL;
 		goto done;
 	}

@@ -197,6 +197,7 @@ struct kvm_fpu {
 #define KVM_REG_MIPS_MSA_CSR	 (KVM_REG_MIPS_MSACR | KVM_REG_SIZE_U32 |  1)
 
 
+#define __KVM_HAVE_IRQ_LINE
 /*
  * KVM MIPS specific structures and definitions
  *

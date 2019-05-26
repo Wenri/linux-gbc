@@ -139,7 +139,12 @@ struct ls2h_intctl_regs {
 /* LS7A IOAPIC IRQ DEFINITIONS */
 
 /* Registers */
+#ifdef CONFIG_KVM_GUEST_LS3A3000
+#define LS7A_IOAPIC_BASE                    0x900000e010000000
+#else
 #define LS7A_IOAPIC_BASE                    0x90000e0010000000
+#endif
+
 #define LS7A_IOAPIC_ROUTE_ENTRY_OFFSET      0x100
 #define LS7A_IOAPIC_INT_MASK_OFFSET         0x20
 #define LS7A_IOAPIC_INT_EDGE_OFFSET         0x60
