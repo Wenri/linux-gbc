@@ -196,7 +196,32 @@
 			reg = <0 0x20000000 0x10000000>;
 		};
 */
+		pwm0: pwm@100a0000 {
+			compatible = "loongson,ls7a-pwm";
+			reg = <0 0x100a0000 0x10>;
+			interrupts = <88>;
+			interrupt-parent = <&platic>;
+		};
 
+		pwm1: pwm@100a0100 {
+			compatible = "loongson,ls7a-pwm";
+			reg = <0 0x100a0100 0x10>;
+			interrupts = <89>;
+			interrupt-parent = <&platic>;
+		};
 
+		pwm2: pwm@100a0200 {
+			compatible = "loongson,ls7a-pwm";
+			reg = <0 0x100a0200 0x10>;
+			interrupts = <90>;
+			interrupt-parent = <&platic>;
+		};
+
+		pwm3: pwm@100a0300 {
+			compatible = "loongson,ls7a-pwm";
+			reg = <0 0x100a0300 0x10>;
+			interrupts = <91>;
+			interrupt-parent = <&platic>;
+		};
 	};
 };

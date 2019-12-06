@@ -21,7 +21,9 @@
 #include <linux/pwm.h>
 #include <linux/of_device.h>
 #include <linux/slab.h>
+#ifdef CONFIG_CPU_LOONGSON2K
 #include <ls2k.h>
+#endif
 
 /* counter offest */
 #define LOW_BUFFER  0x004
@@ -39,53 +41,70 @@
 #define CTRL_INVERT	BIT(9)
 #define CTRL_DZONE	BIT(10)
 
-#define to_ls2k_pwm_chip(_chip)		container_of(_chip, struct ls2k_pwm_chip, chip)
+#define to_ls_pwm_chip(_chip)		container_of(_chip, struct ls_pwm_chip, chip)
 #define NS_IN_HZ (1000000000UL)
-#define CPU_FRQ_PWM (125000000UL)
 
-struct ls2k_pwm_chip{
+#ifdef CONFIG_CPU_LOONGSON2K
+#define CPU_FRQ_PWM (125000000UL)
+#else
+#define CPU_FRQ_PWM (50000000UL)
+#endif
+
+struct ls_pwm_chip{
 	struct pwm_chip chip;
 	void __iomem		*mmio_base;
 };
 
-static int ls2k_pwm_set_polarity(struct pwm_chip *chip,
+static int ls_pwm_set_polarity(struct pwm_chip *chip,
 				      struct pwm_device *pwm,
 				      enum pwm_polarity polarity)
 {
-	struct ls2k_pwm_chip *ls2k_pwm = to_ls2k_pwm_chip(chip);
+	struct ls_pwm_chip *ls_pwm = to_ls_pwm_chip(chip);
 	u16 val;
 
-	val = readl(ls2k_pwm->mmio_base + CTRL);
-	val |= CTRL_INVERT;
-	writel(val, ls2k_pwm->mmio_base);
+	val = readl(ls_pwm->mmio_base + CTRL);
+
+	switch (polarity) {
+		case PWM_POLARITY_NORMAL:
+			val &= ~CTRL_INVERT;
+			break;
+		case PWM_POLARITY_INVERSED:
+			val |= CTRL_INVERT;
+			break;
+		default:
+			break;
+	}
+
+	writel(val, ls_pwm->mmio_base + CTRL);
+
 	return 0;
 }
 
-static void ls2k_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
+static void ls_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct ls2k_pwm_chip *ls2k_pwm = to_ls2k_pwm_chip(chip);
+	struct ls_pwm_chip *ls_pwm = to_ls_pwm_chip(chip);
 	u32 ret;
 
-	ret = readl(ls2k_pwm->mmio_base + CTRL);
+	ret = readl(ls_pwm->mmio_base + CTRL);
 	ret &= ~CTRL_EN;
-	writel(ret, ls2k_pwm->mmio_base + CTRL);
+	writel(ret, ls_pwm->mmio_base + CTRL);
 }
 
-static int ls2k_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+static int ls_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct ls2k_pwm_chip *ls2k_pwm = to_ls2k_pwm_chip(chip);
+	struct ls_pwm_chip *ls_pwm = to_ls_pwm_chip(chip);
 	int ret;
 
-	ret = readl(ls2k_pwm->mmio_base + CTRL);
+	ret = readl(ls_pwm->mmio_base + CTRL);
 	ret |= CTRL_EN;
-	writel(ret, ls2k_pwm->mmio_base + CTRL);
+	writel(ret, ls_pwm->mmio_base + CTRL);
 	return 0;
 }
 
-static int ls2k_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
+static int ls_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 				int duty_ns, int period_ns)
 {
-	struct ls2k_pwm_chip *ls2k_pwm = to_ls2k_pwm_chip(chip);
+	struct ls_pwm_chip *ls_pwm = to_ls_pwm_chip(chip);
 	unsigned int period, duty;
 	unsigned long long val0,val1;
 
@@ -104,23 +123,23 @@ static int ls2k_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		val1 = 1;
 	duty = val1;
 
-	writel(duty,ls2k_pwm->mmio_base + LOW_BUFFER);
-	writel(period,ls2k_pwm->mmio_base + FULL_BUFFER);
+	writel(duty,ls_pwm->mmio_base + LOW_BUFFER);
+	writel(period,ls_pwm->mmio_base + FULL_BUFFER);
 
 	return 0;
 }
 
-static const struct pwm_ops ls2k_pwm_ops = {
-	.config = ls2k_pwm_config,
-	.set_polarity = ls2k_pwm_set_polarity,
-	.enable = ls2k_pwm_enable,
-	.disable = ls2k_pwm_disable,
+static const struct pwm_ops ls_pwm_ops = {
+	.config = ls_pwm_config,
+	.set_polarity = ls_pwm_set_polarity,
+	.enable = ls_pwm_enable,
+	.disable = ls_pwm_disable,
 	.owner = THIS_MODULE,
 };
 
-static int ls2k_pwm_probe(struct platform_device *pdev)
+static int ls_pwm_probe(struct platform_device *pdev)
 {
-	struct ls2k_pwm_chip *pwm;
+	struct ls_pwm_chip *pwm;
 	struct resource *mem;
 	int err;
 	if (pdev->id > 3)
@@ -132,7 +151,7 @@ static int ls2k_pwm_probe(struct platform_device *pdev)
 	}
 
 	pwm->chip.dev = &pdev->dev;
-	pwm->chip.ops = &ls2k_pwm_ops;
+	pwm->chip.ops = &ls_pwm_ops;
 	pwm->chip.base = -1;
 	pwm->chip.npwm = 1;
 
@@ -158,9 +177,9 @@ static int ls2k_pwm_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ls2k_pwm_remove(struct platform_device *pdev)
+static int ls_pwm_remove(struct platform_device *pdev)
 {
-	struct ls2k_pwm_chip *pwm = platform_get_drvdata(pdev);
+	struct ls_pwm_chip *pwm = platform_get_drvdata(pdev);
 	int err;
 	if (!pwm)
 		return -ENODEV;
@@ -171,26 +190,27 @@ static int ls2k_pwm_remove(struct platform_device *pdev)
 	return 0;
 }
 #ifdef CONFIG_OF
-static struct of_device_id ls2k_pwm_id_table[] = {
+static struct of_device_id ls_pwm_id_table[] = {
 	{.compatible = "loongson,ls2k-pwm"},
+	{.compatible = "loongson,ls7a-pwm"},
 	{},
 };
 #endif
-static struct platform_driver ls2k_pwm_driver = {
+static struct platform_driver ls_pwm_driver = {
 	.driver = {
-		.name = "ls2k-pwm",
+		.name = "ls-pwm",
 		.owner = THIS_MODULE,
 		.bus = &platform_bus_type,
 #ifdef CONFIG_OF
-		.of_match_table = of_match_ptr(ls2k_pwm_id_table),
+		.of_match_table = of_match_ptr(ls_pwm_id_table),
 #endif
 	},
-	.probe = ls2k_pwm_probe,
-	.remove = ls2k_pwm_remove,
+	.probe = ls_pwm_probe,
+	.remove = ls_pwm_remove,
 };
-module_platform_driver(ls2k_pwm_driver);
+module_platform_driver(ls_pwm_driver);
 
 MODULE_AUTHOR("Juxin Gao <gaojuxin@loongson.com>");
-MODULE_DESCRIPTION("Loongson 2k1000 Pwm Driver");
+MODULE_DESCRIPTION("Loongson Pwm Driver");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:ls2k-pwm");
+MODULE_ALIAS("platform:ls-pwm");
