@@ -141,6 +141,7 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "lsvz_kvm_get_ls3a_ext_irq",  VM_STAT(lsvz_kvm_get_ls3a_ext_irq),  KVM_STAT_VM },
 	{ "lsvz_kvm_set_ls3a_ipmask",  VM_STAT(lsvz_kvm_set_ls3a_ipmask),  KVM_STAT_VM },
 	{ "lsvz_kvm_get_ls3a_ipmask",  VM_STAT(lsvz_kvm_get_ls3a_ipmask),  KVM_STAT_VM },
+	{ "lsvz_kvm_ls7a_msi_irq",  VM_STAT(lsvz_kvm_ls7a_msi_irq),  KVM_STAT_VM },
 
 	{NULL}
 };
@@ -1502,6 +1503,17 @@ long kvm_arch_vm_ioctl(struct file *filp, unsigned int ioctl, unsigned long arg)
 		kfree(chip);
 		break;
 	}
+#ifdef CONFIG_HAVE_LS_KVM_MSI
+	case KVM_SIGNAL_MSI: {
+		struct kvm_msi msi;
+
+		r = -EFAULT;
+		if (copy_from_user(&msi, argp, sizeof(msi)))
+			goto out;
+		r = kvm_ls7a_send_userspace_msi(kvm, &msi);
+		break;
+	}
+#endif
 	default:
 		r = -ENOIOCTLCMD;
 	}
@@ -1567,6 +1579,9 @@ int kvm_vm_ioctl_check_extension(struct kvm *kvm, long ext)
 	case KVM_CAP_ENABLE_CAP:
 	case KVM_CAP_READONLY_MEM:
 	case KVM_CAP_SYNC_MMU:
+#ifdef CONFIG_HAVE_LS_KVM_MSI
+	case KVM_CAP_SIGNAL_MSI:
+#endif
 	case KVM_CAP_IMMEDIATE_EXIT:
 		r = 1;
 		break;

@@ -60,6 +60,14 @@ config KVM_MIPS_DYN_TRANS
 
 	  If unsure, say Y.
 
+config HAVE_LS_KVM_MSI
+	bool "Loongson MSI Interrupt Support in KVM"
+	depends on LOONGSON_MACH3X && KVM
+ 	default y
+	---help---
+	  Provides MSI interrupt support for Loongson Virtual
+	  Machine in KVM.
+
 config KVM_MIPS_DEBUG_COP0_COUNTERS
 	bool "Maintain counters for COP0 accesses"
 	depends on KVM

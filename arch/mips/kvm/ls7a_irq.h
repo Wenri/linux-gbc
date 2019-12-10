@@ -141,4 +141,6 @@ int ls7a_ioapic_reg_read(struct loongson_kvm_7a_ioapic *s,gpa_t addr, int len, v
 void kvm_destroy_ls7a_ioapic(struct loongson_kvm_7a_ioapic *vpic);
 void ls7a_ioapic_lock(struct loongson_kvm_7a_ioapic *s, unsigned long *flags);
 void ls7a_ioapic_unlock(struct loongson_kvm_7a_ioapic *s, unsigned long *flags);
+int kvm_ls7a_send_userspace_msi(struct kvm *kvm, struct kvm_msi *msi);
+int kvm_ls7a_ioapic_set_irq(struct kvm *kvm, int irq, int level);
 #endif

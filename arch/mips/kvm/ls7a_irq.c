@@ -103,6 +103,38 @@ static void kvm_ls7a_ioapic_lower(struct kvm *kvm, unsigned long mask)
 	kvm->stat.lsvz_kvm_ls7a_ioapic_update++;
 }
 
+int kvm_ls7a_set_msi(struct kvm_kernel_irq_routing_entry *e,
+		struct kvm *kvm, int irq_source_id, int level, bool line_status)
+{
+	unsigned long flags;
+	if (!level)
+		return -1;
+
+	kvm_debug("msi data is 0x%x",e->msi.data);
+	ls7a_ioapic_lock(ls7a_ioapic_irqchip(kvm), &flags);
+	msi_irq_handler(kvm, e->msi.data, 1);
+	ls7a_ioapic_unlock(ls7a_ioapic_irqchip(kvm), &flags);
+
+	return 0;
+}
+
+int kvm_ls7a_send_userspace_msi(struct kvm *kvm, struct kvm_msi *msi)
+{
+	struct kvm_kernel_irq_routing_entry route;
+
+	if (!ls3a_htirq_in_kernel(kvm) || msi->flags != 0)
+		return -EINVAL;
+
+	kvm->stat.lsvz_kvm_ls7a_msi_irq++;
+	route.msi.address_lo = msi->address_lo;
+	route.msi.address_hi = msi->address_hi;
+	route.msi.data = msi->data;
+
+	kvm_debug("msi data is 0x%x",route.msi.data);
+	return kvm_ls7a_set_msi(&route, kvm, KVM_USERSPACE_IRQ_SOURCE_ID, 1, false);
+
+}
+
 int kvm_ls7a_ioapic_set_irq(struct kvm *kvm, int irq, int level)
 {
 	struct loongson_kvm_7a_ioapic *s;

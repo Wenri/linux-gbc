@@ -167,6 +167,7 @@ struct kvm_vm_stat {
 	u64 lsvz_kvm_get_ls3a_ext_irq;
 	u64 lsvz_kvm_set_ls3a_ipmask;
 	u64 lsvz_kvm_get_ls3a_ipmask;
+	u64 lsvz_kvm_ls7a_msi_irq;
 #endif
 };
 
