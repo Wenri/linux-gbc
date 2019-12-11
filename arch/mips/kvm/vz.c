@@ -3110,8 +3110,13 @@ static void kvm_vz_get_new_guestid(unsigned long cpu, struct kvm_vcpu *vcpu)
 		++guestid;		/* guestid 0 reserved for root */
 
 		/* start new guestid cycle */
+#if CONFIG_CPU_LOONGSON3
+		/* Set cp0 diag to clear FTLB VTLB */
+		set_c0_diag(0x3000);
+#else
 		kvm_vz_local_flush_roottlb_all_guests();
 		kvm_vz_local_flush_guesttlb_all();
+#endif
 	}
 
 	guestid_cache(cpu) = guestid;
@@ -3623,7 +3628,7 @@ static int kvm_vz_hardware_enable(void)
 		/* Try switching to maximum guest VTLB size for flush */
 		guest_mmu_size = kvm_vz_resize_guest_vtlb(mmu_size);
 		current_cpu_data.guest.tlbsize = guest_mmu_size + ftlb_size;
-		kvm_vz_local_flush_guesttlb_all();
+		set_c0_diag(0x3000);
 
 		//FTLB startup at fixed point 64
 		guest_mmu_size = mmu_size - num_wired_entries();
