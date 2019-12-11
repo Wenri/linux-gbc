@@ -3288,6 +3288,9 @@ static int kvm_vz_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	else
 		clear_c0_guestctl0(MIPS_GCTL0_MC);
 
+	/* Control guest page CCA attribute */
+	write_csr(0xffffffec, read_csr(0xffffffec) | 0x1);
+
 	/* Don't bother restoring registers multiple times unless necessary */
 	if (!all)
 		return 0;
