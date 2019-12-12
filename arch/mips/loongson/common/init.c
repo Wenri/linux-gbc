@@ -51,8 +51,8 @@ extern unsigned int (*read_clear_ipi)(int);
 extern unsigned int addr_read_clear_ipi(int cpu);
 extern unsigned int csr_read_clear_ipi(int cpu);
 
-#define SMBIOS_FREQHIGH_OFFSET	17
-#define SMBIOS_FREQLOW_OFFSET	16
+#define SMBIOS_FREQHIGH_OFFSET	19
+#define SMBIOS_FREQLOW_OFFSET	18
 #define SMBIOS_FREQLOW_MASK	0xFF
 #define SMBIOS_CORE_PACGE_OFFSET	31
 #define SMBIOS_BOISSIZE_OFFSET	5
