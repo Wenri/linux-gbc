@@ -49,7 +49,7 @@
 #define HT_IRQ_ENABLE_REG7              0xBC
 
 
-struct loongson_kvm_ls3a_htirq{
+struct loongson_kvm_ls3a_htirq {
 	spinlock_t lock;
 	struct kvm *kvm;
 	struct kvm_io_device dev_ls3a_ht_irq;

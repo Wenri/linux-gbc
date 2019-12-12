@@ -12,9 +12,9 @@
 #include <linux/highmem.h>
 #include <linux/mm.h>
 #include "ls7a_irq.h"
-#include "ls3a3000_ht_irq.h"
+#include "ls3a_ht_irq.h"
 #include "ls3a3000.h"
-#include "ls3a3000_router_irq.h"
+#include "ls3a_router_irq.h"
 
 
 void ls7a_ioapic_lock(struct loongson_kvm_7a_ioapic *s, unsigned long *flags)

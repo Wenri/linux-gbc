@@ -10,17 +10,17 @@
  * Authors: Chen Zhu <zhuchen@loongson.cn>
  */
 
-#include "ls3a3000_router_irq.h"
+#include "ls3a_router_irq.h"
 #include "ls3a3000.h"
 
 #define ls3a_router_irq_lock(s, flags)		spin_lock_irqsave(&s->lock, flags)
 #define ls3a_router_irq_unlock(s, flags)	spin_unlock_irqrestore(&s->lock, flags)
 
-static uint32_t core_route_state[]={
-INT_ROUTER_REGS_CORE0_INTISR,
-INT_ROUTER_REGS_CORE1_INTISR,
-INT_ROUTER_REGS_CORE2_INTISR,
-INT_ROUTER_REGS_CORE3_INTISR,
+static uint32_t core_route_state[]= {
+	INT_ROUTER_REGS_CORE0_INTISR,
+	INT_ROUTER_REGS_CORE1_INTISR,
+	INT_ROUTER_REGS_CORE2_INTISR,
+	INT_ROUTER_REGS_CORE3_INTISR,
 };
 
 
@@ -67,7 +67,7 @@ void route_update_reg(struct kvm *kvm,int irqnum,int level)
 		*(uint32_t *)(mem + core_route_state[i]) &= (~(1ULL<<irqnum));
 		if (*(uint32_t *)(mem + core_route_state[i]) == 0) {
 			kvm->arch.core_ip_mask[i][ip_num -2] &= ~0x1;
-			if(kvm->arch.core_ip_mask[i][ip_num -2] == 0){
+			if (kvm->arch.core_ip_mask[i][ip_num -2] == 0) {
 				irq.cpu = i;
 				irq.irq = -ip_num;
 				kvm_vcpu_ioctl_interrupt(kvm->vcpus[i],&irq);\
@@ -87,21 +87,21 @@ uint64_t ls3a_router_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void
 	mem = s->ls3a_router_reg;
 	offset =addr & 0xff;
 	switch(size) {
-		case 1:
-			*(uint8_t *)val = (*(uint8_t *)(mem + offset));
-			break;
-		case 2:
-			*(uint16_t *)val = (*(uint16_t *)(mem + offset));
-			break;
-		case 4:
-			*(uint32_t *)val = (*(uint32_t *)(mem + offset));
-			break;
-		case 8:
-			*(uint64_t *)val = (*(uint64_t *)(mem + offset));
-			break;
-		default:
-			ret = 0;
-			break;
+	case 1:
+		*(uint8_t *)val = (*(uint8_t *)(mem + offset));
+		break;
+	case 2:
+		*(uint16_t *)val = (*(uint16_t *)(mem + offset));
+		break;
+	case 4:
+		*(uint32_t *)val = (*(uint32_t *)(mem + offset));
+		break;
+	case 8:
+		*(uint64_t *)val = (*(uint64_t *)(mem + offset));
+		break;
+	default:
+		ret = 0;
+		break;
 	}
 	return ret;
 }
@@ -115,7 +115,7 @@ int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const 
 	mem = s->ls3a_router_reg;
 	offset = addr & 0xff;
 	val_data = *(uint64_t *)val;
-	if(offset >= 0 && (offset < 0x20)){
+	if (offset >= 0 && (offset < 0x20)) {
 		while ((size > 0) && (offset < 0x20)) {
 			*(uint8_t *)(mem + offset) = (uint8_t)(val_data);
 			size --;
@@ -125,8 +125,8 @@ int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const 
 	}
 
 	/* offset == 0x28 */
-	if(offset == INT_ROUTER_REGS_EN_SET) {
-		if(size >= 4) {
+	if (offset == INT_ROUTER_REGS_EN_SET) {
+		if (size >= 4) {
 			*(uint32_t *)(mem + INT_ROUTER_REGS_EN) |= (uint32_t)(val_data);
 			offset += 4;
 			size -= 4;
@@ -136,8 +136,8 @@ int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const 
 
 
 	/* offset == 0x2c */
-	if(offset == INT_ROUTER_REGS_EN_CLR) {
-		if(size >= 4){
+	if (offset == INT_ROUTER_REGS_EN_CLR) {
+		if(size >= 4) {
 			*(uint32_t *)(mem + INT_ROUTER_REGS_EN) &= ~((uint32_t)(val_data));
 			*(uint32_t *)(mem + INT_ROUTER_REGS_ISR) &= ~((~((uint32_t)(val_data))) & (*(uint32_t *)(mem + INT_ROUTER_REGS_EDGE)));
 			offset += 4;
@@ -147,7 +147,7 @@ int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const 
 	}
 
 	/* offset == 0x38 */
-	if(offset == INT_ROUTER_REGS_EDGE) {
+	if (offset == INT_ROUTER_REGS_EDGE) {
 		if (size >=4 ) {
 			*(uint32_t *)(mem + offset) = (uint32_t)(val_data);
 			offset += 4;
@@ -208,8 +208,8 @@ struct loongson_kvm_ls3a_routerirq *kvm_create_ls3a_router_irq(struct kvm *kvm)
 		goto fail_unlock;
 
 	mutex_unlock(&kvm->slots_lock);
-	for(i=0;i<4;i++){
-		for(j=0;j<4;j++){
+	for (i=0;i<4;i++) {
+		for (j=0;j<4;j++) {
 			kvm->arch.core_ip_mask[i][j]=0;
 		}
 	}

@@ -10,7 +10,7 @@
  * Authors: Chen Zhu <zhuchen@loongson.cn>
  */
 
-#include "ls3a3000_ipi.h"
+#include "ls3a_ipi.h"
 #include "ls3a3000.h"
 
 static int ls3a_gipi_writel(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, int len,const void *val)
@@ -30,37 +30,37 @@ static int ls3a_gipi_writel(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, int 
 	offset = addr&0xFF;
 	BUG_ON(offset & (len - 1));
 	switch (offset) {
-		case CORE0_STATUS_OFF:
-			printk("CORE0_SET_OFF Can't be write\n");
-			break;
+	case CORE0_STATUS_OFF:
+		printk("CORE0_SET_OFF Can't be write\n");
+		break;
 
-		case CORE0_EN_OFF:
-			s->core[no].en = data;
-			break;
+	case CORE0_EN_OFF:
+		s->core[no].en = data;
+		break;
 
-		case CORE0_SET_OFF:
-			s->core[no].status |= data;
+	case CORE0_SET_OFF:
+		s->core[no].status |= data;
+		irq.cpu = no;
+		irq.irq = 6;
+		kvm_vcpu_ioctl_interrupt(kvm->vcpus[no],&irq);
+		break;
+
+	case CORE0_CLEAR_OFF:
+		s->core[no].status &= ~data;
+		if(!s->core[no].status){
 			irq.cpu = no;
-			irq.irq = 6;
+			irq.irq = -6;
 			kvm_vcpu_ioctl_interrupt(kvm->vcpus[no],&irq);
-			break;
+		}
+		break;
 
-		case CORE0_CLEAR_OFF:
-			s->core[no].status &= ~data;
-			if(!s->core[no].status){
-				irq.cpu = no;
-				irq.irq = -6;
-				kvm_vcpu_ioctl_interrupt(kvm->vcpus[no],&irq);
-			}
-			break;
+	case 0x20 ... 0x3c:
+		s->core[no].buf[(offset - 0x20) / 8] = data;
+		break;
 
-		case 0x20 ... 0x3c:
-			s->core[no].buf[(offset - 0x20) / 8] = data;
-			break;
-
-		default:
-			printk("ls3a_gipi_writel with unknown addr %llx \n", addr);
-			break;
+	default:
+		printk("ls3a_gipi_writel with unknown addr %llx \n", addr);
+		break;
 	}
 	return 0;
 }
@@ -81,30 +81,30 @@ static uint64_t ls3a_gipi_readl(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, 
 	offset = addr&0xFF;
 
 	BUG_ON(offset & (len - 1));
-	switch(offset) {
-		case CORE0_STATUS_OFF:
-			ret = s->core[no].status;
-			break;
+	switch (offset) {
+	case CORE0_STATUS_OFF:
+		ret = s->core[no].status;
+		break;
 
-		case CORE0_EN_OFF:
-			ret = s->core[no].en;
-			break;
+	case CORE0_EN_OFF:
+		ret = s->core[no].en;
+		break;
 
-		case CORE0_SET_OFF:
-			ret = 0;
-			break;
+	case CORE0_SET_OFF:
+		ret = 0;
+		break;
 
-		case CORE0_CLEAR_OFF:
-			ret = 0;
-			break;
+	case CORE0_CLEAR_OFF:
+		ret = 0;
+		break;
 
-		case 0x20 ... 0x3c:
-			ret = s->core[no].buf[(offset - 0x20) / 8];
-			break;
+	case 0x20 ... 0x3c:
+		ret = s->core[no].buf[(offset - 0x20) / 8];
+		break;
 
-		default:
-			printk("ls3a_gipi_readl with unknown addr %llx \n", addr);
-			break;
+	default:
+		printk("ls3a_gipi_readl with unknown addr %llx \n", addr);
+		break;
 	}
 
 	*(uint64_t *)val = ret;

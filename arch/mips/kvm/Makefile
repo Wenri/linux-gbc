@@ -12,7 +12,7 @@ kvm-objs += mmu.o
 
 ifdef CONFIG_KVM_MIPS_VZ
 kvm-objs		+= vz.o ls3a3000_vz.o ls3a3000_entry.o ls7a_irq.o \
-	 ls3a3000_ipi.o ls3a3000_ht_irq.o ls3a3000_router_irq.o stable_timer.o ls3a_ext_irq.o
+	 ls3a_ipi.o ls3a_ht_irq.o ls3a_router_irq.o stable_timer.o ls3a_ext_irq.o
 else
 kvm-objs		+= dyntrans.o
 kvm-objs		+= trap_emul.o

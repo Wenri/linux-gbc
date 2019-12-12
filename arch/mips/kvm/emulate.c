@@ -35,9 +35,9 @@
 
 #include "trace.h"
 #include "ls7a_irq.h"
-#include "ls3a3000_ipi.h"
-#include "ls3a3000_ht_irq.h"
-#include "ls3a3000_router_irq.h"
+#include "ls3a_ipi.h"
+#include "ls3a_ht_irq.h"
+#include "ls3a_router_irq.h"
 
 /*
  * Compute the return address and do emulate branch simulation, if required.

@@ -34,7 +34,7 @@
 #include "interrupt.h"
 
 #include "trace.h"
-#include "ls3a3000_ipi.h"
+#include "ls3a_ipi.h"
 #include "ls3a_ext_irq.h"
 #include "ls7a_irq.h"
  

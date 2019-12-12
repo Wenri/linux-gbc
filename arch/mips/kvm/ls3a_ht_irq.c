@@ -10,39 +10,39 @@
  * Authors: Chen Zhu <zhuchen@loongson.cn>
  */
 
-#include "ls3a3000_ht_irq.h"
-#include "ls3a3000_router_irq.h"
+#include "ls3a_ht_irq.h"
+#include "ls3a_router_irq.h"
 #include "ls3a3000.h"
 #include "ls3a_ext_irq.h"
 #include <linux/random.h>
 
 
 static uint32_t ht_irq_vector[] = {
-HT_IRQ_VECTOR_REG0,
-HT_IRQ_VECTOR_REG1,
-HT_IRQ_VECTOR_REG2,
-HT_IRQ_VECTOR_REG3,
-HT_IRQ_VECTOR_REG4,
-HT_IRQ_VECTOR_REG5,
-HT_IRQ_VECTOR_REG6,
-HT_IRQ_VECTOR_REG7
+	HT_IRQ_VECTOR_REG0,
+	HT_IRQ_VECTOR_REG1,
+	HT_IRQ_VECTOR_REG2,
+	HT_IRQ_VECTOR_REG3,
+	HT_IRQ_VECTOR_REG4,
+	HT_IRQ_VECTOR_REG5,
+	HT_IRQ_VECTOR_REG6,
+	HT_IRQ_VECTOR_REG7
 };
 
 static uint32_t ht_irq_enable[] = {
-HT_IRQ_ENABLE_REG0,
-HT_IRQ_ENABLE_REG1,
-HT_IRQ_ENABLE_REG2,
-HT_IRQ_ENABLE_REG3,
-HT_IRQ_ENABLE_REG4,
-HT_IRQ_ENABLE_REG5,
-HT_IRQ_ENABLE_REG6,
-HT_IRQ_ENABLE_REG7
+	HT_IRQ_ENABLE_REG0,
+	HT_IRQ_ENABLE_REG1,
+	HT_IRQ_ENABLE_REG2,
+	HT_IRQ_ENABLE_REG3,
+	HT_IRQ_ENABLE_REG4,
+	HT_IRQ_ENABLE_REG5,
+	HT_IRQ_ENABLE_REG6,
+	HT_IRQ_ENABLE_REG7
 };
 
 #define ls3a_ht_irq_lock(s, flags)	spin_lock_irqsave(&s->lock, flags)
 #define ls3a_ht_irq_unlock(s, flags)	spin_unlock_irqrestore(&s->lock, flags)
 
-static inline void ht_raise_irq(struct kvm *kvm,int regnum, unsigned int mask)
+static inline void ht_raise_irq (struct kvm *kvm,int regnum, unsigned int mask)
 {
 	uint32_t ier;
 	struct loongson_kvm_ls3a_htirq *s = ls3a_ht_irqchip(kvm);
@@ -53,7 +53,7 @@ static inline void ht_raise_irq(struct kvm *kvm,int regnum, unsigned int mask)
 	}
 }
 
-static inline void ht_lower_irq(struct kvm *kvm,int regnum, unsigned int mask)
+static inline void ht_lower_irq (struct kvm *kvm,int regnum, unsigned int mask)
 {
 	uint32_t isr, ier;
 	struct loongson_kvm_ls3a_htirq *s = ls3a_ht_irqchip(kvm);
@@ -77,7 +77,7 @@ void ht_irq_handler(struct kvm *kvm,int irq,int level)
 	if (level == 1) {
 		*(uint32_t *)(s->ht_irq_reg + ht_irq_vector[reg_num]) |=  1 << reg_bit;
 		ht_raise_irq(kvm, reg_num, 1 << reg_bit);
-	}else{
+	} else {
 		*(uint32_t *)(s->ht_irq_reg + ht_irq_vector[reg_num]) &= ~(1 << reg_bit);
 		ht_lower_irq(kvm, reg_num, 1 << reg_bit);
 	}
@@ -87,9 +87,9 @@ void msi_irq_handler(struct kvm *kvm,int irq,int level)
 {
 	struct loongson_kvm_ls3a_extirq *s = ls3a_ext_irqchip(kvm);
 	struct kvm_ls3a_extirq_state *state = &(s->ls3a_ext_irq);
-	if((current_cpu_type() == CPU_LOONGSON3_COMP)&&((state->ext_en.reg_u64)&(0x1ULL << 48))){
+	if((current_cpu_type() == CPU_LOONGSON3_COMP)&&((state->ext_en.reg_u64)&(0x1ULL << 48))) {
 		ext_irq_handler(kvm,irq,level);
-	}else{
+	} else {
 		ht_irq_handler(kvm,irq,level);
 	}
 }
@@ -113,28 +113,28 @@ uint64_t ls3a_ht_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void* va
 
 	}
 
-	switch(size){
-		case 8:
-			*(uint64_t *)val = *(uint64_t *)(mem + offset);
-			break;
-		case 4:
-			if(addr == HT_LINK_CONFIG_REG){
-				linkcfg = get_random_int();
-				//linkcfg = 0;
-				*(uint32_t *)val = linkcfg;
-			}else{
-				*(uint32_t *)val = (uint32_t)(*(uint32_t *)(mem + offset));
-			}
-			break;
-		case 2:
-			*(uint16_t *)val = (uint16_t)(*(uint16_t *)(mem + offset));
-			break;
-		case 1:
-			*(uint8_t *)val = (uint8_t)(*(uint8_t *)(mem + offset));
-			break;
-		default:
-			WARN_ONCE(1,"Abnormal address access:addr 0x%llx,size %d\n",addr,size);
-			ret = 0;
+	switch(size) {
+	case 8:
+		*(uint64_t *)val = *(uint64_t *)(mem + offset);
+		break;
+	case 4:
+		if(addr == HT_LINK_CONFIG_REG) {
+			linkcfg = get_random_int();
+			//linkcfg = 0;
+			*(uint32_t *)val = linkcfg;
+		} else {
+			*(uint32_t *)val = (uint32_t)(*(uint32_t *)(mem + offset));
+		}
+		break;
+	case 2:
+		*(uint16_t *)val = (uint16_t)(*(uint16_t *)(mem + offset));
+		break;
+	case 1:
+		*(uint8_t *)val = (uint8_t)(*(uint8_t *)(mem + offset));
+		break;
+	default:
+		WARN_ONCE(1,"Abnormal address access:addr 0x%llx,size %d\n",addr,size);
+		ret = 0;
 	}
 	return ret;
 }
@@ -157,72 +157,71 @@ void ls3a_ht_intctl_write(struct kvm *kvm, gpa_t addr,unsigned size, const void 
 
 	data = *(uint64_t *)val;
 
-	switch(offset){
-		case HT_IRQ_VECTOR_REG0:
-		case HT_IRQ_VECTOR_REG1:
-		case HT_IRQ_VECTOR_REG2:
-		case HT_IRQ_VECTOR_REG3:
-		case HT_IRQ_VECTOR_REG4:
-		case HT_IRQ_VECTOR_REG5:
-		case HT_IRQ_VECTOR_REG6:
-		case HT_IRQ_VECTOR_REG7:
-			while(size >= 4){
-				regnum = (offset - HT_IRQ_VECTOR_REG0) >> 2;
-				*(uint32_t *)(mem + offset) &= ~((uint32_t)data);
-				ht_lower_irq(kvm, regnum, (uint32_t)data);
-				offset += 4;
-				size -= 4;
-				data = data >> 32;
+	switch(offset) {
+	case HT_IRQ_VECTOR_REG0:
+	case HT_IRQ_VECTOR_REG1:
+	case HT_IRQ_VECTOR_REG2:
+	case HT_IRQ_VECTOR_REG3:
+	case HT_IRQ_VECTOR_REG4:
+	case HT_IRQ_VECTOR_REG5:
+	case HT_IRQ_VECTOR_REG6:
+	case HT_IRQ_VECTOR_REG7:
+		while (size >= 4) {
+			regnum = (offset - HT_IRQ_VECTOR_REG0) >> 2;
+			*(uint32_t *)(mem + offset) &= ~((uint32_t)data);
+			ht_lower_irq(kvm, regnum, (uint32_t)data);
+			offset += 4;
+			size -= 4;
+			data = data >> 32;
+		}
+		break;
+	case HT_IRQ_ENABLE_REG0:
+	case HT_IRQ_ENABLE_REG1:
+	case HT_IRQ_ENABLE_REG2:
+	case HT_IRQ_ENABLE_REG3:
+	case HT_IRQ_ENABLE_REG4:
+	case HT_IRQ_ENABLE_REG5:
+	case HT_IRQ_ENABLE_REG6:
+	case HT_IRQ_ENABLE_REG7:
+		while(size >= 4) {
+			regnum = (offset - HT_IRQ_ENABLE_REG0) >> 2;
+			old = *(uint32_t *)(mem + offset);
+			new = (uint32_t)data;
+			*(uint32_t *)(mem + offset) = new;
+			isr = *(uint32_t *)(mem + ht_irq_vector[regnum]);
+			if ((new & ~old) & isr) {
+				if ((isr & old) == 0)
+					route_update_reg(kvm, regnum+24, 1);
+			} else if ((old & ~new) & isr) {
+				if ((isr & new) == 0)
+					route_update_reg(kvm, regnum+24, 0);
 			}
-			break;
-		case HT_IRQ_ENABLE_REG0:
-		case HT_IRQ_ENABLE_REG1:
-		case HT_IRQ_ENABLE_REG2:
-		case HT_IRQ_ENABLE_REG3:
-		case HT_IRQ_ENABLE_REG4:
-		case HT_IRQ_ENABLE_REG5:
-		case HT_IRQ_ENABLE_REG6:
-		case HT_IRQ_ENABLE_REG7:
-			while(size >= 4){
-				regnum = (offset - HT_IRQ_ENABLE_REG0) >> 2;
-				old = *(uint32_t *)(mem + offset);
-				new = (uint32_t)data;
-				*(uint32_t *)(mem + offset) = new;
-				isr = *(uint32_t *)(mem + ht_irq_vector[regnum]);
-				if ((new & ~old) & isr) {
-					if ((isr & old) == 0)
-						route_update_reg(kvm, regnum+24, 1);
-				} else if ((old & ~new) & isr) {
-					if ((isr & new) == 0)
-						route_update_reg(kvm, regnum+24, 0);
-				}
-
-				offset += 4;
-				size -= 4;
-				data = data >> 32;
-			}
-			break;
-		default:
-			if(8 == size){
-				*(uint64_t *)(mem + offset) = data;
-				size -= 8;
-				offset += 8;
-			}else if(4 == size){
-				*(uint32_t *)(mem + offset) = (uint32_t)data;
-				size -= 4;
-				offset += 4;
-			}else if(2 == size){
-				*(uint16_t *)(mem + offset) = (uint16_t)data;
-				size -= 2;
-				offset += 2;
-			}else if(1 == size){
-				*(uint8_t *)(mem + offset) = (uint8_t)data;
-				size --;
-				offset ++;
-			}
-			break;
+			offset += 4;
+			size -= 4;
+			data = data >> 32;
+		}
+		break;
+	default:
+		if(8 == size) {
+			*(uint64_t *)(mem + offset) = data;
+			size -= 8;
+			offset += 8;
+		} else if (4 == size) {
+			*(uint32_t *)(mem + offset) = (uint32_t)data;
+			size -= 4;
+			offset += 4;
+		} else if (2 == size) {
+			*(uint16_t *)(mem + offset) = (uint16_t)data;
+			size -= 2;
+			offset += 2;
+		} else if (1 == size) {
+			*(uint8_t *)(mem + offset) = (uint8_t)data;
+			size --;
+			offset ++;
+		}
+		break;
 	}
-	if(size != 0){
+	if (size != 0) {
 		printk("%s(%d):Abnormal register write %llx size %d \n",
 				__FUNCTION__, __LINE__, offset, size);
 	}
@@ -271,7 +270,7 @@ struct loongson_kvm_ls3a_htirq *kvm_create_ls3a_ht_irq(struct kvm *kvm)
 	spin_lock_init(&s->lock);
 	s->kvm = kvm;
 
-	if(current_cpu_type() == CPU_LOONGSON3_COMP) {
+	if (current_cpu_type() == CPU_LOONGSON3_COMP) {
 		ht_control_reg_base = LS3A4000_HT_CONTROL_REGS_BASE;
 	} else {
 		ht_control_reg_base = HT_CONTROL_REGS_BASE;

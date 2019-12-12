@@ -15,10 +15,10 @@
 #include <linux/kernel.h>
 #include <linux/kvm_host.h>
 #include <linux/kvm_para.h>
-#include "ls3a3000_ipi.h"
+#include "ls3a_ipi.h"
 #include "ls7a_irq.h"
-#include "ls3a3000_ht_irq.h"
-#include "ls3a3000_router_irq.h"
+#include "ls3a_ht_irq.h"
+#include "ls3a_router_irq.h"
 #include "ls3a_ext_irq.h"
 
 
