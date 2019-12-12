@@ -115,34 +115,6 @@ unsigned int find_freq_index(struct cpufreq_frequency_table *freq_table, unsigne
 	return index;
 }
 
-int freq_to_index(struct cpufreq_policy *policy, unsigned int target_freq, unsigned int relation, int *index)
-{
-	struct cpufreq_frequency_table *freq_table;
-
-	int retval = -EINVAL;
-
-	/* Make sure that target_freq is within supported range */
-	if (target_freq > policy->max)
-		target_freq = policy->max;
-	if (target_freq < policy->min)
-		target_freq = policy->min;
-
-	freq_table = cpufreq_frequency_get_table(policy->cpu);
-	if (unlikely(!freq_table)) {
-		pr_err("%s: Unable to find freq_table\n", __func__);
-		goto out;
-	}
-
-	retval = cpufreq_frequency_table_target(policy, freq_table,
-			target_freq, relation, index);
-	if (unlikely(retval)) {
-		pr_err("%s: Unable to find matching freq\n", __func__);
-		goto out;
-	}
-out:
-	return retval;
-}
-
 /*
  * normal mode: loads of all cores great than upper threshold
  * boost mode: load of one core great than upper threshold and loads
@@ -296,7 +268,7 @@ static void boost_check_cpu(int cpu, unsigned int load)
 			freqs.old = policy->cur;
 			freqs.flags = 0;
 
-			boost_level = (unsigned int) (freq_to_freq_level(max_f) & 0xf);
+			cpufreq_frequency_table_target(policy, policy->freq_table, max_f, CPUFREQ_RELATION_C, &boost_level);
 
 			/* boost the last core first */
 			if (high_load_cores[i % cores_per_package]) {
@@ -860,17 +832,11 @@ static int boost_init(struct dbs_data *dbs_data)
 
 static void boost_exit(struct dbs_data *dbs_data)
 {
-	struct od_cpu_dbs_info_s *dbs_info;
-	struct cpufreq_policy *policy;
 	int i;
 
 	ls3a4000_freq_table_switch(ls3a4000_normal_table);
 
 	for (i = 0; i < nr_cpu_ids; i++) {
-		dbs_info = &per_cpu(boost_cpu_dbs_info, i);
-		policy = dbs_info->cdbs.cur_policy;
-
-		cpufreq_table_validate_and_show(policy, &ls3a4000_normal_table[0]);
 		load_record[i / MAX_PACKAGES][i % MAX_PACKAGES] = 0;
 		prev_boosted_cores[i / MAX_PACKAGES][i % MAX_PACKAGES] = 0;
 		real_boosted_cores[i / MAX_PACKAGES][i % MAX_PACKAGES] = 0;
@@ -1075,7 +1041,7 @@ static int boost_cpufreq_governor_dbs(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
-
+		cpufreq_frequency_table_cpuinfo(policy, ls3a4000_normal_table);
 		gov_cancel_work(dbs_data, policy);
 
 		clocksource_change_rating(&csrc_hpet, 10);
@@ -1146,7 +1112,10 @@ static void __exit cpufreq_gov_dbs_exit(void)
 		dbs_info = &per_cpu(boost_cpu_dbs_info, i);
 		policy = dbs_info->cdbs.cur_policy;
 
-		cpufreq_table_validate_and_show(policy, ls3a4000_normal_table);
+		if (policy) {
+			cpufreq_frequency_table_cpuinfo(policy, ls3a4000_normal_table);
+		}
+
 		load_record[i / MAX_PACKAGES][i % MAX_PACKAGES] = 0;
 		prev_boosted_cores[i / MAX_PACKAGES][i % MAX_PACKAGES] = 0;
 		real_boosted_cores[i / MAX_PACKAGES][i % MAX_PACKAGES] = 0;

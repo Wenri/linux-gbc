@@ -321,7 +321,6 @@ extern struct cpufreq_frequency_table ls3a4000_boost_table[];
 extern void ls3a4000_freq_table_switch(struct cpufreq_frequency_table *table);
 extern int ls3a4000_set_boost(int mode, int freq_level);
 extern int ls3a4000_freq_scale(struct cpufreq_policy* policy, unsigned long rate);
-extern enum freq freq_to_freq_level(uint32_t freq);
 
 #ifdef CONFIG_GS464V_STABLE_COUNTER
 extern int stable_timer_enabled;

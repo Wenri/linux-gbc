@@ -226,20 +226,6 @@ void ls3a4000_freq_table_switch(struct cpufreq_frequency_table *table)
 }
 EXPORT_SYMBOL_GPL(ls3a4000_freq_table_switch);
 
-enum freq freq_to_freq_level(uint32_t freq)
-{
-	int i;
-
-	for (i = RESERVED_FREQ; i != CPUFREQ_TABLE_END; i++) {
-		if (ls3a4000_freq_table[i].frequency == freq) {
-			break;
-		}
-	}
-
-	return i;
-}
-EXPORT_SYMBOL_GPL(freq_to_freq_level);
-
 void loongson3a4000_set_freq(struct cpufreq_policy* policy, uint32_t freq)
 {
 	uint32_t message;
@@ -249,7 +235,7 @@ void loongson3a4000_set_freq(struct cpufreq_policy* policy, uint32_t freq)
 
 	int core_id = cpu_data[policy->cpu].core;
 
-	freq_level = freq_to_freq_level(freq);
+	cpufreq_frequency_table_target(policy, policy->freq_table, freq, CPUFREQ_RELATION_C, &freq_level);
 
 	message = (0 << 31 ) | (VOLTAGE_COMMAND << 24)
 		| (freq_level << 4)
