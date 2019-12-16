@@ -153,7 +153,6 @@ void mach_suspend(suspend_state_t state)
 void mach_resume(suspend_state_t state)
 {
 	if (state == PM_SUSPEND_MEM) {
-		local_flush_tlb_all();
 
 		if (cpu_has_ftlb) {
 			write_c0_config4(loongson_regs.config4);
@@ -183,5 +182,6 @@ void mach_resume(suspend_state_t state)
 			acpi_registers_setup();
 			acpi_sleep_complete();
 		}
+		local_flush_tlb_all();
 	}
 }

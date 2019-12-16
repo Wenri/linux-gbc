@@ -65,6 +65,10 @@
 	sd	k0, PT_R12(sp)
 	dmfc0	k0, CP0_XCONTEXT
 	sd	k0, PT_R13(sp)
+	dmfc0	k0, CP0_WIRED
+	sd	k0, PT_R14(sp)
+	dmfc0	k0, CP0_GSCONFIG
+	sd	k0, PT_R15(sp)
 
 	/* Now set up the "wakeup vector" in  RTC space so the boot rom will
 	 * return to this point upon wakeup.
@@ -145,6 +149,10 @@ LEAF(wakeup_start)
 	dmtc0	k0, CP0_CONTEXT
 	ld	k0, PT_R13(sp)
 	dmtc0	k0, CP0_XCONTEXT
+	ld	k0, PT_R14(sp)
+	dmtc0	k0, CP0_WIRED
+	ld	k0, PT_R15(sp)
+	dmtc0	k0, CP0_GSCONFIG
 
 	nop
 	ld	$1, PT_R1(sp)
