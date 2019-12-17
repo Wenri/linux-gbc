@@ -652,8 +652,9 @@ static pmd_t *kvm_mips_get_pmd(struct kvm *kvm,
 		if (!cache)
 			return NULL;
 		pmd = mmu_memory_cache_alloc(cache);
+		pmd_init((unsigned long)pmd,
+				(unsigned long)invalid_pte_table);
 		pud_populate(NULL, pud, pmd);
-		get_page(virt_to_page(pud));
 	}
 
 	return pmd_offset(pud, addr);
@@ -717,8 +718,6 @@ retry:
 		 */
 		WARN_ON_ONCE(pmd_pfn(old_pmd) != pmd_pfn(*new_pmd));
 		pmd_clear(pmd);
-	} else {
-		get_page(virt_to_page(pmd));
 	}
 
 	kvm_vz_host_tlb_inv(vcpu, addr & PMD_MASK);
@@ -888,7 +887,13 @@ int _kvm_mips_map_page_fast(struct kvm_vcpu *vcpu, unsigned long gpa,
 		/* Track dirtying of writeable pages */
 		set_pte(ptep, pte_mkdirty(*ptep));
 		pfn = pte_pfn(*ptep);
-		mark_page_dirty(kvm, gfn);
+	 	if (pmd_huge(*((pmd_t*)ptep))) {
+			int i;
+			int base_gfn = gpa >> PMD_SHIFT;
+			for (i = 0; i < PTRS_PER_PTE; i++)
+				mark_page_dirty(kvm, base_gfn + i);
+		} else
+			mark_page_dirty(kvm, gfn);
 		kvm_set_pfn_dirty(pfn);
 	}
 
@@ -1058,7 +1063,6 @@ retry:
 		prot_bits |= _PAGE_WRITE;
 		if (write_fault) {
 			prot_bits |= __WRITEABLE;
-			mark_page_dirty(kvm, gfn);
 			kvm_set_pfn_dirty(pfn);
 		}
 	}
@@ -1068,10 +1072,20 @@ retry:
 
 		new_pmd = pmd_mkhuge(new_pmd);
 
+		if (writeable && write_fault) {
+			int i;
+			int base_gfn = gpa >> PMD_SHIFT;
+			for (i = 0; i < PTRS_PER_PTE; i++)
+				mark_page_dirty(kvm, base_gfn + i);
+		}
+
 		++vcpu->stat.lsvz_huge_set_exits;
 		ret = kvm_mips_set_pmd_huge(vcpu, memcache, gpa, &new_pmd);
 	} else {
 		pte_t new_pte = pfn_pte(pfn, __pgprot(prot_bits));
+
+		if (writeable && write_fault)
+			mark_page_dirty(kvm, gfn);
 
 		/* Ensure page tables are allocated */
 		ptep = kvm_mips_pte_for_gpa(kvm, memcache, gpa);
