@@ -584,5 +584,4 @@ EXPORT(sys32_call_table)
 	PTR	sys_ni_syscall			/* was membarrier */
 	PTR	sys_ni_syscall			/* was mlock2 */
 	PTR	sys_copy_file_range
-	PTR	sys_get_thread_area
 	.size	sys32_call_table,.-sys32_call_table
