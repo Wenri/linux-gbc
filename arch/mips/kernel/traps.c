@@ -375,11 +375,6 @@ void show_registers(struct pt_regs *regs)
 	set_fs(old_fs);
 }
 
-static int regs_to_trapnr(struct pt_regs *regs)
-{
-	return (regs->cp0_cause >> 2) & 0x1f;
-}
-
 static DEFINE_RAW_SPINLOCK(die_lock);
 
 void __noreturn die(const char *str, struct pt_regs *regs)
@@ -392,7 +387,7 @@ void __noreturn die(const char *str, struct pt_regs *regs)
 
 	oops_enter();
 
-	if (notify_die(DIE_OOPS, str, regs, 0, regs_to_trapnr(regs),
+	if (notify_die(DIE_OOPS, str, regs, 0, current->thread.trap_nr,
 		       SIGSEGV) == NOTIFY_STOP)
 		sig = 0;
 
@@ -485,7 +480,7 @@ asmlinkage void do_be(struct pt_regs *regs)
 	printk(KERN_ALERT "%s bus error, epc == %0*lx, ra == %0*lx\n",
 	       data ? "Data" : "Instruction",
 	       field, regs->cp0_epc, field, regs->regs[31]);
-	if (notify_die(DIE_OOPS, "bus error", regs, 0, regs_to_trapnr(regs),
+	if (notify_die(DIE_OOPS, "bus error", regs, 0, current->thread.trap_nr,
 		       SIGBUS) == NOTIFY_STOP)
 		goto out;
 
@@ -797,7 +792,7 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 	int sig;
 
 	prev_state = exception_enter();
-	if (notify_die(DIE_FP, "FP exception", regs, 0, regs_to_trapnr(regs),
+	if (notify_die(DIE_FP, "FP exception", regs, 0, current->thread.trap_nr,
 		       SIGFPE) == NOTIFY_STOP)
 		goto out;
 
@@ -851,12 +846,12 @@ static void do_trap_or_bp(struct pt_regs *regs, unsigned int code,
 	char b[40];
 
 #ifdef CONFIG_KGDB_LOW_LEVEL_TRAP
-	if (kgdb_ll_trap(DIE_TRAP, str, regs, code, regs_to_trapnr(regs),
+	if (kgdb_ll_trap(DIE_TRAP, str, regs, code, current->thread.trap_nr,
 			 SIGTRAP) == NOTIFY_STOP)
 		return;
 #endif /* CONFIG_KGDB_LOW_LEVEL_TRAP */
 
-	if (notify_die(DIE_TRAP, str, regs, code, regs_to_trapnr(regs),
+	if (notify_die(DIE_TRAP, str, regs, code, current->thread.trap_nr,
 		       SIGTRAP) == NOTIFY_STOP)
 		return;
 
@@ -914,6 +909,7 @@ asmlinkage void do_bp(struct pt_regs *regs)
 	u16 instr[2];
 
 	prev_state = exception_enter();
+	current->thread.trap_nr = (regs->cp0_cause >> 2) & 0x1f;
 	if (get_isa16_mode(regs->cp0_epc)) {
 		/* Calculate EPC. */
 		epc = exception_epc(regs);
@@ -951,13 +947,13 @@ asmlinkage void do_bp(struct pt_regs *regs)
 	 */
 	switch (bcode) {
 	case BRK_KPROBE_BP:
-		if (notify_die(DIE_BREAK, "debug", regs, bcode, regs_to_trapnr(regs),
+		if (notify_die(DIE_BREAK, "debug", regs, bcode, current->thread.trap_nr,
 			       SIGTRAP) == NOTIFY_STOP)
 			goto out;
 		else
 			break;
 	case BRK_KPROBE_SSTEPBP:
-		if (notify_die(DIE_SSTEPBP, "single_step", regs, bcode, regs_to_trapnr(regs),
+		if (notify_die(DIE_SSTEPBP, "single_step", regs, bcode, current->thread.trap_nr,
 			       SIGTRAP) == NOTIFY_STOP)
 			goto out;
 		else
@@ -985,6 +981,7 @@ asmlinkage void do_tr(struct pt_regs *regs)
 	unsigned long epc = msk_isa16_mode(exception_epc(regs));
 
 	prev_state = exception_enter();
+	current->thread.trap_nr = (regs->cp0_cause >> 2) & 0x1f;
 	if (get_isa16_mode(regs->cp0_epc)) {
 		if (__get_user(instr[0], (u16 __user *)(epc + 0)) ||
 		    __get_user(instr[1], (u16 __user *)(epc + 2)))
@@ -1022,7 +1019,9 @@ asmlinkage void do_ri(struct pt_regs *regs)
 	int status = -1;
 
 	prev_state = exception_enter();
-	if (notify_die(DIE_RI, "RI Fault", regs, 0, regs_to_trapnr(regs),
+	current->thread.trap_nr = (regs->cp0_cause >> 2) & 0x1f;
+
+	if (notify_die(DIE_RI, "RI Fault", regs, 0, current->thread.trap_nr,
 		       SIGILL) == NOTIFY_STOP)
 		goto out;
 
@@ -1344,8 +1343,9 @@ asmlinkage void do_msa_fpe(struct pt_regs *regs, unsigned int msacsr)
 	enum ctx_state prev_state;
 
 	prev_state = exception_enter();
+	current->thread.trap_nr = (regs->cp0_cause >> 2) & 0x1f;
 	if (notify_die(DIE_MSAFP, "MSA FP exception", regs, 0,
-		       regs_to_trapnr(regs), SIGFPE) == NOTIFY_STOP)
+		       current->thread.trap_nr, SIGFPE) == NOTIFY_STOP)
 		goto out;
 
 	/* Clear MSACSR.Cause before enabling interrupts */
