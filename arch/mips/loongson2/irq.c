@@ -98,7 +98,7 @@ void ls2k_suspend_irq(void)
 	for (index = 0; index < 32; index++)
 		ls2k_irq_regs.Entry[index] = ls64_conf_read8((void *)(base + index));
 	for (index = 0; index < 32; index++)
-		ls2k_irq_regs.Entry[index] = ls64_conf_read8((void *)(base + 0x40 + index));
+		ls2k_irq_regs.Entry[index + 32] = ls64_conf_read8((void *)(base + 0x40 + index));
 }
 
 void ls2k_resume_irq(void)
@@ -123,7 +123,7 @@ void ls2k_resume_irq(void)
 	for (index = 0; index < 32; index++)
 		ls64_conf_write8(ls2k_irq_regs.Entry[index], (void *)(base + index));
 	for (index = 0; index < 32; index++)
-		ls64_conf_write8(ls2k_irq_regs.Entry[index], (void *)(base + 0x40 + index));
+		ls64_conf_write8(ls2k_irq_regs.Entry[index + 32], (void *)(base + 0x40 + index));
 }
 
 static int param_set_intparam(const char *val, struct kernel_param *kp)
