@@ -476,8 +476,6 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	u32 *p = addr;
 	struct uasm_label labels[2];
 	struct uasm_reloc relocs[2];
-	unsigned int jump_target;
-	unsigned int j_inst = 0x08000000;
 #ifndef CONFIG_CPU_LOONGSON3
 	struct uasm_label *l = labels;
 	struct uasm_reloc *r = relocs;
@@ -486,12 +484,6 @@ void *kvm_mips_build_tlb_refill_exception(void *addr, void *handler)
 	memset(labels, 0, sizeof(labels));
 	memset(relocs, 0, sizeof(relocs));
 
-#ifdef CONFIG_CPU_LOONGSON3
-	jump_target = (((unsigned long)addr + 0x8)& 0x0fffffff) >> 2;
-	*p = j_inst | jump_target;
-	p++;
-	uasm_i_nop(&p);
-#endif
 	/* Save guest k1 into scratch register */
 	UASM_i_MTC0(&p, K1, scratch_tmp[0], scratch_tmp[1]);
 

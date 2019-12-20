@@ -861,6 +861,16 @@ static int kvm_mips_get_reg(struct kvm_vcpu *vcpu,
 			return -EINVAL;
 		idx = reg->id - KVM_REG_MIPS_VEC_128(0);
 
+#ifdef CONFIG_CPU_LITTLE_ENDIAN
+		/* least significant byte first */
+		vs[0] = get_fpr64(&fpu->fpr[idx], 0);
+		vs[1] = get_fpr64(&fpu->fpr[idx], 1);
+#else
+		/* most significant byte first */
+		vs[0] = get_fpr64(&fpu->fpr[idx], 1);
+		vs[1] = get_fpr64(&fpu->fpr[idx], 0);
+#endif
+		break;
 	/* LOONGSON SIMD Architecture Extention (LASX) registers */
 	case KVM_REG_MIPS_VEC_256(0) ... KVM_REG_MIPS_VEC_256(31):
 		if (!kvm_mips_guest_has_lasx(vcpu))
@@ -881,16 +891,6 @@ static int kvm_mips_get_reg(struct kvm_vcpu *vcpu,
 		lasx[1] = get_fpr64(&fpu->fpr[idx], 2);
 		lasx[2] = get_fpr64(&fpu->fpr[idx], 1);
 		lasx[3] = get_fpr64(&fpu->fpr[idx], 0);
-#endif
-		break;
-#ifdef CONFIG_CPU_LITTLE_ENDIAN
-		/* least significant byte first */
-		vs[0] = get_fpr64(&fpu->fpr[idx], 0);
-		vs[1] = get_fpr64(&fpu->fpr[idx], 1);
-#else
-		/* most significant byte first */
-		vs[0] = get_fpr64(&fpu->fpr[idx], 1);
-		vs[1] = get_fpr64(&fpu->fpr[idx], 0);
 #endif
 		break;
 	case KVM_REG_MIPS_MSA_IR:

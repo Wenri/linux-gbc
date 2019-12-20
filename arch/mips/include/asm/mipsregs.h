@@ -670,7 +670,6 @@
 #define MIPS_CONF6_PIXNUEN	(_ULCAST_(1) << 18)
 #define MIPS_CONF6_DISRDTIME	(_ULCAST_(1) << 19)
 #define MIPS_CONF6_SSEN		(_ULCAST_(1) << 20)
-#define MIPS_CONF6_LASXMODE	(_ULCAST_(1) << 21)
 #define MIPS_CONF6_KE		(_ULCAST_(1) << 23)
 #define MIPS_CONF6_KPOS		(_ULCAST_(0x3f) << 24)
 #define MIPS_CONF6_BPPASS	(_ULCAST_(1) << 31)
