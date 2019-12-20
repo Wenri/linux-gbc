@@ -80,6 +80,7 @@
 #define CP0_CONFIG3 $16, 3
 #define CP0_CONFIG4 $16, 4
 #define CP0_CONFIG5 $16, 5
+#define CP0_GSCONFIG $16, 6
 #define CP0_LLADDR $17
 #define CP0_WATCHLO $18
 #define CP0_WATCHHI $19
