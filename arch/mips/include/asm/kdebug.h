@@ -12,6 +12,8 @@ enum die_val {
 	DIE_BREAK,
 	DIE_SSTEPBP,
 	DIE_MSAFP,
+	DIE_UPROBE,
+	DIE_UPROBE_XOL,
 };
 
 #endif /* _ASM_MIPS_KDEBUG_H */

@@ -108,6 +108,7 @@ obj-$(CONFIG_PERF_EVENTS)	+= perf_event.o
 obj-$(CONFIG_HW_PERF_EVENTS)	+= perf_event_mipsxx.o
 
 obj-$(CONFIG_JUMP_LABEL)	+= jump_label.o
+obj-$(CONFIG_UPROBES)		+= uprobes.o
 
 obj-$(CONFIG_AUDITSYSCALL_O32)	+= audit-o32.o
 obj-$(CONFIG_AUDITSYSCALL_N32)	+= audit-n32.o
