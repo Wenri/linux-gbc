@@ -36,7 +36,10 @@ typedef u8 uprobe_opcode_t;
 struct uprobe_xol_ops;
 
 struct arch_uprobe {
-	u8				insn[MAX_UINSN_BYTES];
+	union {
+		u8				insn[MAX_UINSN_BYTES];
+		u8				ixol[MAX_UINSN_BYTES];
+	}
 
 	const struct uprobe_xol_ops	*ops;
 
