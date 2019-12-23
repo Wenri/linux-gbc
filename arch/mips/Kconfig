@@ -50,6 +50,7 @@ config MIPS
 	select CLONE_BACKWARDS
 	select ARCH_SUPPORTS_NUMA_BALANCING
 	select ARCH_WANTS_PROT_NUMA_PROT_NONE
+	select SYSCTL_EXCEPTION_TRACE
 
 menu "Machine selection"
 
