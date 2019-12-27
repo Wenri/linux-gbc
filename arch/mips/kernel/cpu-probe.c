@@ -76,7 +76,7 @@ static inline void cpu_set_fpu_fcsr_mask(struct cpuinfo_mips *c)
 /* Determined FPU emulator mask to use for the boot CPU with "nofpu".  */
 static unsigned int mips_nofpu_msk31;
 
-static int  mips_fpu_disabled;
+static int mips_fpu_disabled;
 
 static int __init fpu_disable(char *s)
 {
@@ -90,7 +90,7 @@ static int __init fpu_disable(char *s)
 __setup("nofpu", fpu_disable);
 
 #ifdef CONFIG_CPU_LOONGSON3
-int  mips_dsp_disabled = 1;
+int mips_dsp_disabled = 1;
 
 static int __init dsp_enable(char *s)
 {
@@ -102,7 +102,7 @@ static int __init dsp_enable(char *s)
 
 __setup("dsp", dsp_enable);
 #else
-int  mips_dsp_disabled = 0;
+int mips_dsp_disabled = 0;
 #endif
 
 static int __init dsp_disable(char *s)
@@ -229,7 +229,7 @@ static inline void cpu_probe_vmbits(struct cpuinfo_mips *c)
 #endif
 }
 
-static void  set_isa(struct cpuinfo_mips *c, unsigned int isa)
+static void set_isa(struct cpuinfo_mips *c, unsigned int isa)
 {
 	switch (isa) {
 	case MIPS_CPU_ISA_M64R2:
@@ -257,7 +257,7 @@ static void  set_isa(struct cpuinfo_mips *c, unsigned int isa)
 	}
 }
 
-static char unknown_isa[]  = KERN_ERR \
+static char unknown_isa[] = KERN_ERR \
 	"Unsupported ISA type, c0.config0: %d.";
 
 static void set_ftlb_enable(struct cpuinfo_mips *c, int enable)
@@ -526,7 +526,7 @@ static inline unsigned int decode_config5(struct cpuinfo_mips *c)
 	return config5 & MIPS_CONF_M;
 }
 
-static void  decode_configs(struct cpuinfo_mips *c)
+static void decode_configs(struct cpuinfo_mips *c)
 {
 	int ok;
 
@@ -1561,7 +1561,7 @@ const char *__cpu_name[NR_CPUS];
 const char *__cpu_full_name[NR_CPUS];
 const char *__elf_platform;
 
- void cpu_probe(void)
+void cpu_probe(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int cpu = smp_processor_id();
@@ -1659,9 +1659,9 @@ const char *__elf_platform;
 
 	if (cpu_has_msa) {
 		c->msa_id = cpu_get_msa_id();
+		elf_hwcap |= HWCAP_MIPS_MSA;
 		WARN(c->msa_id & MSA_IR_WRPF,
 		     "Vector register partitioning unimplemented!");
-		elf_hwcap |= HWCAP_MIPS_MSA;
 	}
 
 	if (cpu_has_vz) {
@@ -1705,7 +1705,7 @@ static int __init overwrite_cpu_fullname(void)
 
 core_initcall(overwrite_cpu_fullname);
 
- void cpu_report(void)
+void cpu_report(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 

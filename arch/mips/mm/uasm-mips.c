@@ -163,7 +163,7 @@ static struct insn insn_table[]  = {
 
 #undef M
 
-static inline  u32 build_bimm(s32 arg)
+static inline u32 build_bimm(s32 arg)
 {
 	WARN(arg > 0x1ffff || arg < -0x20000,
 	     KERN_WARNING "Micro-assembler field overflow\n");
@@ -173,7 +173,7 @@ static inline  u32 build_bimm(s32 arg)
 	return ((arg < 0) ? (1 << 15) : 0) | ((arg >> 2) & 0x7fff);
 }
 
-static inline  u32 build_jimm(u32 arg)
+static inline u32 build_jimm(u32 arg)
 {
 	WARN(arg & ~(JIMM_MASK << 2),
 	     KERN_WARNING "Micro-assembler field overflow\n");
@@ -200,7 +200,7 @@ static inline u32 build_rc(s32 arg)
  * The order of opcode arguments is implicitly left to right,
  * starting with RS and ending with FUNC or IMM.
  */
-static void  build_insn(u32 **buf, enum opcode opc, ...)
+static void build_insn(u32 **buf, enum opcode opc, ...)
 {
 	struct insn *ip = NULL;
 	unsigned int i;

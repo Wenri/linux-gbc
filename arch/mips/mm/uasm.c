@@ -74,35 +74,35 @@ struct insn {
 	enum fields fields;
 };
 
-static inline  u32 build_rs(u32 arg)
+static inline u32 build_rs(u32 arg)
 {
 	WARN(arg & ~RS_MASK, KERN_WARNING "Micro-assembler field overflow\n");
 
 	return (arg & RS_MASK) << RS_SH;
 }
 
-static inline  u32 build_rt(u32 arg)
+static inline u32 build_rt(u32 arg)
 {
 	WARN(arg & ~RT_MASK, KERN_WARNING "Micro-assembler field overflow\n");
 
 	return (arg & RT_MASK) << RT_SH;
 }
 
-static inline  u32 build_rd(u32 arg)
+static inline u32 build_rd(u32 arg)
 {
 	WARN(arg & ~RD_MASK, KERN_WARNING "Micro-assembler field overflow\n");
 
 	return (arg & RD_MASK) << RD_SH;
 }
 
-static inline  u32 build_re(u32 arg)
+static inline u32 build_re(u32 arg)
 {
 	WARN(arg & ~RE_MASK, KERN_WARNING "Micro-assembler field overflow\n");
 
 	return (arg & RE_MASK) << RE_SH;
 }
 
-static inline  u32 build_simm(s32 arg)
+static inline u32 build_simm(s32 arg)
 {
 	WARN(arg > 0x7fff || arg < -0x8000,
 	     KERN_WARNING "Micro-assembler field overflow\n");
@@ -110,14 +110,14 @@ static inline  u32 build_simm(s32 arg)
 	return arg & 0xffff;
 }
 
-static inline  u32 build_uimm(u32 arg)
+static inline u32 build_uimm(u32 arg)
 {
 	WARN(arg & ~IMM_MASK, KERN_WARNING "Micro-assembler field overflow\n");
 
 	return arg & IMM_MASK;
 }
 
-static inline  u32 build_scimm(u32 arg)
+static inline u32 build_scimm(u32 arg)
 {
 	WARN(arg & ~SCIMM_MASK,
 	     KERN_WARNING "Micro-assembler field overflow\n");
@@ -140,14 +140,14 @@ static inline u32 build_func(u32 arg)
 	return arg & FUNC_MASK;
 }
 
-static inline  u32 build_set(u32 arg)
+static inline u32 build_set(u32 arg)
 {
 	WARN(arg & ~SET_MASK, KERN_WARNING "Micro-assembler field overflow\n");
 
 	return arg & SET_MASK;
 }
 
-static void  build_insn(u32 **buf, enum opcode opc, ...);
+static void build_insn(u32 **buf, enum opcode opc, ...);
 
 #define I_u1u2u3(op)					\
 Ip_u1u2u3(op)						\
@@ -375,7 +375,7 @@ I_u2u1u3(_lddir)
 
 #ifdef CONFIG_CPU_CAVIUM_OCTEON
 #include <asm/octeon/octeon.h>
-void  ISAFUNC(uasm_i_pref)(u32 **buf, unsigned int a, signed int b,
+void ISAFUNC(uasm_i_pref)(u32 **buf, unsigned int a, signed int b,
 			    unsigned int c)
 {
 	if (OCTEON_IS_MODEL(OCTEON_CN63XX_PASS1_X) && a <= 24 && a != 5)
@@ -393,7 +393,7 @@ I_u2s3u1(_pref)
 #endif
 
 /* Handle labels. */
-void  ISAFUNC(uasm_build_label)(struct uasm_label **lab, u32 *addr, int lid)
+void ISAFUNC(uasm_build_label)(struct uasm_label **lab, u32 *addr, int lid)
 {
 	(*lab)->addr = addr;
 	(*lab)->lab = lid;
@@ -401,7 +401,7 @@ void  ISAFUNC(uasm_build_label)(struct uasm_label **lab, u32 *addr, int lid)
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_build_label));
 
-int  ISAFUNC(uasm_in_compat_space_p)(long addr)
+int ISAFUNC(uasm_in_compat_space_p)(long addr)
 {
 	/* Is this address in 32bit compat space? */
 #ifdef CONFIG_64BIT
@@ -412,7 +412,7 @@ int  ISAFUNC(uasm_in_compat_space_p)(long addr)
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_in_compat_space_p));
 
-static int  uasm_rel_highest(long val)
+static int uasm_rel_highest(long val)
 {
 #ifdef CONFIG_64BIT
 	return ((((val + 0x800080008000L) >> 48) & 0xffff) ^ 0x8000) - 0x8000;
@@ -421,7 +421,7 @@ static int  uasm_rel_highest(long val)
 #endif
 }
 
-static int  uasm_rel_higher(long val)
+static int uasm_rel_higher(long val)
 {
 #ifdef CONFIG_64BIT
 	return ((((val + 0x80008000L) >> 32) & 0xffff) ^ 0x8000) - 0x8000;
@@ -430,19 +430,19 @@ static int  uasm_rel_higher(long val)
 #endif
 }
 
-int  ISAFUNC(uasm_rel_hi)(long val)
+int ISAFUNC(uasm_rel_hi)(long val)
 {
 	return ((((val + 0x8000L) >> 16) & 0xffff) ^ 0x8000) - 0x8000;
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_rel_hi));
 
-int  ISAFUNC(uasm_rel_lo)(long val)
+int ISAFUNC(uasm_rel_lo)(long val)
 {
 	return ((val & 0xffff) ^ 0x8000) - 0x8000;
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_rel_lo));
 
-void  ISAFUNC(UASM_i_LA_mostly)(u32 **buf, unsigned int rs, long addr)
+void ISAFUNC(UASM_i_LA_mostly)(u32 **buf, unsigned int rs, long addr)
 {
 	if (!ISAFUNC(uasm_in_compat_space_p)(addr)) {
 		ISAFUNC(uasm_i_lui)(buf, rs, uasm_rel_highest(addr));
@@ -531,7 +531,7 @@ ISAFUNC(uasm_copy_handler)(struct uasm_reloc *rel, struct uasm_label *lab, u32 *
 }
 UASM_EXPORT_SYMBOL(ISAFUNC(uasm_copy_handler));
 
-int  ISAFUNC(uasm_insn_has_bdelay)(struct uasm_reloc *rel, u32 *addr)
+int ISAFUNC(uasm_insn_has_bdelay)(struct uasm_reloc *rel, u32 *addr)
 {
 	for (; rel->lab != UASM_LABEL_INVALID; rel++) {
 		if (rel->addr == addr

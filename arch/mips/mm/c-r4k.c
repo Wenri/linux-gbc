@@ -1225,7 +1225,7 @@ static void  probe_pcache(void)
 }
 
 #ifdef CONFIG_CPU_LOONGSON3
-static void  probe_vcache(void)
+static void probe_vcache(void)
 {
 	struct cpuinfo_mips *c = &current_cpu_data;
 	unsigned int config2, lsize;
