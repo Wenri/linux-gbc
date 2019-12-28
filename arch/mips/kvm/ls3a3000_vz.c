@@ -1766,7 +1766,7 @@ static int kvm_vz_get_one_reg(struct kvm_vcpu *vcpu,
 		*v = (long)read_gc0_status();
 		break;
 	case KVM_REG_MIPS_CP0_INTCTL:
-		*v = read_gc0_intctl();
+		ret = 0;
 		break;
 	case KVM_REG_MIPS_CP0_CAUSE:
 		*v = (long)read_gc0_cause();
@@ -1944,7 +1944,7 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		write_gc0_status(v);
 		break;
 	case KVM_REG_MIPS_CP0_INTCTL:
-		write_gc0_intctl(v);
+		ret = 0;
 		break;
 	case KVM_REG_MIPS_CP0_CAUSE:
 		/*
@@ -1973,7 +1973,7 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 		kvm_write_sw_gc0_prid(cop0,v);
 		break;
 	case KVM_REG_MIPS_CP0_EBASE:
-		kvm_vz_write_gc0_ebase(v);
+		ret = 0;
 		break;
 	case KVM_REG_MIPS_CP0_CONFIG:
 		cur = read_gc0_config();
