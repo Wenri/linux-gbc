@@ -1637,7 +1637,7 @@ enum emulation_result kvm_mips_emulate_store(union mips_instruction inst,
 		goto out_fail;
 
 	if(current_cpu_type() == CPU_LOONGSON3_COMP) {
-		ls7a_ioapic_reg_base = LS3A4000_LS7A_IOAPIC_GUEST_REG_BASE;
+		ls7a_ioapic_reg_base = LS7A_IOAPIC_GUEST_REG_BASE_ALIAS;
 		ht_control_reg_base = LS3A4000_HT_CONTROL_REGS_BASE;
 		ls7a_ioapic_reg_base_alias = LS3A4000_LS7A_IOAPIC_GUEST_REG_BASE_ALIAS;
 	} else {
@@ -1997,7 +1997,7 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 	vcpu->arch.pc = curr_pc;
 
 	if(current_cpu_type() == CPU_LOONGSON3_COMP) {
-		ls7a_ioapic_reg_base = LS3A4000_LS7A_IOAPIC_GUEST_REG_BASE;
+		ls7a_ioapic_reg_base = LS7A_IOAPIC_GUEST_REG_BASE_ALIAS;
 		ht_control_reg_base = LS3A4000_HT_CONTROL_REGS_BASE;
 		dma_nodeid_offset_base = LS3A4000_NODE_ID_OFFSET_ADDR;
 		ls7a_ioapic_reg_base_alias = LS3A4000_LS7A_IOAPIC_GUEST_REG_BASE_ALIAS;
