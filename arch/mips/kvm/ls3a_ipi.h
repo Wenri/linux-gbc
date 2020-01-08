@@ -24,7 +24,7 @@ typedef struct gipi_single {
 	uint32_t en;
 	uint32_t set;
 	uint32_t clear;
-	uint64_t buf[8];
+	uint64_t buf[4];
 } gipi_single;
 
 typedef struct gipiState {

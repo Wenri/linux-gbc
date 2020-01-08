@@ -168,6 +168,8 @@ struct kvm_vm_stat {
 	u64 lsvz_kvm_set_ls3a_ipmask;
 	u64 lsvz_kvm_get_ls3a_ipmask;
 	u64 lsvz_kvm_ls7a_msi_irq;
+	u64 lsvz_kvm_pip_read_exits;
+	u64 lsvz_kvm_pip_write_exits;
 #endif
 };
 
@@ -223,8 +225,6 @@ struct kvm_vcpu_stat {
 	u64 lsvz_tlb_add_refresh;
 	u64 lsvz_ls7a_pic_read_exits;
 	u64 lsvz_ls7a_pic_write_exits;
-	u64 lsvz_ls3a_pip_read_exits;
-	u64 lsvz_ls3a_pip_write_exits;
 	u64 lsvz_ls3a_ht_write_exits;
 	u64 lsvz_ls3a_ht_read_exits;
 	u64 lsvz_ls3a_router_write_exits;
