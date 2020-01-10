@@ -22,40 +22,44 @@
 #include <workarounds.h>
 #include <linux/dmi.h>
 #include <asm/uasm.h>
+#include <linux/efi.h>
+
+#define SMBIOS_FREQLOW_MASK		0xFF
+#define SMBIOS_FREQLOW_OFFSET		18
+#define SMBIOS_FREQHIGH_OFFSET		19
+#define SMBIOS_BOISSIZE_OFFSET		5
+#define SMBIOS_CORE_PACGE_OFFSET	31
+#define SMBIOS_BOISEXTERN_OFFSET        15
+#define LOONGSON_EFI_ENABLE       	(1 << 3)
+
+static char *product_name;
+const char *loongson_cpuname;
+static const char dmi_empty_string[] = "        ";
+
+struct interface_info einter_smbios;
+struct board_devices eboard_smbios;
 
 extern struct plat_smp_ops loongson3_comp_smp_ops;
 extern struct plat_smp_ops loongson3_smp_ops;
 extern void __init prom_init_numa_memory(void);
 
-extern struct interface_info *einter;
-extern struct board_devices *eboard;
+extern u32 cpu_clock_freq;
 extern char *bios_vendor;
 extern char *bios_release_date;
+extern void *loongson_fdt_blob;
 extern char *board_manufacturer;
+extern bool loongson_acpiboot_flag;
 extern unsigned long loongson_max_dma32_pfn;
+
+extern struct interface_info *einter;
+extern struct board_devices *eboard;
 extern struct platform_controller_hub ls2h_pch;
 extern struct platform_controller_hub ls7a_pch;
 extern struct platform_controller_hub rs780_pch;
-struct interface_info einter_smbios;
-struct board_devices eboard_smbios;
-extern u32 cpu_clock_freq;
 
-static char *product_name;
-
-/* Loongson CPU address windows config space base address */
-unsigned long __maybe_unused _loongson_addrwincfg_base;
-
-const char *loongson_cpuname;
-static const char dmi_empty_string[] = "        ";
 extern unsigned int (*read_clear_ipi)(int);
 extern unsigned int addr_read_clear_ipi(int cpu);
 extern unsigned int csr_read_clear_ipi(int cpu);
-
-#define SMBIOS_FREQHIGH_OFFSET	19
-#define SMBIOS_FREQLOW_OFFSET	18
-#define SMBIOS_FREQLOW_MASK	0xFF
-#define SMBIOS_CORE_PACGE_OFFSET	31
-#define SMBIOS_BOISSIZE_OFFSET	5
 
 static void __init mips_nmi_setup(void)
 {
@@ -66,8 +70,6 @@ static void __init mips_nmi_setup(void)
 	memcpy(base, &except_vec_nmi, 0x80);
 	flush_icache_range((unsigned long)base, (unsigned long)base + 0x80);
 }
-
-extern bool loongson_acpiboot_flag;
 
 const char *dmi_string_parse(const struct dmi_header *dm, u8 s)
 {
@@ -98,13 +100,23 @@ static void __init parse_cpu_table(const struct dmi_header *dm)
 {
 	char *dmi_data = (char *)(dm + 1);
 	int freq_temp = 0;
+	int bios_extern;
 
 	freq_temp = ((*(dmi_data + SMBIOS_FREQHIGH_OFFSET) << 8) + \
 			((*(dmi_data + SMBIOS_FREQLOW_OFFSET)) & SMBIOS_FREQLOW_MASK));
 	cpu_clock_freq = freq_temp * 1000000;
 	cores_per_package = *(dmi_data + SMBIOS_CORE_PACGE_OFFSET);
 	loongson_cpuname =  dmi_string_parse(dm, dmi_data[12]);
+
+	bios_extern = *(dmi_data + SMBIOS_BOISEXTERN_OFFSET);
+	if (bios_extern & LOONGSON_EFI_ENABLE)
+		set_bit(EFI_BOOT, &loongson_efi_facility);
+	else
+		clear_bit(EFI_BOOT, &loongson_efi_facility);
+
+	pr_info("CpuClock = %u\n", cpu_clock_freq);
 }
+
 static void __init parse_bios_table(const struct dmi_header *dm)
 {
 	char *dmi_data = (char *)(dm + 1);
@@ -112,6 +124,27 @@ static void __init parse_bios_table(const struct dmi_header *dm)
 	einter = &einter_smbios;
 	einter_smbios.size = *(dmi_data + SMBIOS_BOISSIZE_OFFSET);
 }
+
+#ifdef CONFIG_EFI_PARTITION
+static void __init parse_bios_extern(const struct dmi_header *dm)
+{
+	char *dmi_data = (char *)(dm + 1);
+	int bios_extern;
+
+	bios_extern = *(dmi_data + SMBIOS_BOISEXTERN_OFFSET);
+
+	if (bios_extern & LOONGSON_EFI_ENABLE)
+		set_bit(EFI_BOOT, &loongson_efi_facility);
+	else
+		clear_bit(EFI_BOOT, &loongson_efi_facility);
+}
+
+static void __init find_token_pmon(const struct dmi_header *dm, void *dummy)
+{
+	if (dm->type == 0)
+		parse_bios_extern(dm);
+}
+#endif
 
 
 static void __init find_tokens(const struct dmi_header *dm, void *dummy)
@@ -125,7 +158,7 @@ static void __init find_tokens(const struct dmi_header *dm, void *dummy)
 		break;
 	}
 }
-extern void *loongson_fdt_blob;
+
 static void __init smbios_parse(void)
 {
 	eboard = &eboard_smbios;
@@ -231,6 +264,14 @@ void __init prom_init(void)
 	dmi_set_dump_stack_arch_desc();
 	if (loongson_acpiboot_flag)
 		smbios_parse();
+
+#ifdef CONFIG_EFI_PARTITION
+	if (strstr(einter->description,"uefi") || strstr(einter->description,"UEFI"))
+		set_bit(EFI_BOOT, &loongson_efi_facility);
+	else if (!(strstr(einter->description,"pmon")) || (!strstr(einter->description,"PMON")))
+		dmi_walk(find_token_pmon, NULL);
+#endif
+		pr_info("The BIOS Version: %s\n",einter->description);
 
 	if (loongson_pch)
 		loongson_pch->early_config();

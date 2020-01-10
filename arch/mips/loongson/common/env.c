@@ -321,14 +321,6 @@ void __init no_efiboot_env(void)
 	strcpy(_board_info, eboard->name);
 	board_info = _board_info;
 	board_manufacturer = strsep(&board_info, "-");
-#ifdef CONFIG_EFI_PARTITION
-	if (strstr(einter->description,"uefi") || strstr(einter->description,"UEFI")) {
-		pr_info("The BIOS is EFI Mode! \n");
-		set_bit(EFI_BOOT, &loongson_efi_facility);
-	} else
-		clear_bit(EFI_BOOT, &loongson_efi_facility);
-#endif
-	pr_info("The BIOS Version: %s\n",einter->description);
 
 	poweroff_addr = boot_p->reset_system.Shutdown;
 	restart_addr = boot_p->reset_system.ResetWarm;
