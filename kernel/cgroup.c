@@ -3358,9 +3358,9 @@ struct cgroup_pidlist {
 static void *pidlist_allocate(int count)
 {
 	if (PIDLIST_TOO_LARGE(count))
-		return vmalloc(count * sizeof(pid_t));
+		return __vmalloc(count * sizeof(pid_t), GFP_NOWAIT, PAGE_KERNEL);
 	else
-		return kmalloc(count * sizeof(pid_t), GFP_KERNEL);
+		return kmalloc(count * sizeof(pid_t), GFP_NOWAIT);
 }
 static void pidlist_free(void *p)
 {
