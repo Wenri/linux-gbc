@@ -27,6 +27,7 @@
 #include <asm/time.h>
 #include <asm/clock.h>
 #include <asm/tlbflush.h>
+#include <asm/mach-loongson/mmzone.h>
 #include <loongson.h>
 #include <irq.h>
 #include <workarounds.h>
@@ -649,6 +650,9 @@ static void loongson3a_r1_play_dead(int *state_addr)
 		: "a1");
 }
 
+#define QUAUX(X) #X
+#define QU(X) QUAUX(X)
+
 static void loongson3a_r2r3_play_dead(int *state_addr)
 {
 	register int val;
@@ -711,7 +715,7 @@ static void loongson3a_r2r3_play_dead(int *state_addr)
 		"   sll   %[core], 8                  \n" /* get core id */
 		"   or    %[base], %[base], %[core]   \n"
 		"   andi  %[node], %[cpuid], 0xc      \n"
-		"   dsll  %[node], 42                 \n" /* get node id */
+		"   dsll  %[node], " QU(NODE_ADDRSPACE_SHIFT-2)" \n" /* get node id */
 		"   or    %[base], %[base], %[node]   \n"
 		"1: li    %[count], 0x100             \n" /* wait for init loop */
 		"2: bnez  %[count], 2b                \n" /* limit mailbox access */

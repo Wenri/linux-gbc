@@ -21,6 +21,7 @@ static int ls3a_gipi_writel(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, int 
 	uint32_t coreno = (addr >> 8) & 3;
 	uint32_t node, no;
 	struct kvm * kvm;
+	void *pbuf;
 
 	kvm = ipi->kvm;
 	node = ( addr >> kvm->arch.node_shift) & 3;
@@ -55,7 +56,16 @@ static int ls3a_gipi_writel(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, int 
 		break;
 
 	case 0x20 ... 0x3c:
-		s->core[no].buf[(offset - 0x20) / 8] = data;
+		pbuf =  (void*)s->core[no].buf + (offset - 0x20);
+		if (len == 1) {
+			*(unsigned char*)pbuf = (unsigned char)data;
+		} else if (len == 2) {
+			*(unsigned short*)pbuf = (unsigned short)data;
+		} else if (len == 4) {
+			*(unsigned int*)pbuf = (unsigned int)data;
+		} else if (len == 8) {
+			*(unsigned long*)pbuf = (unsigned long)data;
+		} 
 		break;
 
 	default:
@@ -69,10 +79,10 @@ static uint64_t ls3a_gipi_readl(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, 
 {
 	uint64_t offset;
 	uint64_t ret = 0;
-
 	gipiState * s = &(ipi->ls3a_gipistate);
 	uint32_t node, no;
 	uint32_t coreno;
+	void *pbuf;
 
 	coreno = (addr >> 8 ) & 3;
 	node = (addr >> ipi->kvm->arch.node_shift) & 3;
@@ -99,7 +109,16 @@ static uint64_t ls3a_gipi_readl(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, 
 		break;
 
 	case 0x20 ... 0x3c:
-		ret = s->core[no].buf[(offset - 0x20) / 8];
+		pbuf =  (void*)s->core[no].buf + (offset - 0x20);
+		if (len == 1) {
+			ret  = *(unsigned char*)pbuf;
+		} else if (len == 2) {
+			ret = *(unsigned short*)pbuf;
+		} else if (len == 4) {
+			ret = *(unsigned int*)pbuf;
+		} else if (len == 8) {
+			ret = *(unsigned long*)pbuf;
+		} 
 		break;
 
 	default:
@@ -117,13 +136,11 @@ static int kvm_ls3a_ipi_write(struct kvm_io_device * dev,
 {
 	struct loongson_kvm_ls3a_ipi *ipi;
 	ipi_io_device *ipi_device;
-	struct kvm_vcpu *vcpu;
 	unsigned long flags;
 
 	ipi_device = container_of(dev, ipi_io_device, device);
 	ipi = ipi_device->ipi;
-	vcpu = ipi->kvm->vcpus[ipi_device->nodeNum];
-	vcpu->stat.lsvz_ls3a_pip_write_exits++;
+	ipi->kvm->stat.lsvz_kvm_pip_write_exits++;
 
 	spin_lock_irqsave(&ipi->lock, flags);
 	ls3a_gipi_writel(ipi, addr, len, val);
@@ -137,13 +154,11 @@ static int kvm_ls3a_ipi_read(struct kvm_io_device *dev,
 {
 	struct loongson_kvm_ls3a_ipi *ipi;
 	ipi_io_device *ipi_device;
-	struct kvm_vcpu *vcpu;
 	unsigned long flags;
 
 	ipi_device = container_of(dev, ipi_io_device, device);
 	ipi = ipi_device->ipi;
-	vcpu = ipi->kvm->vcpus[ipi_device->nodeNum];
-	vcpu->stat.lsvz_ls3a_pip_read_exits++;
+	ipi->kvm->stat.lsvz_kvm_pip_read_exits++;
 
 	spin_lock_irqsave(&ipi->lock, flags);
 	ls3a_gipi_readl(ipi, addr, len, val);

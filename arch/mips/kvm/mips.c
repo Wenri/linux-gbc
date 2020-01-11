@@ -96,8 +96,6 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "lsvz_tlb_add_refresh",  VCPU_STAT(lsvz_tlb_add_refresh),  KVM_STAT_VCPU },
 	{ "lsvz_ls7a_pic_read_exits",  VCPU_STAT(lsvz_ls7a_pic_read_exits),  KVM_STAT_VCPU },
 	{ "lsvz_ls7a_pic_write_exits",  VCPU_STAT(lsvz_ls7a_pic_write_exits),  KVM_STAT_VCPU },
-	{ "lsvz_ls3a_pip_read_exits",  VCPU_STAT(lsvz_ls3a_pip_read_exits),  KVM_STAT_VCPU },
-	{ "lsvz_ls3a_pip_write_exits",  VCPU_STAT(lsvz_ls3a_pip_write_exits),  KVM_STAT_VCPU },
 	{ "lsvz_ls3a_ht_write_exits",  VCPU_STAT(lsvz_ls3a_ht_write_exits),  KVM_STAT_VCPU },
 	{ "lsvz_ls3a_ht_read_exits",  VCPU_STAT(lsvz_ls3a_ht_read_exits),  KVM_STAT_VCPU },
 	{ "lsvz_ls3a_router_write_exits",  VCPU_STAT(lsvz_ls3a_router_write_exits),  KVM_STAT_VCPU },
@@ -126,6 +124,8 @@ struct kvm_stats_debugfs_item debugfs_entries[] = {
 	{ "halt_wakeup",  VCPU_STAT(halt_wakeup),	 KVM_STAT_VCPU },
 
 
+	{ "lsvz_kvm_pip_read_exits",  VM_STAT(lsvz_kvm_pip_read_exits),  KVM_STAT_VCPU },
+	{ "lsvz_kvm_pip_write_exits",  VM_STAT(lsvz_kvm_pip_write_exits),  KVM_STAT_VCPU },
 	{ "lsvz_kvm_vm_ioctl_irq_line",  VM_STAT(lsvz_kvm_vm_ioctl_irq_line),  KVM_STAT_VM },
 	{ "lsvz_kvm_ls7a_ioapic_update",  VM_STAT(lsvz_kvm_ls7a_ioapic_update),  KVM_STAT_VM },
 	{ "lsvz_kvm_ls7a_ioapic_set_irq",  VM_STAT(lsvz_kvm_ls7a_ioapic_set_irq),  KVM_STAT_VM },
