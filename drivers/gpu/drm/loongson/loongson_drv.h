@@ -28,6 +28,7 @@
 
 #define DVO_I2C_NAME "loongson_dvo_i2c"
 #define DVO_I2C_ADDR 0x50
+#define LS_MAX_I2C_BUS 16
 
 #define to_loongson_crtc(x) container_of(x, struct loongson_crtc, base)
 #define to_loongson_encoder(x) container_of(x, struct loongson_encoder, base)
@@ -167,11 +168,12 @@ extern struct mutex ls_dc_mutex;
 #define LS_FB_VSYNC_POLSE (1 << 30)
 #define LS_FB_VSYNC_POL (1 << 31)
 
-struct loongson_i2c_chan {
+struct loongson_i2c {
 	bool used;
 	unsigned int i2c_id;
 	struct i2c_adapter *adapter;
 	struct drm_device *dev;
+	struct loongson_drm_device *ldev;
 	struct i2c_algo_bit_data bit;
 	int data, clock;
 };
@@ -223,7 +225,7 @@ struct loongson_encoder {
 	struct loongson_vbios_encoder *vbios_encoder;
 	unsigned int encoder_id;
 	bool (*mode_set_method)(struct loongson_encoder *, struct drm_display_mode *);
-	struct loongson_i2c_chan *i2c;
+	struct loongson_i2c *i2c;
 	int last_dpms;
 };
 
@@ -232,11 +234,12 @@ struct loongson_connector {
 	struct loongson_drm_device *ldev;
 	struct loongson_vbios_connector *vbios_connector;
 	unsigned int connector_id;
-	struct loongson_i2c_chan *i2c;
+	struct loongson_i2c *i2c;
 };
 
 struct loongson_mode_info {
 	bool mode_config_initialized;
+	struct loongson_drm_device *ldev;
 	struct loongson_crtc *crtc;
 	struct loongson_encoder *encoder;
 	struct loongson_connector *connector;
@@ -291,6 +294,7 @@ struct loongson_drm_device {
 	struct loongson_vbios_crtc *crtc_vbios[2];
 	struct loongson_vbios_connector *connector_vbios[2];
 	struct loongson_vbios_encoder *encoder_vbios[4];
+	struct loongson_i2c i2c_bus[LS_MAX_I2C_BUS];
 	int fb_mtrr;
 
 	struct {
@@ -380,4 +384,6 @@ int loongson_vbios_information_display(struct loongson_drm_device *ldev);
 void loongson_encoder_resume(struct loongson_drm_device *ldev);
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 				 struct drm_display_mode *mode);
+
+struct loongson_i2c * loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id);
 #endif

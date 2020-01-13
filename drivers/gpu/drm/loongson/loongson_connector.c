@@ -21,16 +21,12 @@
 
 #include "loongson_drv.h"
 
-#define adapter_to_i2c_client(d) container_of(d, struct i2c_client, adapter)
-
-#define DVO_I2C_NAME "loongson_dvo_i2c"
-
+#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 static struct eep_info{
 	struct i2c_adapter *adapter;
 	unsigned short addr;
 }eeprom_info[2];
-
-struct i2c_client * loongson_drm_i2c_client[2];
+#endif
 
 /**
  * loongson_connector_best_encoder
@@ -58,7 +54,7 @@ static struct drm_encoder *loongson_connector_best_encoder(struct drm_connector
  *
  * Try to fetch EDID information by calling I2C driver functions
  */
-static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned int id, unsigned char *buf)
+static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf)
 {
 	unsigned char start = 0x0;
 	unsigned int che_tmp = 0;
@@ -101,14 +97,24 @@ static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned int
  *
  * According to i2c bus,acquire screen information
  */
-static bool loongson_i2c_connector(unsigned int id, unsigned char *buf)
+static bool loongson_i2c_connector(struct loongson_connector *ls_connector, unsigned char *buf)
 {
-	if (eeprom_info[id].adapter)
-		return loongson_do_probe_ddc_edid(eeprom_info[id].adapter, id, buf);
-	else
+#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
+	int id  = ls_connector->connector_id;
+	if ( id >> 1 ) {
+		DRM_INFO("lson 2k i2c apapter err");
 		return false;
+	}
+	return loongson_do_probe_ddc_edid(eeprom_info[id].adapter, buf);
+#else
+	if ( ls_connector->i2c != NULL  && ls_connector->i2c->adapter != NULL )
+		return loongson_do_probe_ddc_edid(ls_connector->i2c->adapter, buf);
+	else{
+		DRM_INFO_ONCE("get loongson connector  adapter err\n");
+		return false;
+	}
+#endif
 }
-
 
 /**
  * loongson_vga_get_modes
@@ -120,38 +126,30 @@ static bool loongson_i2c_connector(unsigned int id, unsigned char *buf)
  */
 static int loongson_vga_get_modes(struct drm_connector *connector)
 {
-	struct drm_device *dev = connector->dev;
-	struct loongson_drm_device *ldev = dev->dev_private;
-	struct loongson_vbios_connector *lbios_connector =
-			ldev->connector_vbios[drm_connector_index(connector)];
-        enum loongson_edid_method ledid_method;
-        unsigned char *buf = kmalloc(EDID_LENGTH *2, GFP_KERNEL);
-	struct edid *edid = NULL;
+	enum loongson_edid_method ledid_method;
+	struct loongson_vbios_connector *lbios_connector;
+	struct loongson_connector *ls_connector = to_loongson_connector(connector);
+	unsigned char buf[EDID_LENGTH *2];
 	bool dret = false;
 	int ret = 0;
 
-	if (!buf) {
-                dev_warn(dev->dev, "Unable to allocate memory for EDID block\n");
-                return 0;
-        }
-
+	lbios_connector = ls_connector->vbios_connector;
 	ledid_method = lbios_connector->edid_method;
 
-	DRM_DEBUG("connecotro_id = %d\n",connector->index);
-	dret = loongson_i2c_connector(connector->index, buf);
-	if (dret == true) {
-		if (ledid_method == edid_method_vbios)
-			memcpy(buf, lbios_connector->internal_edid, EDID_LENGTH*2);
+	if (ledid_method == edid_method_vbios) {
+		memcpy(buf, lbios_connector->internal_edid, EDID_LENGTH*2);
+		dret = true;
+		DRM_INFO_ONCE("conn-%d Do Vbios edid ",ls_connector->connector_id);
+	}else
+		dret = loongson_i2c_connector(ls_connector, buf);
 
-		edid = (struct edid *)buf;
-		drm_mode_connector_update_edid_property(connector, edid);
-		ret = drm_add_edid_modes(connector, edid);
+	if (dret == true) {
+		drm_mode_connector_update_edid_property(connector, (struct edid *)buf);
+		ret = drm_add_edid_modes(connector, (struct edid *)buf);
 	}
 
-	kfree(buf);
 	return ret;
 }
-
 /*
  * loongson_vga_mode_valid
  *
@@ -175,49 +173,6 @@ static int loongson_vga_mode_valid(struct drm_connector *connector,
 }
 
 /**
- * loongson_i2c_destroy
- *
- * @i2c: point to loongson_i2c_chan
- *
- * Destroy i2c adapter
- */
-void loongson_i2c_destroy(struct loongson_i2c_chan *i2c)
-{
-	if (!i2c)
-		return;
-	i2c_del_adapter(i2c->adapter);
-}
-
-/* Power on when there is noconnector,support hotplug */
-static bool poweron_flags = true;
-
-/**
- * loongson_vga_boots
- *
- * Power on when the host is not connected to any monitor
- */
-static enum drm_connector_status loongson_vga_boots(enum drm_connector_status status,
-                                                        enum drm_connector_status ret)
-{
-        if (status == connector_status_unknown &&
-			ret == connector_status_disconnected)
-        {
-                ret = connector_status_connected;
-        }
-        if (status == connector_status_connected &&
-			ret == connector_status_connected)
-        {
-                poweron_flags = false;
-        }
-        if (poweron_flags == true && status == connector_status_connected &&
-			ret == connector_status_disconnected)
-        {
-                ret =connector_status_connected;
-        }
-        return ret;
-}
-
-/**
  * loongson_vga_detect
  *
  * @connector: point to drm_connector
@@ -227,49 +182,40 @@ static enum drm_connector_status loongson_vga_boots(enum drm_connector_status st
  * The parameter force is set to false whilst polling,
  * true when checking the connector due to a user request
  */
-static enum drm_connector_status loongson_vga_detect(struct drm_connector
+static enum drm_connector_status loongson_connector_detect(struct drm_connector
 						   *connector, bool force)
 {
-	struct drm_device *dev = connector->dev;
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_connector *ls_connector;
+	struct loongson_vbios_connector *lsvbios_conn;
 	enum drm_connector_status ret = connector_status_disconnected;
 	enum loongson_edid_method ledid_method;
-	int i;
-	enum drm_connector_status status;
-	status = connector->status;
+	unsigned char buf[EDID_LENGTH *2];
 
-	ledid_method = ldev->connector_vbios[connector->index]->edid_method;
+	ls_connector = to_loongson_connector(connector);
+	lsvbios_conn = ls_connector->vbios_connector;
 
-	DRM_DEBUG("loongson_vga_detect connect_id=%d, ledid_method=%d\n", connector->index, ledid_method);
+	if (ls_connector->vbios_connector->hot_swap_method == hot_swap_disable)
+		return connector_status_connected;
 
-	switch(ledid_method){
-		case edid_method_i2c:
-		case edid_method_vbios:
-			i = pm_runtime_get_sync(connector->dev->dev);
-			if (i < 0)
-				ret = connector_status_disconnected;
-			i = loongson_vga_get_modes(connector);
-			if (i)
-			{
-				DRM_INFO_ONCE("loongson_vga_detect: connected");
-				ret = connector_status_connected;
-			}
-			/*FIXED: FIX vbios v0.1 */
-			if (ldev->vbios->version_major ==0  &&
-					ldev->vbios->version_minor ==1)
-				ret = loongson_vga_boots(status,ret);
+	ledid_method = lsvbios_conn->edid_method;
+	DRM_DEBUG("connect%d edid_method:%d\n", ls_connector->connector_id, ledid_method);
+	switch (ledid_method) {
+	case edid_method_i2c:
+	case edid_method_null:
+	case edid_method_max:
+		if ( loongson_i2c_connector(ls_connector, buf) == true) {
+			DRM_INFO_ONCE("Loongson connector%d connected",
+					ls_connector->connector_id);
 
-			pm_runtime_mark_last_busy(connector->dev->dev);
-			pm_runtime_put_autosuspend(connector->dev->dev);
-			break;
-		case edid_method_encoder:
-		case edid_method_null:
-		case edid_method_max:
 			ret = connector_status_connected;
-			break;
+		}
+		break;
+	case edid_method_vbios:
+	case edid_method_encoder:
+		ret = connector_status_connected;
+		break;
 	}
-
-  	return ret;
+	return ret;
 }
 
 /**
@@ -281,8 +227,6 @@ static enum drm_connector_status loongson_vga_detect(struct drm_connector
  */
 static void loongson_connector_destroy(struct drm_connector *connector)
 {
-	struct loongson_connector *loongson_connector = to_loongson_connector(connector);
-	loongson_i2c_destroy(loongson_connector->i2c);
 	drm_connector_cleanup(connector);
 	kfree(connector);
 }
@@ -310,7 +254,7 @@ static const struct drm_connector_helper_funcs loongson_vga_connector_helper_fun
  */
 static const struct drm_connector_funcs loongson_vga_connector_funcs = {
         .dpms = drm_helper_connector_dpms,
-        .detect = loongson_vga_detect,
+        .detect = loongson_connector_detect,
         .fill_modes = drm_helper_probe_single_connector_modes,
         .destroy = loongson_connector_destroy,
 };
@@ -395,16 +339,16 @@ struct loongson_connector *loongson_connector_init(struct loongson_drm_device *l
 {
 	struct drm_connector *connector;
 	struct loongson_connector *ls_connector;
-	struct i2c_adapter * i2c_adap;
-	struct i2c_board_info i2c_info;
+	struct loongson_vbios_connector *lsvbios_connector = ldev->connector_vbios[index];
 
 
 	ls_connector = kzalloc(sizeof(struct loongson_connector), GFP_KERNEL);
 	if (!ls_connector)
 		return NULL;
 
-	ls_connector->vbios_connector = ldev->connector_vbios[index];
+	ls_connector->vbios_connector = lsvbios_connector;
 	ls_connector->ldev   = ldev;
+	ls_connector->connector_id = index;
 
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	if(index == 0){
@@ -413,27 +357,11 @@ struct loongson_connector *loongson_connector_init(struct loongson_drm_device *l
 		i2c_add_driver(&vga_eep_driver);
 	}
 #else
-	i2c_adap = i2c_get_adapter(ldev->connector_vbios[index]->i2c_id);
-	/*TODO encoder Use the same DTS*/
-	if (ldev->connector_vbios[index]->edid_method == edid_method_encoder) {
-		eeprom_info[index].adapter = i2c_adap;
-		goto connector_init;
-	}
-	memset(&i2c_info, 0, sizeof(struct i2c_board_info));
-	strlcpy(i2c_info.type, DVO_I2C_NAME, I2C_NAME_SIZE);
-	i2c_info.addr = normal_i2c[0];
-	loongson_drm_i2c_client[index] = i2c_new_device(i2c_adap, &i2c_info);
-	i2c_put_adapter(i2c_adap);
-
-	if(loongson_drm_i2c_client[index] != NULL){
-		eeprom_info[index].adapter= loongson_drm_i2c_client[index]->adapter;
-		eeprom_info[index].addr = 0x50;
-	}else{
-		return NULL;
+	ls_connector->i2c = loongson_i2c_bus_match(ldev,lsvbios_connector->i2c_id);
+	if (!ls_connector->i2c) {
+		DRM_INFO("lson connector-%d match i2c-%d err\n",index,lsvbios_connector->i2c_id);
 	}
 #endif
-connector_init:
-
 	connector = &ls_connector->base;
 
 	drm_connector_init(ldev->dev, connector,
@@ -448,7 +376,8 @@ connector_init:
 			connector->polled = DRM_CONNECTOR_POLL_HPD;
 			break;
 		case hot_swap_polling:
-			connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
+			connector->polled = DRM_CONNECTOR_POLL_CONNECT
+				| DRM_CONNECTOR_POLL_DISCONNECT;
 			break;
 		case hot_swap_disable:
 		default:
