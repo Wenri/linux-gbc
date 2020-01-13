@@ -3227,7 +3227,7 @@ int kvm_mips_handle_ls3a3000_vz_root_tlb_fault(unsigned long badvaddr,
 		tlb.tlb_lo[0] = pte_to_entrylo(pte_val(pte_gpa[0]));
 		tlb.tlb_lo[1] = pte_to_entrylo(pte_val(pte_gpa[1]));
 		kvm_mips_tlbw(&tlb);
-		vcpu->stat.lsvz_ls7a_pic_read_exits++;
+		vcpu->stat.lsvz_kvm_ls7a_pic_read_exits++;
 		kvm_debug("7A IOAPIC tlb_hi = 0x%lx,tlb_lo = 0x%lx,badvaddr = 0x%lx\n",tlb.tlb_hi,tlb.tlb_lo[0],badvaddr);
 		++vcpu->stat.lsvz_general_exits;
 		return RESUME_GUEST;

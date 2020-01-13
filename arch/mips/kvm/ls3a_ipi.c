@@ -13,6 +13,7 @@
 #include "ls3a_ipi.h"
 #include "ls3a3000.h"
 
+
 static int ls3a_gipi_writel(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, int len,const void *val)
 {
 	uint64_t data,offset;
@@ -179,7 +180,7 @@ void kvm_destroy_ls3a_ipi(struct loongson_kvm_ls3a_ipi *vipi)
 
 	for (i=0; i<vipi->nodeNum; i++) {
 		device = &vipi->dev_ls3a_ipi[i].device;
-		kvm_io_bus_unregister_dev(vipi->kvm, KVM_PIO_BUS, device);
+		kvm_io_bus_unregister_dev(vipi->kvm, KVM_MMIO_BUS, device);
 	}
 	kfree(vipi);
 }
@@ -199,7 +200,7 @@ struct loongson_kvm_ls3a_ipi * kvm_create_ls3a_ipi(struct kvm *kvm)
 	s->nodeNum = 0;
 
 	/*
-	 * Initialize PIO device
+	 * Initialize MMIO device
 	 */
 	for (i=0; i<4; i++) {
 		device = &s->dev_ls3a_ipi[i].device;

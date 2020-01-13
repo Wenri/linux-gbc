@@ -167,7 +167,7 @@ int kvm_ls7a_ioapic_set_irq(struct kvm *kvm, int irq, int level)
 	return 0;
 }
 
-int ls7a_ioapic_reg_write(struct loongson_kvm_7a_ioapic *s,
+static int ls7a_ioapic_reg_write(struct loongson_kvm_7a_ioapic *s,
 		       gpa_t addr, int len,const void *val)
 {
 	struct kvm *kvm;
@@ -254,11 +254,17 @@ static int kvm_ls7a_ioapic_write(struct kvm_io_device * dev,
 			 gpa_t addr, int len, const void *val)
 {
 	struct loongson_kvm_7a_ioapic *s;
+	unsigned long flags;
 	s = container_of(dev, struct loongson_kvm_7a_ioapic, dev_ls7a_ioapic);
-	return ls7a_ioapic_reg_write(s,addr,len,val);
+		
+	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
+	ls7a_ioapic_reg_write(s,addr,len,val);
+	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+
+	return 0;
 }
 
-int ls7a_ioapic_reg_read(struct loongson_kvm_7a_ioapic *s,
+static int ls7a_ioapic_reg_read(struct loongson_kvm_7a_ioapic *s,
 		       gpa_t addr, int len, void *val)
 {
         uint64_t offset,offset_tmp;
@@ -313,7 +319,7 @@ int ls7a_ioapic_reg_read(struct loongson_kvm_7a_ioapic *s,
                         }
                 } else {
 			WARN_ONCE(1,"Abnormal address access:addr 0x%llx,len %d\n",addr,len);
-		}                
+		}
 		if(val != NULL)
 			*(unsigned char *)val = result;
         }else{
@@ -328,9 +334,12 @@ static int kvm_ls7a_ioapic_read(struct kvm_io_device *dev,
 {
 	struct loongson_kvm_7a_ioapic *s;
 	uint64_t result=0;
+	unsigned long flags;
 
 	s = container_of(dev, struct loongson_kvm_7a_ioapic, dev_ls7a_ioapic);
+	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
 	result = ls7a_ioapic_reg_read(s,addr,len,val);
+	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
 	return 0;
 }
 
@@ -365,11 +374,11 @@ struct loongson_kvm_7a_ioapic *kvm_create_ls7a_ioapic(struct kvm *kvm)
 	}
 
 	/*
-	 * Initialize PIO device
+	 * Initialize MMIO device
 	 */
 	kvm_iodevice_init(&s->dev_ls7a_ioapic, &kvm_ls7a_ioapic_ops);
 	mutex_lock(&kvm->slots_lock);
-	ret = kvm_io_bus_register_dev(kvm, KVM_PIO_BUS, ls7a_ioapic_reg_base, 0x1000,
+	ret = kvm_io_bus_register_dev(kvm, KVM_MMIO_BUS, ls7a_ioapic_reg_base, 0x1000,
 				      &s->dev_ls7a_ioapic);
 	if (ret < 0)
 		goto fail_unlock;
@@ -425,7 +434,7 @@ int kvm_set_ls7a_ioapic(struct kvm *kvm, struct kvm_loongson_ls7a_ioapic_state *
 
 void kvm_destroy_ls7a_ioapic(struct loongson_kvm_7a_ioapic *vpic)
 {
-	kvm_io_bus_unregister_dev(vpic->kvm, KVM_PIO_BUS, &vpic->dev_ls7a_ioapic);
+	kvm_io_bus_unregister_dev(vpic->kvm, KVM_MMIO_BUS, &vpic->dev_ls7a_ioapic);
 	kfree(vpic->read_page_address);
 	kfree(vpic);
 }

@@ -95,8 +95,6 @@ static inline int ls3a_router_in_kernel(struct kvm *kvm)
 
 
 void route_update_reg(struct kvm *kvm,int irqnum,int level);
-uint64_t ls3a_router_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void *val);
-int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const void *val);
 struct loongson_kvm_ls3a_routerirq *kvm_create_ls3a_router_irq(struct kvm *kvm);
 int kvm_get_ls3a_router_irq(struct kvm *kvm, uint8_t *state);
 int kvm_set_ls3a_router_irq(struct kvm *kvm, uint8_t *state);

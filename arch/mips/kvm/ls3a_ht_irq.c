@@ -95,7 +95,7 @@ void msi_irq_handler(struct kvm *kvm,int irq,int level)
 }
 
 
-uint64_t ls3a_ht_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void* val)
+static uint64_t ls3a_ht_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void* val)
 {
 	uint64_t offset;
 	uint64_t ret = 0;
@@ -136,10 +136,11 @@ uint64_t ls3a_ht_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void* va
 		WARN_ONCE(1,"Abnormal address access:addr 0x%llx,size %d\n",addr,size);
 		ret = 0;
 	}
+	kvm->stat.lsvz_kvm_ls3a_ht_read_exits++;
 	return ret;
 }
 
-void ls3a_ht_intctl_write(struct kvm *kvm, gpa_t addr,unsigned size, const void *val)
+static void ls3a_ht_intctl_write(struct kvm *kvm, gpa_t addr,unsigned size, const void *val)
 {
 	uint32_t regnum, old, new, isr;
 	uint64_t offset,data;
@@ -225,6 +226,7 @@ void ls3a_ht_intctl_write(struct kvm *kvm, gpa_t addr,unsigned size, const void 
 		printk("%s(%d):Abnormal register write %llx size %d \n",
 				__FUNCTION__, __LINE__, offset, size);
 	}
+	kvm->stat.lsvz_kvm_ls3a_ht_write_exits++;
 }
 
 
@@ -233,10 +235,14 @@ static int kvm_ls3a_ht_read(struct kvm_io_device *dev,
 {
 	struct loongson_kvm_ls3a_htirq *s;
 	uint64_t result=0;
+	unsigned long flags;
 
 	s = container_of(dev, struct loongson_kvm_ls3a_htirq, dev_ls3a_ht_irq);
-
+	
+	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
 	result = ls3a_ht_intctl_read(s->kvm,addr,len,val);
+	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+
 	return 0;
 }
 
@@ -245,13 +251,16 @@ static int kvm_ls3a_ht_write(struct kvm_io_device * dev,
 		gpa_t addr, int len, const void *val)
 {
 	struct loongson_kvm_ls3a_htirq *s;
+	unsigned long flags;
+
 	s = container_of(dev, struct loongson_kvm_ls3a_htirq, dev_ls3a_ht_irq);
 
+	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
 	ls3a_ht_intctl_write(s->kvm,addr,len,val);
+	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+
 	return 0;
 }
-
-
 
 static const struct kvm_io_device_ops kvm_ls3a_ht_irq_ops = {
 	.read     = kvm_ls3a_ht_read,
@@ -279,7 +288,7 @@ struct loongson_kvm_ls3a_htirq *kvm_create_ls3a_ht_irq(struct kvm *kvm)
 	kvm_iodevice_init(&s->dev_ls3a_ht_irq, &kvm_ls3a_ht_irq_ops);
 	mutex_lock(&kvm->slots_lock);
 
-	ret = kvm_io_bus_register_dev(kvm, KVM_PIO_BUS, ht_control_reg_base, 0x100,
+	ret = kvm_io_bus_register_dev(kvm, KVM_MMIO_BUS, ht_control_reg_base, 0x100,
 			&s->dev_ls3a_ht_irq);
 	if (ret < 0)
 		goto fail_unlock;
@@ -325,6 +334,6 @@ int kvm_set_ls3a_ht_irq(struct kvm *kvm, uint8_t *state)
 
 void kvm_destroy_ls3a_htirq(struct loongson_kvm_ls3a_htirq *v_htirq)
 {
-	kvm_io_bus_unregister_dev(v_htirq->kvm, KVM_PIO_BUS, &v_htirq->dev_ls3a_ht_irq);
+	kvm_io_bus_unregister_dev(v_htirq->kvm, KVM_MMIO_BUS, &v_htirq->dev_ls3a_ht_irq);
 	kfree(v_htirq);
 }

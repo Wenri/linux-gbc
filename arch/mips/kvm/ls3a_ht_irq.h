@@ -73,8 +73,6 @@ static inline int ls3a_htirq_in_kernel(struct kvm *kvm)
 void ht_update_irqreg(struct kvm *kvm,int regnum ,int disable);
 void ht_irq_handler(struct kvm *kvm,int irq,int level);
 void msi_irq_handler(struct kvm *kvm,int irq,int level);
-uint64_t ls3a_ht_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void* val);
-void ls3a_ht_intctl_write(struct kvm *kvm, gpa_t addr,unsigned size, const void *val);
 struct loongson_kvm_ls3a_htirq *kvm_create_ls3a_ht_irq(struct kvm *kvm);
 void kvm_destroy_ls3a_htirq(struct loongson_kvm_ls3a_htirq *v_htirq);
 int kvm_get_ls3a_ht_irq(struct kvm *kvm, uint8_t *state);
