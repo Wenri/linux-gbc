@@ -141,6 +141,28 @@ extern struct mutex ls_dc_mutex;
 #define LS_FB_ADDR1_DVO0_REG		(0x1580)
 #define LS_FB_ADDR1_DVO1_REG		(0x1590)
 
+/*offset*/
+#define LS_FB_CFG_FORMAT32 (1 << 2)
+#define LS_FB_CFG_FORMAT16 (11 << 0)
+#define LS_FB_CFG_FORMAT15 (1 << 1)
+#define LS_FB_CFG_FORMAT12 (1 << 0)
+#define LS_FB_CFG_FB_SWITCH (1 << 7)
+#define LS_FB_CFG_ENABLE (1 << 8)
+#define LS_FB_CFG_SWITCH_PANEL (1 << 9)
+#define LS_FB_CFG_GAMMA (1 << 12)
+#define LS_FB_CFG_RESET (1 << 20)
+
+#define LS_FB_PANCFG_BASE 0x80001010
+#define LS_FB_PANCFG_DE (1 << 0)
+#define LS_FB_PANCFG_DEPOL (1 << 1)
+#define LS_FB_PANCFG_CLKEN (1 << 8)
+#define LS_FB_PANCFG_CLKPOL (1 << 9)
+
+#define LS_FB_HSYNC_POLSE (1 << 30)
+#define LS_FB_HSYNC_POL (1 << 31)
+#define LS_FB_VSYNC_POLSE (1 << 30)
+#define LS_FB_VSYNC_POL (1 << 31)
+
 struct pix_pll {
 	unsigned int l2_div;
 	unsigned int l1_loopc;
