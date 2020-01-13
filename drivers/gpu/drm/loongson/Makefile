@@ -12,6 +12,7 @@ loongson-y := loongson_drv.o \
 	loongson_fb.o \
 	loongson_cursor.o \
 	loongson_vbios.o \
-	loongson_ttm.o
+	loongson_ttm.o \
+	loongson_disp_3a3k.o
 
 obj-$(CONFIG_DRM_LOONGSON_VGA)	+= loongson.o

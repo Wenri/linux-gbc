@@ -388,13 +388,13 @@ int loongson_gem_create(struct drm_device *dev,
  */
 int loongson_modeset_init(struct loongson_drm_device *ldev)
 {
-	struct drm_encoder *encoder;
-	struct drm_connector *connector;
-	int ret,i;
-
-
-	ldev->mode_info[0].mode_config_initialized = true;
-	ldev->mode_info[1].mode_config_initialized = true;
+	struct loongson_vbios_encoder *lsbios_encoder;
+	struct loongson_vbios_connector *lsbios_connector;
+	struct loongson_vbios_crtc *lsbios_crtc;
+	struct loongson_encoder *ls_encoder;
+	struct loongson_connector *ls_connector;
+	struct loongson_crtc     *ls_crtc;
+	int ret, i;
 
 	ldev->dev->mode_config.max_width = LOONGSON_MAX_FB_WIDTH;
 	ldev->dev->mode_config.max_height = LOONGSON_MAX_FB_HEIGHT;
@@ -404,30 +404,35 @@ int loongson_modeset_init(struct loongson_drm_device *ldev)
 
 	ldev->dev->mode_config.fb_base = ldev->mc.vram_base;
 
-	loongson_crtc_init(ldev);
-	ldev->num_crtc = ldev->vbios->crtc_num;
+	for(i = 0; ( i < ldev->num_crtc && i < LS_MAX_MODE_INFO ); i++){
+		lsbios_crtc = ldev->crtc_vbios[i];
 
-	for(i=0;i<ldev->num_crtc;i++){
-		DRM_DEBUG("loongson drm encoder init\n");
-		encoder = loongson_encoder_init(ldev->dev,i);
-		if (!encoder) {
-			DRM_ERROR("loongson_encoder_init failed\n");
-			return -1;
+		DRM_INFO("loongson CRTC-%d init\n",i);
+
+		ls_crtc =  loongson_crtc_init(ldev, i);
+		if (ls_crtc){
+			ldev->mode_info[i].crtc = ls_crtc;
+			lsbios_encoder =  ldev->encoder_vbios[lsbios_crtc->encoder_id];
+			ls_encoder = loongson_encoder_init(ldev, lsbios_crtc->encoder_id);
+			ldev->mode_info[i].encoder = ls_encoder;
+			lsbios_connector =  ldev->connector_vbios[lsbios_encoder->connector_id];
+			ls_connector = loongson_connector_init(ldev, lsbios_encoder->connector_id);
+			ldev->mode_info[i].connector = ls_connector;
+
+			if ( ls_encoder && ls_connector ) {
+				drm_mode_connector_attach_encoder(
+						&ls_connector->base,
+						&ls_encoder->base);
+			}
+			ldev->mode_info[i].mode_config_initialized = true;
+		} else {
+			DRM_WARN("loongson CRT-%d init failed\n",i);
 		}
-
-		DRM_DEBUG("loongson drm i2c init\n");
-		connector = loongson_vga_init(ldev->dev,i);
-		if (!connector) {
-			DRM_ERROR("loongson_vga_init failed\n");
-			return -1;
-		}
-
-		ldev->mode_info[i].connector = (struct loongson_connector *)connector;
-		drm_mode_connector_attach_encoder(connector, encoder);
-		connector->polled = DRM_CONNECTOR_POLL_CONNECT | DRM_CONNECTOR_POLL_DISCONNECT;
 	}
+
 	DRM_DEBUG("loongson drm fbdev init\n");
 	ret = loongson_fbdev_init(ldev);
+
 	if (ret) {
 		DRM_ERROR("loongson_fbdev_init failed\n");
 		return ret;
@@ -916,8 +921,8 @@ int loongson_drm_resume(struct drm_device *dev)
         if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
 
-	loongson_connector_resume(ldev);
 	console_lock();
+	loongson_encoder_resume(ldev);
 	drm_helper_resume_force_mode(dev);
         drm_kms_helper_poll_enable(dev);
 	loongson_fbdev_set_suspend(ldev, 0);
