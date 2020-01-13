@@ -1124,19 +1124,6 @@ int kvm_vm_ioctl_irq_line(struct kvm *kvm, struct kvm_irq_level *irq_level,
 		ret = kvm_ls7a_ioapic_set_irq(kvm,irq_num,level);
 		ls7a_ioapic_unlock(ls7a_ioapic_irqchip(kvm), &flags);
 		return ret;
-		break;
-	case KVM_LOONGSON_IRQ_TYPE_ROUTE:
-		if (!ls3a_router_in_kernel(kvm))
-			return -ENXIO;
-
-		if (vcpu_idx >= nrcpus)
-			return -EINVAL;
-
-		ls7a_ioapic_lock(ls7a_ioapic_irqchip(kvm), &flags);
-		route_update_reg(kvm,irq_num,level);
-		ls7a_ioapic_unlock(ls7a_ioapic_irqchip(kvm), &flags);
-		return 0;
-		break;
 	}
 	kvm->stat.lsvz_kvm_vm_ioctl_irq_line++;
 

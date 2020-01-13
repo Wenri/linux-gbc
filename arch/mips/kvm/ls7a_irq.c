@@ -368,7 +368,7 @@ struct loongson_kvm_7a_ioapic *kvm_create_ls7a_ioapic(struct kvm *kvm)
 #endif
 
 	if(current_cpu_type() == CPU_LOONGSON3_COMP) {
-		ls7a_ioapic_reg_base = LS7A_IOAPIC_GUEST_REG_BASE_ALIAS;
+		ls7a_ioapic_reg_base = LS3A4000_LS7A_IOAPIC_GUEST_REG_BASE_ALIAS;
 	} else {
 		ls7a_ioapic_reg_base = LS7A_IOAPIC_GUEST_REG_BASE;
 	}
