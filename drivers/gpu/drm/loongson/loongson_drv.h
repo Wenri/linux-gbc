@@ -44,10 +44,17 @@
 #define CUR_WIDTH_SIZE		32
 #define CUR_HEIGHT_SIZE		32
 
+#define LOONGSON_BL_MAX_LEVEL   100
+#define LOONGSON_BL_MIN_LEVEL   1
+
+#define LOONGSON_GPIO_LCD_EN    62
+#define LOONGSON_GPIO_LCD_VDD   63
+
 
 #define LO_OFF	0
 #define HI_OFF	8
 
+struct loongson_connector;
 
 #define gem_to_loongson_bo(gobj) container_of((gobj), struct loongson_bo, gem)
 
@@ -190,6 +197,20 @@ struct loongson_mc {
 	resource_size_t			vram_window;
 };
 
+struct loongson_backlight {
+	bool present;
+	bool hw_enabled;
+	unsigned int level,max,min;
+	struct pwm_device *pwm;
+	struct backlight_device *device;
+	int (*get_resource)(struct loongson_connector *ls_connector);
+	void (*free_resource)(struct loongson_connector *ls_connector);
+	int (*setup)(struct loongson_connector *ls_connector);
+	unsigned int (*get_brightness)(struct loongson_connector *ls_connector);
+	void (*set_brightness)(struct loongson_connector *ls_connector, unsigned int level);
+	void (*enable)(struct loongson_connector *ls_connector, bool enable);
+	void (*power_op)(struct loongson_connector *ls_connector, bool enable);
+};
 
 struct loongson_bo {
 	struct ttm_buffer_object bo;
@@ -235,6 +256,7 @@ struct loongson_connector {
 	struct loongson_vbios_connector *vbios_connector;
 	unsigned int connector_id;
 	struct loongson_i2c *i2c;
+	struct loongson_backlight bl;
 };
 
 struct loongson_mode_info {
@@ -384,6 +406,7 @@ int loongson_vbios_information_display(struct loongson_drm_device *ldev);
 void loongson_encoder_resume(struct loongson_drm_device *ldev);
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 				 struct drm_display_mode *mode);
-
 struct loongson_i2c * loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id);
+void loongson_connector_resume(struct loongson_drm_device *ldev);
+
 #endif
