@@ -84,10 +84,31 @@ static int ls_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	unsigned int val;
 	unsigned long flags;
+	int rst_ctrl;
+	#define RST_WDTEN 2
 
 	spin_lock_irqsave(&rtc_lock, flags);
 
+/*
+ls2k RTC_TOY_READ1/0x1fe07830 read result will or RST_CNT/0x1fe07030 read result.
+ls7a RTC_TOY_READ1/0x100d0130 read result will or RST_CNT/0x100d0030 read result.
+so we need write RST_CNT/0x1fe07030 to 0 before read RTC_TOY_READ1/0x1fe07830.
+we feed dog if wdt_en, because another core may feed dog when we set RST_CNT/0x1fe07030 to 0.
+*/
+#ifdef CONFIG_CPU_LOONGSON2K
+#define RTS_CNT_OFFSET 0x800
+#else
+#define RTS_CNT_OFFSET 0x100
+#endif
+
+	rst_ctrl = rtc_read(TOY_READ1_REG - RTS_CNT_OFFSET);
+	if (rst_ctrl & RST_WDTEN)
+		rtc_write(0, TOY_READ1_REG - RTS_CNT_OFFSET);
 	val = rtc_read(TOY_READ1_REG);
+	if (rst_ctrl & RST_WDTEN) {
+		rtc_write(rst_ctrl, TOY_READ1_REG - RTS_CNT_OFFSET);
+		rtc_write(1, TOY_READ1_REG - RTS_CNT_OFFSET + 4);
+	}
 	tm->tm_year = val;
 	val = rtc_read(TOY_READ0_REG);
 	tm->tm_sec = (val >> TOY_SEC_SHIFT) & TOY_SEC_MASK;
