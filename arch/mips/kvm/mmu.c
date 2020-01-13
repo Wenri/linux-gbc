@@ -889,7 +889,7 @@ int _kvm_mips_map_page_fast(struct kvm_vcpu *vcpu, unsigned long gpa,
 		pfn = pte_pfn(*ptep);
 	 	if (pmd_huge(*((pmd_t*)ptep))) {
 			int i;
-			int base_gfn = gpa >> PMD_SHIFT;
+			gfn_t base_gfn = (gpa & PMD_MASK) >> PAGE_SHIFT;
 			for (i = 0; i < PTRS_PER_PTE; i++)
 				mark_page_dirty(kvm, base_gfn + i);
 		} else
@@ -1074,7 +1074,7 @@ retry:
 
 		if (writeable && write_fault) {
 			int i;
-			int base_gfn = gpa >> PMD_SHIFT;
+			gfn_t base_gfn = (gpa & PMD_MASK) >> PAGE_SHIFT;
 			for (i = 0; i < PTRS_PER_PTE; i++)
 				mark_page_dirty(kvm, base_gfn + i);
 		}
