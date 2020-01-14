@@ -34,8 +34,6 @@ static void loongson_crtc_load_lut(struct drm_crtc *crtc)
 
 }
 
-
-
 /*
    This is how the framebuffer base address is stored in g200 cards:
    * Assume @offset is the gpu_addr variable of the framebuffer object
@@ -58,19 +56,17 @@ static void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset)
 	unsigned long base;
 
 	crtc_id = loongson_crtc->crtc_id;
-	DRM_DEBUG("crtc_gpu_addr = 0x%x\n",offset);
 	ldev = crtc->dev->dev_private;
 	base = (unsigned long)(ldev->rmmio);
-	DRM_DEBUG("base=0x%lx\n",base);
-	if(crtc_id == 0){
-		ls_writel(offset,base +	LS_FB_ADDR0_DVO0_REG);
-		ls_writel(offset,base +	LS_FB_ADDR1_DVO0_REG);
-	}else{
-		ls_writel(offset,base +	LS_FB_ADDR0_DVO1_REG);
-		ls_writel(offset,base +	LS_FB_ADDR1_DVO1_REG);
+
+	if (crtc_id == 0) {
+		ls_writel(offset, base + LS_FB_ADDR0_DVO0_REG);
+		ls_writel(offset, base + LS_FB_ADDR1_DVO0_REG);
+	} else {
+		ls_writel(offset, base + LS_FB_ADDR0_DVO1_REG);
+		ls_writel(offset, base + LS_FB_ADDR1_DVO1_REG);
 	}
 }
-
 
 /**
  * loongson_crtc_do_set_base
@@ -94,14 +90,12 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 	struct loongson_bo *bo;
 	struct drm_crtc *crtci;
 	struct drm_device *dev = crtc->dev;
-	int ret;
-	unsigned int depth;
-	u64 gpu_addr;
+	unsigned int depth, ret;
+	unsigned int crtc_id, crtc_address, crtc_count;
+	unsigned int width, pitch, pitch_fb;
+	unsigned int cfg_reg = 0;
 	unsigned long base;
-	unsigned int crtc_id;
-	unsigned int crtc_address;
-	unsigned int width,pitch;
-	unsigned int crtc_count;
+	u64 gpu_addr;
 
 	crtc_id = loongson_crtc->crtc_id;
 	base = (unsigned long)(ldev->rmmio);
@@ -109,7 +103,7 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 	width = crtc->primary->fb->width;
 	depth = crtc->primary->fb->bits_per_pixel;
 
-	pitch = crtc->primary->fb->pitches[0];
+	pitch_fb = crtc->primary->fb->pitches[0];
 	/* push the previous fb to system ram */
 	if (!atomic && fb) {
 		loongson_fb = to_loongson_framebuffer(fb);
@@ -122,8 +116,6 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 		loongson_bo_unreserve(bo);
 	}
 
-	DRM_DEBUG ("crtc width = %d,height = %d\n",width,crtc->primary->fb->height);
-	DRM_DEBUG ("crtc pitches[0]=%d\n",crtc->primary->fb->pitches[0]);
 	loongson_fb = to_loongson_framebuffer(crtc->primary->fb);
 
 	crtc_count = 0;
@@ -132,16 +124,15 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 			crtc_count++;
 		}
 
-	if(ldev->num_crtc < 2 || crtc_count < 2) {
-		DRM_DEBUG("not use clone mode\n");
+	if (ldev->num_crtc < 2 || crtc_count < 2) {
 		ldev->clone_mode = false;
-        }else if(ldev->mode_info[0].connector->base.status == connector_status_connected
+	} else if (ldev->mode_info[0].connector->base.status == connector_status_connected
 		&& ldev->mode_info[1].connector->base.status == connector_status_connected
-		&& loongson_fb->base.width == crtc->mode.hdisplay && loongson_fb->base.height == crtc->mode.vdisplay && x == 0 && y == 0){
-		DRM_DEBUG("use clone mode\n");
+		&& loongson_fb->base.width == crtc->mode.hdisplay
+		&& loongson_fb->base.height == crtc->mode.vdisplay
+		&& x == 0 && y == 0) {
 		ldev->clone_mode = true;
-	}else{
-		DRM_DEBUG("not use clone mode\n");
+	} else {
 		ldev->clone_mode = false;
 	}
 
@@ -158,131 +149,113 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 		return ret;
 	}
 
-	DRM_DEBUG("gpu_addr = 0x%llx\n",gpu_addr);
 	ldev->fb_vram_base = gpu_addr;
 	if (&ldev->lfbdev->lfb == loongson_fb) {
 		/* if pushing console in kmap it */
 		ret = ttm_bo_kmap(&bo->bo, 0, bo->bo.num_pages, &bo->kmap);
 		if (ret)
 			DRM_ERROR("failed to kmap fbcon\n");
-
 	}
 	loongson_bo_unreserve(bo);
-	if(crtc_id == 0){
+
+	cfg_reg = LS_FB_CFG_RESET | LS_FB_CFG_ENABLE;
+	pitch = (width * 2 + 255) & ~255;
+	crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 2;
+	if (ldev->clone_mode == false) {
+		if (crtc_id == 0) {
+			switch (depth) {
+			case 16:
+				cfg_reg |= LS_FB_CFG_FORMAT16;
+				break;
+			case 15:
+				cfg_reg |= LS_FB_CFG_FORMAT15;
+				break;
+			case 12:
+				cfg_reg |= LS_FB_CFG_FORMAT12;
+				break;
+			case 32:
+			case 24:
+			default:
+				cfg_reg |= LS_FB_CFG_FORMAT32;
+				pitch = crtc->primary->fb->pitches[0];
+				crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
+				break;
+			}
+		ls_writel(cfg_reg, base + LS_FB_CFG_DVO0_REG);
+		ls_writel(pitch, base + LS_FB_STRI_DVO0_REG);
+		} else {
+			switch (depth) {
+			case 16:
+				cfg_reg |= LS_FB_CFG_FORMAT16;
+				break;
+			case 15:
+				cfg_reg |= LS_FB_CFG_FORMAT15;
+				break;
+			case 12:
+				cfg_reg |= LS_FB_CFG_FORMAT12;
+				break;
+			case 32:
+			case 24:
+			default:
+				cfg_reg |= LS_FB_CFG_FORMAT32;
+				pitch = crtc->primary->fb->pitches[0];
+				crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
+				break;
+			}
+		ls_writel(cfg_reg, base + LS_FB_CFG_DVO1_REG);
+		ls_writel(pitch, base + LS_FB_STRI_DVO1_REG);
+		}
+	} else {
+		/*HDMI*/
 		switch (depth) {
-		case 32:
-		case 24:
-			ls_writel(0x00100104,base + LS_FB_CFG_DVO0_REG);
-			ls_writel(pitch,base + LS_FB_STRI_DVO0_REG);
-			crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 4;
-			break;
 		case 16:
-			ls_writel(0x00100103,base + LS_FB_CFG_DVO0_REG);
-			ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO0_REG);
-			crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
+			cfg_reg |= LS_FB_CFG_FORMAT16;
 			break;
 		case 15:
-			ls_writel(0x00100102,base + LS_FB_CFG_DVO0_REG);
-			ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO0_REG);
-			crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
+			cfg_reg |= LS_FB_CFG_FORMAT15;
 			break;
 		case 12:
-			ls_writel(0x00100101,base + LS_FB_CFG_DVO0_REG);
-			ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO0_REG);
-			crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
+			cfg_reg |= LS_FB_CFG_FORMAT12;
 			break;
+		case 32:
+		case 24:
 		default:
-			ls_writel(0x00100104,base + LS_FB_CFG_DVO0_REG);
-			ls_writel(crtc->primary->fb->pitches[0],base + LS_FB_STRI_DVO0_REG);
-			crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 4;
+			cfg_reg |= LS_FB_CFG_FORMAT32;
+			pitch = crtc->primary->fb->pitches[0];
+			crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
 			break;
 		}
-
-	}else{
-		if(ldev->clone_mode == false){
-			switch (depth) {
-			case 32:
-			case 24:
-				ls_writel(0x00100104,base + LS_FB_CFG_DVO1_REG);
-				ls_writel(crtc->primary->fb->pitches[0],base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 4;
-				break;
-			case 16:
-				ls_writel(0x00100103,base + LS_FB_CFG_DVO1_REG);
-				ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
-				break;
-			case 15:
-				ls_writel(0x00100102,base + LS_FB_CFG_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
-				ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO1_REG);
-				break;
-			case 12:
-				ls_writel(0x00100101,base + LS_FB_CFG_DVO1_REG);
-				ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
-				break;
-			default:
-				ls_writel(0x00100104,base + LS_FB_CFG_DVO1_REG);
-				ls_writel(crtc->primary->fb->pitches[0],base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 4;
-				break;
-			}
-		}else{
-			switch (depth) {
-			case 32:
-			case 24:
-				ls_writel(0x00100304,base + LS_FB_CFG_DVO1_REG);
-				ls_writel(crtc->primary->fb->pitches[0],base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 4;
-				break;
-			case 16:
-				ls_writel(0x00100303,base + LS_FB_CFG_DVO1_REG);
-				ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
-				break;
-			case 15:
-				ls_writel(0x00100302,base + LS_FB_CFG_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
-				ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO1_REG);
-				break;
-			case 12:
-				ls_writel(0x00100301,base + LS_FB_CFG_DVO1_REG);
-				ls_writel((width * 2 + 255) & ~255,base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 2;
-				break;
-			default:
-				ls_writel(0x00100304,base + LS_FB_CFG_DVO1_REG);
-				ls_writel(crtc->primary->fb->pitches[0],base + LS_FB_STRI_DVO1_REG);
-				crtc_address = (u32)gpu_addr + y * pitch + ALIGN(x,64) * 4;
-				break;
-			}
-
+		ls_writel(cfg_reg, base + LS_FB_CFG_DVO0_REG);
+		ls_writel(pitch, base + LS_FB_STRI_DVO0_REG);
+		/*VGA*/
+		switch (depth) {
+		case 16:
+			cfg_reg |= LS_FB_CFG_FORMAT16 | LS_FB_CFG_SWITCH_PANEL;
+			break;
+		case 15:
+			cfg_reg |= LS_FB_CFG_FORMAT15 | LS_FB_CFG_SWITCH_PANEL;
+			break;
+		case 12:
+			cfg_reg |= LS_FB_CFG_FORMAT12 | LS_FB_CFG_SWITCH_PANEL;
+			break;
+		case 32:
+		case 24:
+		default:
+			cfg_reg |= LS_FB_CFG_FORMAT32 | LS_FB_CFG_SWITCH_PANEL;
+			pitch = crtc->primary->fb->pitches[0];
+			crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
+			break;
 		}
+		ls_writel(cfg_reg, base + LS_FB_CFG_DVO1_REG);
+		ls_writel(pitch, base + LS_FB_STRI_DVO1_REG);
 	}
+
 	loongson_set_start_address(crtc, (u32)crtc_address);
 	ldev->cursor_crtc_id = ldev->num_crtc;
 	ldev->cursor_showed = false;
 
 	return 0;
 }
-
-
-/**
- * loongson_crtc_mode_set_base
- *
- * @crtc: point to a drm_crtc structure
- * @old_fb: point to a drm_crtc structure
- *
- * Transfer the function which is loongson_crtc_do_set_base,and used by
- * the legacy CRTC helpers to set a new framebuffer and scanout position
- */
-static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-				  struct drm_framebuffer *old_fb)
-{
-	return loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
-}
-
 
 /**
  * config_pll
@@ -415,6 +388,92 @@ static unsigned int cal_freq(unsigned int pixclock_khz, struct pix_pll * pll_con
 	return 0;
 }
 
+/**
+ * loongson_crtc_mode_set_base
+ *
+ * @crtc: point to a drm_crtc structure
+ * @old_fb: point to a drm_crtc structure
+ *
+ * Transfer the function which is loongson_crtc_do_set_base,and used by
+ * the legacy CRTC helpers to set a new framebuffer and scanout position
+ */
+static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
+				  struct drm_framebuffer *old_fb)
+{
+	struct drm_device *dev = crtc->dev;
+	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
+	struct drm_display_mode mode = crtc->mode;
+	struct pix_pll pll_cfg;
+
+	unsigned long base;
+	unsigned int crtc_id, pix_freq, reg_val;
+	unsigned int hr, hss, hse, hfl;
+	unsigned int vr, vss, vse, vfl;
+
+	base = (unsigned long)(ldev->rmmio);
+	crtc_id = loongson_crtc->crtc_id;
+	hr = mode.hdisplay;    hfl = mode.htotal;
+	hse = mode.hsync_end;  hss = mode.hsync_start;
+	vr = mode.vdisplay;    vfl = mode.vtotal;
+	vse = mode.vsync_end;  vss = mode.vsync_start;
+	pix_freq = mode.clock;
+
+	if (crtc_id) {
+		reg_val = ls_readq(base + LS_FB_CFG_DVO1_REG);
+		reg_val &=~LS_FB_CFG_ENABLE;
+		ls_writeq(reg_val, base + LS_FB_CFG_DVO1_REG);
+	} else {
+		reg_val = ls_readq(base + LS_FB_CFG_DVO0_REG);
+		reg_val &=~LS_FB_CFG_ENABLE;
+		ls_writeq(reg_val, base + LS_FB_CFG_DVO0_REG);
+	}
+
+	cal_freq(pix_freq, &pll_cfg);
+
+	if (crtc_id) {
+		config_pll(LS_PIX1_PLL, &pll_cfg);
+		loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
+
+		ls_writel(0, base + LS_FB_DITCFG_DVO1_REG);
+		ls_writel(0, base + LS_FB_DITTAB_LO_DVO1_REG);
+		ls_writel(0, base + LS_FB_DITTAB_HI_DVO1_REG);
+
+		reg_val = 0;
+		reg_val = LS_FB_PANCFG_BASE |
+			LS_FB_PANCFG_DE |
+			LS_FB_PANCFG_CLKEN |
+			LS_FB_PANCFG_CLKPOL;
+		ls_writel(reg_val, base + LS_FB_PANCFG_DVO1_REG);
+		ls_writel(0, base + LS_FB_PANTIM_DVO1_REG);
+
+		ls_writel((hfl << 16) | hr, base + LS_FB_HDISPLAY_DVO1_REG);
+		ls_writel(LS_FB_HSYNC_POLSE | (hse << 16) | hss, base + LS_FB_HSYNC_DVO1_REG);
+		ls_writel((vfl << 16) | vr, base + LS_FB_VDISPLAY_DVO1_REG);
+		ls_writel(LS_FB_VSYNC_POLSE | (vse << 16) | vss, base + LS_FB_VSYNC_DVO1_REG);
+	} else {
+		config_pll(LS_PIX0_PLL, &pll_cfg);
+		loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
+
+		ls_writel(0,base + LS_FB_DITCFG_DVO0_REG);
+		ls_writel(0,base + LS_FB_DITTAB_LO_DVO0_REG);
+		ls_writel(0,base + LS_FB_DITTAB_HI_DVO0_REG);
+
+		reg_val = 0;
+		reg_val = LS_FB_PANCFG_BASE |
+			LS_FB_PANCFG_DE |
+			LS_FB_PANCFG_CLKEN |
+			LS_FB_PANCFG_CLKPOL;
+		ls_writel(reg_val,base + LS_FB_PANCFG_DVO0_REG);
+		ls_writel(0,base + LS_FB_PANTIM_DVO0_REG);
+
+		ls_writel((hfl << 16) | hr,base + LS_FB_HDISPLAY_DVO0_REG);
+		ls_writel(LS_FB_HSYNC_POLSE | (hse << 16) | hss,base + LS_FB_HSYNC_DVO0_REG);
+		ls_writel((vfl << 16) | vr,base + LS_FB_VDISPLAY_DVO0_REG);
+		ls_writel(LS_FB_VSYNC_POLSE | (vse << 16) | vss,base + LS_FB_VSYNC_DVO0_REG);
+	}
+	return 0;
+}
 
 /**
  * loongson_crtc_mode_set
@@ -438,41 +497,48 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 	unsigned int depth;
 	unsigned int hr, hss, hse, hfl;
 	unsigned int vr, vss, vse, vfl;
-	int ret;
+	int ret, reg_val;
 	struct pix_pll pll_cfg;
 	unsigned long base;
 	unsigned int crtc_id;
 
-
 	crtc_id = loongson_crtc->crtc_id;
 	base = (unsigned long)(ldev->rmmio);
 
-	hr	= mode->hdisplay;
-	hss	= mode->hsync_start;
-	hse	= mode->hsync_end;
-	hfl	= mode->htotal;
-
-	vr	= mode->vdisplay;
-	vss	= mode->vsync_start;
-	vse	= mode->vsync_end;
-	vfl	= mode->vtotal;
+	hr = mode->hdisplay;    hss = mode->hsync_start;
+	hse = mode->hsync_end;  hfl = mode->htotal;
+	vr = mode->vdisplay;    vss = mode->vsync_start;
+	vse = mode->vsync_end;  vfl = mode->vtotal;
 	depth = crtc->primary->fb->bits_per_pixel;
 	pix_freq = mode->clock;
-	DRM_DEBUG("crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d," 
+	DRM_DEBUG("crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d,"
 			"vse = %d,vfl = %d,depth = %d,pix_freq = %d,x = %d,y = %d\n",
 			crtc_id, hr, hss, hse, hfl, vr, vss, vse, vfl, depth,
 			pix_freq, x, y);
 
-	DRM_DEBUG("fb width = %d,height = %d\n", crtc->primary->fb->width, 
+	DRM_DEBUG("fb width = %d,height = %d\n", crtc->primary->fb->width,
 			crtc->primary->fb->height);
+
+#ifdef CONFIG_CPU_LOONGSON2K
+	if (crtc_id) {
+		reg_val = ls_readq(base + LS_FB_CFG_DVO1_REG);
+		reg_val &= ~LS_FB_CFG_RESET;
+		reg_val &= ~LS_FB_CFG_ENABLE;
+		ls_writeq(reg_val, base + LS_FB_CFG_DVO1_REG);
+	} else {
+		reg_val = ls_readq(base + LS_FB_CFG_DVO0_REG);
+		reg_val &= ~LS_FB_CFG_RESET;
+		reg_val &= ~LS_FB_CFG_ENABLE;
+		ls_writeq(reg_val, base + LS_FB_CFG_DVO0_REG);
+	}
+#endif /*CONFIG_CPU_LOONGSON2K*/
 
 	loongson_crtc->width = hr;
 	loongson_crtc->height = vr;
 	ret = cal_freq(pix_freq, &pll_cfg);
 
-	if(crtc_id == 0){
+	if (crtc_id == 0) {
 		if (ret) {
-			DRM_DEBUG("cal_freq OK!\n");
 			config_pll(LS_PIX0_PLL, &pll_cfg);
 		}
 
@@ -482,21 +548,25 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 	 * the hfl hss vfl vss are different with PMON vgamode cfg.
 	 * So the refresh freq in kernel and refresh freq in PMON are different.
 	 * */
-		ls_writel(0,base + LS_FB_DITCFG_DVO0_REG);
-		ls_writel(0,base + LS_FB_DITTAB_LO_DVO0_REG);
-		ls_writel(0,base + LS_FB_DITTAB_HI_DVO0_REG);
-		ls_writel(0x80001311,base + LS_FB_PANCFG_DVO0_REG);
-		ls_writel(0x00000000,base + LS_FB_PANTIM_DVO0_REG);
+		ls_writel(0, base + LS_FB_DITCFG_DVO0_REG);
+		ls_writel(0, base + LS_FB_DITTAB_LO_DVO0_REG);
+		ls_writel(0, base + LS_FB_DITTAB_HI_DVO0_REG);
 
+		reg_val = 0;
+		reg_val = LS_FB_PANCFG_BASE |
+			LS_FB_PANCFG_DE |
+			LS_FB_PANCFG_CLKEN |
+			LS_FB_PANCFG_CLKPOL;
+		ls_writel(reg_val, base + LS_FB_PANCFG_DVO0_REG);
+		ls_writel(0x00000000, base + LS_FB_PANTIM_DVO0_REG);
 
-		ls_writel((hfl << 16) | hr,base + LS_FB_HDISPLAY_DVO0_REG);
-		ls_writel(0x40000000 | (hse << 16) | hss,base + LS_FB_HSYNC_DVO0_REG);
-		ls_writel((vfl << 16) | vr,base + LS_FB_VDISPLAY_DVO0_REG);
-		ls_writel(0x40000000 | (vse << 16) | vss,base + LS_FB_VSYNC_DVO0_REG);
+		ls_writel((hfl << 16) | hr, base + LS_FB_HDISPLAY_DVO0_REG);
+		ls_writel(LS_FB_HSYNC_POLSE | (hse << 16) | hss, base + LS_FB_HSYNC_DVO0_REG);
+		ls_writel((vfl << 16) | vr, base + LS_FB_VDISPLAY_DVO0_REG);
+		ls_writel(LS_FB_VSYNC_POLSE | (vse << 16) | vss, base + LS_FB_VSYNC_DVO0_REG);
 
-	}else{
+	} else {
 		if (ret) {
-			DRM_DEBUG("cal_freq OK!\n");
 			config_pll(LS_PIX1_PLL, &pll_cfg);
 		}
 
@@ -506,24 +576,28 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 	 * the hfl hss vfl vss are different with PMON vgamode cfg.
 	 * So the refresh freq in kernel and refresh freq in PMON are different.
 	 * */
-		ls_writel(0,base + LS_FB_DITCFG_DVO1_REG);
-		ls_writel(0,base + LS_FB_DITTAB_LO_DVO1_REG);
-		ls_writel(0,base + LS_FB_DITTAB_HI_DVO1_REG);
-		ls_writel(0x80001311,base + LS_FB_PANCFG_DVO1_REG);
-		ls_writel(0x00000000,base + LS_FB_PANTIM_DVO1_REG);
+		ls_writel(0, base + LS_FB_DITCFG_DVO1_REG);
+		ls_writel(0, base + LS_FB_DITTAB_LO_DVO1_REG);
+		ls_writel(0, base + LS_FB_DITTAB_HI_DVO1_REG);
 
+		reg_val = 0;
+		reg_val = LS_FB_PANCFG_BASE |
+			LS_FB_PANCFG_DE |
+			LS_FB_PANCFG_CLKEN |
+			LS_FB_PANCFG_CLKPOL;
+		ls_writel(reg_val, base + LS_FB_PANCFG_DVO1_REG);
+		ls_writel(0x00000000, base + LS_FB_PANTIM_DVO1_REG);
 
-		ls_writel((hfl << 16) | hr,base + LS_FB_HDISPLAY_DVO1_REG);
-		ls_writel(0x40000000 | (hse << 16) | hss,base + LS_FB_HSYNC_DVO1_REG);
-		ls_writel((vfl << 16) | vr,base + LS_FB_VDISPLAY_DVO1_REG);
-		ls_writel(0x40000000 | (vse << 16) | vss,base + LS_FB_VSYNC_DVO1_REG);
-
+		ls_writel((hfl << 16) | hr, base + LS_FB_HDISPLAY_DVO1_REG);
+		ls_writel(LS_FB_HSYNC_POLSE | (hse << 16) | hss, base + LS_FB_HSYNC_DVO1_REG);
+		ls_writel((vfl << 16) | vr, base + LS_FB_VDISPLAY_DVO1_REG);
+		ls_writel(LS_FB_VSYNC_POLSE | (vse << 16) | vss, base + LS_FB_VSYNC_DVO1_REG);
 	}
+
 	ldev->cursor_crtc_id = ldev->num_crtc;
 	ldev->cursor_showed = false;
 	return 0;
 }
-
 
 /**
  * loongson_crtc_dpms
@@ -542,19 +616,21 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 	unsigned int crtc_id,val;
 
 	crtc_id = loongson_crtc->crtc_id;
+	base = (unsigned long)(ldev->rmmio);
+
 	if (ldev->inited == false || ldev->clone_mode == true) {
 		return ;
 	}
-	base = (unsigned long)(ldev->rmmio);
-	switch(mode) {
+
+	switch (mode) {
 	case DRM_MODE_DPMS_ON:
 		if (crtc_id) {
 			val = ls_readq(base + LS_FB_CFG_DVO1_REG);
-			val |=(1 << 8);
+			val |= LS_FB_CFG_ENABLE;
 			ls_writeq(val, base + LS_FB_CFG_DVO1_REG);
 		} else {
 			val = ls_readq(base + LS_FB_CFG_DVO0_REG);
-			val |= (1 << 8);
+			val |= LS_FB_CFG_ENABLE;
 			ls_writeq(val, base + LS_FB_CFG_DVO0_REG);
 		}
 		loongson_crtc->enabled = true;
@@ -564,18 +640,17 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 	case DRM_MODE_DPMS_SUSPEND:
 		if (crtc_id) {
 			val = ls_readq(base + LS_FB_CFG_DVO1_REG);
-			val &=~(1 << 8);
+			val &= ~LS_FB_CFG_ENABLE;
 			ls_writeq(val, base + LS_FB_CFG_DVO1_REG);
 		} else {
 			val = ls_readq(base + LS_FB_CFG_DVO0_REG);
-			val &=~(1 << 8);
+			val &= ~LS_FB_CFG_ENABLE;
 			ls_writeq(val, base + LS_FB_CFG_DVO0_REG);
 		}
 		loongson_crtc->enabled = false;
 		break;
 	}
 }
-
 
 /**
  * loongson_crtc_prepare
@@ -601,8 +676,6 @@ static void loongson_crtc_prepare(struct drm_crtc *crtc)
 			loongson_crtc_dpms(crtci, DRM_MODE_DPMS_OFF);
 		}
 }
-
-
 
 /**
  * loongson_crtc_commit
@@ -685,7 +758,6 @@ static const struct drm_crtc_funcs loongson_crtc_funcs = {
 	.destroy = loongson_crtc_destroy,
 };
 
-
 /**
  * These provide the minimum set of functions required to handle a CRTC
  *
@@ -700,7 +772,6 @@ static const struct drm_crtc_helper_funcs loongson_helper_funcs = {
 	.commit = loongson_crtc_commit,
 	.load_lut = loongson_crtc_load_lut,
 };
-
 
 /**
  * loongosn_crtc_init
@@ -729,5 +800,3 @@ void loongson_crtc_init(struct loongson_drm_device *ldev)
 		drm_crtc_helper_add(&ls_crtc->base, &loongson_helper_funcs);
 	}
 }
-
-
