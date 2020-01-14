@@ -170,6 +170,12 @@ struct kvm_vm_stat {
 	u64 lsvz_kvm_ls7a_msi_irq;
 	u64 lsvz_kvm_pip_read_exits;
 	u64 lsvz_kvm_pip_write_exits;
+	u64 lsvz_kvm_ls7a_pic_read_exits;
+	u64 lsvz_kvm_ls7a_pic_write_exits;
+	u64 lsvz_kvm_ls3a_ht_write_exits;
+	u64 lsvz_kvm_ls3a_ht_read_exits;
+	u64 lsvz_kvm_ls3a_router_write_exits;
+	u64 lsvz_kvm_ls3a_router_read_exits;
 #endif
 };
 
@@ -223,12 +229,6 @@ struct kvm_vcpu_stat {
 	u64 lsvz_tlb_refill_fail;
 	u64 lsvz_tlb_add_replace;
 	u64 lsvz_tlb_add_refresh;
-	u64 lsvz_ls7a_pic_read_exits;
-	u64 lsvz_ls7a_pic_write_exits;
-	u64 lsvz_ls3a_ht_write_exits;
-	u64 lsvz_ls3a_ht_read_exits;
-	u64 lsvz_ls3a_router_write_exits;
-	u64 lsvz_ls3a_router_read_exits;
 	u64 lsvz_gpsi_lwc2_exits;
 	u64 lsvz_rdcsr_exits;
 	u64 lsvz_rdcsr_cpu_feature_exits;

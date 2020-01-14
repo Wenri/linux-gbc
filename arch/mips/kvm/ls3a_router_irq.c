@@ -78,7 +78,7 @@ void route_update_reg(struct kvm *kvm,int irqnum,int level)
 	return;
 }
 
-uint64_t ls3a_router_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void *val)
+static uint64_t ls3a_router_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void *val)
 {
 	struct loongson_kvm_ls3a_routerirq *s = ls3a_router_irqchip(kvm);
 	uint64_t ret,offset;
@@ -103,10 +103,11 @@ uint64_t ls3a_router_intctl_read(struct kvm *kvm, gpa_t addr, unsigned size,void
 		ret = 0;
 		break;
 	}
+	kvm->stat.lsvz_kvm_ls3a_router_read_exits++;
 	return ret;
 }
 
-int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const void *val)
+static int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const void *val)
 {
 	uint64_t val_data,offset;
 	uint8_t *mem;
@@ -159,6 +160,8 @@ int ls3a_router_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, const 
 	if (size) {
 		printk("%s remaining size %d offset %llx\n", __FUNCTION__, size, offset);
 	}
+	kvm->stat.lsvz_kvm_ls3a_router_write_exits++;
+
 	return 0;
 }
 
@@ -166,9 +169,15 @@ static int kvm_ls3a_router_write(struct kvm_io_device * dev,
 		gpa_t addr, int len, const void *val)
 {
 	struct loongson_kvm_ls3a_routerirq *s;
-	s = container_of(dev, struct loongson_kvm_ls3a_routerirq, dev_ls3a_router_irq);
+	uint64_t result = 0;
+	unsigned long flags;
 
-	return ls3a_router_intctl_write(s->kvm,addr,len,val);
+	s = container_of(dev, struct loongson_kvm_ls3a_routerirq, dev_ls3a_router_irq);
+	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
+	result = ls3a_router_intctl_write(s->kvm,addr,len,val);
+	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+
+	return result;
 }
 
 
@@ -177,9 +186,13 @@ static int kvm_ls3a_router_read(struct kvm_io_device *dev,
 {
 	struct loongson_kvm_ls3a_routerirq *s;
 	uint64_t result=0;
+	unsigned long flags;
 
 	s = container_of(dev, struct loongson_kvm_ls3a_routerirq, dev_ls3a_router_irq);
+	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
 	result = ls3a_router_intctl_read(s->kvm,addr,len,val);
+	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+
 	return 0;
 }
 
@@ -202,7 +215,7 @@ struct loongson_kvm_ls3a_routerirq *kvm_create_ls3a_router_irq(struct kvm *kvm)
 
 	kvm_iodevice_init(&s->dev_ls3a_router_irq, &kvm_ls3a_router_irq_ops);
 	mutex_lock(&kvm->slots_lock);
-	ret = kvm_io_bus_register_dev(kvm, KVM_PIO_BUS, INT_ROUTER_REGS_BASE, 0x100,
+	ret = kvm_io_bus_register_dev(kvm, KVM_MMIO_BUS, INT_ROUTER_REGS_BASE, 0x100,
 			&s->dev_ls3a_router_irq);
 	if (ret < 0)
 		goto fail_unlock;
