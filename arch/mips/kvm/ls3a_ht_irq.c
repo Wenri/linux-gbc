@@ -70,10 +70,12 @@ static inline void ht_lower_irq (struct kvm *kvm,int regnum, unsigned int mask)
 void ht_irq_handler(struct kvm *kvm,int irq,int level)
 {
 	uint32_t reg_num,reg_bit;
+	unsigned long flags;
 	struct loongson_kvm_ls3a_htirq *s = ls3a_ht_irqchip(kvm);
 
 	reg_num = irq/32;
 	reg_bit = irq%32;
+	ls3a_ht_irq_lock(kvm->arch.v_htirq, flags);
 	if (level == 1) {
 		*(uint32_t *)(s->ht_irq_reg + ht_irq_vector[reg_num]) |=  1 << reg_bit;
 		ht_raise_irq(kvm, reg_num, 1 << reg_bit);
@@ -81,6 +83,7 @@ void ht_irq_handler(struct kvm *kvm,int irq,int level)
 		*(uint32_t *)(s->ht_irq_reg + ht_irq_vector[reg_num]) &= ~(1 << reg_bit);
 		ht_lower_irq(kvm, reg_num, 1 << reg_bit);
 	}
+	ls3a_ht_irq_unlock(kvm->arch.v_htirq, flags);
 }
 
 void msi_irq_handler(struct kvm *kvm,int irq,int level)
@@ -238,10 +241,10 @@ static int kvm_ls3a_ht_read(struct kvm_io_device *dev,
 	unsigned long flags;
 
 	s = container_of(dev, struct loongson_kvm_ls3a_htirq, dev_ls3a_ht_irq);
-	
-	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
+
+	ls3a_ht_irq_lock(s, flags);
 	result = ls3a_ht_intctl_read(s->kvm,addr,len,val);
-	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_ht_irq_unlock(s, flags);
 
 	return 0;
 }
@@ -255,9 +258,9 @@ static int kvm_ls3a_ht_write(struct kvm_io_device * dev,
 
 	s = container_of(dev, struct loongson_kvm_ls3a_htirq, dev_ls3a_ht_irq);
 
-	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_ht_irq_lock(s, flags);
 	ls3a_ht_intctl_write(s->kvm,addr,len,val);
-	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_ht_irq_unlock(s, flags);
 
 	return 0;
 }

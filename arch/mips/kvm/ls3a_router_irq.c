@@ -32,20 +32,25 @@ void route_update_reg(struct kvm *kvm,int irqnum,int level)
 	uint8_t core_mask,irq_nr,ip_num=2;
 	uint8_t *mem = s->ls3a_router_reg;
 	int nrcpus;
+	unsigned long flags;
 
 	if(irqnum < 0 || irqnum >= 32)
 		return;
+
+	ls3a_router_irq_lock(ls3a_router_irqchip(kvm), flags);
+
 	inten = *(uint32_t *)(mem + INT_ROUTER_REGS_EN);
 	irtr = *(uint8_t *)(mem + irqnum);
-	irq_nr = ((irtr >> 4) & 0xf); //core irq pin HT route to
+	/* core irq pin HT route to */
+	irq_nr = ((irtr >> 4) & 0xf);
 	core_mask = irtr & 0xf;
 	if ((inten & (1UL << irqnum)) == 0)
-		return;
+		goto route_update_fail;
 
 	ip_num = __ffs(irq_nr) + 2;
 	if (ip_num > 5) {
 		printk("%s(%d): ipp num %d larger than 5\n", __FUNCTION__, __LINE__, ip_num);
-		return;
+		goto route_update_fail;
 	}
 
 	i = __ffs(core_mask);
@@ -74,6 +79,12 @@ void route_update_reg(struct kvm *kvm,int irqnum,int level)
 			}
 		}
 	}
+	ls3a_router_irq_unlock(ls3a_router_irqchip(kvm), flags);
+
+	return;
+
+route_update_fail:
+	ls3a_router_irq_unlock(ls3a_router_irqchip(kvm), flags);
 
 	return;
 }
@@ -173,9 +184,9 @@ static int kvm_ls3a_router_write(struct kvm_io_device * dev,
 	unsigned long flags;
 
 	s = container_of(dev, struct loongson_kvm_ls3a_routerirq, dev_ls3a_router_irq);
-	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_router_irq_lock(s, flags);
 	result = ls3a_router_intctl_write(s->kvm,addr,len,val);
-	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_router_irq_unlock(s, flags);
 
 	return result;
 }
@@ -189,9 +200,9 @@ static int kvm_ls3a_router_read(struct kvm_io_device *dev,
 	unsigned long flags;
 
 	s = container_of(dev, struct loongson_kvm_ls3a_routerirq, dev_ls3a_router_irq);
-	ls7a_ioapic_lock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_router_irq_lock(s, flags);
 	result = ls3a_router_intctl_read(s->kvm,addr,len,val);
-	ls7a_ioapic_unlock(s->kvm->arch.v_ioapic, &flags);
+	ls3a_router_irq_unlock(s, flags);
 
 	return 0;
 }
