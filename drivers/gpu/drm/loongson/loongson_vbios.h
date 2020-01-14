@@ -3,23 +3,77 @@
  *
  * @driver_priv: Pointer to driver-private information.
  */
+
+#define LS_MAX_RESOLUTIONS 10
+#define LS_MAX_REG_TABLE   256
+
 struct loongson_vbios {
-	char  title[16];
+	char title[16];
 	uint32_t version_major;
 	uint32_t version_minor;
-	char  information[20];
+	char information[20];
 	uint32_t crtc_num;
 	uint32_t crtc_offset;
 	uint32_t connector_num;
 	uint32_t connector_offset;
-	uint32_t phy_num;
-	uint32_t phy_offset;
+	uint32_t encoder_num;
+	uint32_t encoder_offset;
 }__attribute__ ((packed));
 
 enum loongson_crtc_version{
 	default_version = 0,
 	crtc_version_max = 0xffffffff,
 }__attribute__ ((packed));
+
+struct loongson_crtc_modeparameter{
+	/* horizontal timing. */
+	uint32_t horizontaltotal;
+	uint32_t horizontaldisplay;
+	uint32_t horizontalsyncstart;
+	uint32_t horizontalsyncwidth;
+	uint32_t horizontalsyncpolarity;
+
+	/* vertical timing. */
+	uint32_t verticaltotal;
+	uint32_t verticaldisplay;
+	uint32_t verticalsyncstart;
+	uint32_t verticalsyncheight;
+	uint32_t verticalsyncpolarity;
+
+	/* refresh timing. */
+	int32_t pixelclock;
+	uint32_t horizontalfrequency;
+	uint32_t verticalfrequency;
+
+	/* clock phase. this clock phase only applies to panel. */
+	uint32_t clockphasepolarity;
+};
+
+struct loongson_encoder_conf_reg{
+	unsigned char dev_addr;
+	unsigned char reg;
+	unsigned char value;
+}__attribute__((packed));
+
+struct  ls_encoder_resolution_config{
+	unsigned char reg_num;
+	struct loongson_encoder_conf_reg config_regs[LS_MAX_REG_TABLE];
+}__attribute__((packed));
+
+struct loongson_resolution_param{
+	bool used;
+	uint32_t hdisplay;
+	uint32_t vdisplay;
+};
+
+struct loongson_crtc_config_param{
+	struct loongson_resolution_param resolution;
+	struct loongson_crtc_modeparameter crtc_resol_param;
+};
+struct loongson_encoder_config_param{
+	struct loongson_resolution_param resolution;
+	struct ls_encoder_resolution_config encoder_resol_param;
+};
 
 struct loongson_vbios_crtc{
 	uint32_t next_crtc_offset;
@@ -30,14 +84,17 @@ struct loongson_vbios_crtc{
 	uint32_t crtc_max_height;
 	uint32_t connector_id;
 	uint32_t phy_num;
-	uint32_t phy_id[2];
+	uint32_t encoder_id;
+	uint32_t reserve;
+	bool use_local_param;
+	struct loongson_crtc_config_param mode_config_tables[LS_MAX_RESOLUTIONS];
 }__attribute__ ((packed));
 
 enum loongson_edid_method {
 	edid_method_null = 0,
 	edid_method_i2c,
 	edid_method_vbios,
-	edid_method_phy,
+	edid_method_encoder,
 	edid_method_max = 0xffffffff,
 }__attribute__ ((packed));
 
@@ -45,23 +102,8 @@ enum loongson_vbios_i2c_type{
 	i2c_type_null = 0,
 	i2c_type_gpio,
 	i2c_type_cpu,
-	i2c_type_phy,
+	i2c_type_encoder,
 	i2c_type_max = 0xffffffff,
-}__attribute__ ((packed));
-
-struct loongson_vbios_connector{
-	uint32_t next_connector_offset;
-	uint32_t crtc_id;
-	enum loongson_edid_method edid_method;
-	enum loongson_vbios_i2c_type i2c_type;
-	uint32_t i2c_id;
-	uint32_t edid_version;
-	uint32_t edid_offset;
-}__attribute__ ((packed));
-
-enum loongson_phy_type{
-	phy_transparent = 0,
-	phy_type_max = 0xffffffff,
 }__attribute__ ((packed));
 
 enum hot_swap_method{
@@ -71,16 +113,75 @@ enum hot_swap_method{
 	hot_swap_max = 0xffffffff,
 }__attribute__ ((packed));
 
-struct loongson_vbios_phy{
-	uint32_t next_phy_offset;
-	uint32_t crtc_id;
-	uint32_t connector_id;
-	uint32_t use_internal_edid;
-	enum loongson_phy_type phy_type;
-	enum loongson_vbios_i2c_type i2c_type;
-	uint32_t i2c_id;
-	enum hot_swap_method hot_swap_method;
-	uint32_t hot_swap_irq;
+enum loongson_encoder_config{
+	encoder_transparent = 0,
+	encoder_os_config,
+	encoder_bios_config, //bios config encoder
+	encoder_type_max = 0xffffffff,
 }__attribute__ ((packed));
 
+enum connector_type {
+	connector_unknown,
+	connector_vga,
+	connector_dvii,
+	connector_dvid,
+	connector_dvia,
+	connector_composite,
+	connector_svideo,
+	connector_lvds,
+	connector_component,
+	connector_9pindin,
+	connector_displayport,
+	connector_hdmia,
+	connector_hdmib,
+	connector_tv,
+	connector_edp,
+	connector_virtual,
+	connector_dsi,
+	connector_dpi
+};
+
+enum encoder_type{
+	encoder_none,
+	encoder_dac,
+	encoder_tmds,
+	encoder_lvds,
+	encoder_tvdac,
+	encoder_virtual,
+	encoder_dsi,
+	encoder_dpmst,
+	encoder_dpi
+};
+
+struct loongson_backlight_pwm {
+    uint8_t pwm_id, polarity;
+    uint32_t  period_ns;
+};
+
+struct loongson_vbios_connector{
+	uint32_t next_connector_offset;
+	uint32_t crtc_id;
+	enum loongson_edid_method edid_method;
+	enum loongson_vbios_i2c_type i2c_type;
+	uint32_t i2c_id;
+	uint32_t encoder_id;
+	enum connector_type type;
+	enum hot_swap_method hot_swap_method;
+	uint32_t hot_swap_irq;
+	uint32_t edid_version;
+	uint8_t internal_edid[256];
+	struct loongson_backlight_pwm bl_pwm;
+}__attribute__ ((packed));
+
+struct loongson_vbios_encoder{
+	uint32_t next_encoder_offset;
+	uint32_t crtc_id;
+	uint32_t connector_id;
+	uint32_t reserve;
+	enum loongson_encoder_config config_type;
+	enum loongson_vbios_i2c_type i2c_type;
+	uint32_t i2c_id;
+	enum encoder_type type;
+	struct loongson_encoder_config_param mode_config_tables[LS_MAX_RESOLUTIONS];
+}__attribute__ ((packed));
 

@@ -27,6 +27,86 @@
  */
 
 
+
+/**
+ * loongson_encoder_resolution_match
+ * @hdisplay
+ * @vdisplay
+ * @ config_param
+ * */
+int loongson_encoder_resolution_match(unsigned int hdisplay,
+		unsigned int vdisplay,
+		struct loongson_encoder *ls_encoder)
+{
+	struct loongson_vbios_encoder *vbios_encoder;
+	struct loongson_encoder_config_param *config_param;
+	struct loongson_resolution_param *resolution;
+	int match_index = 0;
+
+	vbios_encoder = ls_encoder->vbios_encoder;
+	if (vbios_encoder->config_type == encoder_transparent)
+		return match_index;
+
+	config_param = vbios_encoder->mode_config_tables;
+	while(match_index < LS_MAX_RESOLUTIONS ){
+		resolution = &config_param->resolution;
+		if (hdisplay == resolution->hdisplay)
+			if (vdisplay == resolution->vdisplay)
+				break;
+		match_index++;
+		config_param++;
+	}
+	return match_index;
+}
+
+static bool mode_set_i2c(struct loongson_encoder *ls_encoder, struct drm_display_mode *mode)
+{
+	int i;
+	unsigned char write_data[2];
+	struct i2c_msg write_msgs;
+	struct i2c_adapter *adapter;
+	struct loongson_vbios_encoder *vbios_encoder;
+	struct loongson_encoder_conf_reg *ls_reg;
+	int resolution_index;
+	int reg_num;
+
+	vbios_encoder = ls_encoder->vbios_encoder;
+
+	if (!ls_encoder->i2c)
+		DRM_ERROR("ls encoder modeset no i2c\n");
+	adapter = ls_encoder->i2c->adapter;
+
+	if (!vbios_encoder)
+		DRM_ERROR("ls encoder mdoeset no vbios \n");
+
+	resolution_index = loongson_encoder_resolution_match(
+			mode->hdisplay,mode->vdisplay,
+			ls_encoder);
+
+
+	if (resolution_index == LS_MAX_RESOLUTIONS){
+		DRM_ERROR("ls encoder  mdoeset mach resolution err \n");
+		return false;
+	}
+
+	reg_num = vbios_encoder->mode_config_tables[resolution_index].encoder_resol_param.reg_num;
+	for (i = 0; i < reg_num; i++) {
+		ls_reg = &vbios_encoder->mode_config_tables[resolution_index].encoder_resol_param.config_regs[i];
+		write_msgs.flags  = 0;
+		write_msgs.addr   = ls_reg->dev_addr;
+		write_data[0]     = ls_reg->reg;
+		write_data[1]     = ls_reg->value;
+		write_msgs.buf    = write_data;
+		write_msgs.len    = 2;
+		if (i2c_transfer(adapter, &write_msgs, 1) != 1)
+			DRM_INFO("op encoder dev_addr[%#x] reg[%#x] val[%#x]\n",
+					ls_reg->dev_addr, ls_reg->reg,ls_reg->value);
+	}
+
+	return true;
+}
+
+
 /**
  * loongson_encoder_mode_set
  *
@@ -40,9 +120,21 @@ static void loongson_encoder_mode_set(struct drm_encoder *encoder,
 				struct drm_display_mode *mode,
 				struct drm_display_mode *adjusted_mode)
 {
+	struct loongson_encoder *ls_encoder;
+	struct loongson_vbios_encoder  *vbios_encoder;
+	ls_encoder = to_loongson_encoder(encoder);
+	vbios_encoder  = ls_encoder->vbios_encoder;
 
+	if ( ls_encoder && !ls_encoder->mode_set_method )
+		return;
+
+	if (vbios_encoder->config_type == encoder_os_config)
+	{
+		DRM_INFO("Do encoder-%d mode set hdis  %d  vdisp  %d  encoderid  %d \n",
+				ls_encoder->encoder_id, mode->hdisplay, mode->vdisplay, ls_encoder->encoder_id);
+		ls_encoder->mode_set_method(ls_encoder, mode);
+	}
 }
-
 
 /**
  * loongson_encoder_dpms
@@ -127,21 +219,60 @@ static const struct drm_encoder_funcs loongson_encoder_encoder_funcs = {
  *
  * Init encoder
  */
-struct drm_encoder *loongson_encoder_init(struct drm_device *dev,unsigned int encoder_id)
+struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev, int index)
 {
 	struct drm_encoder *encoder;
-	struct loongson_encoder *loongson_encoder;
+	struct loongson_encoder *ls_encoder;
+	struct loongson_vbios_encoder *lsvbios_enc = ldev->encoder_vbios[index];
 
-	loongson_encoder = kzalloc(sizeof(struct loongson_encoder), GFP_KERNEL);
-	if (!loongson_encoder)
+	ls_encoder = kzalloc(sizeof(struct loongson_encoder), GFP_KERNEL);
+	if (!ls_encoder)
 		return NULL;
 
-	encoder = &loongson_encoder->base;
-	encoder->possible_crtcs = 1 << encoder_id;
+	DRM_INFO("loongson encoder_index %d\n",index);
+	ls_encoder->encoder_id = index;
+	ls_encoder->ldev = ldev;
 
-	drm_encoder_init(dev, encoder, &loongson_encoder_encoder_funcs,
-			 DRM_MODE_ENCODER_DAC, NULL);
+	ls_encoder->mode_set_method = mode_set_i2c;
+	ls_encoder->vbios_encoder = lsvbios_enc;
+
+	if (ldev->vbios->version_minor == 1 && ldev->vbios->version_major == 0 )
+		ls_encoder->mode_set_method = loongson_encoder_reset_3a3k;
+
+	encoder = &ls_encoder->base;
+	encoder->possible_crtcs = 1 << index;
+
+	drm_encoder_init(ldev->dev, encoder, &loongson_encoder_encoder_funcs,
+			lsvbios_enc->type, NULL);
+
 	drm_encoder_helper_add(encoder, &loongson_encoder_helper_funcs);
 
-	return encoder;
+	return ls_encoder;
+}
+
+void loongson_encoder_do_resume(struct loongson_encoder *ls_encoder)
+{
+	if (ls_encoder &&
+	    ls_encoder->vbios_encoder->config_type != encoder_bios_config )
+	{
+		DRM_INFO("Do ls encoder-%d resmue\n",ls_encoder->encoder_id);
+		ls_encoder->mode_set_method(ls_encoder,&ls_encoder->base.crtc->mode);
+	}
+}
+
+void loongson_encoder_resume(struct loongson_drm_device *ldev)
+{
+	int i;
+	struct loongson_mode_info *ls_mode_info;
+	struct loongson_encoder   *ls_encoder;
+	DRM_DEBUG("====DO dpms conn resume\n");
+	for (i = 0; i< LS_MAX_MODE_INFO; i++){
+		ls_mode_info = &ldev->mode_info[i];
+		if (ls_mode_info->mode_config_initialized == true){
+			ls_encoder = ls_mode_info->encoder;
+			if ( ls_encoder->vbios_encoder->config_type == encoder_bios_config )
+				continue;
+			loongson_encoder_do_resume(ls_encoder);
+		}
+	}
 }
