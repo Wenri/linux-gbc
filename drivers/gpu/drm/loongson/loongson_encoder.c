@@ -242,6 +242,11 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev,
 	encoder = &ls_encoder->base;
 	encoder->possible_crtcs = 1 << index;
 
+	ls_encoder->i2c = loongson_i2c_bus_match(ldev,lsvbios_enc->i2c_id);
+	if (!ls_encoder->i2c) {
+		DRM_INFO("lson encoder-%d match i2c-%d adap err\n",index,lsvbios_enc->i2c_id);
+	}
+
 	drm_encoder_init(ldev->dev, encoder, &loongson_encoder_encoder_funcs,
 			lsvbios_enc->type, NULL);
 
@@ -252,9 +257,7 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev,
 
 void loongson_encoder_do_resume(struct loongson_encoder *ls_encoder)
 {
-	if (ls_encoder &&
-	    ls_encoder->vbios_encoder->config_type != encoder_bios_config )
-	{
+	if (ls_encoder) {
 		DRM_INFO("Do ls encoder-%d resmue\n",ls_encoder->encoder_id);
 		ls_encoder->mode_set_method(ls_encoder,&ls_encoder->base.crtc->mode);
 	}
@@ -265,7 +268,7 @@ void loongson_encoder_resume(struct loongson_drm_device *ldev)
 	int i;
 	struct loongson_mode_info *ls_mode_info;
 	struct loongson_encoder   *ls_encoder;
-	DRM_DEBUG("====DO dpms conn resume\n");
+
 	for (i = 0; i< LS_MAX_MODE_INFO; i++){
 		ls_mode_info = &ldev->mode_info[i];
 		if (ls_mode_info->mode_config_initialized == true){

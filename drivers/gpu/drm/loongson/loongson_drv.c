@@ -377,6 +377,94 @@ int loongson_gem_create(struct drm_device *dev,
 	*obj = &astbo->gem;
 	return 0;
 }
+/**
+ * loongson_i2c_bus_match
+ *
+ * @Returns  loongson_i2c pointer
+ */
+struct loongson_i2c *loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id)
+{
+	unsigned int i;
+
+	for (i = 0; i < LS_MAX_I2C_BUS; i++) {
+		if (ldev->i2c_bus[i].i2c_id == i2c_id && ldev->i2c_bus[i].used == true)
+			return &ldev->i2c_bus[i];
+	}
+
+	return NULL;
+}
+
+void loongson_i2c_create(struct loongson_i2c *ls_i2c, const char *name)
+{
+	struct i2c_adapter *i2c_adapter;
+	struct i2c_board_info i2c_info;
+	struct i2c_client * i2c_cli;
+
+	DRM_DEBUG("loongson gpu add i2c_id %d\n",ls_i2c->i2c_id);
+	i2c_adapter = i2c_get_adapter(ls_i2c->i2c_id);
+	if (!i2c_adapter){
+		dev_warn_once(ls_i2c->ldev->dev->dev, "i2c-%d get adapter err \n", ls_i2c->i2c_id);
+		return;
+	}
+	ls_i2c->adapter = i2c_adapter;
+	ls_i2c->used = true;
+
+#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
+	return;
+#endif
+	memset(&i2c_info, 0, sizeof(struct i2c_board_info));
+	strncpy(i2c_info.type, name, I2C_NAME_SIZE);
+	i2c_info.addr = DVO_I2C_ADDR;
+	i2c_cli = i2c_new_device(i2c_adapter, &i2c_info);
+	if (i2c_cli == NULL) {
+		return;
+	}
+
+	i2c_put_adapter(i2c_adapter);
+}
+
+void loongson_i2c_add(struct loongson_drm_device *ldev,
+			unsigned int i2c_id,
+			const char *name)
+{
+	int i;
+	struct loongson_i2c *ls_i2c;
+
+	ls_i2c = loongson_i2c_bus_match(ldev,i2c_id);
+
+	if (ls_i2c != NULL)
+		return;
+
+	for(i = 0; i < LS_MAX_I2C_BUS; i ++){
+		if (ldev->i2c_bus[i].used == false) {
+			ldev->i2c_bus[i].i2c_id = i2c_id;
+			ldev->i2c_bus[i].ldev = ldev;
+			loongson_i2c_create(&ldev->i2c_bus[i], name);
+			break;
+		}
+	}
+}
+
+/**
+ * loongson_pre_i2c_bus prepare i2c-adap for gpu hw
+ *
+ * @ldev  loongson_drm_device
+ */
+static void loongson_pre_i2c_bus(struct loongson_drm_device *ldev)
+{
+	int encoder_num;
+	int connector_num;
+	int i;
+	unsigned int i2c_id;
+
+	encoder_num = ldev->vbios->encoder_num;
+	connector_num = ldev->vbios->connector_num;
+
+	for (i = 0; i < encoder_num; i++ ) {
+		i2c_id = ldev->encoder_vbios[i]->i2c_id;
+		loongson_i2c_add(ldev,i2c_id,DVO_I2C_NAME);
+	}
+}
 
 /**
  * loongson_modeset_init --- init kernel mode setting
@@ -403,6 +491,8 @@ int loongson_modeset_init(struct loongson_drm_device *ldev)
 	ldev->dev->mode_config.cursor_height = 32;
 
 	ldev->dev->mode_config.fb_base = ldev->mc.vram_base;
+
+	loongson_pre_i2c_bus(ldev);
 
 	for(i = 0; ( i < ldev->num_crtc && i < LS_MAX_MODE_INFO ); i++){
 		lsbios_crtc = ldev->crtc_vbios[i];
