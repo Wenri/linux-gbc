@@ -1016,6 +1016,7 @@ int loongson_drm_resume(struct drm_device *dev)
 	drm_helper_resume_force_mode(dev);
         drm_kms_helper_poll_enable(dev);
 	loongson_fbdev_set_suspend(ldev, 0);
+	loongson_connector_resume(ldev);
 	console_unlock();
 	return 0;
 }

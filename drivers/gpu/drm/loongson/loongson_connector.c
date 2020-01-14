@@ -18,6 +18,9 @@
 #include <drm/drm_plane_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
+#include <linux/gpio.h>
+#include <linux/pwm.h>
+#include <linux/moduleparam.h>
 
 #include "loongson_drv.h"
 
@@ -244,7 +247,352 @@ static const struct drm_connector_helper_funcs loongson_vga_connector_helper_fun
         .best_encoder = loongson_connector_best_encoder,
 };
 
+/**
+ * @loongson_connector_pwm_get
+ *
+ * @Param ls_connector loongson drm connector
+ *
+ * @Returns  0 is ok
+ */
+unsigned int loongson_connector_pwm_get(struct loongson_connector *ls_connector)
+{
+	unsigned int duty_ns;
+	unsigned int period_ns;
+	unsigned int level;
+	struct loongson_vbios_connector *vbios_connector=
+		ls_connector->vbios_connector;
 
+	if (IS_ERR(ls_connector->bl.pwm))
+		return 0;
+
+	period_ns = vbios_connector->bl_pwm.period_ns;
+	duty_ns = pwm_get_duty_cycle(ls_connector->bl.pwm);
+
+	level = DIV_ROUND_UP((duty_ns * ls_connector->bl.max), period_ns);
+	level = clamp(level, ls_connector->bl.min, ls_connector->bl.max);
+	return level;
+}
+
+/*
+ * @Function  loongson_connector_pwm_set
+ *
+ *@ls_connector
+ **/
+void loongson_connector_pwm_set(struct loongson_connector *ls_connector,
+				unsigned int level)
+{
+	unsigned int period_ns;
+	unsigned int duty_ns;
+	struct loongson_vbios_connector *vbios_connector=
+		ls_connector->vbios_connector;
+
+	if (IS_ERR(ls_connector->bl.pwm))
+		return ;
+
+	level = clamp(level, ls_connector->bl.min, ls_connector->bl.max);
+	period_ns = vbios_connector->bl_pwm.period_ns;
+	duty_ns = DIV_ROUND_UP((level * period_ns), ls_connector->bl.max);
+
+	pwm_config(ls_connector->bl.pwm, duty_ns, period_ns);
+}
+
+/**
+ * @loongson_connector_pwm_enable
+ *
+ * @Param ls_connector loongson drm connector
+ * @Param enable  enable hw
+ */
+static void
+loongson_connector_pwm_enable(struct loongson_connector *ls_connector,
+			      bool enable)
+{
+	struct loongson_vbios_connector *lsvbios_connector;
+	lsvbios_connector = ls_connector->vbios_connector;
+
+	if (IS_ERR(ls_connector->bl.pwm))
+		return;
+
+	if (enable){
+		pwm_enable(ls_connector->bl.pwm);
+	}
+	else {
+		pwm_disable(ls_connector->bl.pwm);
+	}
+}
+
+/**
+ * @loongson_connector_pwm_setup
+ *
+ * @Param ls_connector loongson drm connector
+ *
+ * @Returns  0 is ok
+ */
+int loongson_connector_pwm_setup(struct loongson_connector *ls_connector)
+{
+	struct loongson_vbios_connector *vbios_connector =
+		ls_connector->vbios_connector;
+	unsigned int pwm_period_ns = vbios_connector->bl_pwm.period_ns;
+
+	ls_connector->bl.hw_enabled = true;
+	ls_connector->bl.level = ls_connector->bl.get_brightness(ls_connector);
+	pwm_set_period(ls_connector->bl.pwm, pwm_period_ns);
+	pwm_set_polarity(ls_connector->bl.pwm,
+			vbios_connector->bl_pwm.polarity);
+
+	gpio_direction_output(LOONGSON_GPIO_LCD_EN, 1);
+	gpio_direction_output(LOONGSON_GPIO_LCD_VDD,1);
+
+	return 0;
+}
+
+/**
+ * @loongson_connector_pwm_get_resource
+ *
+ * @Param ls_connector loongson drm connector
+ *
+ * @Returns 0 is get resource ok
+ */
+int loongson_connector_pwm_get_resource(struct loongson_connector *ls_connector)
+{
+	int ret;
+
+	struct drm_device *dev = ls_connector->base.dev;
+	struct loongson_backlight *bl = &ls_connector->bl;
+	struct loongson_vbios_connector *vbios_connector = ls_connector->vbios_connector;
+
+	bl->pwm = pwm_request(vbios_connector->bl_pwm.pwm_id, "Loongson_bl");
+
+	if (IS_ERR(bl->pwm)) {
+		DRM_DEV_ERROR(dev->dev,"Failed to get the pwm chip\n");
+		bl->pwm = NULL;
+		return 1;
+	}
+
+	ret = gpio_request(LOONGSON_GPIO_LCD_VDD, "GPIO_VDD");
+	if (ret) {
+            DRM_DEV_INFO(ls_connector->ldev->dev->dev,"EN request error!\n");
+	    goto free_gpu_pwm;
+	}
+
+	ret = gpio_request(LOONGSON_GPIO_LCD_EN, "GPIO_EN");
+        if(ret < 0) {
+            DRM_DEV_INFO(ls_connector->ldev->dev->dev,"VDD request error!\n");
+	    goto free_gpio_vdd;
+        }
+
+	return 0;
+
+free_gpio_vdd:
+	gpio_free(LOONGSON_GPIO_LCD_VDD);
+free_gpu_pwm:
+	pwm_free(bl->pwm);
+	bl->pwm = NULL;
+	return 1;
+}
+
+/**
+ * @loongson_connector_pwm_free_resource
+ *
+ * @Param ls_connector loongson drm connector
+ */
+void loongson_connector_pwm_free_resource(struct loongson_connector *ls_connector)
+{
+	struct loongson_backlight *bl = &ls_connector->bl;
+
+	if (bl->pwm)
+		pwm_free(bl->pwm);
+
+	gpio_free(LOONGSON_GPIO_LCD_EN);
+	gpio_free(LOONGSON_GPIO_LCD_VDD);
+}
+
+/**
+ * @loongson_connector_lvds_power
+ *
+ * @ls_connector loongson  drm connector
+ * @enable control power-on or power-down
+ */
+void loongson_connector_lvds_power(struct loongson_connector *ls_connector,
+				   bool enable)
+{
+	gpio_set_value(LOONGSON_GPIO_LCD_EN, enable);
+}
+/**
+ * loongson_connector_backlight_funcs_register
+ * @ls_connector loongson drm connector
+ * */
+void loongson_connector_backlight_pwm_funcs_register(
+		struct loongson_connector *ls_connector)
+{
+	ls_connector->bl.min		= LOONGSON_BL_MIN_LEVEL;
+	ls_connector->bl.max		= LOONGSON_BL_MAX_LEVEL;
+
+	ls_connector->bl.get_resource   = loongson_connector_pwm_get_resource;
+	ls_connector->bl.free_resource  = loongson_connector_pwm_free_resource;
+	ls_connector->bl.setup          = loongson_connector_pwm_setup;
+	ls_connector->bl.get_brightness = loongson_connector_pwm_get;
+	ls_connector->bl.set_brightness = loongson_connector_pwm_set;
+	ls_connector->bl.enable         = loongson_connector_pwm_enable;
+	ls_connector->bl.power_op       = loongson_connector_lvds_power;
+}
+
+/**
+ * loongson_connector_backlight_updat
+ * @bd      backlight device
+ * @return  operation ok retuen 0
+ * */
+static int loongson_connector_backlight_update(struct backlight_device *bd)
+{
+	bool enable;
+	struct loongson_connector *ls_connector = bl_get_data(bd);
+	struct drm_device *dev = ls_connector->base.dev;
+	struct loongson_backlight *backlight = &ls_connector->bl;
+
+	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
+
+	if (bd->props.brightness < backlight->min){
+		bd->props.brightness = backlight->level;
+		drm_modeset_unlock(&dev->mode_config.connection_mutex);
+		return -EINVAL;
+	}
+
+	enable = bd->props.power == FB_BLANK_UNBLANK;
+	ls_connector->bl.enable(ls_connector, enable);
+	if (backlight->power_op)
+		backlight->power_op(ls_connector, enable);
+	backlight->hw_enabled = enable;
+
+	backlight->level = bd->props.brightness;
+	ls_connector->bl.set_brightness(ls_connector, backlight->level);
+
+	drm_modeset_unlock(&dev->mode_config.connection_mutex);
+	return 0;
+}
+/**
+ * loongson_connector_get_brightness
+ * @ls_connector loongson drm connector
+ * */
+static int loongson_connector_get_brightness(struct backlight_device *bd)
+{
+	struct loongson_connector *ls_connector = bl_get_data(bd);
+
+	if (ls_connector->bl.get_brightness)
+		return ls_connector->bl.get_brightness(ls_connector);
+
+	return -ENOEXEC;
+}
+
+static const struct backlight_ops ls_backlight_device_ops = {
+	.update_status  = loongson_connector_backlight_update,
+	.get_brightness = loongson_connector_get_brightness,
+};
+/**
+ * loongson_connector_backlight_register
+ * @ls_connector loongson drm connector
+ * @return  0 is ok .
+ * */
+int loongson_connector_backlight_register(struct loongson_connector *ls_connector)
+{
+	struct backlight_properties props;
+
+	memset(&props, 0, sizeof(props));
+	props.type = BACKLIGHT_RAW;
+	props.max_brightness = ls_connector->bl.max;
+	props.brightness = ls_connector->bl.level;
+;
+	ls_connector->bl.device =
+		backlight_device_register("loongson-gpu",
+					  ls_connector->base.kdev,
+					  ls_connector,
+					  &ls_backlight_device_ops, &props);
+
+	if (IS_ERR(ls_connector->bl.device)) {
+		DRM_DEV_ERROR(ls_connector->ldev->dev->dev,
+				"Failed to register backlight\n");
+
+		ls_connector->bl.device = NULL;
+		return -ENODEV;
+	}
+
+	DRM_INFO("Loongson connector%s bl sysfs interface registered\n",
+		      ls_connector->base.name);
+
+	return 0;
+}
+/** loongson_connector_pwm_init
+ * @ls_connector loongson drm connector
+ * */
+int loongson_connector_pwm_init(struct loongson_connector *ls_connector)
+{
+	int ret=1;
+	struct loongson_backlight *bl = &ls_connector->bl;
+
+	if (bl->get_resource)
+		ret = bl->get_resource(ls_connector);
+	if (ret) {
+		DRM_DEV_INFO(ls_connector->ldev->dev->dev,"get resrouce err");
+		return ret;
+	}
+
+	if (bl->setup)
+		ret = bl->setup(ls_connector);
+	if (ret) {
+		DRM_DEV_INFO(ls_connector->ldev->dev->dev,"pwm set err");
+		return ret;
+	}
+	return ret;
+}
+/**
+ * loongson_connector_late_register
+ * @connector  drm connector
+ * @returns
+ * */
+int  loongson_connector_late_register(struct drm_connector *connector)
+{
+	int ret = 1;
+	struct loongson_vbios_connector *vbios_connector;
+	struct loongson_connector *ls_connector =
+		to_loongson_connector(connector);
+
+	vbios_connector = ls_connector->vbios_connector;
+
+	if ((vbios_connector->type == DRM_MODE_CONNECTOR_LVDS) ||
+			(vbios_connector->type == DRM_MODE_CONNECTOR_eDP))
+	{
+		loongson_connector_backlight_pwm_funcs_register(ls_connector);
+		ret = loongson_connector_pwm_init(ls_connector);
+		if (ret == 0){
+			ret = loongson_connector_backlight_register(ls_connector);
+
+			if (ret == 0)
+				ls_connector->bl.present = true;
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * @loongson_connector_early_unregister
+ *
+ * @Param connector loongson drm connector
+ */
+void loongson_connector_early_unregister(struct drm_connector *connector)
+{
+	struct loongson_connector *ls_connector;
+	struct loongson_backlight *bl;
+	ls_connector = to_loongson_connector(connector);
+
+	if (IS_ERR(ls_connector))
+		return;
+
+	bl = &ls_connector->bl;
+	if (bl->present == true) {
+		if (bl->free_resource)
+			bl->free_resource(ls_connector);
+	}
+	bl->present = false;
+}
 /**
  * These provide the minimum set of functions required to handle a connector
  *
@@ -255,14 +603,11 @@ static const struct drm_connector_helper_funcs loongson_vga_connector_helper_fun
 static const struct drm_connector_funcs loongson_vga_connector_funcs = {
         .dpms = drm_helper_connector_dpms,
         .detect = loongson_connector_detect,
+	.late_register = loongson_connector_late_register,
+	.early_unregister = loongson_connector_early_unregister,
         .fill_modes = drm_helper_probe_single_connector_modes,
         .destroy = loongson_connector_destroy,
 };
-
-
-static const unsigned short normal_i2c[] = { 0x50, I2C_CLIENT_END };
-
-
 
 
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
@@ -385,4 +730,43 @@ struct loongson_connector *loongson_connector_init(struct loongson_drm_device *l
 			break;
 	}
 	return ls_connector;
+}
+/**
+ * loongson_connector_bl_resume
+ *
+ * @ls_connector loongson drm connector
+ * */
+void  loongson_connector_bl_resume(struct loongson_connector *ls_connector)
+{
+
+	struct loongson_backlight *backlight = &ls_connector->bl;
+
+	if (backlight->present == true) {
+		backlight->setup(ls_connector);
+		backlight->set_brightness(ls_connector,
+				backlight->device->props.brightness);
+
+		backlight->enable(ls_connector, backlight->hw_enabled);
+		if (backlight->power_op)
+			backlight->power_op(ls_connector, backlight->hw_enabled);
+	}
+}
+/**
+ * loongson_connector_resume
+ *
+ * @ldev loongson drm device
+ * */
+void loongson_connector_resume(struct loongson_drm_device *ldev)
+{
+	struct loongson_mode_info *ls_mode_info;
+	struct loongson_connector *ls_connector;
+	int i;
+
+	for (i = 0; i< LS_MAX_MODE_INFO; i++) {
+		ls_mode_info = &ldev->mode_info[i];
+		if (ls_mode_info->mode_config_initialized == true){
+			ls_connector = ls_mode_info->connector;
+			loongson_connector_bl_resume(ls_connector);
+		}
+	}
 }
