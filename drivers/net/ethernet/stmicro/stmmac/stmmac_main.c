@@ -898,7 +898,7 @@ static int stmmac_init_phy(struct net_device *dev)
 
 	if (priv->plat->phy_bus_name)
 		snprintf(bus_id, MII_BUS_ID_SIZE, "%s-%x",
-			 priv->plat->phy_bus_name, priv->plat->bus_id);
+			 priv->plat->phy_bus_name, !strcmp(priv->plat->phy_bus_name, "fixed")? 0: priv->plat->bus_id);
 	else
 		snprintf(bus_id, MII_BUS_ID_SIZE, "stmmac-%x",
 			 priv->plat->bus_id);
@@ -927,7 +927,7 @@ static int stmmac_init_phy(struct net_device *dev)
 	 * device as well.
 	 * Note: phydev->phy_id is the result of reading the UID PHY registers.
 	 */
-	if (phydev->phy_id == 0) {
+	if ((!priv->plat->phy_bus_name || strcmp(priv->plat->phy_bus_name, "fixed")) && phydev->phy_id == 0) {
 		phy_disconnect(phydev);
 		return -ENODEV;
 	}

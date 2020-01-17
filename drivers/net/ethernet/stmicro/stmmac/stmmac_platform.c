@@ -29,6 +29,36 @@
 #include "stmmac.h"
 
 #ifdef CONFIG_OF
+#ifdef CONFIG_FIXED_PHY
+#include "dwmac1000.h"
+#include <linux/phy_fixed.h>
+static struct fixed_phy_status fixed_phy_status __initdata = {
+	.link		= 1,
+	.speed		= 100,
+	.duplex		= 1,
+};
+
+static int link_update(struct net_device *ndev, struct fixed_phy_status *fp)
+{
+	struct stmmac_priv *priv = netdev_priv(ndev);
+	int link, duplex, speed, speed_value;
+	u32 status = readl(priv->ioaddr + GMAC_S_R_GMII);
+	link = (status & GMAC_S_R_GMII_LINK);
+	duplex = (status & GMAC_S_R_GMII_MODE);
+	speed_value = (status & GMAC_S_R_GMII_SPEED) >> GMAC_S_R_GMII_SPEED_SHIFT;
+
+	if (speed_value == GMAC_S_R_GMII_SPEED_125)
+		speed = SPEED_1000;
+	else if (speed_value == GMAC_S_R_GMII_SPEED_25)
+		speed = SPEED_100;
+	else
+		speed = SPEED_10;
+	fp->link = link;
+	fp->duplex = duplex;
+	fp->speed = speed;
+	return 0;
+}
+#endif
 static int stmmac_probe_config_dt(struct platform_device *pdev,
 				  struct plat_stmmacenet_data *plat,
 				  const char **mac)
@@ -80,6 +110,18 @@ static int stmmac_probe_config_dt(struct platform_device *pdev,
 		/*ls2h,ls2k,ls7a mcast filter register is 256bit.*/
 		if (of_property_read_u32(np, "mcast_bits_log2", &plat->mcast_bits_log2))
 			plat->mcast_bits_log2 = 8;
+
+#ifdef CONFIG_FIXED_PHY
+		if (!of_property_read_u32(pdev->dev.of_node, "speed", (u32 *)&fixed_phy_status.speed)) {
+			struct phy_device *phydev;
+			plat->phy_bus_name = "fixed";
+			phydev = fixed_phy_register(PHY_POLL, &fixed_phy_status, -1, pdev->dev.of_node);
+			if (phydev)
+				plat->phy_addr = phydev->addr;
+			if (phydev && plat->interface & PHY_INTERFACE_MODE_RGMII)
+				fixed_phy_set_link_update(phydev, link_update);
+		}
+#endif
 	}
 	return 0;
 }
