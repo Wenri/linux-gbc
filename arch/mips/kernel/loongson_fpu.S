@@ -451,6 +451,24 @@ END(_init_fpu)
 	.word	0x783e0819 | (1 << 6)
 	.endm
 
+	.macro	st_b_m	wd, off, base
+	.set	push
+	.set	noat
+	SET_HARDFLOAT
+	PTR_ADDU $1, \base, \off
+	.word	0x78000824 | (\wd << 6)
+	.set	pop
+	.endm
+
+	.macro	ld_b_m	wd, off, base
+	.set	push
+	.set	noat
+	SET_HARDFLOAT
+	PTR_ADDU $1, \base, \off
+	.word	0x78000820 | (\wd << 6)
+	.set	pop
+	.endm
+
 	.macro	st_b_off	wd, off
 	.set	push
 	.set	noat
@@ -503,6 +521,7 @@ END(_init_fpu)
 LEAF(\name)
 	.set		push
 	.set		noreorder
+	.set		msa
 	sll		t0, a0, 4
 	PTR_LA		t1, 0f
 	PTR_ADDU	t0, t0, t1
@@ -561,6 +580,7 @@ LEAF(_save_msa)
 	.set	push
 	.set	noat
 	.set	noreorder
+	.set	msa
 	/* when LASX enabled, the s10 offset in st_b/ld_b is not enough
 	 * for saving/restoring all the vector regs with a0 pointing to
 	 * start of the fpu_union.
@@ -600,7 +620,7 @@ LEAF(_save_msa)
 	st_b_off	14, (THREAD_FPR30-THREAD_FPR0)
 	st_b_off	15, (THREAD_FPR31-THREAD_FPR0)
 #else
-	st_b	0, THREAD_FPR0, a0
+	st_b_m		0, THREAD_FPR0, a0
 	st_b_off	1, (THREAD_FPR1-THREAD_FPR0)
 	st_b_off	2, (THREAD_FPR2-THREAD_FPR0)
 	st_b_off	3, (THREAD_FPR3-THREAD_FPR0)
@@ -647,6 +667,7 @@ LEAF(_restore_msa)
 	.set	push
 	.set	noat
 	.set	noreorder
+	.set	msa
 	SET_HARDFLOAT
 	lw	$1, THREAD_MSA_CSR(a0)
 	ctmsa1
@@ -685,7 +706,7 @@ LEAF(_restore_msa)
 	jr	ra
 	ld_b_off	15, (THREAD_FPR31-THREAD_FPR0)
 #else
-	ld_b	0, THREAD_FPR0, a0
+	ld_b_m		0, THREAD_FPR0, a0
 	ld_b_off	1, (THREAD_FPR1-THREAD_FPR0)
 	ld_b_off	2, (THREAD_FPR2-THREAD_FPR0)
 	ld_b_off	3, (THREAD_FPR3-THREAD_FPR0)
@@ -726,6 +747,7 @@ LEAF(_init_msa_upper)
 	.set	push
 	.set	noat
 	.set	noreorder
+	.set	msa
 	not	$1, zero
 	insert_d 0, 1
 	vsel_d	0x2, 0, 1
@@ -785,6 +807,7 @@ LEAF(_save_lasx)
 	.set	push
 	.set	noat
 	.set	noreorder
+	.set	msa
 	SET_HARDFLOAT
 	cfmsa1
 	sw	$1, THREAD_MSA_CSR(a0)
@@ -829,6 +852,8 @@ END(_save_lasx)
 LEAF(_restore_lasx)
 	.set	push
 	.set	noat
+	.set	noreorder
+	.set	msa
 	SET_HARDFLOAT
 	lw	$1, THREAD_MSA_CSR(a0)
 	ctmsa1
@@ -914,6 +939,7 @@ LEAF(_init_lasx_uppest)
 	.set	push
 	.set	noat
 	.set	noreorder
+	.set	msa
 	SET_HARDFLOAT
 	not	$1, zero
 	lasx_init_uppest	0
