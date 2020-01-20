@@ -97,6 +97,10 @@ void * loongson_vbios_default(void){
 	crtc_vbios[1]->encoder_id = 1;
 	crtc_vbios[1]->use_local_param = false;
 
+	/*Build loongson_vbios_encoder struct*/
+	encoder_vbios[0] = (struct loongson_vbios_encoder *)(vbios_start + vbios->encoder_offset);
+	encoder_vbios[1] = (struct loongson_vbios_encoder *)(vbios_start + vbios->encoder_offset + sizeof(struct loongson_vbios_encoder));
+
 	/*Build loongson_vbios_connector struct*/
 	connector_vbios[0] = (struct loongson_vbios_connector *)(vbios_start + vbios->connector_offset);
 	connector_vbios[1] = (struct loongson_vbios_connector *)(vbios_start + vbios->connector_offset + sizeof(struct loongson_vbios_connector));
@@ -110,6 +114,9 @@ void * loongson_vbios_default(void){
 
 	connector_vbios[0]->i2c_id = 2;
 	connector_vbios[1]->i2c_id = 3;
+
+	encoder_vbios[0]->config_type = encoder_bios_config;
+	encoder_vbios[1]->config_type = encoder_bios_config;
 #else
 	connector_vbios[0]->edid_method = edid_method_null;
 	connector_vbios[1]->edid_method = edid_method_null;
@@ -119,6 +126,9 @@ void * loongson_vbios_default(void){
 
 	connector_vbios[0]->i2c_id = 6;
 	connector_vbios[1]->i2c_id = 7;
+
+	encoder_vbios[0]->config_type = encoder_transparent;
+	encoder_vbios[1]->config_type = encoder_transparent;
 #endif
 
 	connector_vbios[0]->i2c_type = i2c_type_gpio;
@@ -133,8 +143,6 @@ void * loongson_vbios_default(void){
 	encoder_vbios[0]->next_encoder_offset = vbios->encoder_offset + sizeof(struct loongson_vbios_encoder);
 	encoder_vbios[1]->next_encoder_offset = 0;
 
-	encoder_vbios[0]->config_type = encoder_transparent;
-	encoder_vbios[1]->config_type = encoder_transparent;
 
 	encoder_vbios[0]->crtc_id = 0;
 	encoder_vbios[1]->crtc_id = 1;
