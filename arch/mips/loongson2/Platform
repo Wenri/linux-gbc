@@ -1,11 +1,7 @@
 # Loongson 64 soc
 
 platform-$(CONFIG_MACH_LOONGSON2) += loongson2/
-ifeq ($(call cc-ifversion, -ge, 0409, y), y)
 cflags-$(CONFIG_MACH_LOONGSON2) += -I$(srctree)/arch/mips/include/asm/mach-loongson2 -mno-branch-likely -Wa,-mno-fix-loongson3-llsc
-else
-cflags-$(CONFIG_MACH_LOONGSON2) += -I$(srctree)/arch/mips/include/asm/mach-loongson2 -mno-branch-likely -Wa,-mnofix-ls3a-llsc
-endif
 
 cflags-y += -Wa$(comma)--trap
 ifeq ($(call cc-option-yn, -Wa$(comma)-mloongson-ext), y)
