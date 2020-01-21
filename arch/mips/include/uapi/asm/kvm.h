@@ -266,7 +266,7 @@ struct loongson_gipi_single {
     __u32 en;
     __u32 set;
     __u32 clear;
-    __u64 buf[8];
+    __u64 buf[4];
 };
 
 struct loongson_gipiState {
