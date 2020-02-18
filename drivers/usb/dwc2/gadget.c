@@ -1700,6 +1700,10 @@ static int dwc2_hsotg_process_req_feature(struct dwc2_hsotg *hsotg,
 				return ret;
 			}
 			break;
+		case USB_DEVICE_B_HNP_ENABLE:
+		case USB_DEVICE_A_ALT_HNP_SUPPORT:
+			ret = dwc2_hsotg_send_reply(hsotg, ep0, NULL, 0);
+			break;
 		default:
 			return -ENOENT;
 		}
