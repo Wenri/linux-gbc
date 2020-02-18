@@ -125,7 +125,7 @@ struct ls_nand_info {
 	unsigned int		seqin_column;
 	unsigned int		seqin_page_addr;
 	u32			chip_version;
-	int			cs;
+	int			cs, cs0;
 	u32			csrdy;
 };
 static unsigned int bch = 4;
@@ -192,6 +192,8 @@ static int ls_nand_waitfunc(struct mtd_info *mtd, struct nand_chip *this)
 
 static void ls_nand_select_chip(struct mtd_info *mtd, int chip)
 {
+	struct ls_nand_info *info = mtd->priv;
+	info->cs = (chip == -1)? info->cs0 : info->cs0 + chip;
 	return;
 }
 
@@ -645,7 +647,7 @@ static int ls_nand_probe(struct platform_device *pdev)
 	info = (struct ls_nand_info *)(&mtd[1]);
 	info->pdev = pdev;
 	info->chip_version = pdata->chip_ver;
-	info->cs = pdata->cs;
+	info->cs0 = info->cs = pdata->cs;
 	info->csrdy = pdata->csrdy;
 
 	this = &info->nand_chip;
@@ -743,7 +745,7 @@ static int ls_nand_probe(struct platform_device *pdev)
 	dma_desc_init(info);
 	platform_set_drvdata(pdev, mtd);
 
-	if (nand_scan_ident(mtd, 1, NULL)) {
+	if (nand_scan_ident(mtd, 4, NULL)) {
 		dev_err(&pdev->dev, "failed to scan nand\n");
 		ret = -ENXIO;
 		goto fail_free_io;
