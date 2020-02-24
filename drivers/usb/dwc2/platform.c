@@ -466,8 +466,10 @@ static int __maybe_unused dwc2_suspend(struct device *dev)
 	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
 	int ret = 0;
 
-	if (dwc2_is_device_mode(dwc2))
+	if (dwc2_is_device_mode(dwc2)){
 		dwc2_hsotg_suspend(dwc2);
+		dwc2_enter_hibernation(dwc2);
+	}
 
 	if (dwc2->ll_hw_enabled)
 		ret = __dwc2_lowlevel_hw_disable(dwc2);
@@ -486,8 +488,14 @@ static int __maybe_unused dwc2_resume(struct device *dev)
 			return ret;
 	}
 
-	if (dwc2_is_device_mode(dwc2))
+	if (dwc2_is_device_mode(dwc2)){
+		dwc2_exit_hibernation(dwc2,true);
 		ret = dwc2_hsotg_resume(dwc2);
+	}
+	else if(dwc2->op_state == OTG_STATE_B_PERIPHERAL){
+		dwc2_exit_hibernation(dwc2,true);
+		queue_work(dwc2->wq_otg,&dwc2->wf_otg);
+	}
 
 	return ret;
 }

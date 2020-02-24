@@ -4548,8 +4548,13 @@ static int _dwc2_hcd_resume(struct usb_hcd *hcd)
 
 	spin_lock_irqsave(&hsotg->lock, flags);
 
-	if (dwc2_is_device_mode(hsotg))
+	if (dwc2_is_device_mode(hsotg)){
+		if(hsotg->op_state==OTG_STATE_A_HOST){
+			dwc2_exit_hibernation(hsotg,true);
+			queue_work(hsotg->wq_otg,&hsotg->wf_otg);
+		}
 		goto unlock;
+	}
 
 	if (hsotg->lx_state != DWC2_L2)
 		goto unlock;
@@ -5378,6 +5383,8 @@ int dwc2_hcd_init(struct dwc2_hsotg *hsotg)
 	retval = usb_add_hcd(hcd, hsotg->irq, IRQF_SHARED);
 	if (retval < 0)
 		goto error4;
+
+	pm_suspend_ignore_children(&hcd->self.root_hub->dev,true);
 
 	device_wakeup_enable(hcd->self.controller);
 
