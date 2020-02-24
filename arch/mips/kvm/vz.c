@@ -1218,6 +1218,8 @@ static enum emulation_result kvm_vz_gpsi_lwc2(union mips_instruction inst,
 //				vcpu->arch.gprs[rd] &= ~(LOONGSON_CPU_FEATURE_TEMP | LOONGSON_CPU_FEATURE_EXT_IOI);
 				vcpu->arch.gprs[rd] &= ~(LOONGSON_CPU_FEATURE_TEMP);
 //				vcpu->arch.gprs[rd] &= ~(LOONGSON_CPU_FEATURE_EXT_IOI);
+			} else if (vcpu->arch.gprs[rs] == 0x420) {
+				vcpu->arch.gprs[rd] = read_csr(LOONGSON_OTHER_FUNC_OFFSET);
 			} else if(vcpu->arch.gprs[rs] == 0x428) {
 				++vcpu->stat.lsvz_rdcsr_cpu_temperature_exits;
 				vcpu->arch.gprs[rd] = dread_csr(LOONGSON_CPU_TEMPERATURE_OFFSET);
@@ -1227,6 +1229,8 @@ static enum emulation_result kvm_vz_gpsi_lwc2(union mips_instruction inst,
 				/*then get guest phys*/
 				run->mmio.phys_addr =LOONGSON_REG_BASE | vcpu->arch.gprs[rs];
 				vcpu->arch.gprs[rd] = read_csr(LS_ANYSEND_OTHER_FUNC_OFFSET)&(~LS_ANYSEND_OTHER_FUNC_EXT_IOI);
+			}  else if (vcpu->arch.gprs[rs] == 0x51c) {
+				vcpu->arch.gprs[rd] = read_csr(0x51c);
 			} else if(vcpu->arch.gprs[rs] == 0x1000){
 				/* read ipi status */
 				++vcpu->stat.lsvz_rdcsr_ipi_access_exits;
