@@ -226,6 +226,7 @@ static int ls_pci_msi_remove(struct platform_device *dev)
 #ifdef CONFIG_OF
 static struct of_device_id ls_msi_id_table[] = {
 	{ .compatible = "loongson,2k-pci-msi", },
+	{},
 };
 #endif
 static struct platform_driver ls_pci_msi_driver = {

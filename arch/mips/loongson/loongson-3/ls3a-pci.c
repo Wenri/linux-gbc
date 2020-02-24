@@ -457,6 +457,7 @@ int ls3a_pcibios_dev_init(struct pci_dev *pdev)
 #ifdef CONFIG_OF
 static struct of_device_id ls3a_pci_id_table[] = {
 	{ .compatible = "loongson,ls3a-pci", },
+	{},
 };
 #endif
 

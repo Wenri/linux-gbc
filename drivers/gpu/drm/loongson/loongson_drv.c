@@ -1094,6 +1094,7 @@ static int loongson_drm_pm_freeze(struct device *dev)
 #ifdef CONFIG_OF
 static struct of_device_id ls_fb_id_table[] = {
 	{ .compatible = "loongson,ls-fb", },
+	{},
 };
 #endif
 static struct platform_driver loongson_vga_platform_driver = {

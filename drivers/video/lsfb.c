@@ -1341,6 +1341,7 @@ static int ls_fb_resume(struct platform_device *dev)
 #ifdef CONFIG_OF
 static struct of_device_id ls_fb_id_table[] = {
 	{ .compatible = "loongson,ls-fb", },
+	{},
 };
 #endif
 static struct platform_driver ls_fb_driver = {

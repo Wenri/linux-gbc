@@ -43,6 +43,7 @@ EXPORT_SYMBOL_GPL(lsgpu_hw_coherent);
 #ifdef CONFIG_OF
 static struct of_device_id ls_gpu_id_table[] = {
 	{ .compatible = "loongson,galcore", },
+	{},
 };
 #endif
 

@@ -196,6 +196,7 @@ static int ls_pcie_remove(struct platform_device *dev)
 #ifdef CONFIG_OF
 static struct of_device_id ls_pcie_id_table[] = {
 	{ .compatible = "loongson,ls-pcie", },
+	{},
 };
 #endif
 static struct platform_driver ls_pcie_driver = {
