@@ -671,7 +671,7 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 	crtc_id = loongson_crtc->crtc_id;
 	base = (unsigned long)(ldev->rmmio);
 
-	if (ldev->inited == false || ldev->clone_mode == true) {
+	if (ldev->inited == false) {
 		return ;
 	}
 
@@ -680,6 +680,8 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 		if (crtc_id) {
 			val = ls_readq(base + LS_FB_CFG_DVO1_REG);
 			val |= LS_FB_CFG_ENABLE;
+			if (ldev->clone_mode == true)
+				val |= LS_FB_CFG_SWITCH_PANEL;
 			ls_writeq(val, base + LS_FB_CFG_DVO1_REG);
 		} else {
 			val = ls_readq(base + LS_FB_CFG_DVO0_REG);
@@ -694,13 +696,25 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 		if (crtc_id) {
 			val = ls_readq(base + LS_FB_CFG_DVO1_REG);
 			val &= ~LS_FB_CFG_ENABLE;
+			val &= ~LS_FB_CFG_SWITCH_PANEL;
 			ls_writeq(val, base + LS_FB_CFG_DVO1_REG);
 		} else {
 			val = ls_readq(base + LS_FB_CFG_DVO0_REG);
 			val &= ~LS_FB_CFG_ENABLE;
+			val &= ~LS_FB_CFG_SWITCH_PANEL;
 			ls_writeq(val, base + LS_FB_CFG_DVO0_REG);
 		}
 		loongson_crtc->enabled = false;
+		/*Disable clone  timing*/
+		if (ldev->clone_mode) {
+			val = ls_readq(base + LS_FB_CFG_DVO1_REG);
+			val &= ~LS_FB_CFG_SWITCH_PANEL;
+			ls_writeq(val, base + LS_FB_CFG_DVO1_REG);
+			val = ls_readq(base + LS_FB_CFG_DVO0_REG);
+			val &= ~LS_FB_CFG_SWITCH_PANEL;
+			ls_writeq(val, base + LS_FB_CFG_DVO0_REG);
+		}
+		ldev->clone_mode = false;
 		break;
 	}
 }
