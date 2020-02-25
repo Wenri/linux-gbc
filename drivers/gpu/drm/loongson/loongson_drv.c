@@ -644,6 +644,8 @@ static int loongson_vga_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	ldev->inited = true;
+	/*Enable IRQ*/
+	loongson_irq_init(ldev);
 
 	/* Make small buffers to store a hardware cursor (double buffered icon updates) */
 	loongson_bo_create(dev, roundup(32*32*4, PAGE_SIZE), 0, 0,
@@ -734,7 +736,7 @@ int loongson_dumb_create(struct drm_file *file,
  *
  * @bo: the pointer to loongson ttm buffer object
  */
-static void loongson_bo_unref(struct loongson_bo **bo)
+void loongson_bo_unref(struct loongson_bo **bo)
 {
 	struct ttm_buffer_object *tbo;
 
@@ -889,28 +891,37 @@ static const struct file_operations loongson_drm_driver_fops = {
  * .dump_destory:This destroys the userspace handle for the given dumb backing storage buffer
  */
 static struct drm_driver loongson_vga_drm_driver = {
-		.driver_features =
-				DRIVER_MODESET | DRIVER_GEM,
-		.load = loongson_vga_load,
-		.unload = loongson_vga_unload,
-		.open = loongson_vga_open,
+	.driver_features = DRIVER_MODESET | DRIVER_GEM
+			| DRIVER_HAVE_IRQ,
+	.load = loongson_vga_load,
+	.unload = loongson_vga_unload,
+	.open = loongson_vga_open,
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 #else
-		.set_busid = drm_pci_set_busid,
+	.set_busid = drm_pci_set_busid,
 #endif
-		.fops = &loongson_drm_driver_fops,
-		.gem_free_object = loongson_gem_free_object,
-		.dumb_create = loongson_dumb_create,
-		.dumb_map_offset = loongson_dumb_mmap_offset,
-		.dumb_destroy = loongson_dumb_destroy,
-		.ioctls = ioctls,
-		.num_ioctls = DRM_LOONGSON_VGA_NUM_IOCTLS,
-		.name = DRIVER_NAME,
-		.desc = DRIVER_DESC,
-		.date = DRIVER_DATE,
-		.major = DRIVER_MAJOR,
-		.minor = DRIVER_MINOR,
-		.patchlevel = DRIVER_PATCHLEVEL,
+	.fops = &loongson_drm_driver_fops,
+	.gem_free_object = loongson_gem_free_object,
+	.dumb_create = loongson_dumb_create,
+	.dumb_map_offset = loongson_dumb_mmap_offset,
+	.dumb_destroy = loongson_dumb_destroy,
+	.ioctls = ioctls,
+	.num_ioctls = DRM_LOONGSON_VGA_NUM_IOCTLS,
+	.name = DRIVER_NAME,
+	.desc = DRIVER_DESC,
+	.date = DRIVER_DATE,
+	.major = DRIVER_MAJOR,
+	.minor = DRIVER_MINOR,
+	.patchlevel = DRIVER_PATCHLEVEL,
+	/*vblank*/
+	.enable_vblank = loongson_vga_irq_enable_vblank,
+	.disable_vblank = loongson_vga_irq_disable_vblank,
+	.get_vblank_counter = loongson_crtc_vblank_count,
+	/*IRQ*/
+	.irq_preinstall = loongson_vga_irq_preinstall,
+	.irq_postinstall = loongson_vga_irq_postinstall,
+	.irq_uninstall = loongson_vga_irq_uninstall,
+	.irq_handler = loongson_vga_irq_handler,
 };
 
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
