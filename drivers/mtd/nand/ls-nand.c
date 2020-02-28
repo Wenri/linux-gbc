@@ -127,6 +127,7 @@ struct ls_nand_info {
 	u32			chip_version;
 	int			cs, cs0;
 	u32			csrdy;
+	int			chip_cap;
 };
 static unsigned int bch = 4;
 module_param(bch,	     uint, 0400);
@@ -338,9 +339,18 @@ static void ls_read_id(struct ls_nand_info *info)
 {
 	unsigned int id_l, id_h;
 	unsigned char *data = (unsigned char *)(info->data_buff);
+	unsigned int addr_cs, chip_cap;
+	struct mtd_info *mtd = ((struct mtd_info *)info) - 1;
+	if (mtd->writesize) {
+		chip_cap = get_chip_capa_num(info->nand_chip.chipsize, mtd->writesize);
+		addr_cs = info->cs*(1UL<<cap2cs[chip_cap]);
+		info->chip_cap  = chip_cap;
+	} else  {
+		addr_cs = info->cs*(1UL<<cap2cs[info->chip_cap]);
+	}
 
 	writel((6 << ID_NUM_SHIFT), REG(NAND_PARAM_REG));
-	writel(0x10000*info->cs, REG(NAND_ADDRR_REG));
+	writel(addr_cs, REG(NAND_ADDRR_REG));
 	writel((CMD_RD_ID | CMD_VALID), REG(NAND_CMD_REG));
 	wait_nand_done(info, 100);
 	id_l = readl(REG(NAND_IDL_REG));
@@ -634,6 +644,9 @@ static int ls_nand_probe(struct platform_device *pdev)
 
 			if (!of_property_read_u32(pdev->dev.of_node, "number-of-parts", &data))
 				pdata->nr_parts = data;
+
+			if (!of_property_read_u32(pdev->dev.of_node, "chip_cap", &data))
+				pdata->chip_cap  = data;
 	}
 
 
@@ -649,6 +662,7 @@ static int ls_nand_probe(struct platform_device *pdev)
 	info->chip_version = pdata->chip_ver;
 	info->cs0 = info->cs = pdata->cs;
 	info->csrdy = pdata->csrdy;
+	info->chip_cap = pdata->chip_cap;
 
 	this = &info->nand_chip;
 	mtd->priv = info;
