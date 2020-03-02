@@ -34,7 +34,7 @@
 #define rmb()  __asm__ __volatile__ ("sync" : : : "memory")
 #define wmb()  __asm__ __volatile__ ("sync" : : : "memory")
 
-#define set_mb(var, value)	do { var = value; mb(); } while (0)
+#define gmb() barrier_nospec()
 
 #ifdef __SUBARCH_HAS_LWSYNC
 #    define SMPWMB      LWSYNC
@@ -60,9 +60,6 @@
 #define smp_wmb()	barrier()
 #endif /* CONFIG_SMP */
 
-#define read_barrier_depends()		do { } while (0)
-#define smp_read_barrier_depends()	do { } while (0)
-
 /*
  * This is a barrier which prevents following instructions from being
  * started until the value of the argument x is known.  For example, if
@@ -87,7 +84,21 @@ do {									\
 	___p1;								\
 })
 
-#define smp_mb__before_atomic()     smp_mb()
-#define smp_mb__after_atomic()      smp_mb()
+#ifdef CONFIG_PPC_BARRIER_NOSPEC
+/*
+ * Prevent execution of subsequent instructions until preceding branches have
+ * been fully resolved and are no longer executing speculatively.
+ */
+#define barrier_nospec_asm NOSPEC_BARRIER_FIXUP_SECTION; nop
+
+// This also acts as a compiler barrier due to the memory clobber.
+#define barrier_nospec() asm (stringify_in_c(barrier_nospec_asm) ::: "memory")
+
+#else /* !CONFIG_PPC_BARRIER_NOSPEC */
+#define barrier_nospec_asm
+#define barrier_nospec()
+#endif /* CONFIG_PPC_BARRIER_NOSPEC */
+
+#include <asm-generic/barrier.h>
 
 #endif /* _ASM_POWERPC_BARRIER_H */

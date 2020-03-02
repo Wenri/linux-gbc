@@ -192,6 +192,12 @@ config PPC
 	select ARCH_HAS_DMA_SET_COHERENT_MASK
 	select HAVE_ARCH_SECCOMP_FILTER
 	select HAVE_PERF_EVENTS_NMI if PPC64
+	select GENERIC_CPU_VULNERABILITIES	if PPC_BARRIER_NOSPEC
+
+config PPC_BARRIER_NOSPEC
+    bool
+    default y
+    depends on PPC_BOOK3S_64
 
 config GENERIC_CSUM
 	def_bool n

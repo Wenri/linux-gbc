@@ -67,6 +67,7 @@ struct iscsi_cls_session *beiscsi_session_create(struct iscsi_endpoint *ep,
 	beiscsi_log(phba, KERN_INFO, BEISCSI_LOG_CONFIG,
 		    "BS_%d : In beiscsi_session_create\n");
 	if (cmds_max > beiscsi_ep->phba->params.wrbs_per_cxn) {
+		gmb();
 		beiscsi_log(phba, KERN_ERR, BEISCSI_LOG_CONFIG,
 			    "BS_%d : Cannot handle %d cmds."
 			    "Max cmds per session supported is %d. Using %d."

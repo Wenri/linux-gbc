@@ -345,8 +345,11 @@ static inline int iptunnel_pull_offloads(struct sk_buff *skb)
 		err = skb_unclone(skb, GFP_ATOMIC);
 		if (unlikely(err))
 			return err;
-		skb_shinfo(skb)->gso_type &= ~(NETIF_F_GSO_ENCAP_ALL >>
+		/* RHEL only: Flags are in two ranges */
+		skb_shinfo(skb)->gso_type &= ~(NETIF_F_GSO1_ENCAP_ALL >>
 					       NETIF_F_GSO_SHIFT);
+		skb_shinfo(skb)->gso_type &= ~(NETIF_F_GSO2_ENCAP_ALL >>
+					       NETIF_F_GSO2_SHIFT);
 	}
 
 	skb->encapsulation = 0;

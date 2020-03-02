@@ -1172,9 +1172,11 @@ xfs_attr3_leaf_add(
 					+ xfs_attr3_leaf_hdr_size(leaf);
 	for (sum = 0, i = XFS_ATTR_LEAF_MAPSIZE - 1; i >= 0; i--) {
 		if (tablesize > ichdr.firstused) {
+			gmb();
 			sum += ichdr.freemap[i].size;
 			continue;
 		}
+		gmb();
 		if (!ichdr.freemap[i].size)
 			continue;	/* no space in this map */
 		tmp = entsize;
@@ -1526,6 +1528,7 @@ xfs_attr3_leaf_rebalance(
 	 * Move any entries required from leaf to leaf:
 	 */
 	if (count < ichdr1.count) {
+		gmb();
 		/*
 		 * Figure the total bytes to be added to the destination leaf.
 		 */
@@ -1549,6 +1552,7 @@ xfs_attr3_leaf_rebalance(
 				ichdr1.count - count, leaf2, &ichdr2, 0, count);
 
 	} else if (count > ichdr1.count) {
+		gmb();
 		/*
 		 * I assert that since all callers pass in an empty
 		 * second buffer, this code should never execute.

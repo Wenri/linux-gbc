@@ -1635,6 +1635,7 @@ static void ath10k_htt_rx_tx_compl_ind(struct ath10k *ar,
 		 *  writer, you don't need extra locking to use these macro.
 		 */
 		if (!kfifo_put(&htt->txdone_fifo, &tx_done)) {
+			gmb();
 			ath10k_warn(ar, "txdone fifo overrun, msdu_id %d status %d\n",
 				    tx_done.msdu_id, tx_done.status);
 			ath10k_txrx_tx_unref(htt, &tx_done);

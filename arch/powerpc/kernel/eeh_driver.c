@@ -483,8 +483,7 @@ static void *eeh_rmv_device(void *data, void *userdata)
 		if (removed &&
 		    driver->err_handler &&
 		    driver->err_handler->error_detected &&
-		    driver->err_handler->slot_reset &&
-		    driver->err_handler->resume)
+		    driver->err_handler->slot_reset)
 			return NULL;
 	}
 
@@ -655,7 +654,7 @@ static int eeh_reset_device(struct eeh_pe *pe, struct pci_bus *bus,
 			pci_unlock_rescan_remove();
 		}
 	} else if (frozen_bus) {
-		eeh_pe_dev_traverse(pe, eeh_rmv_device, &rmv_data);
+		eeh_pe_dev_traverse(pe, eeh_rmv_device, rmv_data);
 	}
 
 	/*

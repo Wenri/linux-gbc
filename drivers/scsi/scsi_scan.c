@@ -507,7 +507,7 @@ void scsi_target_reap(struct scsi_target *starget)
 		return;
 
 	BUG_ON(state == STARGET_DEL);
-	if (state == STARGET_CREATED)
+	if ((state == STARGET_CREATED) || (state == STARGET_CREATED_REMOVE))
 		scsi_target_destroy(starget);
 	else
 		execute_in_process_context(scsi_target_reap_usercontext,
@@ -982,6 +982,9 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 
 	if (*bflags & BLIST_NO_DIF)
 		sdev->no_dif = 1;
+
+	if (*bflags & BLIST_UNMAP_LIMIT_WS)
+		sdev->unmap_limit_for_ws = 1;
 
 	sdev->eh_timeout = SCSI_DEFAULT_EH_TIMEOUT;
 

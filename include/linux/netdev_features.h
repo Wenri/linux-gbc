@@ -219,12 +219,16 @@ enum {
 /* changeable features with no special hardware requirements */
 #define NETIF_F_SOFT_FEATURES	(NETIF_F_GSO | NETIF_F_GRO)
 
-#define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
-				 NETIF_F_GSO_GRE_CSUM |			\
+#define NETIF_F_GSO1_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
 				 NETIF_F_GSO_IPIP |			\
 				 NETIF_F_GSO_SIT |			\
-				 NETIF_F_GSO_UDP_TUNNEL |		\
+				 NETIF_F_GSO_UDP_TUNNEL)
+
+#define NETIF_F_GSO2_ENCAP_ALL	(NETIF_F_GSO_GRE_CSUM |			\
 				 NETIF_F_GSO_UDP_TUNNEL_CSUM |		\
 				 NETIF_F_GSO_MPLS)
+
+#define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO1_ENCAP_ALL |               \
+				 NETIF_F_GSO2_ENCAP_ALL)
 
 #endif	/* _LINUX_NETDEV_FEATURES_H */

@@ -158,6 +158,8 @@ void i915_gem_context_free(struct kref *ctx_ref)
 		__i915_gem_object_release_unless_active(ce->state->obj);
 	}
 
+	kfree(ctx->jump_whitelist);
+ 
 	kfree(ctx->name);
 	put_pid(ctx->pid);
 	list_del(&ctx->link);
@@ -335,6 +337,9 @@ __create_hw_context(struct drm_device *dev,
 	ctx->ring_size = 4 * PAGE_SIZE;
 	ctx->desc_template = GEN8_CTX_ADDRESSING_MODE(dev_priv) <<
 			     GEN8_CTX_ADDRESSING_MODE_SHIFT;
+
+	ctx->jump_whitelist = NULL;
+	ctx->jump_whitelist_cmds = 0;
 
 	return ctx;
 

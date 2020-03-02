@@ -294,11 +294,6 @@ static inline long __drm_get_user_pages(struct task_struct *tsk, struct mm_struc
 #define get_user_pages(start, nr_pages, write, pages, vmas) \
 	__drm_get_user_pages(current, current->mm, start, nr_pages, write, 0, pages, vmas)
 
-
-#ifndef smp_store_mb
-#define smp_store_mb(var, value)	set_mb(var, value)
-#endif
-
 #ifndef atomic_set_release
 #define  atomic_set_release(v, i)	smp_store_release(&(v)->counter, (i))
 #endif

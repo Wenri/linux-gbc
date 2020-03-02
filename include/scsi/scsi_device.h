@@ -189,6 +189,7 @@ struct scsi_device {
 	unsigned xcopy_reserved:1;
 	RH_KABI_FILL_HOLE(unsigned lun_in_cdb:1) /* Store LUN bits in CDB[1] */
 	RH_KABI_FILL_HOLE(unsigned try_vpd_pages:1)	/* attempt to read VPD pages */
+	RH_KABI_FILL_HOLE(unsigned unmap_limit_for_ws:1)	/* Use the UNMAP limit for WRITE SAME */
 
 	atomic_t disk_events_disable_depth; /* disable depth for disk events */
 
@@ -318,6 +319,7 @@ enum scsi_target_state {
 	STARGET_DEL,
 #ifndef __GENKSYMS__
 	STARGET_REMOVE,
+	STARGET_CREATED_REMOVE,
 #endif
 };
 

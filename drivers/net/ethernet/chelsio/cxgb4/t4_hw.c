@@ -2839,8 +2839,6 @@ enum {
 	SF_RD_DATA_FAST = 0xb,        /* read flash */
 	SF_RD_ID        = 0x9f,       /* read ID */
 	SF_ERASE_SECTOR = 0xd8,       /* erase sector */
-
-	FW_MAX_SIZE = 16 * SF_SEC_SIZE,
 };
 
 /**
@@ -3380,8 +3378,9 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
 	const __be32 *p = (const __be32 *)fw_data;
 	const struct fw_hdr *hdr = (const struct fw_hdr *)fw_data;
 	unsigned int sf_sec_size = adap->params.sf_size / adap->params.sf_nsec;
-	unsigned int fw_img_start = adap->params.sf_fw_start;
-	unsigned int fw_start_sec = fw_img_start / sf_sec_size;
+	unsigned int fw_start_sec = FLASH_FW_START_SEC;
+	unsigned int fw_size = FLASH_FW_MAX_SIZE;
+	unsigned int fw_start = FLASH_FW_START;
 
 	if (!size) {
 		dev_err(adap->pdev_dev, "FW image has no data\n");
@@ -3397,9 +3396,9 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
 			"FW image size differs from size in FW header\n");
 		return -EINVAL;
 	}
-	if (size > FW_MAX_SIZE) {
+	if (size > fw_size) {
 		dev_err(adap->pdev_dev, "FW image too large, max is %u bytes\n",
-			FW_MAX_SIZE);
+			fw_size);
 		return -EFBIG;
 	}
 	if (!t4_fw_matches_chip(adap, hdr))
@@ -3426,11 +3425,11 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
 	 */
 	memcpy(first_page, fw_data, SF_PAGE_SIZE);
 	((struct fw_hdr *)first_page)->fw_ver = cpu_to_be32(0xffffffff);
-	ret = t4_write_flash(adap, fw_img_start, SF_PAGE_SIZE, first_page);
+	ret = t4_write_flash(adap, fw_start, SF_PAGE_SIZE, first_page);
 	if (ret)
 		goto out;
 
-	addr = fw_img_start;
+	addr = fw_start;
 	for (size -= SF_PAGE_SIZE; size; size -= SF_PAGE_SIZE) {
 		addr += SF_PAGE_SIZE;
 		fw_data += SF_PAGE_SIZE;
@@ -3440,7 +3439,7 @@ int t4_load_fw(struct adapter *adap, const u8 *fw_data, unsigned int size)
 	}
 
 	ret = t4_write_flash(adap,
-			     fw_img_start + offsetof(struct fw_hdr, fw_ver),
+			     fw_start + offsetof(struct fw_hdr, fw_ver),
 			     sizeof(hdr->fw_ver), (const u8 *)&hdr->fw_ver);
 out:
 	if (ret)
@@ -4575,8 +4574,13 @@ void t4_intr_enable(struct adapter *adapter)
  */
 void t4_intr_disable(struct adapter *adapter)
 {
-	u32 whoami = t4_read_reg(adapter, PL_WHOAMI_A);
-	u32 pf = CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5 ?
+	u32 whoami, pf;
+
+	if (pci_channel_offline(adapter->pdev))
+		return;
+
+	whoami = t4_read_reg(adapter, PL_WHOAMI_A);
+	pf = CHELSIO_CHIP_VERSION(adapter->params.chip) <= CHELSIO_T5 ?
 			SOURCEPF_G(whoami) : T6_SOURCEPF_G(whoami);
 
 	t4_write_reg(adapter, MYPF_REG(PL_PF_INT_ENABLE_A), 0);
@@ -7497,7 +7501,7 @@ struct flash_desc {
 	u32 size_mb;
 };
 
-static int get_flash_params(struct adapter *adap)
+static int t4_get_flash_params(struct adapter *adap)
 {
 	/* Table for non-Numonix supported flash parts.  Numonix parts are left
 	 * to the preexisting code.  All flash parts have 64KB sectors.
@@ -7506,40 +7510,147 @@ static int get_flash_params(struct adapter *adap)
 		{ 0x150201, 4 << 20 },       /* Spansion 4MB S25FL032P */
 	};
 
+	unsigned int part, manufacturer;
+	unsigned int density, size = 0;
+	u32 flashid = 0;
 	int ret;
-	u32 info;
+
+	/* Issue a Read ID Command to the Flash part.  We decode supported
+	 * Flash parts and their sizes from this.  There's a newer Query
+	 * Command which can retrieve detailed geometry information but many
+	 * Flash parts don't support it.
+	 */
 
 	ret = sf1_write(adap, 1, 1, 0, SF_RD_ID);
 	if (!ret)
-		ret = sf1_read(adap, 3, 0, 1, &info);
+		ret = sf1_read(adap, 3, 0, 1, &flashid);
 	t4_write_reg(adap, SF_OP_A, 0);                    /* unlock SF */
 	if (ret)
 		return ret;
 
-	for (ret = 0; ret < ARRAY_SIZE(supported_flash); ++ret)
-		if (supported_flash[ret].vendor_and_model_id == info) {
-			adap->params.sf_size = supported_flash[ret].size_mb;
+	/* Check to see if it's one of our non-standard supported Flash parts.
+	 */
+	for (part = 0; part < ARRAY_SIZE(supported_flash); part++)
+		if (supported_flash[part].vendor_and_model_id == flashid) {
+			adap->params.sf_size = supported_flash[part].size_mb;
 			adap->params.sf_nsec =
 				adap->params.sf_size / SF_SEC_SIZE;
-			return 0;
+			goto found;
 		}
 
-	if ((info & 0xff) != 0x20)             /* not a Numonix flash */
-		return -EINVAL;
-	info >>= 16;                           /* log2 of size */
-	if (info >= 0x14 && info < 0x18)
-		adap->params.sf_nsec = 1 << (info - 16);
-	else if (info == 0x18)
-		adap->params.sf_nsec = 64;
-	else
-		return -EINVAL;
-	adap->params.sf_size = 1 << info;
-	adap->params.sf_fw_start =
-		t4_read_reg(adap, CIM_BOOT_CFG_A) & BOOTADDR_M;
+	/* Decode Flash part size.  The code below looks repetative with
+	 * common encodings, but that's not guaranteed in the JEDEC
+	 * specification for the Read JADEC ID command.  The only thing that
+	 * we're guaranteed by the JADEC specification is where the
+	 * Manufacturer ID is in the returned result.  After that each
+	 * Manufacturer ~could~ encode things completely differently.
+	 * Note, all Flash parts must have 64KB sectors.
+	 */
+	manufacturer = flashid & 0xff;
+	switch (manufacturer) {
+	case 0x20: { /* Micron/Numonix */
+		/* This Density -> Size decoding table is taken from Micron
+		 * Data Sheets.
+		 */
+		density = (flashid >> 16) & 0xff;
+		switch (density) {
+		case 0x14: /* 1MB */
+			size = 1 << 20;
+			break;
+		case 0x15: /* 2MB */
+			size = 1 << 21;
+			break;
+		case 0x16: /* 4MB */
+			size = 1 << 22;
+			break;
+		case 0x17: /* 8MB */
+			size = 1 << 23;
+			break;
+		case 0x18: /* 16MB */
+			size = 1 << 24;
+			break;
+		case 0x19: /* 32MB */
+			size = 1 << 25;
+			break;
+		case 0x20: /* 64MB */
+			size = 1 << 26;
+			break;
+		case 0x21: /* 128MB */
+			size = 1 << 27;
+			break;
+		case 0x22: /* 256MB */
+			size = 1 << 28;
+			break;
+		}
+		break;
+	}
+	case 0x9d: { /* ISSI -- Integrated Silicon Solution, Inc. */
+		/* This Density -> Size decoding table is taken from ISSI
+		 * Data Sheets.
+		 */
+		density = (flashid >> 16) & 0xff;
+		switch (density) {
+		case 0x16: /* 32 MB */
+			size = 1 << 25;
+			break;
+		case 0x17: /* 64MB */
+			size = 1 << 26;
+			break;
+		}
+		break;
+	}
+	case 0xc2: { /* Macronix */
+		/* This Density -> Size decoding table is taken from Macronix
+		 * Data Sheets.
+		 */
+		density = (flashid >> 16) & 0xff;
+		switch (density) {
+		case 0x17: /* 8MB */
+			size = 1 << 23;
+			break;
+		case 0x18: /* 16MB */
+			size = 1 << 24;
+			break;
+		}
+		break;
+	}
+	case 0xef: { /* Winbond */
+		/* This Density -> Size decoding table is taken from Winbond
+		 * Data Sheets.
+		 */
+		density = (flashid >> 16) & 0xff;
+		switch (density) {
+		case 0x17: /* 8MB */
+			size = 1 << 23;
+			break;
+		case 0x18: /* 16MB */
+			size = 1 << 24;
+			break;
+		}
+		break;
+	}
+	}
 
+	/* If we didn't recognize the FLASH part, that's no real issue: the
+	 * Hardware/Software contract says that Hardware will _*ALWAYS*_
+	 * use a FLASH part which is at least 4MB in size and has 64KB
+	 * sectors.  The unrecognized FLASH part is likely to be much larger
+	 * than 4MB, but that's all we really need.
+	 */
+	if (size == 0) {
+		dev_warn(adap->pdev_dev, "Unknown Flash Part, ID = %#x, assuming 4MB\n",
+			 flashid);
+		size = 1 << 22;
+	}
+
+	/* Store decoded Flash size and fall through into vetting code. */
+	adap->params.sf_size = size;
+	adap->params.sf_nsec = size / SF_SEC_SIZE;
+
+found:
 	if (adap->params.sf_size < FLASH_MIN_SIZE)
-		dev_warn(adap->pdev_dev, "WARNING!!! FLASH size %#x < %#x!!!\n",
-			 adap->params.sf_size, FLASH_MIN_SIZE);
+		dev_warn(adap->pdev_dev, "WARNING: Flash Part ID %#x, size %#x < %#x\n",
+			 flashid, adap->params.sf_size, FLASH_MIN_SIZE);
 	return 0;
 }
 
@@ -7577,7 +7688,7 @@ int t4_prep_adapter(struct adapter *adapter)
 	get_pci_mode(adapter, &adapter->params.pci);
 	pl_rev = REV_G(t4_read_reg(adapter, PL_REV_A));
 
-	ret = get_flash_params(adapter);
+	ret = t4_get_flash_params(adapter);
 	if (ret < 0) {
 		dev_err(adapter->pdev_dev, "error %d identifying flash\n", ret);
 		return ret;

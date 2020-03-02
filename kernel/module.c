@@ -2814,6 +2814,15 @@ static int check_modinfo(struct module *mod, struct load_info *info, int flags)
 		       mod->name);
 	}
 
+#ifdef CONFIG_RETPOLINE
+{
+	extern void spec_ctrl_report_unsafe_module(struct module *mod);
+
+	if (!get_modinfo(info, "retpoline"))
+		spec_ctrl_report_unsafe_module(mod);
+}
+#endif
+
 	err = check_modinfo_livepatch(mod, info);
 	if (err)
 		return err;

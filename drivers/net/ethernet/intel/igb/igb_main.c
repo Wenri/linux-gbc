@@ -3214,12 +3214,12 @@ static int __igb_open(struct net_device *netdev, bool resuming)
 	schedule_work(&adapter->watchdog_task);
 
 	for (i = 0; i < adapter->num_q_vectors; i++) {
-		adapter->q_vector[i]->rdh_old = 0;
-		adapter->q_vector[i]->rdt_old = 0;
-		adapter->q_vector[i]->rx_ntu_old = 0;
-		adapter->q_vector[i]->rx_ntc_old = 0;
-		adapter->q_vector[i]->weird_hang_count = 0;
-		adapter->q_vector[i]->weird_hang_recheck = false;
+	        adapter->q_vector[i]->rdh_old = 0;
+	        adapter->q_vector[i]->rdt_old = 0;
+	        adapter->q_vector[i]->rx_ntu_old = 0;
+	        adapter->q_vector[i]->rx_ntc_old = 0;
+	        adapter->q_vector[i]->weird_hang_count = 0;
+	        adapter->q_vector[i]->weird_hang_recheck = false;
 	}
 
 	return 0;
@@ -3299,7 +3299,7 @@ int igb_setup_tx_resources(struct igb_ring *tx_ring)
 
 	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
 
-	tx_ring->tx_buffer_info = vzalloc(size);
+	tx_ring->tx_buffer_info = vmalloc(size);
 	if (!tx_ring->tx_buffer_info)
 		goto err;
 
@@ -3409,6 +3409,10 @@ void igb_configure_tx_ring(struct igb_adapter *adapter,
 	txdctl |= IGB_TX_PTHRESH;
 	txdctl |= IGB_TX_HTHRESH << 8;
 	txdctl |= IGB_TX_WTHRESH << 16;
+
+	/* reinitialize tx_buffer_info */
+	memset(ring->tx_buffer_info, 0,
+	       sizeof(struct igb_tx_buffer) * ring->count);
 
 	txdctl |= E1000_TXDCTL_QUEUE_ENABLE;
 	wr32(E1000_TXDCTL(reg_idx), txdctl);
@@ -3828,55 +3832,63 @@ static void igb_free_all_tx_resources(struct igb_adapter *adapter)
 			igb_free_tx_resources(adapter->tx_ring[i]);
 }
 
-void igb_unmap_and_free_tx_resource(struct igb_ring *ring,
-				    struct igb_tx_buffer *tx_buffer)
-{
-	if (tx_buffer->skb) {
-		dev_kfree_skb_any(tx_buffer->skb);
-		if (dma_unmap_len(tx_buffer, len))
-			dma_unmap_single(ring->dev,
-					 dma_unmap_addr(tx_buffer, dma),
-					 dma_unmap_len(tx_buffer, len),
-					 DMA_TO_DEVICE);
-	} else if (dma_unmap_len(tx_buffer, len)) {
-		dma_unmap_page(ring->dev,
-			       dma_unmap_addr(tx_buffer, dma),
-			       dma_unmap_len(tx_buffer, len),
-			       DMA_TO_DEVICE);
-	}
-	tx_buffer->next_to_watch = NULL;
-	tx_buffer->skb = NULL;
-	dma_unmap_len_set(tx_buffer, len, 0);
-	/* buffer_info must be completely set up in the transmit path */
-}
-
 /**
  *  igb_clean_tx_ring - Free Tx Buffers
  *  @tx_ring: ring to be cleaned
  **/
 static void igb_clean_tx_ring(struct igb_ring *tx_ring)
 {
-	struct igb_tx_buffer *buffer_info;
-	unsigned long size;
-	u16 i;
+	u16 i = tx_ring->next_to_clean;
+	struct igb_tx_buffer *tx_buffer = &tx_ring->tx_buffer_info[i];
 
-	if (!tx_ring->tx_buffer_info)
-		return;
-	/* Free all the Tx ring sk_buffs */
+	while (i != tx_ring->next_to_use) {
+		union e1000_adv_tx_desc *eop_desc, *tx_desc;
 
-	for (i = 0; i < tx_ring->count; i++) {
-		buffer_info = &tx_ring->tx_buffer_info[i];
-		igb_unmap_and_free_tx_resource(tx_ring, buffer_info);
+		/* Free all the Tx ring sk_buffs */
+		dev_kfree_skb_any(tx_buffer->skb);
+
+		/* unmap skb header data */
+		dma_unmap_single(tx_ring->dev,
+				 dma_unmap_addr(tx_buffer, dma),
+				 dma_unmap_len(tx_buffer, len),
+				 DMA_TO_DEVICE);
+
+		/* check for eop_desc to determine the end of the packet */
+		eop_desc = tx_buffer->next_to_watch;
+		tx_desc = IGB_TX_DESC(tx_ring, i);
+
+		/* unmap remaining buffers */
+		while (tx_desc != eop_desc) {
+			tx_buffer++;
+			tx_desc++;
+			i++;
+			if (unlikely(i == tx_ring->count)) {
+				i = 0;
+				tx_buffer = tx_ring->tx_buffer_info;
+				tx_desc = IGB_TX_DESC(tx_ring, 0);
+			}
+
+			/* unmap any remaining paged data */
+			if (dma_unmap_len(tx_buffer, len))
+				dma_unmap_page(tx_ring->dev,
+					       dma_unmap_addr(tx_buffer, dma),
+					       dma_unmap_len(tx_buffer, len),
+					       DMA_TO_DEVICE);
+		}
+
+		/* move us one more past the eop_desc for start of next pkt */
+		tx_buffer++;
+		i++;
+		if (unlikely(i == tx_ring->count)) {
+			i = 0;
+			tx_buffer = tx_ring->tx_buffer_info;
+		}
 	}
 
+	/* reset BQL for queue */
 	netdev_tx_reset_queue(txring_txq(tx_ring));
 
-	size = sizeof(struct igb_tx_buffer) * tx_ring->count;
-	memset(tx_ring->tx_buffer_info, 0, size);
-
-	/* Zero out the descriptor ring */
-	memset(tx_ring->desc, 0, tx_ring->size);
-
+	/* reset next_to_use and next_to_clean */
 	tx_ring->next_to_use = 0;
 	tx_ring->next_to_clean = 0;
 }
@@ -4658,6 +4670,7 @@ no_wait:
 
 	igb_spoof_check(adapter);
 	igb_ptp_rx_hang(adapter);
+	igb_ptp_tx_hang(adapter);
 
 	/* Check LVMMC register on i350/i354 only */
 	if ((adapter->hw.mac.type == e1000_i350) ||
@@ -5133,9 +5146,9 @@ static inline int igb_maybe_stop_tx(struct igb_ring *tx_ring, const u16 size)
 	return __igb_maybe_stop_tx(tx_ring, size);
 }
 
-static void igb_tx_map(struct igb_ring *tx_ring,
-		       struct igb_tx_buffer *first,
-		       const u8 hdr_len)
+static int igb_tx_map(struct igb_ring *tx_ring,
+		      struct igb_tx_buffer *first,
+		      const u8 hdr_len)
 {
 	struct sk_buff *skb = first->skb;
 	struct igb_tx_buffer *tx_buffer;
@@ -5246,23 +5259,39 @@ static void igb_tx_map(struct igb_ring *tx_ring,
 		 */
 		mmiowb();
 	}
-	return;
+	return 0;
 
 dma_error:
 	dev_err(tx_ring->dev, "TX DMA map failed\n");
+	tx_buffer = &tx_ring->tx_buffer_info[i];
 
 	/* clear dma mappings for failed tx_buffer_info map */
-	for (;;) {
+	while (tx_buffer != first) {
+		if (dma_unmap_len(tx_buffer, len))
+			dma_unmap_page(tx_ring->dev,
+				       dma_unmap_addr(tx_buffer, dma),
+				       dma_unmap_len(tx_buffer, len),
+				       DMA_TO_DEVICE);
+		dma_unmap_len_set(tx_buffer, len, 0);
+
+		if (i--)
+			i += tx_ring->count;
 		tx_buffer = &tx_ring->tx_buffer_info[i];
-		igb_unmap_and_free_tx_resource(tx_ring, tx_buffer);
-		if (tx_buffer == first)
-			break;
-		if (i == 0)
-			i = tx_ring->count;
-		i--;
 	}
 
+	if (dma_unmap_len(tx_buffer, len))
+		dma_unmap_single(tx_ring->dev,
+				 dma_unmap_addr(tx_buffer, dma),
+				 dma_unmap_len(tx_buffer, len),
+				 DMA_TO_DEVICE);
+	dma_unmap_len_set(tx_buffer, len, 0);
+
+	dev_kfree_skb_any(tx_buffer->skb);
+	tx_buffer->skb = NULL;
+
 	tx_ring->next_to_use = i;
+
+	return -1;
 }
 
 netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
@@ -5299,7 +5328,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
 	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP)) {
 		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
 
-		if (!test_and_set_bit_lock(__IGB_PTP_TX_IN_PROGRESS,
+		if (adapter->tstamp_config.tx_type & HWTSTAMP_TX_ON &&
+		    !test_and_set_bit_lock(__IGB_PTP_TX_IN_PROGRESS,
 					   &adapter->state)) {
 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
 			tx_flags |= IGB_TX_FLAGS_TSTAMP;
@@ -5308,6 +5338,8 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
 			adapter->ptp_tx_start = jiffies;
 			if (adapter->hw.mac.type == e1000_82576)
 				schedule_work(&adapter->ptp_tx_work);
+		} else {
+			adapter->tx_hwtstamp_skipped++;
 		}
 	}
 
@@ -5328,12 +5360,24 @@ netdev_tx_t igb_xmit_frame_ring(struct sk_buff *skb,
 	else if (!tso)
 		igb_tx_csum(tx_ring, first);
 
-	igb_tx_map(tx_ring, first, hdr_len);
+	if (igb_tx_map(tx_ring, first, hdr_len))
+		goto cleanup_tx_tstamp;
 
 	return NETDEV_TX_OK;
 
 out_drop:
-	igb_unmap_and_free_tx_resource(tx_ring, first);
+	dev_kfree_skb_any(first->skb);
+	first->skb = NULL;
+cleanup_tx_tstamp:
+	if (unlikely(tx_flags & IGB_TX_FLAGS_TSTAMP)) {
+		struct igb_adapter *adapter = netdev_priv(tx_ring->netdev);
+
+		dev_kfree_skb_any(adapter->ptp_tx_skb);
+		adapter->ptp_tx_skb = NULL;
+		if (adapter->hw.mac.type == e1000_82576)
+			cancel_work_sync(&adapter->ptp_tx_work);
+		clear_bit_unlock(__IGB_PTP_TX_IN_PROGRESS, &adapter->state);
+	}
 
 	return NETDEV_TX_OK;
 }
@@ -5663,8 +5707,6 @@ static void igb_tsync_interrupt(struct igb_adapter *adapter)
 		event.type = PTP_CLOCK_PPS;
 		if (adapter->ptp_caps.pps)
 			ptp_clock_event(adapter->ptp_clock, &event);
-		else
-			dev_err(&adapter->pdev->dev, "unexpected SYS WRAP");
 		ack |= TSINTR_SYS_WRAP;
 	}
 
@@ -6693,7 +6735,6 @@ static bool igb_clean_tx_irq(struct igb_q_vector *q_vector, int napi_budget)
 				 DMA_TO_DEVICE);
 
 		/* clear tx_buffer data */
-		tx_buffer->skb = NULL;
 		dma_unmap_len_set(tx_buffer, len, 0);
 
 		/* clear last DMA location and unmap remaining buffers */
@@ -7160,57 +7201,57 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
 
 void igb_check_weird_hang(struct igb_ring *rx_ring)
 {
-	u32 i, rdh, rdt, staterr;
-	union e1000_adv_rx_desc *rx_desc, *next_rxd;
-	struct igb_q_vector *q_vector = rx_ring->q_vector;
-	struct e1000_hw *hw = &q_vector->adapter->hw;
+       u32 i, rdh, rdt, staterr;
+       union e1000_adv_rx_desc *rx_desc, *next_rxd;
+       struct igb_q_vector *q_vector = rx_ring->q_vector;
+       struct e1000_hw *hw = &q_vector->adapter->hw;
 
-	i = rx_ring->next_to_clean;
-	rdh = rd32(E1000_RDH(rx_ring->reg_idx));
-	rdt = rd32(E1000_RDT(rx_ring->reg_idx));
-	rx_desc = IGB_RX_DESC(rx_ring, i);
-	staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
-	next_rxd = IGB_RX_DESC(rx_ring, (i+1)%rx_ring->count);
+       i = rx_ring->next_to_clean;
+       rdh = rd32(E1000_RDH(rx_ring->reg_idx));
+       rdt = rd32(E1000_RDT(rx_ring->reg_idx));
+       rx_desc = IGB_RX_DESC(rx_ring, i);
+       staterr = le32_to_cpu(rx_desc->wb.upper.status_error);
+       next_rxd = IGB_RX_DESC(rx_ring, (i+1)%rx_ring->count);
 
-	/* Weird Hung */
-	if (igb_desc_unused(rx_ring)==0 && rdh==rdt && !igb_test_staterr(rx_desc, E1000_RXD_STAT_DD)) {
-		if (!q_vector->weird_hang_recheck) { /* Check Twice*/
-			q_vector->weird_hang_recheck = true;
-			q_vector->rdh_old = rdh;
-			q_vector->rdt_old = rdt;
-			q_vector->rx_ntu_old = rx_ring->next_to_use;
-			q_vector->rx_ntc_old = rx_ring->next_to_clean;
-		}
-		else {
-			q_vector->weird_hang_recheck = false;
-			if (rdh==q_vector->rdh_old && rdt==q_vector->rdt_old
-				&& rx_ring->next_to_use==q_vector->rx_ntu_old
-				&& rx_ring->next_to_clean==q_vector->rx_ntc_old) {
-				q_vector->weird_hang_count++;
-				dev_err(rx_ring->dev,
-				      "Detected the %dth Weird Rx Hang:\n"
-				      "  RDH                  <%x>\n"
-				      "  RDT                  <%x>\n"
-				      "  next_to_use          <%x>\n"
-				      "  next_to_clean        <%x>\n"
-				      "  rx_desc status       <%x>\n",
-				      q_vector->weird_hang_count,
-				      rdh, rdt,
-				      rx_ring->next_to_use,
-				      rx_ring->next_to_clean,
-				      staterr);
+       /* Weird Hung */
+       if (igb_desc_unused(rx_ring)==0 && rdh==rdt && !igb_test_staterr(rx_desc, E1000_RXD_STAT_DD)) {
+               if (!q_vector->weird_hang_recheck) { /* Check Twice*/
+                       q_vector->weird_hang_recheck = true;
+                       q_vector->rdh_old = rdh;
+                       q_vector->rdt_old = rdt;
+                       q_vector->rx_ntu_old = rx_ring->next_to_use;
+                       q_vector->rx_ntc_old = rx_ring->next_to_clean;
+               }
+               else {
+                       q_vector->weird_hang_recheck = false;
+                       if (rdh==q_vector->rdh_old && rdt==q_vector->rdt_old
+                               && rx_ring->next_to_use==q_vector->rx_ntu_old
+                               && rx_ring->next_to_clean==q_vector->rx_ntc_old) {
+                               q_vector->weird_hang_count++;
+                               dev_err(rx_ring->dev,
+                                     "Detected the %dth Weird Rx Hang:\n"
+                                     "  RDH                  <%x>\n"
+                                     "  RDT                  <%x>\n"
+                                     "  next_to_use          <%x>\n"
+                                     "  next_to_clean        <%x>\n"
+                                     "  rx_desc status       <%x>\n",
+                                     q_vector->weird_hang_count,
+                                     rdh, rdt,
+                                     rx_ring->next_to_use,
+                                     rx_ring->next_to_clean,
+                                     staterr);
 
-				if (igb_test_staterr(next_rxd, E1000_RXD_STAT_DD)) { /* Really hang, light recover */
-					dev_err(rx_ring->dev, "Recover by skipping rx_desc...\n");
-					rx_ring->next_to_clean = (i+1) % rx_ring->count;
-				}
-				else {                                  /* Really hang, heavy recover */
-					dev_err(rx_ring->dev, "Recover by resetting device...\n");
-					schedule_work(&q_vector->adapter->reset_task);
-				}
-			}
-		}
-	}
+                               if (igb_test_staterr(next_rxd, E1000_RXD_STAT_DD)) { /* Really hang, light recover */
+                                       dev_err(rx_ring->dev, "Recover by skipping rx_desc...\n");
+                                       rx_ring->next_to_clean = (i+1) % rx_ring->count;
+                               }
+                               else {                                  /* Really hang, heavy recover */
+                                       dev_err(rx_ring->dev, "Recover by resetting device...\n");
+                                       schedule_work(&q_vector->adapter->reset_task);
+                               }
+                       }
+               }
+       }
 }
 
 static int igb_clean_rx_irq(struct igb_q_vector *q_vector, const int budget)

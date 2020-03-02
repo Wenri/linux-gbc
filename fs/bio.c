@@ -1296,6 +1296,7 @@ static struct bio *__bio_map_user_iov(struct request_queue *q,
 	struct bio *bio;
 	int cur_page = 0;
 	int ret, offset;
+	struct bio_vec *bvec;
 
 	for (i = 0; i < iov_count; i++) {
 		unsigned long uaddr = (unsigned long)iov[i].iov_base;
@@ -1339,7 +1340,12 @@ static struct bio *__bio_map_user_iov(struct request_queue *q,
 
 		ret = get_user_pages_fast(uaddr, local_nr_pages,
 				write_to_vm, &pages[cur_page]);
-		if (ret < local_nr_pages) {
+		if (unlikely(ret < local_nr_pages)) {
+			for (j = cur_page; j < page_limit; j++) {
+				if (!pages[j])
+					break;
+				put_page(pages[j]);
+			}
 			ret = -EFAULT;
 			goto out_unmap;
 		}
@@ -1347,6 +1353,7 @@ static struct bio *__bio_map_user_iov(struct request_queue *q,
 		offset = uaddr & ~PAGE_MASK;
 		for (j = cur_page; j < page_limit; j++) {
 			unsigned int bytes = PAGE_SIZE - offset;
+			unsigned short prev_bi_vcnt = bio->bi_vcnt;
 
 			if (len <= 0)
 				break;
@@ -1360,6 +1367,13 @@ static struct bio *__bio_map_user_iov(struct request_queue *q,
 			if (bio_add_pc_page(q, bio, pages[j], bytes, offset) <
 					    bytes)
 				break;
+
+			/*
+			 * check if vector was merged with previous
+			 * drop page reference if needed
+			 */
+			if (bio->bi_vcnt == prev_bi_vcnt)
+				put_page(pages[j]);
 
 			len -= bytes;
 			offset = 0;
@@ -1386,10 +1400,8 @@ static struct bio *__bio_map_user_iov(struct request_queue *q,
 	return bio;
 
  out_unmap:
-	for (i = 0; i < nr_pages; i++) {
-		if(!pages[i])
-			break;
-		page_cache_release(pages[i]);
+	bio_for_each_segment_all(bvec, bio, j) {
+		put_page(bvec->bv_page);
 	}
  out:
 	kfree(pages);

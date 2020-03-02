@@ -24,6 +24,33 @@
 #define wmb()	asm volatile("sfence" ::: "memory")
 #endif
 
+#define gmb() alternative(ASM_NOP3, "lfence", X86_FEATURE_LFENCE_RDTSC)
+#define barrier_nospec() gmb()
+
+/**
+ * array_index_mask_nospec() - generate a mask that is ~0UL when the
+ * 	bounds check succeeds and 0 otherwise
+ * @index: array element index
+ * @size: number of elements in array
+ *
+ * Returns:
+ *     0 - (index < size)
+ */
+static inline unsigned long array_index_mask_nospec(unsigned long index,
+		unsigned long size)
+{
+	unsigned long mask;
+
+	asm volatile ("cmp %1,%2; sbb %0,%0;"
+			:"=r" (mask)
+			:"r"(size),"r" (index)
+			:"cc");
+	return mask;
+}
+
+/* Override the default implementation from linux/nospec.h. */
+#define array_index_mask_nospec array_index_mask_nospec
+
 #ifdef CONFIG_X86_PPRO_FENCE
 #define dma_rmb()	rmb()
 #else
@@ -35,12 +62,12 @@
 #define smp_mb()	mb()
 #define smp_rmb()	dma_rmb()
 #define smp_wmb()	barrier()
-#define set_mb(var, value) do { (void)xchg(&var, value); } while (0)
+#define smp_store_mb(var, value) do { (void)xchg(&var, value); } while (0)
 #else /* !SMP */
 #define smp_mb()	barrier()
 #define smp_rmb()	barrier()
 #define smp_wmb()	barrier()
-#define set_mb(var, value) do { var = value; barrier(); } while (0)
+#define smp_store_mb(var, value) do { WRITE_ONCE(var, value); barrier(); } while (0)
 #endif /* SMP */
 
 #define read_barrier_depends()		do { } while (0)
@@ -100,7 +127,6 @@ do {									\
  */
 static __always_inline void rdtsc_barrier(void)
 {
-	alternative(ASM_NOP3, "mfence", X86_FEATURE_MFENCE_RDTSC);
 	alternative(ASM_NOP3, "lfence", X86_FEATURE_LFENCE_RDTSC);
 }
 

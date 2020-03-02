@@ -41,6 +41,7 @@
 #include <asm/fixmap.h>
 #include <asm/realmode.h>
 #include <asm/time.h>
+#include <asm/pgalloc.h>
 
 static pgd_t *save_pgd __initdata;
 static unsigned long efi_flags __initdata;
@@ -116,6 +117,7 @@ void __init efi_call_phys_prelog(void)
 			pr_err("Failed to allocate pud table!\n");
 			break;
 		}
+		pgd_efi->pgd &= ~_PAGE_NX;
 		for (j = 0; j < PTRS_PER_PUD; j++) {
 			addr_pud = addr_pgd + j * PUD_SIZE;
 			if (addr_pud > (max_pfn << PAGE_SHIFT))
@@ -158,20 +160,49 @@ void __init efi_call_phys_epilog(void)
 	early_code_mapping_set_exec(0);
 }
 
+static pgd_t *efi_pgd;
+
+/*
+ * We need our own copy of the higher levels of the page tables
+ * because we want to avoid inserting EFI region mappings (EFI_VA_END
+ * to EFI_VA_START) into the standard kernel page tables. Everything
+ * else can be shared, see efi_sync_low_kernel_mappings().
+ */
+int __init efi_alloc_page_tables(void)
+{
+	gfp_t gfp_mask;
+
+	if (efi_enabled(EFI_OLD_MEMMAP))
+		return 0;
+
+	gfp_mask = GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO;
+	efi_pgd = (pgd_t *)__get_free_pages(gfp_mask, PGD_ALLOCATION_ORDER);
+	if (!efi_pgd)
+		return -ENOMEM;
+
+	/*
+	 * Copy content of trampoline_pgd
+	 */
+	memcpy((void *)efi_pgd, __va(real_mode_header->trampoline_pgd),
+		PAGE_SIZE);
+
+	efi_scratch.efi_pgt = (pgd_t *)__pa(efi_pgd);
+	return 0;
+}
+
 /*
  * Add low kernel mappings for passing arguments to EFI functions.
  */
 void efi_sync_low_kernel_mappings(void)
 {
 	unsigned num_pgds;
-	pgd_t *pgd = (pgd_t *)__va(real_mode_header->trampoline_pgd);
 
 	if (efi_enabled(EFI_OLD_MEMMAP))
 		return;
 
 	num_pgds = pgd_index(MODULES_END - 1) - pgd_index(PAGE_OFFSET);
 
-	memcpy(pgd + pgd_index(PAGE_OFFSET),
+	memcpy(efi_pgd + pgd_index(PAGE_OFFSET),
 		init_mm.pgd + pgd_index(PAGE_OFFSET),
 		sizeof(pgd_t) * num_pgds);
 }
@@ -186,8 +217,8 @@ int efi_setup_page_tables(unsigned long pa_memmap, unsigned num_pages)
 	if (efi_enabled(EFI_OLD_MEMMAP))
 		return 0;
 
-	efi_scratch.efi_pgt = (pgd_t *)(unsigned long)real_mode_header->trampoline_pgd;
-	pgd = __va(efi_scratch.efi_pgt);
+	efi_scratch.efi_pgt = (pgd_t *)__pa(efi_pgd);
+	pgd = efi_pgd;
 
 	/*
 	 * It can happen that the physical address of new_memmap lands in memory
@@ -231,15 +262,13 @@ int efi_setup_page_tables(unsigned long pa_memmap, unsigned num_pages)
 
 void efi_cleanup_page_tables(unsigned long pa_memmap, unsigned num_pages)
 {
-	pgd_t *pgd = (pgd_t *)__va(real_mode_header->trampoline_pgd);
-
-	kernel_unmap_pages_in_pgd(pgd, pa_memmap, num_pages);
+	kernel_unmap_pages_in_pgd(efi_pgd, pa_memmap, num_pages);
 }
 
 static void __init __map_region(efi_memory_desc_t *md, u64 va)
 {
-	pgd_t *pgd = (pgd_t *)__va(real_mode_header->trampoline_pgd);
 	unsigned long pf = 0;
+	pgd_t *pgd = efi_pgd;
 
 	if (!(md->attribute & EFI_MEMORY_WB))
 		pf |= _PAGE_PCD;
@@ -338,9 +367,7 @@ void __init parse_efi_setup(u64 phys_addr, u32 data_len)
 void __init efi_dump_pagetable(void)
 {
 #ifdef CONFIG_EFI_PGT_DUMP
-	pgd_t *pgd = (pgd_t *)__va(real_mode_header->trampoline_pgd);
-
-	ptdump_walk_pgd_level(NULL, pgd);
+	ptdump_walk_pgd_level(NULL, efi_pgd);
 #endif
 }
 

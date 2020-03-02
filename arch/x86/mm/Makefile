@@ -33,5 +33,6 @@ obj-$(CONFIG_MEMTEST)		+= memtest.o
 
 obj-$(CONFIG_X86_INTEL_MPX)	+= mpx.o
 obj-$(CONFIG_RANDOMIZE_MEMORY)	+= kaslr.o
+obj-$(CONFIG_PAGE_TABLE_ISOLATION)	+= kaiser.o
 
 obj-$(CONFIG_TRACK_DIRTY_PAGES)	+= track.o

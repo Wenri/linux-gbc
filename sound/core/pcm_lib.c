@@ -606,18 +606,22 @@ int snd_interval_refine(struct snd_interval *i, const struct snd_interval *v)
 	if (snd_BUG_ON(snd_interval_empty(i)))
 		return -EINVAL;
 	if (i->min < v->min) {
+		gmb();
 		i->min = v->min;
 		i->openmin = v->openmin;
 		changed = 1;
 	} else if (i->min == v->min && !i->openmin && v->openmin) {
+		gmb();
 		i->openmin = 1;
 		changed = 1;
 	}
 	if (i->max > v->max) {
+		gmb();
 		i->max = v->max;
 		i->openmax = v->openmax;
 		changed = 1;
 	} else if (i->max == v->max && !i->openmax && v->openmax) {
+		gmb();
 		i->openmax = 1;
 		changed = 1;
 	}
@@ -828,8 +832,10 @@ int snd_interval_ratnum(struct snd_interval *i,
 		else {
 			unsigned int r;
 			r = (den - rats[k].den_min) % rats[k].den_step;
-			if (r != 0)
+			if (r != 0) {
+				gmb();
 				den -= r;
+			}
 		}
 		diff = num - q * den;
 		if (diff < 0)
@@ -869,8 +875,10 @@ int snd_interval_ratnum(struct snd_interval *i,
 		else {
 			unsigned int r;
 			r = (den - rats[k].den_min) % rats[k].den_step;
-			if (r != 0)
+			if (r != 0) {
+				gmb();
 				den += rats[k].den_step - r;
+			}
 		}
 		diff = q * den - num;
 		if (diff < 0)
@@ -943,8 +951,10 @@ static int snd_interval_ratden(struct snd_interval *i,
 		else {
 			unsigned int r;
 			r = (num - rats[k].num_min) % rats[k].num_step;
-			if (r != 0)
+			if (r != 0) {
+				gmb();
 				num += rats[k].num_step - r;
+			}
 		}
 		diff = num - q * den;
 		if (best_num == 0 ||
@@ -975,8 +985,10 @@ static int snd_interval_ratden(struct snd_interval *i,
 		else {
 			unsigned int r;
 			r = (num - rats[k].num_min) % rats[k].num_step;
-			if (r != 0)
+			if (r != 0) {
+				gmb();
 				num -= r;
+			}
 		}
 		diff = q * den - num;
 		if (best_num == 0 ||
@@ -1084,12 +1096,14 @@ int snd_interval_ranges(struct snd_interval *i, unsigned int count,
 			continue;
 
 		if (range.min < range_union.min) {
+			gmb();
 			range_union.min = range.min;
 			range_union.openmin = 1;
 		}
 		if (range.min == range_union.min && !range.openmin)
 			range_union.openmin = 0;
 		if (range.max > range_union.max) {
+			gmb();
 			range_union.max = range.max;
 			range_union.openmax = 1;
 		}

@@ -29,6 +29,7 @@ struct mm_struct;
 #include <linux/math64.h>
 #include <linux/err.h>
 #include <linux/irqflags.h>
+#include <linux/magic.h>
 
 #include <linux/rh_kabi.h>
 
@@ -82,6 +83,7 @@ struct rh_cpuinfo_x86 {
 	int			x86_cache_occ_scale;
 	/* Logical processor id: */
 	u16			logical_proc_id;
+	unsigned		initialized : 1;
 };
 
 /*
@@ -134,7 +136,7 @@ struct cpuinfo_x86 {
 	/* Core id: */
 	u16			cpu_core_id;
 	/* Compute unit id */
-	u8			compute_unit_id;
+	RH_KABI_REPLACE(u8 compute_unit_id, __u8 cu_id)
 	/* Index into per_cpu list: */
 	u16			cpu_index;
 	u32			microcode;
@@ -170,8 +172,8 @@ extern struct rh_cpuinfo_x86	rh_boot_cpu_data;
 extern struct cpuinfo_x86	new_cpu_data;
 
 extern struct tss_struct	doublefault_tss;
-extern __u32			cpu_caps_cleared[NCAPINTS];
-extern __u32			cpu_caps_set[NCAPINTS];
+extern __u32			cpu_caps_cleared[NCAPINTS + NBUGINTS];
+extern __u32			cpu_caps_set[NCAPINTS + NBUGINTS];
 
 #ifdef CONFIG_SMP
 DECLARE_PER_CPU_SHARED_ALIGNED(struct cpuinfo_x86, cpu_info);
@@ -189,7 +191,13 @@ extern const struct seq_operations cpuinfo_op;
 
 extern void cpu_detect(struct cpuinfo_x86 *c);
 
+static inline unsigned long l1tf_pfn_limit(void)
+{
+	return BIT(boot_cpu_data.x86_phys_bits - 1 - PAGE_SHIFT) - 1;
+}
+
 extern void early_cpu_init(void);
+extern void eager_fpu_not_needed(void);
 extern void identify_boot_cpu(void);
 extern void identify_secondary_cpu(struct cpuinfo_x86 *);
 extern void print_cpu_info(struct cpuinfo_x86 *);
@@ -201,7 +209,7 @@ extern u32 get_scattered_cpuid_leaf(unsigned int level,
 extern unsigned int init_intel_cacheinfo(struct cpuinfo_x86 *c);
 extern void init_amd_cacheinfo(struct cpuinfo_x86 *c);
 
-extern void detect_extended_topology(struct cpuinfo_x86 *c);
+extern int detect_extended_topology(struct cpuinfo_x86 *c);
 extern void detect_ht(struct cpuinfo_x86 *c);
 
 extern int get_cpu_cache_id(int cpu, int level);
@@ -226,10 +234,23 @@ static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
 	    : "memory");
 }
 
-static inline void load_cr3(pgd_t *pgdir)
-{
-	write_cr3(__pa(pgdir));
+#define native_cpuid_reg(reg)					\
+static inline unsigned int native_cpuid_##reg(unsigned int op)	\
+{								\
+	unsigned int eax = op, ebx, ecx = 0, edx;		\
+								\
+	native_cpuid(&eax, &ebx, &ecx, &edx);			\
+								\
+	return reg;						\
 }
+
+/*
+ * Native CPUID functions returning a single datum.
+ */
+native_cpuid_reg(eax)
+native_cpuid_reg(ebx)
+native_cpuid_reg(ecx)
+native_cpuid_reg(edx)
 
 #ifdef CONFIG_X86_32
 /* This is the TSS defined by the hardware. */
@@ -306,11 +327,30 @@ struct tss_struct {
 	/*
 	 * .. and then another 0x100 bytes for the emergency kernel stack:
 	 */
+	RH_KABI_FILL_HOLE(unsigned long stack_canary)
 	unsigned long		stack[64];
 
-} ____cacheline_aligned;
+	/*
+	 *
+	 * The Intel SDM says (Volume 3, 7.2.1):
+	 *
+	 *  Avoid placing a page boundary in the part of the TSS that the
+	 *  processor reads during a task switch (the first 104 bytes). The
+	 *  processor may not correctly perform address translations if a
+	 *  boundary occurs in this area. During a task switch, the processor
+	 *  reads and writes into the first 104 bytes of each TSS (using
+	 *  contiguous physical addresses beginning with the physical address
+	 *  of the first byte of the TSS). So, after TSS access begins, if
+	 *  part of the 104 bytes is not physically contiguous, the processor
+	 *  will access incorrect information without generating a page-fault
+	 *  exception.
+	 *
+	 * There are also a lot of errata involving the TSS spanning a page
+	 * boundary.  Assert that we're not doing that.
+	 */
+} __attribute__((__aligned__(PAGE_SIZE)));
 
-DECLARE_PER_CPU_SHARED_ALIGNED(struct tss_struct, init_tss);
+DECLARE_PER_CPU_PAGE_ALIGNED_USER_MAPPED(struct tss_struct, init_tss);
 
 /*
  * Save the original ist values for checking stack pointers during debugging
@@ -615,8 +655,13 @@ static inline void set_in_cr4(unsigned long mask)
 	unsigned long cr4;
 
 	mmu_cr4_features |= mask;
-	if (trampoline_cr4_features)
-		*trampoline_cr4_features = mmu_cr4_features;
+	if (trampoline_cr4_features) {
+		/*
+		 * Mask off features that don't work outside long mode (just
+		 * PCIDE for now).
+		 */
+		*trampoline_cr4_features = mmu_cr4_features & ~X86_CR4_PCIDE;
+	}
 	cr4 = read_cr4();
 	cr4 |= mask;
 	write_cr4(cr4);
@@ -937,7 +982,8 @@ extern unsigned long thread_saved_pc(struct task_struct *tsk);
 }
 
 #define INIT_TSS  { \
-	.x86_tss.sp0 = (unsigned long)&init_stack + sizeof(init_stack) \
+	.x86_tss.sp0 = (unsigned long)&init_stack + sizeof(init_stack), \
+	.stack_canary		= STACK_END_MAGIC, \
 }
 
 /*
@@ -1020,5 +1066,32 @@ bool xen_set_default_idle(void);
 #endif
 
 void stop_this_cpu(void *dummy);
+void microcode_check(void);
+
+enum l1tf_mitigations {
+	L1TF_MITIGATION_OFF,
+	L1TF_MITIGATION_FLUSH_NOWARN,
+	L1TF_MITIGATION_FLUSH,
+	L1TF_MITIGATION_FLUSH_NOSMT,
+	L1TF_MITIGATION_FULL,
+	L1TF_MITIGATION_FULL_FORCE
+};
+
+extern enum l1tf_mitigations l1tf_mitigation;
+
+enum mds_mitigations {
+	MDS_MITIGATION_OFF,
+	MDS_MITIGATION_FULL,
+	MDS_MITIGATION_VMWERV,
+};
+
+extern enum mds_mitigations mds_mitigation;
+
+enum taa_mitigations {
+	TAA_MITIGATION_OFF,
+	TAA_MITIGATION_UCODE_NEEDED,
+	TAA_MITIGATION_VERW,
+	TAA_MITIGATION_TSX_DISABLED,
+};
 
 #endif /* _ASM_X86_PROCESSOR_H */

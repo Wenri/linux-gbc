@@ -248,21 +248,8 @@ static DEFINE_SPINLOCK(all_mddevs_lock);
  * call has finished, the bio has been linked into some internal structure
  * and so is visible to ->quiesce(), so we don't need the refcount any more.
  */
-static void md_make_request(struct request_queue *q, struct bio *bio)
+void md_handle_request(struct mddev *mddev, struct bio *bio)
 {
-	const int rw = bio_data_dir(bio);
-	struct mddev *mddev = q->queuedata;
-	int cpu;
-	unsigned int sectors;
-
-	if (mddev == NULL || mddev->pers == NULL) {
-		bio_io_error(bio);
-		return;
-	}
-	if (mddev->ro == 1 && unlikely(rw == WRITE)) {
-		bio_endio(bio, bio_sectors(bio) == 0 ? 0 : -EROFS);
-		return;
-	}
 check_suspended:
 	smp_rmb(); /* Ensure implications of  'active' are visible */
 	rcu_read_lock();
@@ -282,24 +269,45 @@ check_suspended:
 	atomic_inc(&mddev->active_io);
 	rcu_read_unlock();
 
-	/*
-	 * save the sectors now since our bio can
-	 * go away inside make_request
-	 */
-	sectors = bio_sectors(bio);
 	if (!mddev->pers->make_request(mddev, bio)) {
 		atomic_dec(&mddev->active_io);
 		wake_up(&mddev->sb_wait);
 		goto check_suspended;
 	}
 
+	if (atomic_dec_and_test(&mddev->active_io) && mddev->suspended)
+		wake_up(&mddev->sb_wait);
+}
+EXPORT_SYMBOL(md_handle_request);
+
+static void md_make_request(struct request_queue *q, struct bio *bio)
+{
+	const int rw = bio_data_dir(bio);
+	struct mddev *mddev = q->queuedata;
+	int cpu;
+	unsigned int sectors;
+
+	if (mddev == NULL || mddev->pers == NULL) {
+		bio_io_error(bio);
+		return;
+	}
+	if (mddev->ro == 1 && unlikely(rw == WRITE)) {
+		bio_endio(bio, bio_sectors(bio) == 0 ? 0 : -EROFS);
+		return;
+	}
+
+	/*
+	 * save the sectors now since our bio can
+	 * go away inside make_request
+	 */
+	sectors = bio_sectors(bio);
+
+	md_handle_request(mddev, bio);
+
 	cpu = part_stat_lock();
 	part_stat_inc(cpu, &mddev->gendisk->part0, ios[rw]);
 	part_stat_add(cpu, &mddev->gendisk->part0, sectors[rw], sectors);
 	part_stat_unlock();
-
-	if (atomic_dec_and_test(&mddev->active_io) && mddev->suspended)
-		wake_up(&mddev->sb_wait);
 }
 
 /* mddev_suspend makes sure no new requests are submitted
@@ -403,6 +411,7 @@ static void submit_flushes(struct work_struct *ws)
 	struct mddev *mddev = container_of(ws, struct mddev, flush_work);
 	struct md_rdev *rdev;
 
+	mddev->start_flush = ktime_get_boottime();
 	INIT_WORK(&mddev->flush_work, md_submit_flush_data);
 	atomic_set(&mddev->flush_pending, 1);
 	rcu_read_lock();
@@ -436,29 +445,53 @@ static void md_submit_flush_data(struct work_struct *ws)
 	struct mddev *mddev = container_of(ws, struct mddev, flush_work);
 	struct bio *bio = mddev->flush_bio;
 
+	/*
+	 * must reset flush_bio before calling into md_handle_request to avoid a
+	 * deadlock, because other bios passed md_handle_request suspend check
+	 * could wait for this and below md_handle_request could wait for those
+	 * bios because of suspend check
+	 */
+	mddev->last_flush = mddev->start_flush;
+	mddev->flush_bio = NULL;
+	wake_up(&mddev->sb_wait);
+
 	if (bio->bi_size == 0)
 		/* an empty barrier - all done */
 		bio_endio(bio, 0);
 	else {
 		bio->bi_rw &= ~REQ_FLUSH;
-		mddev->pers->make_request(mddev, bio);
+		md_handle_request(mddev, bio);
 	}
-
-	mddev->flush_bio = NULL;
-	wake_up(&mddev->sb_wait);
 }
 
 void md_flush_request(struct mddev *mddev, struct bio *bio)
 {
+	ktime_t start = ktime_get_boottime();
 	spin_lock_irq(&mddev->lock);
 	wait_event_lock_irq(mddev->sb_wait,
-			    !mddev->flush_bio,
+			    !mddev->flush_bio ||
+			    ktime_after(mddev->last_flush, start),
 			    mddev->lock);
-	mddev->flush_bio = bio;
+	if (!ktime_after(mddev->last_flush, start)) {
+		WARN_ON(mddev->flush_bio);
+		mddev->flush_bio = bio;
+		bio = NULL;
+	}
 	spin_unlock_irq(&mddev->lock);
 
-	INIT_WORK(&mddev->flush_work, submit_flushes);
-	queue_work(md_wq, &mddev->flush_work);
+	if (!bio) {
+		INIT_WORK(&mddev->flush_work, submit_flushes);
+		queue_work(md_wq, &mddev->flush_work);
+	} else {
+		/* flush was performed for some other bio while we waited. */
+		if (bio->bi_size == 0)
+			/* an empty barrier - all done */
+			bio_endio(bio, 0);
+		else {
+			bio->bi_rw &= ~REQ_FLUSH;
+			mddev->pers->make_request(mddev, bio);
+		}
+	}
 }
 EXPORT_SYMBOL(md_flush_request);
 

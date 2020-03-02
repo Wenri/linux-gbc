@@ -2819,9 +2819,6 @@ static void configure_discard_support(struct raid_set *rs)
 	bool raid456;
 	struct dm_target *ti = rs->ti;
 
-	/* Assume discards not supported until after checks below. */
-	ti->discards_supported = false;
-
 	/* RAID level 4,5,6 require discard_zeroes_data for data integrity! */
 	raid456 = (rs->md.level == 4 || rs->md.level == 5 || rs->md.level == 6);
 
@@ -2845,9 +2842,6 @@ static void configure_discard_support(struct raid_set *rs)
 			}
 		}
 	}
-
-	/* All RAID members properly support discards */
-	ti->discards_supported = true;
 
 	/*
 	 * RAID1 and RAID10 personalities require bio splitting,
@@ -3152,7 +3146,7 @@ static int raid_map(struct dm_target *ti, struct bio *bio)
 	if (unlikely(bio_end_sector(bio) > mddev->array_sectors))
 		return DM_MAPIO_REQUEUE;
 
-	mddev->pers->make_request(mddev, bio);
+	md_handle_request(mddev, bio);
 
 	return DM_MAPIO_SUBMITTED;
 }

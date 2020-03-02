@@ -520,8 +520,6 @@ static u8 * __init alloc_command_buffer(struct amd_iommu *iommu)
 	if (cmd_buf == NULL)
 		return NULL;
 
-	iommu->cmd_buf_size = CMD_BUFFER_SIZE | CMD_BUFFER_UNINITIALIZED;
-
 	return cmd_buf;
 }
 
@@ -535,6 +533,8 @@ void amd_iommu_reset_cmd_buffer(struct amd_iommu *iommu)
 
 	writel(0x00, iommu->mmio_base + MMIO_CMD_HEAD_OFFSET);
 	writel(0x00, iommu->mmio_base + MMIO_CMD_TAIL_OFFSET);
+	iommu->cmd_buf_head = 0;
+	iommu->cmd_buf_tail = 0;
 
 	iommu_feature_enable(iommu, CONTROL_CMDBUF_EN);
 }
@@ -556,13 +556,11 @@ static void iommu_enable_command_buffer(struct amd_iommu *iommu)
 		    &entry, sizeof(entry));
 
 	amd_iommu_reset_cmd_buffer(iommu);
-	iommu->cmd_buf_size &= ~(CMD_BUFFER_UNINITIALIZED);
 }
 
 static void __init free_command_buffer(struct amd_iommu *iommu)
 {
-	free_pages((unsigned long)iommu->cmd_buf,
-		   get_order(iommu->cmd_buf_size & ~(CMD_BUFFER_UNINITIALIZED)));
+	free_pages((unsigned long)iommu->cmd_buf, get_order(CMD_BUFFER_SIZE));
 }
 
 /* allocates the memory where the IOMMU will log its events to */
@@ -573,8 +571,6 @@ static u8 * __init alloc_event_buffer(struct amd_iommu *iommu)
 
 	if (iommu->evt_buf == NULL)
 		return NULL;
-
-	iommu->evt_buf_size = EVT_BUFFER_SIZE;
 
 	return iommu->evt_buf;
 }

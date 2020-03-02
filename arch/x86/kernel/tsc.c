@@ -712,14 +712,14 @@ unsigned long native_calibrate_tsc(void)
 		case INTEL_FAM6_KABYLAKE_DESKTOP:
 			crystal_khz = 24000;	/* 24.0 MHz */
 			break;
-		case INTEL_FAM6_SKYLAKE_X:
-			crystal_khz = 25000;	/* 25.0 MHz */
-			break;
 		case INTEL_FAM6_ATOM_GOLDMONT:
 			crystal_khz = 19200;	/* 19.2 MHz */
 			break;
 		}
 	}
+
+	if (crystal_khz == 0)
+		return 0;
 
 	return crystal_khz * ebx_numerator / eax_denominator;
 }
@@ -1071,10 +1071,14 @@ static void detect_art(void)
 	cpuid(ART_CPUID_LEAF, &art_to_tsc_denominator,
 	      &art_to_tsc_numerator, unused, unused+1);
 
-	/* Don't enable ART in a VM, non-stop TSC required */
+	/*
+	 * Don't enable ART in a VM, non-stop TSC required,
+	 * and the TSC counter resets must not occur asynchronously.
+	 */
 	if (boot_cpu_has(X86_FEATURE_HYPERVISOR) ||
 	    !boot_cpu_has(X86_FEATURE_NONSTOP_TSC) ||
-	    art_to_tsc_denominator < ART_MIN_DENOMINATOR)
+	    art_to_tsc_denominator < ART_MIN_DENOMINATOR ||
+	    tsc_async_resets)
 		return;
 
 	if (rdmsrl_safe(MSR_IA32_TSC_ADJUST, &art_to_tsc_offset))
@@ -1354,6 +1358,12 @@ void __init tsc_init(void)
 		(unsigned long)cpu_khz / 1000,
 		(unsigned long)cpu_khz % 1000);
 
+	if (cpu_khz != tsc_khz) {
+		pr_info("Detected %lu.%03lu MHz TSC",
+			(unsigned long)tsc_khz / 1000,
+			(unsigned long)tsc_khz % 1000);
+	}
+
 	/*
 	 * Secondary CPUs do not run through tsc_init(), so set up
 	 * all the scale factors for all CPUs, assuming the same
@@ -1384,6 +1394,8 @@ void __init tsc_init(void)
 
 	if (unsynchronized_tsc())
 		mark_tsc_unstable("TSCs unsynchronized");
+	else
+		tsc_store_and_check_tsc_adjust(true);
 
 	check_system_tsc_reliable();
 

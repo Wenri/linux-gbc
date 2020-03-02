@@ -866,7 +866,7 @@ static int of_finish_dynamic_node(struct device_node *node)
 {
 	struct device_node *parent = of_get_parent(node);
 	int err = 0;
-	const phandle *ibm_phandle;
+	const __be32 *ibm_phandle;
 
 	node->name = of_get_property(node, "name", NULL);
 	node->type = of_get_property(node, "device_type", NULL);
@@ -889,7 +889,7 @@ static int of_finish_dynamic_node(struct device_node *node)
 
 	/* fix up new node's phandle field */
 	if ((ibm_phandle = of_get_property(node, "ibm,phandle", NULL)))
-		node->phandle = *ibm_phandle;
+		node->phandle = be32_to_cpup(ibm_phandle);
 
 out:
 	of_node_put(parent);

@@ -9,6 +9,7 @@
 #include <asm/processor.h>
 #include <asm/apic.h>
 #include <asm/cpu.h>
+#include <asm/nospec-branch.h>
 #include <asm/pci-direct.h>
 
 #ifdef CONFIG_X86_64
@@ -292,6 +293,29 @@ static int nearby_node(int apicid)
 }
 #endif
 
+
+static void amd_get_topology_early(struct cpuinfo_x86 *c)
+{
+	if (cpu_has(c, X86_FEATURE_TOPOEXT))
+		smp_num_siblings = ((cpuid_ebx(0x8000001e) >> 8) & 0xff) + 1;
+}
+
+/*
+ * Fix up cpu_core_id for pre-F17h systems to be in the
+ * [0 .. cores_per_node - 1] range. Not really needed but
+ * kept so as not to break existing setups.
+ */
+static void legacy_fixup_core_id(struct cpuinfo_x86 *c)
+{
+	u32 cus_per_node;
+
+	if (c->x86 >= 0x17)
+		return;
+
+	cus_per_node = c->x86_max_cores / nodes_per_socket;
+	c->cpu_core_id %= cus_per_node;
+}
+
 /*
  * Fixup core topology information for
  * (1) AMD multi-node processors
@@ -301,7 +325,6 @@ static int nearby_node(int apicid)
 #ifdef CONFIG_X86_HT
 static void amd_get_topology(struct cpuinfo_x86 *c)
 {
-	u32 cores_per_cu = 1;
 	u8 node_id;
 	int cpu = smp_processor_id();
 
@@ -311,36 +334,49 @@ static void amd_get_topology(struct cpuinfo_x86 *c)
 
 		cpuid(0x8000001e, &eax, &ebx, &ecx, &edx);
 		nodes_per_socket = ((ecx >> 8) & 7) + 1;
-		node_id = ecx & 7;
 
-		/* get compute unit information */
-		cores_per_cu = smp_num_siblings = ((ebx >> 8) & 3) + 1;
-		c->x86_max_cores /= smp_num_siblings;
-		c->compute_unit_id = ebx & 0xff;
+		node_id  = ecx & 0xff;
+
+		if (c->x86 == 0x15)
+			c->cu_id = ebx & 0xff;
+
+		if (c->x86 >= 0x17) {
+			c->cpu_core_id = ebx & 0xff;
+
+			if (smp_num_siblings > 1)
+				c->x86_max_cores /= smp_num_siblings;
+		}
+
+		/*
+		 * We may have multiple LLCs if L3 caches exist, so check if we
+		 * have an L3 cache by looking at the L3 cache CPUID leaf.
+		 */
+		if (cpuid_edx(0x80000006)) {
+			if (c->x86 == 0x17) {
+				/*
+				 * LLC is at the core complex level.
+				 * Core complex id is ApicId[3].
+				 */
+				per_cpu(cpu_llc_id, cpu) = c->apicid >> 3;
+			} else {
+				/* LLC is at the node level. */
+				per_cpu(cpu_llc_id, cpu) = node_id;
+			}
+		}
 	} else if (cpu_has(c, X86_FEATURE_NODEID_MSR)) {
 		u64 value;
 
 		rdmsrl(MSR_FAM10H_NODE_ID, value);
 		nodes_per_socket = ((value >> 3) & 7) + 1;
 		node_id = value & 7;
+
+		per_cpu(cpu_llc_id, cpu) = node_id;
 	} else
 		return;
 
-	/* fixup multi-node processor information */
 	if (nodes_per_socket > 1) {
-		u32 cores_per_node;
-		u32 cus_per_node;
-
 		set_cpu_cap(c, X86_FEATURE_AMD_DCM);
-		cus_per_node = c->x86_max_cores / nodes_per_socket;
-		cores_per_node = cus_per_node * cores_per_cu;
-
-		/* store NodeID, use llc_shared_map to store sibling info */
-		per_cpu(cpu_llc_id, cpu) = node_id;
-
-		/* core id has to be in the [0 .. cores_per_node - 1] range */
-		c->cpu_core_id %= cores_per_node;
-		c->compute_unit_id %= cus_per_node;
+		legacy_fixup_core_id(c);
 	}
 }
 #endif
@@ -363,15 +399,6 @@ static void amd_detect_cmp(struct cpuinfo_x86 *c)
 	/* use socket ID also for last level cache */
 	per_cpu(cpu_llc_id, cpu) = c->phys_proc_id;
 	amd_get_topology(c);
-
-	/*
-	 * Fix percpu cpu_llc_id here as LLC topology is different
-	 * for Fam17h systems.
-	 */
-	 if (c->x86 != 0x17 || !cpuid_edx(0x80000006))
-		return;
-
-	per_cpu(cpu_llc_id, cpu) = c->apicid >> 3;
 #endif
 }
 
@@ -492,10 +519,35 @@ static void bsp_init_amd(struct cpuinfo_x86 *c)
 		/* A random value per boot for bit slice [12:upper_bit) */
 		va_align.bits = get_random_int() & va_align.mask;
 	}
+
+	if (c->x86 >= 0x15 && c->x86 <= 0x17) {
+		unsigned int bit;
+
+		switch (c->x86) {
+		case 0x15: bit = 54; break;
+		case 0x16: bit = 33; break;
+		case 0x17: bit = 10;
+			   set_cpu_cap(c, X86_FEATURE_ZEN);
+			   break;
+		default: return;
+		}
+		/*
+		 * Try to cache the base value so further operations can
+		 * avoid RMW. If that faults, do not enable SSBD.
+		 */
+		if (!rdmsrl_safe(MSR_AMD64_LS_CFG, &x86_amd_ls_cfg_base)) {
+			setup_force_cpu_cap(X86_FEATURE_LS_CFG_SSBD);
+			setup_force_cpu_cap(X86_FEATURE_SSBD);
+			x86_amd_ls_cfg_ssbd_mask = 1ULL << bit;
+		}
+	}
 }
 
 static void early_init_amd(struct cpuinfo_x86 *c)
 {
+	u64 value;
+
+	eager_fpu_not_needed();
 	early_init_amd_mc(c);
 
 	/*
@@ -535,6 +587,25 @@ static void early_init_amd(struct cpuinfo_x86 *c)
 			set_cpu_cap(c, X86_FEATURE_EXTD_APICID);
 	}
 #endif
+
+	/* re-enable TopologyExtensions if switched off by BIOS */
+	if ((c->x86 == 0x15) &&
+	    (c->x86_model >= 0x10) && (c->x86_model <= 0x1f) &&
+	    !cpu_has(c, X86_FEATURE_TOPOEXT)) {
+
+		if (!rdmsrl_safe(0xc0011005, &value)) {
+			value |= 1ULL << 54;
+			wrmsrl_safe(0xc0011005, value);
+			rdmsrl(0xc0011005, value);
+			if (value & (1ULL << 54)) {
+				set_cpu_cap(c, X86_FEATURE_TOPOEXT);
+				printk(KERN_INFO FW_INFO "CPU: Re-enabling "
+				  "disabled Topology Extensions Support\n");
+			}
+		}
+	}
+
+	amd_get_topology_early(c);
 }
 
 static const int amd_erratum_383[];
@@ -636,23 +707,6 @@ static void init_amd(struct cpuinfo_x86 *c)
 		}
 	}
 
-	/* re-enable TopologyExtensions if switched off by BIOS */
-	if ((c->x86 == 0x15) &&
-	    (c->x86_model >= 0x10) && (c->x86_model <= 0x1f) &&
-	    !cpu_has(c, X86_FEATURE_TOPOEXT)) {
-
-		if (!rdmsrl_safe(0xc0011005, &value)) {
-			value |= 1ULL << 54;
-			wrmsrl_safe(0xc0011005, value);
-			rdmsrl(0xc0011005, value);
-			if (value & (1ULL << 54)) {
-				set_cpu_cap(c, X86_FEATURE_TOPOEXT);
-				printk(KERN_INFO FW_INFO "CPU: Re-enabling "
-				  "disabled Topology Extensions Support\n");
-			}
-		}
-	}
-
 	/*
 	 * The way access filter has a performance penalty on some workloads.
 	 * Disable it on the affected CPUs.
@@ -668,15 +722,8 @@ static void init_amd(struct cpuinfo_x86 *c)
 
 	cpu_detect_cache_sizes(c);
 
-	/* Multi core CPU? */
-	if (c->extended_cpuid_level >= 0x80000008) {
-		amd_detect_cmp(c);
-		srat_detect_node(c);
-	}
-
-#ifdef CONFIG_X86_32
-	detect_ht(c);
-#endif
+	amd_detect_cmp(c);
+	srat_detect_node(c);
 
 	init_amd_cacheinfo(c);
 
@@ -684,8 +731,17 @@ static void init_amd(struct cpuinfo_x86 *c)
 		set_cpu_cap(c, X86_FEATURE_K8);
 
 	if (cpu_has_xmm2) {
-		/* MFENCE stops RDTSC speculation */
-		set_cpu_cap(c, X86_FEATURE_MFENCE_RDTSC);
+		/*
+		 * Use LFENCE for execution serialization. On some families
+		 * LFENCE is already serialized and the MSR is not available,
+		 * but msr_set_bit() uses rdmsrl_safe() and wrmsrl_safe().
+		 */
+		if (c->x86 > 0xf)
+			msr_set_bit(MSR_F10H_DECFG,
+				    MSR_F10H_DECFG_LFENCE_SERIALIZE_BIT);
+
+		/* LFENCE with MSR_F10H_DECFG[1]=1 stops RDTSC speculation */
+		set_cpu_cap(c, X86_FEATURE_LFENCE_RDTSC);
 	}
 
 #ifdef CONFIG_X86_64
@@ -764,6 +820,11 @@ static void init_amd(struct cpuinfo_x86 *c)
 		set_cpu_bug(c, X86_BUG_AMD_APIC_C1E);
 
 	rdmsr_safe(MSR_AMD64_PATCH_LEVEL, &c->microcode, &dummy);
+
+	if (c->x86 == 0x10 || c->x86 == 0x12)
+		set_cpu_cap(c, X86_FEATURE_IBP_DISABLE);
+
+	set_cpu_cap(c, X86_FEATURE_RETPOLINE_AMD);
 }
 
 #ifdef CONFIG_X86_32

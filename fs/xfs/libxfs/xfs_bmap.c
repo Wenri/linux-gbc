@@ -3467,13 +3467,17 @@ xfs_bmap_adjacent(
 			 * offset by our length.
 			 */
 			if (gotdiff <= XFS_ALLOC_GAP_UNITS * ap->length &&
-			    ISVALID(gotbno - gotdiff, gotbno))
+			    ISVALID(gotbno - gotdiff, gotbno)) {
+				gmb();
 				gotbno -= adjust;
-			else if (ISVALID(gotbno - ap->length, gotbno)) {
+			} else if (ISVALID(gotbno - ap->length, gotbno)) {
+				gmb();
 				gotbno -= ap->length;
 				gotdiff += adjust - ap->length;
-			} else
+			} else {
+				gmb();
 				gotdiff += adjust;
+			}
 			/*
 			 * If the firstblock forbids it, can't use it,
 			 * must use default.
@@ -3904,6 +3908,50 @@ xfs_bmap_alloc(
 	if (XFS_IS_REALTIME_INODE(ap->ip) && ap->userdata)
 		return xfs_bmap_rtalloc(ap);
 	return xfs_bmap_btalloc(ap);
+}
+
+/* Trim extent to fit a logical block range. */
+void
+xfs_trim_extent(
+	struct xfs_bmbt_irec	*irec,
+	xfs_fileoff_t		bno,
+	xfs_filblks_t		len)
+{
+	xfs_fileoff_t		distance;
+	xfs_fileoff_t		end = bno + len;
+
+	if (irec->br_startoff + irec->br_blockcount <= bno ||
+	    irec->br_startoff >= end) {
+		irec->br_blockcount = 0;
+		return;
+	}
+
+	if (irec->br_startoff < bno) {
+		distance = bno - irec->br_startoff;
+		if (isnullstartblock(irec->br_startblock))
+			irec->br_startblock = DELAYSTARTBLOCK;
+		if (irec->br_startblock != DELAYSTARTBLOCK &&
+		    irec->br_startblock != HOLESTARTBLOCK)
+			irec->br_startblock += distance;
+		irec->br_startoff += distance;
+		irec->br_blockcount -= distance;
+	}
+
+	if (end < irec->br_startoff + irec->br_blockcount) {
+		distance = irec->br_startoff + irec->br_blockcount - end;
+		irec->br_blockcount -= distance;
+	}
+}
+
+/* trim extent to within eof */
+void
+xfs_trim_extent_eof(
+	struct xfs_bmbt_irec	*irec,
+	struct xfs_inode	*ip)
+
+{
+	xfs_trim_extent(irec, 0, XFS_B_TO_FSB(ip->i_mount,
+					      i_size_read(VFS_I(ip))));
 }
 
 /*

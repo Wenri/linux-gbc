@@ -343,9 +343,11 @@ static void ff_layout_sort_mirrors(struct nfs4_ff_layout_segment *fls)
 	for (i = 0; i < fls->mirror_array_cnt - 1; i++) {
 		for (j = i + 1; j < fls->mirror_array_cnt; j++)
 			if (fls->mirror_array[i]->efficiency <
-			    fls->mirror_array[j]->efficiency)
+			    fls->mirror_array[j]->efficiency) {
+				gmb();
 				swap(fls->mirror_array[i],
 				     fls->mirror_array[j]);
+			}
 	}
 }
 
@@ -1371,30 +1373,14 @@ static void ff_layout_read_prepare_v3(struct rpc_task *task, void *data)
 	rpc_call_start(task);
 }
 
-static int ff_layout_setup_sequence(struct nfs_client *ds_clp,
-				    struct nfs4_sequence_args *args,
-				    struct nfs4_sequence_res *res,
-				    struct rpc_task *task)
-{
-	if (ds_clp->cl_session)
-		return nfs41_setup_sequence(ds_clp->cl_session,
-					   args,
-					   res,
-					   task);
-	return nfs40_setup_sequence(ds_clp->cl_slot_tbl,
-				   args,
-				   res,
-				   task);
-}
-
 static void ff_layout_read_prepare_v4(struct rpc_task *task, void *data)
 {
 	struct nfs_pgio_header *hdr = data;
 
-	if (ff_layout_setup_sequence(hdr->ds_clp,
-				     &hdr->args.seq_args,
-				     &hdr->res.seq_res,
-				     task))
+	if (nfs4_setup_sequence(hdr->ds_clp,
+				&hdr->args.seq_args,
+				&hdr->res.seq_res,
+				task))
 		return;
 
 	if (ff_layout_read_prepare_common(task, hdr))
@@ -1565,10 +1551,10 @@ static void ff_layout_write_prepare_v4(struct rpc_task *task, void *data)
 {
 	struct nfs_pgio_header *hdr = data;
 
-	if (ff_layout_setup_sequence(hdr->ds_clp,
-				     &hdr->args.seq_args,
-				     &hdr->res.seq_res,
-				     task))
+	if (nfs4_setup_sequence(hdr->ds_clp,
+				&hdr->args.seq_args,
+				&hdr->res.seq_res,
+				task))
 		return;
 
 	if (ff_layout_write_prepare_common(task, hdr))
@@ -1654,10 +1640,10 @@ static void ff_layout_commit_prepare_v4(struct rpc_task *task, void *data)
 {
 	struct nfs_commit_data *wdata = data;
 
-	if (ff_layout_setup_sequence(wdata->ds_clp,
-				 &wdata->args.seq_args,
-				 &wdata->res.seq_res,
-				 task))
+	if (nfs4_setup_sequence(wdata->ds_clp,
+				&wdata->args.seq_args,
+				&wdata->res.seq_res,
+				task))
 		return;
 	ff_layout_commit_prepare_common(task, data);
 }

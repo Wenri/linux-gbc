@@ -87,6 +87,7 @@ _TIF_TRACE    = (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | _TIF_SECCOMP | \
 	.else
 	jhe	0f
 	.endif
+	BPENTER __SF_EMPTY+30(%r15),(_TIF_ISOLATE_BP|_TIF_ISOLATE_BP_GUEST)>>8
 	lg	%r14,__SF_EMPTY(%r15)		# get control block pointer
 	ni	__SIE_PROG0C+3(%r14),0xfe	# no longer in SIE
 	lctlg	%c1,%c1,__LC_USER_ASCE		# load primary asce
@@ -158,7 +159,136 @@ _TIF_TRACE    = (_TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT | _TIF_SECCOMP | \
 #endif
 	.endm
 
+	.macro BPOFF
+	.pushsection .altinstr_replacement, "ax"
+660:	.long	0xb2e8c000
+	.popsection
+661:	.long	0x47000000
+	.pushsection .altinstructions, "a"
+        .long 661b - .
+	.long 660b - .
+	.word 82
+	.byte 4
+	.byte 4
+	.popsection
+	.endm
+
+	.macro BPON
+	.pushsection .altinstr_replacement, "ax"
+662:	.long	0xb2e8d000
+	.popsection
+663:	.long	0x47000000
+	.pushsection .altinstructions, "a"
+        .long 663b - .
+	.long 662b - .
+	.word 82
+	.byte 4
+	.byte 4
+	.popsection
+	.endm
+
+	.macro BPENTER tif_ptr,tif_mask
+	.pushsection .altinstr_replacement, "ax"
+662:	.word	0xc004, 0x0000, 0x0000	# 6 byte nop
+	.word	0xc004, 0x0000, 0x0000	# 6 byte nop
+	.popsection
+664:	tm	\tif_ptr,\tif_mask
+	jz	. + 8
+	.long	0xb2e8d000
+	.pushsection .altinstructions, "a"
+	.long 664b - .
+	.long 662b - .
+	.word 82
+	.byte 12
+	.byte 12
+	.popsection
+	.endm
+
+	.macro BPEXIT tif_ptr,tif_mask
+	tm	\tif_ptr,\tif_mask
+	.pushsection .altinstr_replacement, "ax"
+662:	jnz	. + 8
+	.long	0xb2e8d000
+	.popsection
+664:	jz	. + 8
+	.long	0xb2e8c000
+	.pushsection .altinstructions, "a"
+	.long 664b - .
+	.long 662b - .
+	.word 82
+	.byte 8
+	.byte 8
+	.popsection
+	.endm
+
+#ifdef CONFIG_EXPOLINE
+
+	.macro GEN_BR_THUNK name,reg,tmp
+	.section .text.\name,"axG",@progbits,\name,comdat
+	.globl \name
+	.hidden \name
+	.type \name,@function
+\name:
+	.cfi_startproc
+#ifdef CONFIG_HAVE_MARCH_Z10_FEATURES
+	exrl	0,0f
+#else
+	larl	\tmp,0f
+	ex	0,0(\tmp)
+#endif
+	j	.
+0:	br	\reg
+	.cfi_endproc
+	.endm
+
+	GEN_BR_THUNK __s390x_indirect_jump_r1use_r9,%r9,%r1
+	GEN_BR_THUNK __s390x_indirect_jump_r1use_r14,%r14,%r1
+	GEN_BR_THUNK __s390x_indirect_jump_r11use_r14,%r14,%r11
+
+	.macro BASR_R14_R9
+0:	brasl	%r14,__s390x_indirect_jump_r1use_r9
+	.pushsection .s390_indirect_branches,"a",@progbits
+	.long	0b-.
+	.popsection
+	.endm
+
+	.macro BR_R1USE_R14
+0:	jg	__s390x_indirect_jump_r1use_r14
+	.pushsection .s390_indirect_branches,"a",@progbits
+	.long	0b-.
+	.popsection
+	.endm
+
+	.macro BR_R11USE_R14
+0:	jg	__s390x_indirect_jump_r11use_r14
+	.pushsection .s390_indirect_branches,"a",@progbits
+	.long	0b-.
+	.popsection
+	.endm
+
+#else	/* CONFIG_EXPOLINE */
+
+	.macro BASR_R14_R9
+	basr	%r14,%r9
+	.endm
+
+	.macro BR_R1USE_R14
+	br	%r14
+	.endm
+
+	.macro BR_R11USE_R14
+	br	%r14
+	.endm
+
+#endif /* CONFIG_EXPOLINE */
+
+
 	.section .kprobes.text, "ax"
+
+ENTRY(__bpon)
+	.globl __bpon
+	BPON
+	BR_R1USE_R14
 
 /*
  * Scheduler resume function, called by switch_to
@@ -187,9 +317,9 @@ ENTRY(__switch_to)
 	oi	__TI_flags+7(%r5),_TIF_MCCK_PENDING	# set it in next
 0:	lmg	%r6,%r15,__SF_GPRS(%r15)	# load gprs of next task
 	tm      __LC_MACHINE_FLAGS+6,0x20       # MACHINE_FLAG_LPP
-	bzr	%r14
+	jz	0f
 	.insn	s,0xb2800000,__LC_LPP		# set program parameter
-	br	%r14
+0:	BR_R1USE_R14
 
 __critical_start:
 /*
@@ -201,6 +331,7 @@ ENTRY(system_call)
 	stpt	__LC_SYNC_ENTER_TIMER
 sysc_stmg:
 	stmg	%r8,%r15,__LC_SAVE_AREA_SYNC
+	BPOFF
 	lg	%r10,__LC_LAST_BREAK
 	lg	%r12,__LC_THREAD_INFO
 sysc_per:
@@ -208,12 +339,15 @@ sysc_per:
 	la	%r11,STACK_FRAME_OVERHEAD(%r15)	# pointer to pt_regs
 sysc_vtime:
 	UPDATE_VTIME %r13,__LC_SYNC_ENTER_TIMER
+	BPENTER __TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	LAST_BREAK %r13
 	stmg	%r0,%r7,__PT_R0(%r11)
 	mvc	__PT_R8(64,%r11),__LC_SAVE_AREA_SYNC
 	mvc	__PT_PSW(16,%r11),__LC_SVC_OLD_PSW
 	mvc	__PT_INT_CODE(4,%r11),__LC_SVC_ILC
 sysc_do_svc:
+	# clear user controlled register to prevent speculative use
+	xgr	%r0,%r0
 	oi	__TI_flags+7(%r12),_TIF_SYSCALL
 	lg	%r10,__TI_sysc_table(%r12)	# address of system call table
 	llgh	%r8,__PT_INT_CODE+2(%r11)
@@ -232,7 +366,7 @@ sysc_nr_ok:
 	lgf	%r9,0(%r8,%r10)			# get system call add.
 	tm	__TI_flags+6(%r12),_TIF_TRACE >> 8
 	jnz	sysc_tracesys
-	basr	%r14,%r9			# call sys_xxxx
+	BASR_R14_R9				# call sys_xxxx
 	stg	%r2,__PT_R2(%r11)		# store return value
 
 sysc_return:
@@ -243,6 +377,7 @@ sysc_tif:
 	tm	__TI_flags+7(%r12),_TIF_WORK_SVC
 	jnz	sysc_work			# check for work
 	ni	__TI_flags+7(%r12),255-_TIF_SYSCALL
+	BPEXIT	__TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 sysc_restore:
 	lg	%r14,__LC_VDSO_PER_CPU
 	lmg	%r0,%r10,__PT_R0(%r11)
@@ -359,7 +494,7 @@ sysc_tracego:
 	lmg	%r3,%r7,__PT_R3(%r11)
 	stg	%r7,STACK_FRAME_OVERHEAD(%r15)
 	lg	%r2,__PT_ORIG_GPR2(%r11)
-	basr	%r14,%r9		# call sys_xxx
+	BASR_R14_R9			# call sys_xxx
 	stg	%r2,__PT_R2(%r11)	# store return value
 sysc_tracenogo:
 	tm	__TI_flags+6(%r12),_TIF_TRACE >> 8
@@ -383,7 +518,7 @@ ENTRY(ret_from_fork)
 	lmg	%r9,%r10,__PT_R9(%r11)	# load gprs
 ENTRY(kernel_thread_starter)
 	la	%r2,0(%r10)
-	basr	%r14,%r9
+	BASR_R14_r9
 	j	sysc_tracenogo
 
 /*
@@ -392,6 +527,7 @@ ENTRY(kernel_thread_starter)
 
 ENTRY(pgm_check_handler)
 	stpt	__LC_SYNC_ENTER_TIMER
+	BPOFF
 	stmg	%r8,%r15,__LC_SAVE_AREA_SYNC
 	lg	%r10,__LC_LAST_BREAK
 	lg	%r12,__LC_THREAD_INFO
@@ -408,6 +544,7 @@ ENTRY(pgm_check_handler)
 	aghi	%r15,-(STACK_FRAME_OVERHEAD + __PT_SIZE)
 	j	2f
 1:	UPDATE_VTIME %r14,__LC_SYNC_ENTER_TIMER
+	BPENTER __TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	LAST_BREAK %r14
 	lg	%r15,__LC_KERNEL_STACK
 	lg	%r14,__TI_task(%r12)
@@ -417,6 +554,15 @@ ENTRY(pgm_check_handler)
 	mvc	__THREAD_trap_tdb(256,%r14),0(%r13)
 2:	la	%r11,STACK_FRAME_OVERHEAD(%r15)
 	stmg	%r0,%r7,__PT_R0(%r11)
+	# clear user controlled registers to prevent speculative use
+	xgr	%r0,%r0
+	xgr	%r1,%r1
+	xgr	%r2,%r2
+	xgr	%r3,%r3
+	xgr	%r4,%r4
+	xgr	%r5,%r5
+	xgr	%r6,%r6
+	xgr	%r7,%r7
 	mvc	__PT_R8(64,%r11),__LC_SAVE_AREA_SYNC
 	stmg	%r8,%r9,__PT_PSW(%r11)
 	mvc	__PT_INT_CODE(4,%r11),__LC_PGM_ILC
@@ -436,11 +582,15 @@ ENTRY(pgm_check_handler)
 	llgh	%r10,__PT_INT_CODE+2(%r11)
 	nill	%r10,0x007f
 	sll	%r10,2
-	je	sysc_return
-	lgf	%r1,0(%r10,%r1)		# load address of handler routine
+	je	pgm_exit
+	lgf	%r9,0(%r10,%r1)		# load address of handler routine
 	lgr	%r2,%r11		# pass pointer to pt_regs
-	basr	%r14,%r1		# branch to interrupt-handler
-	j	sysc_return
+	BASR_R14_R9			# branch to interrupt-handler
+pgm_exit:
+	LOCKDEP_SYS_EXIT
+	tm      __PT_PSW+1(%r11),0x01   # returning to user ?
+	jno     sysc_restore
+	j       sysc_tif
 
 #
 # PER event in supervisor state, must be kprobes
@@ -450,7 +600,7 @@ pgm_kprobe:
 	xc	__SF_BACKCHAIN(8,%r15),__SF_BACKCHAIN(%r15)
 	lgr	%r2,%r11		# pass pointer to pt_regs
 	brasl	%r14,do_per_trap
-	j	sysc_return
+	j	pgm_exit
 
 #
 # single stepped system call
@@ -468,6 +618,7 @@ pgm_svcper:
 ENTRY(io_int_handler)
 	STCK	__LC_INT_CLOCK
 	stpt	__LC_ASYNC_ENTER_TIMER
+	BPOFF
 	stmg	%r8,%r15,__LC_SAVE_AREA_ASYNC
 	lg	%r10,__LC_LAST_BREAK
 	lg	%r12,__LC_THREAD_INFO
@@ -478,9 +629,19 @@ ENTRY(io_int_handler)
 	tmhh	%r8,0x0001		# interrupting from user?
 	jz	io_skip
 	UPDATE_VTIME %r14,__LC_ASYNC_ENTER_TIMER
+	BPENTER __TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	LAST_BREAK %r14
 io_skip:
 	stmg	%r0,%r7,__PT_R0(%r11)
+	# clear user controlled registers to prevent speculative use
+	xgr	%r0,%r0
+	xgr	%r1,%r1
+	xgr	%r2,%r2
+	xgr	%r3,%r3
+	xgr	%r4,%r4
+	xgr	%r5,%r5
+	xgr	%r6,%r6
+	xgr	%r7,%r7
 	mvc	__PT_R8(64,%r11),__LC_SAVE_AREA_ASYNC
 	stmg	%r8,%r9,__PT_PSW(%r11)
 	TRACE_IRQS_OFF
@@ -497,8 +658,12 @@ io_restore:
 	lg	%r14,__LC_VDSO_PER_CPU
 	lmg	%r0,%r10,__PT_R0(%r11)
 	mvc	__LC_RETURN_PSW(16),__PT_PSW(%r11)
+	tm	__PT_PSW+1(%r11),0x01	# returning to user ?
+	jno	io_exit_kernel
+	BPEXIT	__TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	stpt	__LC_EXIT_TIMER
 	mvc	__VDSO_ECTG_BASE(16,%r14),__LC_EXIT_TIMER
+io_exit_kernel:
 	lmg	%r11,%r15,__PT_R11(%r11)
 	lpswe	__LC_RETURN_PSW
 io_done:
@@ -623,6 +788,7 @@ io_notify_resume:
 ENTRY(ext_int_handler)
 	STCK	__LC_INT_CLOCK
 	stpt	__LC_ASYNC_ENTER_TIMER
+	BPOFF
 	stmg	%r8,%r15,__LC_SAVE_AREA_ASYNC
 	lg	%r10,__LC_LAST_BREAK
 	lg	%r12,__LC_THREAD_INFO
@@ -633,9 +799,19 @@ ENTRY(ext_int_handler)
 	tmhh	%r8,0x0001		# interrupting from user ?
 	jz	ext_skip
 	UPDATE_VTIME %r14,__LC_ASYNC_ENTER_TIMER
+	BPENTER __TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	LAST_BREAK %r14
 ext_skip:
 	stmg	%r0,%r7,__PT_R0(%r11)
+	# clear user controlled registers to prevent speculative use
+	xgr	%r0,%r0
+	xgr	%r1,%r1
+	xgr	%r2,%r2
+	xgr	%r3,%r3
+	xgr	%r4,%r4
+	xgr	%r5,%r5
+	xgr	%r6,%r6
+	xgr	%r7,%r7
 	mvc	__PT_R8(64,%r11),__LC_SAVE_AREA_ASYNC
 	stmg	%r8,%r9,__PT_PSW(%r11)
 	TRACE_IRQS_OFF
@@ -663,11 +839,12 @@ ENTRY(psw_idle)
 	.insn	rsy,0xeb0000000017,%r1,5,__SF_EMPTY+16(%r15)
 .Lpsw_idle_stcctm:
 #endif
+	BPON
 	STCK	__CLOCK_IDLE_ENTER(%r2)
 	stpt	__TIMER_IDLE_ENTER(%r2)
 psw_idle_lpsw:
 	lpswe	__SF_EMPTY(%r15)
-	br	%r14
+	BR_R1USE_R14
 psw_idle_end:
 
 __critical_end:
@@ -677,6 +854,7 @@ __critical_end:
  */
 ENTRY(mcck_int_handler)
 	STCK	__LC_MCCK_CLOCK
+	BPOFF
 	la	%r1,4095		# revalidate r1
 	spt	__LC_CPU_TIMER_SAVE_AREA-4095(%r1)	# revalidate cpu timer
 	lmg	%r0,%r15,__LC_GPREGS_SAVE_AREA-4095(%r1)# revalidate gprs
@@ -709,10 +887,20 @@ ENTRY(mcck_int_handler)
 	tm	%r8,0x0001		# interrupting from user ?
 	jz	mcck_skip
 	UPDATE_VTIME %r14,__LC_MCCK_ENTER_TIMER
+	BPENTER __TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	LAST_BREAK %r14
 mcck_skip:
 	lghi	%r14,__LC_GPREGS_SAVE_AREA+64
 	stmg	%r0,%r7,__PT_R0(%r11)
+	# clear user controlled registers to prevent speculative use
+	xgr	%r0,%r0
+	xgr	%r1,%r1
+	xgr	%r2,%r2
+	xgr	%r3,%r3
+	xgr	%r4,%r4
+	xgr	%r5,%r5
+	xgr	%r6,%r6
+	xgr	%r7,%r7
 	mvc	__PT_R8(64,%r11),0(%r14)
 	stmg	%r8,%r9,__PT_PSW(%r11)
 	xc	__SF_BACKCHAIN(8,%r15),__SF_BACKCHAIN(%r15)
@@ -737,6 +925,7 @@ mcck_return:
 	mvc	__LC_RETURN_MCCK_PSW(16),__PT_PSW(%r11) # move return PSW
 	tm	__LC_RETURN_MCCK_PSW+1,0x01 # returning to user ?
 	jno	0f
+	BPEXIT	__TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	stpt	__LC_EXIT_TIMER
 	mvc	__VDSO_ECTG_BASE(16,%r14),__LC_EXIT_TIMER
 0:	lmg	%r11,%r15,__PT_R11(%r11)
@@ -835,7 +1024,7 @@ cleanup_critical:
 	jl	0f
 	clg	%r9,BASED(cleanup_table+72)	# psw_idle_end
 	jl	cleanup_idle
-0:	br	%r14
+0:	BR_R11USE_R14
 
 
 cleanup_system_call:
@@ -872,6 +1061,7 @@ cleanup_system_call:
 	stg	%r15,__LC_SYSTEM_TIMER
 0:	# update accounting time stamp
 	mvc	__LC_LAST_UPDATE_TIMER(8),__LC_SYNC_ENTER_TIMER
+	BPENTER __TI_flags+6(%r12),_TIF_ISOLATE_BP>>8
 	# do LAST_BREAK
 	lg	%r9,16(%r11)
 	srag	%r9,%r9,23
@@ -890,7 +1080,7 @@ cleanup_system_call:
 	stg	%r15,56(%r11)		# r15 stack pointer
 	# set new psw address and exit
 	larl	%r9,sysc_do_svc
-	br	%r14
+	BR_R11USE_R14
 cleanup_system_call_insn:
 	.quad	system_call
 	.quad	sysc_stmg
@@ -900,7 +1090,7 @@ cleanup_system_call_insn:
 
 cleanup_sysc_tif:
 	larl	%r9,sysc_tif
-	br	%r14
+	BR_R11USE_R14
 
 cleanup_sysc_restore:
 	clg	%r9,BASED(cleanup_sysc_restore_insn)
@@ -910,13 +1100,13 @@ cleanup_sysc_restore:
 	mvc	0(64,%r11),__PT_R8(%r9)
 	lmg	%r0,%r7,__PT_R0(%r9)
 0:	lmg	%r8,%r9,__LC_RETURN_PSW
-	br	%r14
+	BR_R11USE_R14
 cleanup_sysc_restore_insn:
 	.quad	sysc_done - 4
 
 cleanup_io_tif:
 	larl	%r9,io_tif
-	br	%r14
+	BR_R11USE_R14
 
 cleanup_io_restore:
 	clg	%r9,BASED(cleanup_io_restore_insn)
@@ -926,7 +1116,7 @@ cleanup_io_restore:
 	mvc	0(64,%r11),__PT_R8(%r9)
 	lmg	%r0,%r7,__PT_R0(%r9)
 0:	lmg	%r8,%r9,__LC_RETURN_PSW
-	br	%r14
+	BR_R11USE_R14
 cleanup_io_restore_insn:
 	.quad	io_done - 4
 
@@ -977,7 +1167,7 @@ cleanup_idle:
 	# prepare return psw
 	nihh	%r8,0xfcfd		# clear irq & wait state bits
 	lg	%r9,48(%r11)		# return from psw_idle
-	br	%r14
+	BR_R11USE_R14
 cleanup_idle_insn:
 	.quad	psw_idle_lpsw
 
@@ -999,9 +1189,11 @@ cleanup_idle_insn:
  */
 ENTRY(sie64a)
 	stmg	%r6,%r14,__SF_GPRS(%r15)	# save kernel registers
+	lg	%r12,__LC_THREAD_INFO
 	stg	%r2,__SF_EMPTY(%r15)		# save control block pointer
 	stg	%r3,__SF_EMPTY+8(%r15)		# save guest register save area
 	xc	__SF_EMPTY+16(8,%r15),__SF_EMPTY+16(%r15) # reason code = 0
+	mvc	__SF_EMPTY+24(8,%r15),__TI_flags(%r12) # copy thread flags
 	lmg	%r0,%r13,0(%r3)			# load guest gprs 0-13
 	lg	%r14,__LC_GMAP			# get gmap pointer
 	ltgr	%r14,%r14
@@ -1011,9 +1203,13 @@ sie_gmap:
 	lg	%r14,__SF_EMPTY(%r15)		# get control block pointer
 	oi	__SIE_PROG0C+3(%r14),1		# we are going into SIE now
 	tm	__SIE_PROG20+3(%r14),1		# last exit...
-	jnz	sie_done
+	jnz	sie_skip
+	BPEXIT	__SF_EMPTY+30(%r15),(_TIF_ISOLATE_BP|_TIF_ISOLATE_BP_GUEST)>>8
 	sie	0(%r14)
 sie_done:
+	BPOFF
+	BPENTER	__SF_EMPTY+30(%r15),(_TIF_ISOLATE_BP|_TIF_ISOLATE_BP_GUEST)>>8
+sie_skip:
 	ni	__SIE_PROG0C+3(%r14),0xfe	# no longer in SIE
 	lctlg	%c1,%c1,__LC_USER_ASCE		# load primary asce
 # some program checks are suppressing. C code (e.g. do_protection_exception)
@@ -1027,9 +1223,15 @@ rewind_pad:
 sie_exit:
 	lg	%r14,__SF_EMPTY+8(%r15)		# load guest register save area
 	stmg	%r0,%r13,0(%r14)		# save guest gprs 0-13
+	xgr	%r0,%r0				# clear guest registers to
+	xgr	%r1,%r1				# prevent speculative use
+	xgr	%r2,%r2
+	xgr	%r3,%r3
+	xgr	%r4,%r4
+	xgr	%r5,%r5
 	lmg	%r6,%r14,__SF_GPRS(%r15)	# restore kernel registers
 	lg	%r2,__SF_EMPTY+16(%r15)		# return exit reason code
-	br	%r14
+	BR_R1USE_R14
 sie_fault:
 	lghi	%r14,-EFAULT
 	stg	%r14,__SF_EMPTY+16(%r15)	# set exit reason code

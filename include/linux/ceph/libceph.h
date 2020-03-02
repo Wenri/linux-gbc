@@ -195,11 +195,13 @@ static void insert_##name(struct rb_root *root, type *t)		\
 		type *cur = rb_entry(*n, type, nodefld);		\
 									\
 		parent = *n;						\
-		if (t->keyfld < cur->keyfld)				\
+		if (t->keyfld < cur->keyfld) {				\
+			gmb();						\
 			n = &(*n)->rb_left;				\
-		else if (t->keyfld > cur->keyfld)			\
+		} else if (t->keyfld > cur->keyfld) {			\
+			gmb();						\
 			n = &(*n)->rb_right;				\
-		else							\
+		} else							\
 			BUG();						\
 	}								\
 									\

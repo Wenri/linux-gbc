@@ -37,6 +37,10 @@ extern void s390_adjust_jiffies(void);
 extern const struct seq_operations cpuinfo_op;
 extern int sysctl_ieee_emulation_warnings;
 extern void execve_tail(void);
+extern void __bpon(void);
+
+extern int s390_isolate_bp(void);
+extern int s390_isolate_bp_guest(void);
 
 /*
  * User space process size: 2GB for 31 bit, 4TB or 8PT for 64 bit.

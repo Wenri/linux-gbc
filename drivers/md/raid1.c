@@ -236,34 +236,17 @@ static void reschedule_retry(struct r1bio *r1_bio)
 static void call_bio_endio(struct r1bio *r1_bio)
 {
 	struct bio *bio = r1_bio->master_bio;
-	int done;
 	struct r1conf *conf = r1_bio->mddev->private;
-	sector_t bi_sector = bio->bi_sector;
-
-	if (bio->bi_phys_segments) {
-		unsigned long flags;
-		spin_lock_irqsave(&conf->device_lock, flags);
-		bio->bi_phys_segments--;
-		done = (bio->bi_phys_segments == 0);
-		spin_unlock_irqrestore(&conf->device_lock, flags);
-		/*
-		 * make_request() might be waiting for
-		 * bi_phys_segments to decrease
-		 */
-		wake_up(&conf->wait_barrier);
-	} else
-		done = 1;
 
 	if (!test_bit(R1BIO_Uptodate, &r1_bio->state))
 		clear_bit(BIO_UPTODATE, &bio->bi_flags);
-	if (done) {
-		bio_endio(bio, 0);
-		/*
-		 * Wake up any possible resync thread that waits for the device
-		 * to go idle.
-		 */
-		allow_barrier(conf, bi_sector);
-	}
+
+	bio_endio(bio, 0);
+	/*
+	 * Wake up any possible resync thread that waits for the device
+	 * to go idle.
+	 */
+	allow_barrier(conf, r1_bio->sector);
 }
 
 static void raid_end_bio_io(struct r1bio *r1_bio)
@@ -281,6 +264,16 @@ static void raid_end_bio_io(struct r1bio *r1_bio)
 		call_bio_endio(r1_bio);
 	}
 	free_r1bio(r1_bio);
+}
+
+static void inc_pending(struct r1conf *conf, sector_t bi_sector)
+{
+	/* The current request requires multiple r1_bio, so
+	 * we need to increment the pending count, and the corresponding
+	 * window count.
+	 */
+	int idx = sector_to_idx(bi_sector);
+	atomic_inc(&conf->nr_pending[idx]);
 }
 
 /*
@@ -366,6 +359,8 @@ static void raid1_end_read_request(struct bio *bio, int error)
 
 static void close_write(struct r1bio *r1_bio)
 {
+	struct r1bio *master_r1bio = r1_bio->master_r1bio;
+
 	/* it really is the end of this request */
 	if (test_bit(R1BIO_BehindIO, &r1_bio->state)) {
 		/* free extra copy of the data pages */
@@ -380,7 +375,11 @@ static void close_write(struct r1bio *r1_bio)
 			r1_bio->sectors,
 			!test_bit(R1BIO_Degraded, &r1_bio->state),
 			test_bit(R1BIO_BehindIO, &r1_bio->state));
-	md_write_end(r1_bio->mddev);
+
+	if (atomic_dec_and_test(&master_r1bio->split_bios)) {
+	        md_write_end(master_r1bio->mddev);
+		free_r1bio(master_r1bio);
+	}
 }
 
 static void r1_bio_write_done(struct r1bio *r1_bio)
@@ -1194,13 +1193,13 @@ static void raid1_read_request(struct mddev *mddev, struct bio *bio,
 	int max_sectors;
 	int rdisk;
 
+read_again:
 	/*
 	 * Still need barrier for READ in case that whole
 	 * array is frozen.
 	 */
-	wait_read_barrier(conf, bio->bi_sector);
+	wait_read_barrier(conf, r1_bio->sector);
 
-read_again:
 	rdisk = read_balance(conf, r1_bio, &max_sectors);
 
 	if (rdisk < 0) {
@@ -1244,12 +1243,7 @@ read_again:
 		sectors_handled = (r1_bio->sector + max_sectors
 				   - bio->bi_sector);
 		r1_bio->sectors = max_sectors;
-		spin_lock_irq(&conf->device_lock);
-		if (bio->bi_phys_segments == 0)
-			bio->bi_phys_segments = 2;
-		else
-			bio->bi_phys_segments++;
-		spin_unlock_irq(&conf->device_lock);
+		bio_inc_remaining(bio);
 
 		/*
 		 * Cannot call generic_make_request directly as that will be
@@ -1268,6 +1262,7 @@ static void raid1_write_request(struct mddev *mddev, struct bio *bio,
 				 struct r1bio *r1_bio)
 {
 	struct r1conf *conf = mddev->private;
+	struct r1bio *master_r1bio;
 	int i, disks;
 	struct bitmap *bitmap = mddev->bitmap;
 	unsigned long flags;
@@ -1308,13 +1303,16 @@ static void raid1_write_request(struct mddev *mddev, struct bio *bio,
 		}
 		finish_wait(&conf->wait_barrier, &w);
 	}
-	wait_barrier(conf, bio->bi_sector);
 
 	if (conf->pending_count >= max_queued_requests) {
 		md_wakeup_thread(mddev->thread);
 		wait_event(conf->wait_barrier,
 			   conf->pending_count < max_queued_requests);
 	}
+
+	master_r1bio = alloc_r1bio(mddev, bio, 0);
+	atomic_set(&master_r1bio->split_bios, 0);
+
 	/* first select target devices under rcu_lock and
 	 * inc refcount on their rdev.  Record them by setting
 	 * bios[x] to bio
@@ -1328,6 +1326,9 @@ static void raid1_write_request(struct mddev *mddev, struct bio *bio,
 
 	disks = conf->raid_disks * 2;
  retry_write:
+	wait_barrier(conf, r1_bio->sector);
+	r1_bio->master_r1bio = master_r1bio;
+	atomic_inc(&master_r1bio->split_bios);
 	blocked_rdev = NULL;
 	rcu_read_lock();
 	max_sectors = r1_bio->sectors;
@@ -1400,25 +1401,15 @@ static void raid1_write_request(struct mddev *mddev, struct bio *bio,
 			if (r1_bio->bios[j])
 				rdev_dec_pending(conf->mirrors[j].rdev, mddev);
 		r1_bio->state = 0;
-		allow_barrier(conf, bio->bi_sector);
+		allow_barrier(conf, r1_bio->sector);
 		md_wait_for_blocked_rdev(blocked_rdev, mddev);
-		wait_barrier(conf, bio->bi_sector);
 		goto retry_write;
 	}
 
 	max_sectors = align_to_barrier_unit_end(r1_bio->sector, max_sectors);
-	if (max_sectors < r1_bio->sectors) {
-		/* We are splitting this write into multiple parts, so
-		 * we need to prepare for allocating another r1_bio.
-		 */
+	if (max_sectors < r1_bio->sectors)
 		r1_bio->sectors = max_sectors;
-		spin_lock_irq(&conf->device_lock);
-		if (bio->bi_phys_segments == 0)
-			bio->bi_phys_segments = 2;
-		else
-			bio->bi_phys_segments++;
-		spin_unlock_irq(&conf->device_lock);
-	}
+
 	sectors_handled = r1_bio->sector + max_sectors - bio->bi_sector;
 
 	atomic_set(&r1_bio->remaining, 1);
@@ -1501,10 +1492,9 @@ static void raid1_write_request(struct mddev *mddev, struct bio *bio,
 	 * as it could result in the bio being freed.
 	 */
 	if (sectors_handled < bio_sectors(bio)) {
+		/* We need another r1_bio, which must be counted */
+		bio_inc_remaining(bio);
 		r1_bio_write_done(r1_bio);
-		/* We need another r1_bio.  It has already been counted
-		 * in bio->bi_phys_segments
-		 */
 		r1_bio = alloc_r1bio(mddev, bio, sectors_handled);
 		goto retry_write;
 	}
@@ -1530,16 +1520,6 @@ static bool raid1_make_request(struct mddev *mddev, struct bio *bio)
 	 *
 	 */
 	r1_bio = alloc_r1bio(mddev, bio, 0);
-
-	/*
-	 * We might need to issue multiple reads to different devices if there
-	 * are bad blocks around, so we keep track of the number of reads in
-	 * bio->bi_phys_segments.  If this is 0, there is only one r1_bio and
-	 * no locking will be needed when requests complete.  If it is
-	 * non-zero, then it is the number of not-completed requests.
-	 */
-	bio->bi_phys_segments = 0;
-	clear_bit(BIO_SEG_VALID, &bio->bi_flags);
 
 	if (bio_data_dir(bio) == READ)
 		raid1_read_request(mddev, bio, r1_bio);
@@ -2513,17 +2493,13 @@ read_more:
 			int sectors_handled = (r1_bio->sector + max_sectors
 					       - mbio->bi_sector);
 			r1_bio->sectors = max_sectors;
-			spin_lock_irq(&conf->device_lock);
-			if (mbio->bi_phys_segments == 0)
-				mbio->bi_phys_segments = 2;
-			else
-				mbio->bi_phys_segments++;
-			spin_unlock_irq(&conf->device_lock);
+			bio_inc_remaining(mbio);
 			generic_make_request(bio);
 			bio = NULL;
 
 			r1_bio = alloc_r1bio(mddev, mbio, sectors_handled);
 			set_bit(R1BIO_ReadError, &r1_bio->state);
+			inc_pending(conf, r1_bio->sector);
 
 			goto read_more;
 		} else

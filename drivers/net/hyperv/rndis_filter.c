@@ -951,15 +951,15 @@ static void netvsc_sc_open(struct vmbus_channel *new_sc)
 	set_per_channel_state(new_sc, nvscdev->sub_cb_buf + (chn_index - 1) *
 			      NETVSC_PACKET_SIZE);
 
-	nvscdev->mrc[chn_index].buf = vzalloc(NETVSC_RECVSLOT_MAX *
-					      sizeof(struct recv_comp_data));
+	nvscdev->chan_table[chn_index].mrc.buf
+		= vzalloc(NETVSC_RECVSLOT_MAX * sizeof(struct recv_comp_data));
 
 	ret = vmbus_open(new_sc, nvscdev->ring_size * PAGE_SIZE,
 			 nvscdev->ring_size * PAGE_SIZE, NULL, 0,
 			 netvsc_channel_cb, new_sc);
 
 	if (ret == 0)
-		nvscdev->chn_table[chn_index] = new_sc;
+		nvscdev->chan_table[chn_index].channel = new_sc;
 
 	spin_lock_irqsave(&nvscdev->sc_lock, flags);
 	nvscdev->num_sc_offered--;
@@ -1088,10 +1088,13 @@ int rndis_filter_device_add(struct hv_device *dev,
 	num_possible_rss_qs = cpumask_weight(node_cpu_mask);
 
 	/* We will use the given number of channels if available. */
-	if (device_info->num_chn && device_info->num_chn < net_device->max_chn)
+	if (device_info->num_chn && device_info->num_chn < net_device->max_chn) {
+		gmb();
 		net_device->num_chn = device_info->num_chn;
-	else
+	} else {
+		gmb();
 		net_device->num_chn = min(num_possible_rss_qs, num_rss_qs);
+	}
 
 	num_rss_qs = net_device->num_chn - 1;
 	net_device->num_sc_offered = num_rss_qs;

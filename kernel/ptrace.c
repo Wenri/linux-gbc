@@ -222,7 +222,7 @@ static int ptrace_has_cap(struct user_namespace *ns, unsigned int mode)
 }
 
 /* Returns 0 on success, -errno on denial. */
-static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
+int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 {
 	const struct cred *cred = current_cred(), *tcred;
 
@@ -247,7 +247,8 @@ static int __ptrace_may_access(struct task_struct *task, unsigned int mode)
 	    gid_eq(cred->gid, tcred->sgid) &&
 	    gid_eq(cred->gid, tcred->gid))
 		goto ok;
-	if (ptrace_has_cap(tcred->user_ns, mode))
+	if (!(mode & PTRACE_MODE_NOACCESS_CHK) &&
+	    ptrace_has_cap(tcred->user_ns, mode))
 		goto ok;
 	rcu_read_unlock();
 	return -EPERM;
@@ -258,13 +259,17 @@ ok:
 		dumpable = get_dumpable(task->mm);
 	rcu_read_lock();
 	if (dumpable != SUID_DUMP_USER &&
-	    !ptrace_has_cap(__task_cred(task)->user_ns, mode)) {
+	    ((mode & PTRACE_MODE_NOACCESS_CHK) ||
+	     !ptrace_has_cap(__task_cred(task)->user_ns, mode))) {
 		rcu_read_unlock();
 		return -EPERM;
 	}
 	rcu_read_unlock();
 
-	return security_ptrace_access_check(task, mode);
+	if (!(mode & PTRACE_MODE_NOACCESS_CHK))
+		return security_ptrace_access_check(task, mode);
+
+	return 0;
 }
 
 bool ptrace_may_access(struct task_struct *task, unsigned int mode)

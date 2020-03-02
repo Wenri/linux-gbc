@@ -311,6 +311,9 @@ static void raid_end_bio_io(struct r10bio *r10_bio)
 	if (!test_bit(R10BIO_Uptodate, &r10_bio->state))
 		clear_bit(BIO_UPTODATE, &bio->bi_flags);
 	if (done) {
+
+		if (bio_data_dir(bio) == WRITE)
+			md_write_end(r10_bio->mddev);
 		bio_endio(bio, 0);
 		/*
 		 * Wake up any possible resync thread that waits for the device
@@ -421,7 +424,6 @@ static void close_write(struct r10bio *r10_bio)
 			r10_bio->sectors,
 			!test_bit(R10BIO_Degraded, &r10_bio->state),
 			0);
-	md_write_end(r10_bio->mddev);
 }
 
 static void one_write_done(struct r10bio *r10_bio)
@@ -1266,6 +1268,7 @@ static bool raid10_make_request(struct mddev *mddev, struct bio * bio)
 		bio->bi_sector + sectors > conf->reshape_progress)
 	     : (bio->bi_sector + sectors > conf->reshape_safe &&
 		bio->bi_sector < conf->reshape_progress))) {
+		gmb();
 		/* Need to update reshape_position in metadata */
 		mddev->reshape_position = conf->reshape_progress;
 		set_mask_bits(&mddev->sb_flags, 0,
@@ -1500,18 +1503,8 @@ retry_write:
 		goto retry_write;
 	}
 
-	if (max_sectors < r10_bio->sectors) {
-		/* We are splitting this into multiple parts, so
-		 * we need to prepare for allocating another r10_bio.
-		 */
+	if (max_sectors < r10_bio->sectors)
 		r10_bio->sectors = max_sectors;
-		spin_lock_irq(&conf->device_lock);
-		if (bio->bi_phys_segments == 0)
-			bio->bi_phys_segments = 2;
-		else
-			bio->bi_phys_segments++;
-		spin_unlock_irq(&conf->device_lock);
-	}
 	sectors_handled = r10_bio->sector + max_sectors - bio->bi_sector;
 
 	atomic_set(&r10_bio->remaining, 1);
@@ -1597,10 +1590,16 @@ retry_write:
 	 */
 
 	if (sectors_handled < bio_sectors(bio)) {
-		one_write_done(r10_bio);
-		/* We need another r10_bio.  It has already been counted
+		/* We need another r10_bio and it needs to be counted
 		 * in bio->bi_phys_segments.
 		 */
+		spin_lock_irq(&conf->device_lock);
+		if (bio->bi_phys_segments == 0)
+			bio->bi_phys_segments = 2;
+		else
+			bio->bi_phys_segments++;
+		spin_unlock_irq(&conf->device_lock);
+		one_write_done(r10_bio);
 		r10_bio = mempool_alloc(conf->r10bio_pool, GFP_NOIO);
 
 		r10_bio->master_bio = bio;

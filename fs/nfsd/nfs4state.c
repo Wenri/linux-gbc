@@ -1227,9 +1227,7 @@ static void put_ol_stateid_locked(struct nfs4_ol_stateid *stp,
 
 static bool unhash_lock_stateid(struct nfs4_ol_stateid *stp)
 {
-	struct nfs4_openowner *oo = openowner(stp->st_openstp->st_stateowner);
-
-	lockdep_assert_held(&oo->oo_owner.so_client->cl_lock);
+	lockdep_assert_held(&stp->st_stid.sc_client->cl_lock);
 
 	list_del_init(&stp->st_locks);
 	nfs4_unhash_stid(&stp->st_stid);
@@ -1238,12 +1236,12 @@ static bool unhash_lock_stateid(struct nfs4_ol_stateid *stp)
 
 static void release_lock_stateid(struct nfs4_ol_stateid *stp)
 {
-	struct nfs4_openowner *oo = openowner(stp->st_openstp->st_stateowner);
+	struct nfs4_client *clp = stp->st_stid.sc_client;
 	bool unhashed;
 
-	spin_lock(&oo->oo_owner.so_client->cl_lock);
+	spin_lock(&clp->cl_lock);
 	unhashed = unhash_lock_stateid(stp);
-	spin_unlock(&oo->oo_owner.so_client->cl_lock);
+	spin_unlock(&clp->cl_lock);
 	if (unhashed)
 		nfs4_put_stid(&stp->st_stid);
 }
@@ -1476,6 +1474,11 @@ static u32 nfsd4_get_drc_mem(struct nfsd4_channel_attrs *ca)
 	spin_lock(&nfsd_drc_lock);
 	avail = min((unsigned long)NFSD_MAX_MEM_PER_SESSION,
 		    nfsd_drc_max_mem - nfsd_drc_mem_used);
+	/*
+	 * Never use more than a third of the remaining memory,
+	 * unless it's the only way to give this client a slot:
+	 */
+	avail = clamp_t(int, avail, slotsize, avail/3);
 	num = min_t(int, num, avail / slotsize);
 	nfsd_drc_mem_used += num * slotsize;
 	spin_unlock(&nfsd_drc_lock);
@@ -4663,7 +4666,7 @@ nfs4_laundromat(struct nfsd_net *nn)
 	spin_unlock(&nn->blocked_locks_lock);
 
 	while (!list_empty(&reaplist)) {
-		nbl = list_first_entry(&nn->blocked_locks_lru,
+		nbl = list_first_entry(&reaplist,
 					struct nfsd4_blocked_lock, nbl_lru);
 		list_del_init(&nbl->nbl_lru);
 		posix_unblock_lock(&nbl->nbl_lock);
@@ -7059,7 +7062,7 @@ nfs4_state_shutdown_net(struct net *net)
 	spin_unlock(&nn->blocked_locks_lock);
 
 	while (!list_empty(&reaplist)) {
-		nbl = list_first_entry(&nn->blocked_locks_lru,
+		nbl = list_first_entry(&reaplist,
 					struct nfsd4_blocked_lock, nbl_lru);
 		list_del_init(&nbl->nbl_lru);
 		posix_unblock_lock(&nbl->nbl_lock);

@@ -305,6 +305,11 @@ struct kvm_run {
 		struct {
 			__u32 epr;
 		} epr;
+		/* KVM_EXIT_IOAPIC_EOI */
+		struct {
+			__u8 vector;
+		} eoi;
+
 		/* KVM_EXIT_SYSTEM_EVENT */
 		struct {
 #define KVM_SYSTEM_EVENT_SHUTDOWN       1
@@ -313,10 +318,6 @@ struct kvm_run {
 			__u32 type;
 			__u64 flags;
 		} system_event;
-		/* KVM_EXIT_IOAPIC_EOI */
-		struct {
-			__u8 vector;
-		} eoi;
 		/* Fix the size of the union. */
 		char padding[256];
 	};
@@ -459,7 +460,6 @@ struct kvm_mips_vcpu_state {
 	__u64 pending_exceptions_clr;
 	__u64 core_ext_ioisr[4];
  };
-
 
 /* for KVM_SET_GUEST_DEBUG */
 
@@ -739,6 +739,7 @@ struct kvm_ppc_smmu_info {
 #define KVM_CAP_SPAPR_TCE_VFIO 142
 #define KVM_CAP_X86_GUEST_MWAIT 143
 #define KVM_CAP_ARM_USER_IRQ 144
+#define KVM_CAP_PPC_GET_CPU_CHAR 151
 
 #ifdef KVM_CAP_IRQ_ROUTING
 
@@ -1026,6 +1027,8 @@ struct kvm_s390_ucas_mapping {
 #define KVM_ARM_SET_DEVICE_ADDR	  _IOW(KVMIO,  0xab, struct kvm_arm_device_addr)
 /* Available with KVM_CAP_PPC_RTAS */
 #define KVM_PPC_RTAS_DEFINE_TOKEN _IOW(KVMIO,  0xac, struct kvm_rtas_token_args)
+/* Available with KVM_CAP_PPC_GET_CPU_CHAR */
+#define KVM_PPC_GET_CPU_CHAR	  _IOR(KVMIO,  0xb1, struct kvm_ppc_cpu_char)
 
 /* ioctl for vm fd */
 #define KVM_CREATE_DEVICE	  _IOWR(KVMIO,  0xe0, struct kvm_create_device)

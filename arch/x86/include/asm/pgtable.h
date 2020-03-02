@@ -133,19 +133,34 @@ static inline int pte_special(pte_t pte)
 	return pte_flags(pte) & _PAGE_SPECIAL;
 }
 
+/* Entries that were set to PROT_NONE are inverted */
+
+static inline u64 protnone_mask(u64 val);
+
 static inline unsigned long pte_pfn(pte_t pte)
 {
-	return (pte_val(pte) & PTE_PFN_MASK) >> PAGE_SHIFT;
+	phys_addr_t pfn = pte_val(pte);
+	pfn ^= protnone_mask(pfn);
+	return (pfn & PTE_PFN_MASK) >> PAGE_SHIFT;
 }
 
 static inline unsigned long pmd_pfn(pmd_t pmd)
 {
-	return (pmd_val(pmd) & PTE_PFN_MASK) >> PAGE_SHIFT;
+	phys_addr_t pfn = pmd_val(pmd);
+	pfn ^= protnone_mask(pfn);
+	return (pfn & pmd_pfn_mask(pmd)) >> PAGE_SHIFT;
 }
 
 static inline unsigned long pud_pfn(pud_t pud)
 {
-	return (pud_val(pud) & PTE_PFN_MASK) >> PAGE_SHIFT;
+	phys_addr_t pfn = pud_val(pud);
+	pfn ^= protnone_mask(pfn);
+	return (pfn & pud_pfn_mask(pud)) >> PAGE_SHIFT;
+}
+
+static inline unsigned long pgd_pfn(pgd_t pgd)
+{
+	return (pgd_val(pgd) & PTE_PFN_MASK) >> PAGE_SHIFT;
 }
 
 #define pte_page(pte)	pfn_to_page(pte_pfn(pte))
@@ -371,19 +386,33 @@ static inline pgprotval_t massage_pgprot(pgprot_t pgprot)
 
 static inline pte_t pfn_pte(unsigned long page_nr, pgprot_t pgprot)
 {
-	return __pte(((phys_addr_t)page_nr << PAGE_SHIFT) |
-		     massage_pgprot(pgprot));
+	phys_addr_t pfn = (phys_addr_t)page_nr << PAGE_SHIFT;
+	pfn ^= protnone_mask(pgprot_val(pgprot));
+	pfn &= PTE_PFN_MASK;
+	return __pte(pfn | massage_pgprot(pgprot));
 }
 
 static inline pmd_t pfn_pmd(unsigned long page_nr, pgprot_t pgprot)
 {
-	return __pmd(((phys_addr_t)page_nr << PAGE_SHIFT) |
-		     massage_pgprot(pgprot));
+	phys_addr_t pfn = (phys_addr_t)page_nr << PAGE_SHIFT;
+	pfn ^= protnone_mask(pgprot_val(pgprot));
+	pfn &= PHYSICAL_PMD_PAGE_MASK;
+	return __pmd(pfn | massage_pgprot(pgprot));
 }
+
+static inline pud_t pfn_pud(unsigned long page_nr, pgprot_t pgprot)
+{
+	phys_addr_t pfn = (phys_addr_t)page_nr << PAGE_SHIFT;
+	pfn ^= protnone_mask(pgprot_val(pgprot));
+	pfn &= PHYSICAL_PUD_PAGE_MASK;
+	return __pud(pfn | massage_pgprot(pgprot));
+}
+
+static inline u64 flip_protnone_guard(u64 oldval, u64 val, u64 mask);
 
 static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 {
-	pteval_t val = pte_val(pte);
+	pteval_t val = pte_val(pte), oldval = val;
 
 	/*
 	 * Chop off the NX bit (if present), and add the NX portion of
@@ -391,17 +420,17 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 	 */
 	val &= _PAGE_CHG_MASK;
 	val |= massage_pgprot(newprot) & ~_PAGE_CHG_MASK;
-
+	val = flip_protnone_guard(oldval, val, PTE_PFN_MASK);
 	return __pte(val);
 }
 
 static inline pmd_t pmd_modify(pmd_t pmd, pgprot_t newprot)
 {
-	pmdval_t val = pmd_val(pmd);
+	pmdval_t val = pmd_val(pmd), oldval = val;
 
 	val &= _HPAGE_CHG_MASK;
 	val |= massage_pgprot(newprot) & ~_HPAGE_CHG_MASK;
-
+	val = flip_protnone_guard(oldval, val, PHYSICAL_PMD_PAGE_MASK);
 	return __pmd(val);
 }
 
@@ -475,6 +504,58 @@ static inline int pte_present(pte_t a)
 			       _PAGE_NUMA);
 }
 
+#ifdef CONFIG_NUMA_BALANCING
+
+#define pte_mknonnuma pte_mknonnuma
+static inline pte_t pte_mknonnuma(pte_t pte)
+{
+	pteval_t val = pte_val(pte), oldval = val;
+
+	val &= ~_PAGE_NUMA;
+	val |= (_PAGE_PRESENT|_PAGE_ACCESSED);
+	val = flip_protnone_guard(oldval, val, PTE_PFN_MASK);
+
+	return __pte(val);
+}
+
+#define pte_mknuma pte_mknuma
+static inline pte_t pte_mknuma(pte_t pte)
+{
+	pteval_t val = pte_val(pte), oldval = val;
+
+	val &= ~_PAGE_PRESENT;
+	val |= _PAGE_NUMA;
+	val = flip_protnone_guard(oldval, val, PTE_PFN_MASK);
+
+	return __pte(val);
+}
+
+#define pmd_mknonnuma pmd_mknonnuma
+static inline pmd_t pmd_mknonnuma(pmd_t pmd)
+{
+	pmdval_t val = pmd_val(pmd), oldval = val;
+
+	val &= ~_PAGE_NUMA;
+	val |= (_PAGE_PRESENT|_PAGE_ACCESSED);
+	val = flip_protnone_guard(oldval, val, PHYSICAL_PMD_PAGE_MASK);
+
+	return __pmd(val);
+}
+
+#define pmd_mknuma pmd_mknuma
+static inline pmd_t pmd_mknuma(pmd_t pmd)
+{
+	pmdval_t val = pmd_val(pmd), oldval = val;
+
+	val &= ~_PAGE_PRESENT;
+	val |= _PAGE_NUMA;
+	val = flip_protnone_guard(oldval, val, PHYSICAL_PMD_PAGE_MASK);
+
+	return __pmd(val);
+}
+
+#endif /* CONFIG_NUMA_BALANCING */
+
 #ifdef __HAVE_ARCH_PTE_DEVMAP
 static inline int pte_devmap(pte_t a)
 {
@@ -522,14 +603,14 @@ static inline int pmd_none(pmd_t pmd)
 
 static inline unsigned long pmd_page_vaddr(pmd_t pmd)
 {
-	return (unsigned long)__va(pmd_val(pmd) & PTE_PFN_MASK);
+	return (unsigned long)__va(pmd_val(pmd) & pmd_pfn_mask(pmd));
 }
 
 /*
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define pmd_page(pmd)	pfn_to_page((pmd_val(pmd) & PTE_PFN_MASK) >> PAGE_SHIFT)
+#define pmd_page(pmd)	pfn_to_page(pmd_pfn(pmd))
 
 /*
  * the pmd page can be thought of an array like this: pmd_t[PTRS_PER_PMD]
@@ -598,14 +679,14 @@ static inline int pud_present(pud_t pud)
 
 static inline unsigned long pud_page_vaddr(pud_t pud)
 {
-	return (unsigned long)__va((unsigned long)pud_val(pud) & PTE_PFN_MASK);
+	return (unsigned long)__va(pud_val(pud) & pud_pfn_mask(pud));
 }
 
 /*
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define pud_page(pud)		pfn_to_page(pud_val(pud) >> PAGE_SHIFT)
+#define pud_page(pud)	pfn_to_page(pud_pfn(pud))
 
 /* Find an entry in the second-level page table.. */
 static inline pmd_t *pmd_offset(pud_t *pud, unsigned long address)
@@ -645,7 +726,7 @@ static inline unsigned long pgd_page_vaddr(pgd_t pgd)
  * Currently stuck as a macro due to indirect forward reference to
  * linux/mmzone.h's __section_mem_map_addr() definition:
  */
-#define pgd_page(pgd)		pfn_to_page(pgd_val(pgd) >> PAGE_SHIFT)
+#define pgd_page(pgd)	pfn_to_page(pgd_pfn(pgd))
 
 /* to find an entry in a page-table-directory. */
 static inline unsigned long pud_index(unsigned long address)
@@ -660,7 +741,12 @@ static inline pud_t *pud_offset(pgd_t *pgd, unsigned long address)
 
 static inline int pgd_bad(pgd_t pgd)
 {
-	return (pgd_flags(pgd) & ~_PAGE_USER) != _KERNPG_TABLE;
+	unsigned long ignore_flags = _PAGE_USER;
+
+	if (IS_ENABLED(CONFIG_PAGE_TABLE_ISOLATION))
+		ignore_flags |= _PAGE_NX;
+
+	return (pgd_flags(pgd) & ~ignore_flags) != _KERNPG_TABLE;
 }
 
 static inline int pgd_none(pgd_t pgd)
@@ -886,6 +972,11 @@ static inline void pmdp_set_wrprotect(struct mm_struct *mm,
 static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
 {
        memcpy(dst, src, count * sizeof(pgd_t));
+#ifdef CONFIG_PAGE_TABLE_ISOLATION
+	/* Clone the shadow pgd part as well */
+	memcpy(kernel_to_shadow_pgdp(dst), kernel_to_shadow_pgdp(src),
+	       count * sizeof(pgd_t));
+#endif
 }
 
 #define PTE_SHIFT ilog2(PTRS_PER_PTE)
@@ -913,6 +1004,14 @@ static inline void update_mmu_cache(struct vm_area_struct *vma,
 static inline void update_mmu_cache_pmd(struct vm_area_struct *vma,
 		unsigned long addr, pmd_t *pmd)
 {
+}
+
+#define __HAVE_ARCH_PFN_MODIFY_ALLOWED 1
+extern bool pfn_modify_allowed(unsigned long pfn, pgprot_t prot);
+
+static inline bool arch_has_pfn_modify_check(void)
+{
+	return boot_cpu_has_bug(X86_BUG_L1TF);
 }
 
 #include <asm-generic/pgtable.h>

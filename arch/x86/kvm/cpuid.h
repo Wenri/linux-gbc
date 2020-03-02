@@ -135,6 +135,30 @@ static inline bool guest_cpuid_has_rtm(struct kvm_vcpu *vcpu)
 	return best && (best->ebx & bit(X86_FEATURE_RTM));
 }
 
+static inline bool guest_cpuid_has_spec_ctrl(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *best;
+
+	best = kvm_find_cpuid_entry(vcpu, 7, 0);
+	return best && (best->edx & bit(X86_FEATURE_SPEC_CTRL));
+}
+
+static inline bool guest_cpuid_has_amd_ibpb(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *best;
+
+	best = kvm_find_cpuid_entry(vcpu, 0x80000008, 0);
+	return best && (best->ebx & bit(X86_FEATURE_IBPB));
+}
+
+static inline bool guest_cpuid_has_amd_ibrs(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *best;
+
+	best = kvm_find_cpuid_entry(vcpu, 0x80000008, 0);
+	return best && (best->ebx & bit(X86_FEATURE_IBRS));
+}
+
 static inline bool guest_cpuid_has_rdtscp(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *best;

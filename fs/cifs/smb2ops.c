@@ -119,7 +119,9 @@ smb2_get_credits_field(struct TCP_Server_Info *server, const int optype)
 static unsigned int
 smb2_get_credits(struct mid_q_entry *mid)
 {
-	return le16_to_cpu(((struct smb2_hdr *)mid->resp_buf)->CreditRequest);
+	struct smb2_sync_hdr *shdr = get_sync_hdr(mid->resp_buf);
+
+	return le16_to_cpu(shdr->CreditRequest);
 }
 
 static int
@@ -184,10 +186,10 @@ static struct mid_q_entry *
 smb2_find_mid(struct TCP_Server_Info *server, char *buf)
 {
 	struct mid_q_entry *mid;
-	struct smb2_hdr *hdr = (struct smb2_hdr *)buf;
-	__u64 wire_mid = le64_to_cpu(hdr->MessageId);
+	struct smb2_sync_hdr *shdr = get_sync_hdr(buf);
+	__u64 wire_mid = le64_to_cpu(shdr->MessageId);
 
-	if (hdr->ProtocolId == SMB2_TRANSFORM_PROTO_NUM) {
+	if (shdr->ProtocolId == SMB2_TRANSFORM_PROTO_NUM) {
 		cifs_dbg(VFS, "encrypted frame parsing not supported yet");
 		return NULL;
 	}
@@ -196,7 +198,7 @@ smb2_find_mid(struct TCP_Server_Info *server, char *buf)
 	list_for_each_entry(mid, &server->pending_mid_q, qhead) {
 		if ((mid->mid == wire_mid) &&
 		    (mid->mid_state == MID_REQUEST_SUBMITTED) &&
-		    (mid->command == hdr->Command)) {
+		    (mid->command == shdr->Command)) {
 			spin_unlock(&GlobalMid_Lock);
 			return mid;
 		}
@@ -209,12 +211,12 @@ static void
 smb2_dump_detail(void *buf)
 {
 #ifdef CONFIG_CIFS_DEBUG2
-	struct smb2_hdr *smb = (struct smb2_hdr *)buf;
+	struct smb2_sync_hdr *shdr = get_sync_hdr(buf);
 
 	cifs_dbg(VFS, "Cmd: %d Err: 0x%x Flags: 0x%x Mid: %llu Pid: %d\n",
-		 smb->Command, smb->Status, smb->Flags, smb->MessageId,
-		 smb->ProcessId);
-	cifs_dbg(VFS, "smb buf %p len %u\n", smb, smb2_calc_size(smb));
+		 shdr->Command, shdr->Status, shdr->Flags, shdr->MessageId,
+		 shdr->ProcessId);
+	cifs_dbg(VFS, "smb buf %p len %u\n", buf, smb2_calc_size(buf));
 #endif
 }
 
@@ -1002,18 +1004,30 @@ smb2_close_dir(const unsigned int xid, struct cifs_tcon *tcon,
 static bool
 smb2_is_status_pending(char *buf, struct TCP_Server_Info *server, int length)
 {
-	struct smb2_hdr *hdr = (struct smb2_hdr *)buf;
+	struct smb2_sync_hdr *shdr = get_sync_hdr(buf);
 
-	if (hdr->Status != STATUS_PENDING)
+	if (shdr->Status != STATUS_PENDING)
 		return false;
 
 	if (!length) {
 		spin_lock(&server->req_lock);
-		server->credits += le16_to_cpu(hdr->CreditRequest);
+		server->credits += le16_to_cpu(shdr->CreditRequest);
 		spin_unlock(&server->req_lock);
 		wake_up(&server->request_q);
 	}
 
+	return true;
+}
+
+static bool
+smb2_is_session_expired(char *buf)
+{
+	struct smb2_sync_hdr *shdr = get_sync_hdr(buf);
+
+	if (shdr->Status != STATUS_NETWORK_SESSION_EXPIRED)
+		return false;
+
+	cifs_dbg(FYI, "Session expired\n");
 	return true;
 }
 
@@ -1607,6 +1621,7 @@ struct smb_version_operations smb20_operations = {
 	.close_dir = smb2_close_dir,
 	.calc_smb_size = smb2_calc_size,
 	.is_status_pending = smb2_is_status_pending,
+	.is_session_expired = smb2_is_session_expired,
 	.oplock_response = smb2_oplock_response,
 	.queryfs = smb2_queryfs,
 	.mand_lock = smb2_mand_lock,
@@ -1687,6 +1702,7 @@ struct smb_version_operations smb21_operations = {
 	.close_dir = smb2_close_dir,
 	.calc_smb_size = smb2_calc_size,
 	.is_status_pending = smb2_is_status_pending,
+	.is_session_expired = smb2_is_session_expired,
 	.oplock_response = smb2_oplock_response,
 	.queryfs = smb2_queryfs,
 	.mand_lock = smb2_mand_lock,
@@ -1769,6 +1785,7 @@ struct smb_version_operations smb30_operations = {
 	.close_dir = smb2_close_dir,
 	.calc_smb_size = smb2_calc_size,
 	.is_status_pending = smb2_is_status_pending,
+	.is_session_expired = smb2_is_session_expired,
 	.oplock_response = smb2_oplock_response,
 	.queryfs = smb2_queryfs,
 	.mand_lock = smb2_mand_lock,
@@ -1857,6 +1874,7 @@ struct smb_version_operations smb311_operations = {
 	.close_dir = smb2_close_dir,
 	.calc_smb_size = smb2_calc_size,
 	.is_status_pending = smb2_is_status_pending,
+	.is_session_expired = smb2_is_session_expired,
 	.oplock_response = smb2_oplock_response,
 	.queryfs = smb2_queryfs,
 	.mand_lock = smb2_mand_lock,
@@ -1925,7 +1943,7 @@ struct smb_version_values smb21_values = {
 struct smb_version_values smb30_values = {
 	.version_string = SMB30_VERSION_STRING,
 	.protocol_id = SMB30_PROT_ID,
-	.req_capabilities = SMB2_GLOBAL_CAP_DFS | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_PERSISTENT_HANDLES | SMB2_GLOBAL_CAP_ENCRYPTION,
+	.req_capabilities = SMB2_GLOBAL_CAP_DFS | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_PERSISTENT_HANDLES,
 	.large_lock_type = 0,
 	.exclusive_lock_type = SMB2_LOCKFLAG_EXCLUSIVE_LOCK,
 	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,
@@ -1945,7 +1963,7 @@ struct smb_version_values smb30_values = {
 struct smb_version_values smb302_values = {
 	.version_string = SMB302_VERSION_STRING,
 	.protocol_id = SMB302_PROT_ID,
-	.req_capabilities = SMB2_GLOBAL_CAP_DFS | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_PERSISTENT_HANDLES | SMB2_GLOBAL_CAP_ENCRYPTION,
+	.req_capabilities = SMB2_GLOBAL_CAP_DFS | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_PERSISTENT_HANDLES,
 	.large_lock_type = 0,
 	.exclusive_lock_type = SMB2_LOCKFLAG_EXCLUSIVE_LOCK,
 	.shared_lock_type = SMB2_LOCKFLAG_SHARED_LOCK,

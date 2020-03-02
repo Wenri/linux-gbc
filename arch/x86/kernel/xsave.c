@@ -601,6 +601,12 @@ static void __init init_xstate_size(void)
 	}
 }
 
+void eager_fpu_not_needed(void)
+{
+	if (!cpu_has_xsaveopt && eagerfpu == AUTO)
+		eagerfpu = DISABLE;
+}
+
 /*
  * Enable and initialize the xsave feature.
  */
@@ -692,7 +698,7 @@ void eager_fpu_init(void)
 	clear_used_math();
 	current_thread_info()->status = 0;
 
-	if (eagerfpu == ENABLE)
+	if (eagerfpu != DISABLE)
 		setup_force_cpu_cap(X86_FEATURE_EAGER_FPU);
 
 	if (!cpu_has_eager_fpu) {
@@ -744,7 +750,6 @@ void *get_xsave_addr(struct xsave_struct *xsave, int xstate_feature)
 	if (!boot_cpu_has(X86_FEATURE_XSAVE))
 		return NULL;
 
-	xsave = &current->thread.fpu.state->xsave;
 	/*
 	 * We should not ever be requesting features that we
 	 * have not enabled.  Remember that pcntxt_mask is

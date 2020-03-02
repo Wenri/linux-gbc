@@ -207,6 +207,9 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
 	struct sock *sk = skb->sk;
 	int ret = -ENOMEM;
 
+	if (!net_eq(dev_net(dev), sock_net(sk)))
+		return 0;
+
 	dev_hold(dev);
 	nskb = skb_clone(skb, GFP_ATOMIC);
 	if (nskb) {
@@ -628,8 +631,10 @@ static bool netlink_dump_space(struct netlink_sock *nlk)
 		return false;
 
 	n = ring->head + ring->frame_max / 2;
-	if (n > ring->frame_max)
+	if (n > ring->frame_max) {
+		gmb();
 		n -= ring->frame_max;
+	}
 
 	hdr = __netlink_lookup_frame(ring, n);
 

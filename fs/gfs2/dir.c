@@ -1634,6 +1634,7 @@ int gfs2_dir_read(struct inode *inode, u64 *offset, void *opaque,
 			error = -EIO;
 			goto out;
 		}
+		gfs2_set_cookies(sdp, dibh, 0, darr, dip->i_entries);
 		error = do_filldir_main(dip, offset, opaque, filldir, darr,
 					dip->i_entries, 0, &copied);
 out:

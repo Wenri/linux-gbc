@@ -84,43 +84,45 @@ unlock:
  * point.  Because the caller is about to free (and possibly reuse) those
  * blocks on-disk.
  *
- * XXX old ->invalidatepage method, no length arg
+ * New _range variant here, old ->invalidatepage method, no length arg follows
  */
-void _do_invalidatepage(struct page *page, unsigned long offset)
-{
-	void (*invalidatepage)(struct page *, unsigned long);
-	invalidatepage = page->mapping->a_ops->invalidatepage;
-#ifdef CONFIG_BLOCK
-	if (!invalidatepage)
-		invalidatepage = block_invalidatepage;
-#endif
-	if (invalidatepage)
-		(*invalidatepage)(page, offset);
-}
-
-void do_invalidatepage(struct page *page, unsigned long offset)
-{
-
-	if (inode_has_invalidate_range(page->mapping->host))
-		do_invalidatepage_range(page, (unsigned int) offset,
-					PAGE_CACHE_SIZE - offset);
-	else
-		_do_invalidatepage(page, offset);
-}
-
-/* XXX new ->invalidatepage_range method, new length arg */
 void do_invalidatepage_range(struct page *page, unsigned int offset,
 			     unsigned int length)
 {
-	void (*invalidatepage_range)(struct page *, unsigned int, unsigned int);
+	void (*invalidatepage_range)(struct page *, unsigned int, unsigned int) = NULL;
+	void (*invalidatepage)(struct page *, unsigned long) = NULL;
 
-	invalidatepage_range = page->mapping->a_ops->invalidatepage_range;
+	/*
+	 * It's only safe to test the kabi-hidden/extended ->invalidatepage_range
+	 * if the special superblock flag is set.
+	 */
+	if (inode_has_invalidate_range(page->mapping->host))
+		invalidatepage_range = page->mapping->a_ops->invalidatepage_range;
+	else
+		invalidatepage = page->mapping->a_ops->invalidatepage;
+
 #ifdef CONFIG_BLOCK
-	if (!invalidatepage_range)
+	if (!invalidatepage_range && !invalidatepage)
 		invalidatepage_range = block_invalidatepage_range;
 #endif
+
+	/*
+	 * use invalidatepage_range (either from mapping or default block f'n)
+	 * if present, otherwise use the mapping's ->invalidatepage, which
+	 * can only handle page-aligned end
+	 */
 	if (invalidatepage_range)
 		(*invalidatepage_range)(page, offset, length);
+	else if (invalidatepage) {
+		BUG_ON(length != PAGE_CACHE_SIZE - offset);
+		(*invalidatepage)(page, offset);
+	}
+}
+
+/* XXX old ->invalidatepage method, no length arg */
+void do_invalidatepage(struct page *page, unsigned long offset)
+{
+	do_invalidatepage_range(page, offset, PAGE_CACHE_SIZE - offset);
 }
 
 /*
@@ -289,8 +291,6 @@ void truncate_inode_pages_range(struct address_space *mapping,
 	/* Offsets within partial pages */
 	partial_start = lstart & (PAGE_CACHE_SIZE - 1);
 	partial_end = (lend + 1) & (PAGE_CACHE_SIZE - 1);
-	if (!inode_has_invalidate_range(mapping->host))
-		BUG_ON(partial_end);
 
 	/*
 	 * 'start' and 'end' always covers the range of pages to be fully
@@ -358,12 +358,9 @@ void truncate_inode_pages_range(struct address_space *mapping,
 			zero_user_segment(page, partial_start, top);
 			cleancache_invalidate_page(mapping, page);
 			if (page_has_private(page)) {
-				if (inode_has_invalidate_range(mapping->host))
-					do_invalidatepage_range(page,
-							partial_start,
-							top - partial_start);
-				else
-					do_invalidatepage(page, partial_start);
+				do_invalidatepage_range(page,
+						partial_start,
+						top - partial_start);
 			}
 			unlock_page(page);
 			page_cache_release(page);

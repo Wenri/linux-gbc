@@ -28,24 +28,35 @@ static void zap_pte(struct mm_struct *mm, struct vm_area_struct *vma,
 			unsigned long addr, pte_t *ptep)
 {
 	pte_t pte = *ptep;
+	struct page *page;
+	swp_entry_t entry;
 
 	if (pte_present(pte)) {
-		struct page *page;
-
 		flush_cache_page(vma, addr, pte_pfn(pte));
 		pte = ptep_clear_flush_notify(vma, addr, ptep);
 		page = vm_normal_page(vma, addr, pte);
 		if (page) {
 			if (pte_dirty(pte))
 				set_page_dirty(page);
+			update_hiwater_rss(mm);
+			dec_mm_counter(mm, mm_counter(page));
 			page_remove_rmap(page);
 			page_cache_release(page);
-			update_hiwater_rss(mm);
-			dec_mm_counter(mm, mm_counter_file(page));
 		}
-	} else {
-		if (!pte_file(pte))
-			free_swap_and_cache(pte_to_swp_entry(pte));
+	} else {	/* zap_pte() is not called when pte_none() */
+		if (!pte_file(pte)) {
+			update_hiwater_rss(mm);
+			entry = pte_to_swp_entry(pte);
+			if (non_swap_entry(entry)) {
+				if (is_migration_entry(entry)) {
+					page = migration_entry_to_page(entry);
+					dec_mm_counter(mm, mm_counter(page));
+				}
+			} else {
+				free_swap_and_cache(entry);
+				dec_mm_counter(mm, MM_SWAPENTS);
+			}
+		}
 		pte_clear_not_present_full(mm, addr, ptep, 0);
 	}
 }
@@ -152,8 +163,13 @@ SYSCALL_DEFINE5(remap_file_pages, unsigned long, start, unsigned long, size,
 		return err;
 
 	/* Can we represent this offset inside this architecture's pte's? */
+#ifdef PTE_FILE_MAX_BITS
 #if PTE_FILE_MAX_BITS < BITS_PER_LONG
 	if (pgoff + (size >> PAGE_SHIFT) >= (1UL << PTE_FILE_MAX_BITS))
+		return err;
+#endif
+#else /* PTE_FILE_MAX_BITS */
+	if (pgoff + (size >> PAGE_SHIFT) >= (1UL << pte_file_max_bits()))
 		return err;
 #endif
 

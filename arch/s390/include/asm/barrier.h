@@ -7,6 +7,8 @@
 #ifndef __ASM_BARRIER_H
 #define __ASM_BARRIER_H
 
+#include <asm/alternative.h>
+
 /*
  * Force strict CPU ordering.
  * And yes, this is required on UP too when we're talking
@@ -22,6 +24,15 @@
 
 #define mb() do {  asm volatile(__ASM_BARRIER : : : "memory"); } while (0)
 
+static inline void gmb(void)
+{
+	asm volatile(
+		ALTERNATIVE("", ".long 0xb2e8f000", 81)
+		: : : "memory");
+}
+#define gmb gmb
+#define barrier_nospec gmb
+
 #define rmb()				mb()
 #define wmb()				mb()
 #define dma_rmb()			rmb()
@@ -36,7 +47,7 @@
 #define smp_mb__before_atomic()		smp_mb()
 #define smp_mb__after_atomic()		smp_mb()
 
-#define set_mb(var, value)		do { var = value; mb(); } while (0)
+#define smp_store_mb(var, value)		do { WRITE_ONCE(var, value); mb(); } while (0)
 
 #define smp_store_release(p, v)						\
 do {									\
@@ -52,5 +63,29 @@ do {									\
 	barrier();							\
 	___p1;								\
 })
+
+/**
+ * array_index_mask_nospec - generate a mask for array_idx() that is
+ * ~0UL when the bounds check succeeds and 0 otherwise
+ * @index: array element index
+ * @size: number of elements in array
+ */
+#define array_index_mask_nospec array_index_mask_nospec
+static inline unsigned long array_index_mask_nospec(unsigned long index,
+						    unsigned long size)
+{
+	unsigned long mask;
+
+	if (__builtin_constant_p(size) && size > 0) {
+		asm("	clgr	%2,%1\n"
+		    "	slbgr	%0,%0\n"
+		    :"=d" (mask) : "d" (size-1), "d" (index) :"cc");
+		return mask;
+	}
+	asm("	clgr	%1,%2\n"
+	    "	slbgr	%0,%0\n"
+	    :"=d" (mask) : "d" (size), "d" (index) :"cc");
+	return ~mask;
+}
 
 #endif /* __ASM_BARRIER_H */

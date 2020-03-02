@@ -7,6 +7,7 @@
 #include <asm/tlbflush.h>
 #include <asm/paravirt.h>
 #include <asm/mpx.h>
+#include <asm/spec_ctrl.h>
 #ifndef CONFIG_PARAVIRT
 #include <asm-generic/mm_hooks.h>
 
@@ -31,6 +32,11 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 #endif
 }
 
+static inline void load_cr3(pgd_t *pgdir)
+{
+	__load_cr3(__pa(pgdir));
+}
+
 static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 			     struct task_struct *tsk)
 {
@@ -42,6 +48,12 @@ static inline void switch_mm(struct mm_struct *prev, struct mm_struct *next,
 		this_cpu_write(cpu_tlbstate.active_mm, next);
 #endif
 		cpumask_set_cpu(cpu, mm_cpumask(next));
+
+#ifndef CONFIG_PREEMPT_RCU
+		spec_ctrl_ibpb_if_different_creds(tsk);
+#else
+		spec_ctrl_ibpb();
+#endif
 
 		/*
 		 * Re-load page tables.

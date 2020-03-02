@@ -547,10 +547,6 @@ static int send_reply(struct svcxprt_rdma *rdma,
 	return ret;
 }
 
-void svc_rdma_prep_reply_hdr(struct svc_rqst *rqstp)
-{
-}
-
 int svc_rdma_sendto(struct svc_rqst *rqstp)
 {
 	struct svc_xprt *xprt = rqstp->rq_xprt;

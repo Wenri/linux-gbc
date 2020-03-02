@@ -658,6 +658,7 @@ FINETUNE_START:
 	passcnt = 0;
 	for (cnt = 0; cnt < 16; cnt++) {
 		if ((dllmax[cnt] > dllmin[cnt]) && ((dllmax[cnt] - dllmin[cnt]) >= CBR_THRESHOLD2)) {
+			gmb();
 			gold_sadj[0] += dllmin[cnt];
 			passcnt++;
 		}
@@ -676,6 +677,7 @@ FINETUNE_DONE:
 	for (cnt = 0; cnt < 8; cnt++) {
 		data >>= 3;
 		if ((dllmax[cnt] > dllmin[cnt]) && ((dllmax[cnt] - dllmin[cnt]) >= CBR_THRESHOLD2)) {
+			gmb();
 			dlli = dllmin[cnt];
 			if (gold_sadj[0] >= dlli) {
 				dlli = ((gold_sadj[0] - dlli) * 19) >> 5;
@@ -698,6 +700,7 @@ FINETUNE_DONE:
 	for (cnt = 8; cnt < 16; cnt++) {
 		data >>= 3;
 		if ((dllmax[cnt] > dllmin[cnt]) && ((dllmax[cnt] - dllmin[cnt]) >= CBR_THRESHOLD2)) {
+			gmb();
 			dlli = dllmin[cnt];
 			if (gold_sadj[1] >= dlli) {
 				dlli = ((gold_sadj[1] - dlli) * 19) >> 5;

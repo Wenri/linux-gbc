@@ -2024,6 +2024,13 @@ static void add_rhelversion(struct buffer *b, struct module *mod)
 		   RHEL_MINOR);
 }
 
+static void add_retpoline(struct buffer *b, struct module *mod)
+{
+	buf_printf(b, "#ifdef RETPOLINE\n"
+		      "\tMODULE_INFO(retpoline, \"Y\");\n"
+		      "#endif\n");
+}
+
 static void write_if_changed(struct buffer *b, const char *fname)
 {
 	char *tmp;
@@ -2250,6 +2257,7 @@ int main(int argc, char **argv)
 		add_moddevtable(&buf, mod);
 		add_srcversion(&buf, mod);
 		add_rhelversion(&buf, mod);
+		add_retpoline(&buf, mod);
 
 		sprintf(fname, "%s.mod.c", mod->name);
 		write_if_changed(&buf, fname);

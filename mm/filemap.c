@@ -2939,7 +2939,7 @@ repeat:
 	if (!page)
 		return NULL;
 	status = add_to_page_cache_lru(page, mapping, index,
-						GFP_KERNEL & ~gfp_notmask);
+						gfp_mask & ~gfp_notmask);
 	if (unlikely(status)) {
 		page_cache_release(page);
 		if (status == -EEXIST)

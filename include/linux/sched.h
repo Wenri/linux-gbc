@@ -244,7 +244,7 @@ extern char ___assert_task_state[1 - 2*!!(
 #define __set_task_state(tsk, state_value)		\
 	do { (tsk)->state = (state_value); } while (0)
 #define set_task_state(tsk, state_value)		\
-	set_mb((tsk)->state, (state_value))
+	smp_store_mb((tsk)->state, (state_value))
 
 /*
  * set_current_state() includes a barrier so that the write of current->state
@@ -260,7 +260,7 @@ extern char ___assert_task_state[1 - 2*!!(
 #define __set_current_state(state_value)			\
 	do { current->state = (state_value); } while (0)
 #define set_current_state(state_value)		\
-	set_mb(current->state, (state_value))
+	smp_store_mb(current->state, (state_value))
 
 /* Task command name length */
 #define TASK_COMM_LEN 16
@@ -899,9 +899,13 @@ enum cpu_idle_type {
  * called near the end of a function, where the fact that the queue is
  * not used again will be easy to see by inspection.
  *
- * Note that this can cause spurious wakeups. schedule() callers
+ * NOTE that this can cause spurious wakeups. schedule() callers
  * must ensure the call is done inside a loop, confirming that the
  * wakeup condition has in fact occurred.
+ *
+ * NOTE that there is no guarantee the wakeup will happen any later than the
+ * wake_q_add() location. Therefore task must be ready to be woken at the
+ * location of the wake_q_add().
  */
 struct wake_q_node {
 	struct wake_q_node *next;
@@ -1802,9 +1806,9 @@ struct task_struct {
 	#ifdef CONFIG_SMP
 		struct rb_node pushable_dl_tasks;
 	#endif
-	#ifdef CONFIG_SCHEDSTATS
+#ifdef CONFIG_SCHEDSTATS
 	struct sched_statistics statistics;
-	#endif
+#endif
 	struct wake_q_node wake_q;
 	struct prev_cputime prev_cputime;
 #endif /* __GENKSYMS__ */
@@ -2103,6 +2107,9 @@ extern void thread_group_cputime_adjusted(struct task_struct *p, cputime_t *ut, 
 #define PFA_SPREAD_PAGE  1      /* Spread page cache over cpuset */
 #define PFA_SPREAD_SLAB  2      /* Spread some slab caches over cpuset */
 
+#define PFA_SPEC_SSB_DISABLE	   3	/* Speculative Store Bypass disabled */
+#define PFA_SPEC_SSB_FORCE_DISABLE 4	/* Speculative Store Bypass force disabled*/
+
 #define TASK_PFA_TEST(name, func)                                      \
        static inline bool task_##func(struct task_struct *p)           \
        { return test_bit(PFA_##name, &p->atomic_flags); }
@@ -2120,6 +2127,13 @@ TASK_PFA_CLEAR(SPREAD_PAGE, spread_page)
 TASK_PFA_TEST(SPREAD_SLAB, spread_slab)
 TASK_PFA_SET(SPREAD_SLAB, spread_slab)
 TASK_PFA_CLEAR(SPREAD_SLAB, spread_slab)
+
+TASK_PFA_TEST(SPEC_SSB_DISABLE, spec_ssb_disable)
+TASK_PFA_SET(SPEC_SSB_DISABLE, spec_ssb_disable)
+TASK_PFA_CLEAR(SPEC_SSB_DISABLE, spec_ssb_disable)
+
+TASK_PFA_TEST(SPEC_SSB_FORCE_DISABLE, spec_ssb_force_disable)
+TASK_PFA_SET(SPEC_SSB_FORCE_DISABLE, spec_ssb_force_disable)
 
 /* __GFP_IO isn't allowed if PF_MEMALLOC_NOIO is set in current->flags */
 static inline gfp_t memalloc_noio_flags(gfp_t flags)
@@ -2894,7 +2908,7 @@ static inline int signal_pending_state(long state, struct task_struct *p)
 	return (state & TASK_INTERRUPTIBLE) || __fatal_signal_pending(p);
 }
 
-static inline int need_resched(void)
+static __always_inline int need_resched(void)
 {
 	return unlikely(test_thread_flag(TIF_NEED_RESCHED));
 }

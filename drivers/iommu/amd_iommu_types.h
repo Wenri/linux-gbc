@@ -522,11 +522,9 @@ struct amd_iommu {
 
 	/* command buffer virtual address */
 	u8 *cmd_buf;
-	/* size of command buffer */
-	u32 cmd_buf_size;
+	u32 cmd_buf_head;
+	u32 cmd_buf_tail;
 
-	/* size of event buffer */
-	u32 evt_buf_size;
 	/* event buffer virtual address */
 	u8 *evt_buf;
 
@@ -559,6 +557,8 @@ struct amd_iommu {
 
 	/* The l2 indirect registers */
 	u32 stored_l2[0x83];
+
+	volatile u64 __aligned(8) cmd_sem;
 };
 
 struct devid_map {

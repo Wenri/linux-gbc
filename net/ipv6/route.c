@@ -576,7 +576,10 @@ static void rt6_probe_deferred(struct work_struct *w)
 
 static void rt6_probe(struct rt6_info *rt)
 {
+	struct __rt6_probe_work *work = NULL;
 	struct neighbour *neigh;
+	struct inet6_dev *idev;
+
 	/*
 	 * Okay, this does not seem to be appropriate
 	 * for now, however, we need to check if it
@@ -588,36 +591,32 @@ static void rt6_probe(struct rt6_info *rt)
 	if (!rt || !(rt->rt6i_flags & RTF_GATEWAY))
 		return;
 	rcu_read_lock_bh();
+	idev = __in6_dev_get(rt->dst.dev);
 	neigh = __ipv6_neigh_lookup_noref(rt->dst.dev, &rt->rt6i_gateway);
 	if (neigh) {
 		write_lock(&neigh->lock);
-		if (neigh->nud_state & NUD_VALID)
-			goto out;
-	}
-
-	if (!neigh ||
-	    time_after(jiffies, neigh->updated + rt->rt6i_idev->cnf.rtr_probe_interval)) {
-		struct __rt6_probe_work *work;
-
-		work = kmalloc(sizeof(*work), GFP_ATOMIC);
-
-		if (neigh && work)
-			__neigh_set_probe_once(neigh);
-
-		if (neigh)
-			write_unlock(&neigh->lock);
-
-		if (work) {
-			INIT_WORK(&work->work, rt6_probe_deferred);
-			work->target = rt->rt6i_gateway;
-			dev_hold(rt->dst.dev);
-			work->dev = rt->dst.dev;
-			schedule_work(&work->work);
+		if (!(neigh->nud_state & NUD_VALID) &&
+		    time_after(jiffies,
+			       neigh->updated + idev->cnf.rtr_probe_interval)) {
+			work = kmalloc(sizeof(*work), GFP_ATOMIC);
+			if (work)
+				__neigh_set_probe_once(neigh);
 		}
-	} else {
-out:
 		write_unlock(&neigh->lock);
+	} else if (time_after(jiffies, rt->last_probe +
+				       idev->cnf.rtr_probe_interval)) {
+		work = kmalloc(sizeof(*work), GFP_ATOMIC);
 	}
+
+	if (work) {
+		rt->last_probe = jiffies;
+		INIT_WORK(&work->work, rt6_probe_deferred);
+		work->target = rt->rt6i_gateway;
+		dev_hold(rt->dst.dev);
+		work->dev = rt->dst.dev;
+		schedule_work(&work->work);
+	}
+
 	rcu_read_unlock_bh();
 }
 #else
@@ -3395,7 +3394,11 @@ static int ip6_route_dev_notify(struct notifier_block *this,
 		net->ipv6.ip6_blk_hole_entry->dst.dev = dev;
 		net->ipv6.ip6_blk_hole_entry->rt6i_idev = in6_dev_get(dev);
 #endif
-	 } else if (event == NETDEV_UNREGISTER) {
+	 } else if (event == NETDEV_UNREGISTER &&
+		    dev->reg_state != NETREG_UNREGISTERED) {
+		/* NETDEV_UNREGISTER could be fired for multiple times by
+		 * netdev_wait_allrefs(). Make sure we only call this once.
+		 */
 		in6_dev_put(net->ipv6.ip6_null_entry->rt6i_idev);
 #ifdef CONFIG_IPV6_MULTIPLE_TABLES
 		in6_dev_put(net->ipv6.ip6_prohibit_entry->rt6i_idev);

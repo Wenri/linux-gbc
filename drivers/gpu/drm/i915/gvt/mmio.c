@@ -79,6 +79,7 @@ static void failsafe_emulate_mmio_rw(struct intel_vgpu *vgpu, uint64_t pa,
 					bytes);
 	} else if (reg_is_gtt(gvt, offset) &&
 			vgpu->gtt.ggtt_mm->virtual_page_table) {
+		gmb();
 		offset -= gvt->device_info.gtt_start_offset;
 		pt = vgpu->gtt.ggtt_mm->virtual_page_table + offset;
 		if (read)

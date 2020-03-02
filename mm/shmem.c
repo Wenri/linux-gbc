@@ -1571,6 +1571,7 @@ int shmem_mcopy_atomic_pte(struct mm_struct *dst_mm,
 	struct page *page;
 	pte_t _dst_pte, *dst_pte;
 	int ret;
+	pgoff_t offset, max_off;
 
 	ret = -ENOMEM;
 	if (shmem_acct_block(info->flags))
@@ -1599,7 +1600,7 @@ int shmem_mcopy_atomic_pte(struct mm_struct *dst_mm,
 				percpu_counter_add(&sbinfo->used_blocks, -1);
 			shmem_unacct_blocks(info->flags, 1);
 			/* don't free the page */
-			return -EFAULT;
+			return -ENOENT;
 		}
 	} else {
 		page = *pagep;
@@ -1610,6 +1611,12 @@ int shmem_mcopy_atomic_pte(struct mm_struct *dst_mm,
 	__set_page_locked(page);
 	__SetPageSwapBacked(page);
 	__SetPageUptodate(page);
+
+	ret = -EFAULT;
+	offset = linear_page_index(dst_vma, dst_addr);
+	max_off = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	if (unlikely(offset >= max_off))
+		goto out_release;
 
 	ret = mem_cgroup_cache_charge(page, dst_mm,
 				      gfp & GFP_RECLAIM_MASK);
@@ -1627,9 +1634,25 @@ int shmem_mcopy_atomic_pte(struct mm_struct *dst_mm,
 	_dst_pte = mk_pte(page, dst_vma->vm_page_prot);
 	if (dst_vma->vm_flags & VM_WRITE)
 		_dst_pte = pte_mkwrite(pte_mkdirty(_dst_pte));
+	else {
+		/*
+		 * We don't set the pte dirty if the vma has no
+		 * VM_WRITE permission, so mark the page dirty or it
+		 * could be freed from under us. We could do it
+		 * unconditionally before unlock_page(), but doing it
+		 * only if VM_WRITE is not set is faster.
+		 */
+		set_page_dirty(page);
+	}
+
+	dst_pte = pte_offset_map_lock(dst_mm, dst_pmd, dst_addr, &ptl);
+
+	ret = -EFAULT;
+	max_off = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	if (unlikely(offset >= max_off))
+		goto out_release_uncharge_unlock;
 
 	ret = -EEXIST;
-	dst_pte = pte_offset_map_lock(dst_mm, dst_pmd, dst_addr, &ptl);
 	if (!pte_none(*dst_pte))
 		goto out_release_uncharge_unlock;
 
@@ -1647,13 +1670,15 @@ int shmem_mcopy_atomic_pte(struct mm_struct *dst_mm,
 
 	/* No need to invalidate - it was non-present before */
 	update_mmu_cache(dst_vma, dst_addr, dst_pte);
-	unlock_page(page);
 	pte_unmap_unlock(dst_pte, ptl);
+	unlock_page(page);
 	ret = 0;
 out:
 	return ret;
 out_release_uncharge_unlock:
 	pte_unmap_unlock(dst_pte, ptl);
+	ClearPageDirty(page);
+	delete_from_page_cache(page);
 out_release_uncharge:
 	mem_cgroup_uncharge_cache_page(page);
 out_release:
@@ -3231,13 +3256,15 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 	 * tmpfs instance, limiting inodes to one per page of lowmem;
 	 * but the internal instance is left unlimited.
 	 */
-	if (!(sb->s_flags & MS_NOUSER)) {
+	if (!(sb->s_flags & MS_KERNMOUNT)) {
 		sbinfo->max_blocks = shmem_default_max_blocks();
 		sbinfo->max_inodes = shmem_default_max_inodes();
 		if (shmem_parse_options(data, sbinfo, false)) {
 			err = -EINVAL;
 			goto failed;
 		}
+	} else {
+		sb->s_flags |= MS_NOUSER;
 	}
 	sb->s_export_op = &shmem_export_ops;
 	sb->s_flags |= MS_NOSEC;
@@ -3455,8 +3482,7 @@ int __init shmem_init(void)
 		goto out2;
 	}
 
-	shm_mnt = vfs_kern_mount(&shmem_fs_type, MS_NOUSER,
-				 shmem_fs_type.name, NULL);
+	shm_mnt = kern_mount(&shmem_fs_type);
 	if (IS_ERR(shm_mnt)) {
 		error = PTR_ERR(shm_mnt);
 		printk(KERN_ERR "Could not kern_mount tmpfs\n");

@@ -4,6 +4,8 @@
 #include <linux/swap.h>
 #include <linux/memblock.h>
 #include <linux/bootmem.h>	/* for max_low_pfn */
+#include <linux/swapfile.h>
+#include <linux/swapops.h>
 
 #include <asm/cacheflush.h>
 #include <asm/e820.h>
@@ -18,6 +20,8 @@
 #include <asm/dma.h>		/* for MAX_DMA_PFN */
 #include <asm/microcode.h>
 #include <asm/kaslr.h>
+#include <asm/cpufeature.h>
+#include <asm/mmu_context.h>
 
 #include "mm_internal.h"
 
@@ -190,6 +194,47 @@ static void __init probe_page_size_mask(void)
 		set_in_cr4(X86_CR4_PGE);
 		__supported_pte_mask |= _PAGE_GLOBAL;
 	}
+}
+
+static void setup_pcid(void)
+{
+#ifdef CONFIG_X86_64
+	if (boot_cpu_has(X86_FEATURE_PCID)) {
+		if (boot_cpu_has(X86_FEATURE_PGE)) {
+			/*
+			 * This can't be cr4_set_bits_and_update_boot() --
+			 * the trampoline code can't handle CR4.PCIDE and
+			 * it wouldn't do any good anyway.  Despite the name,
+			 * cr4_set_bits_and_update_boot() doesn't actually
+			 * cause the bits in question to remain set all the
+			 * way through the secondary boot asm.
+			 *
+			 * Instead, we brute-force it and set CR4.PCIDE
+			 * manually in start_secondary().
+			 */
+			set_in_cr4(X86_CR4_PCIDE);
+			/*
+			 * INVPCID's single-context modes (2/3) only work
+			 * if we set X86_CR4_PCIDE, *and* we INVPCID
+			 * support.  It's unusable on systems that have
+			 * X86_CR4_PCIDE clear, or that have no INVPCID
+			 * support at all.
+			 */
+			if (boot_cpu_has(X86_FEATURE_INVPCID))
+				setup_force_cpu_cap(X86_FEATURE_INVPCID_SINGLE);
+		} else {
+			/*
+			 * flush_tlb_all(), as currently implemented, won't
+			 * work if PCID is on but PGE is not.  Since that
+			 * combination doesn't exist on real hardware, there's
+			 * no reason to try to fully support it, but it's
+			 * polite to avoid corrupting data if we're on
+			 * an improperly configured VM.
+			 */
+			setup_clear_cpu_cap(X86_FEATURE_PCID);
+		}
+	}
+#endif
 }
 
 #ifdef CONFIG_X86_32
@@ -570,6 +615,7 @@ void __init init_mem_mapping(void)
 	unsigned long end;
 
 	probe_page_size_mask();
+	setup_pcid();
 
 #ifdef CONFIG_X86_64
 	end = max_pfn << PAGE_SHIFT;
@@ -754,3 +800,23 @@ void __init zone_sizes_init(void)
 	free_area_init_nodes(max_zone_pfns);
 }
 
+unsigned long max_swapfile_size(void)
+{
+	unsigned long pages;
+
+	pages = generic_max_swapfile_size();
+
+	if (boot_cpu_has_bug(X86_BUG_L1TF)) {
+		/* Limit the swap file size to MAX_PA/2 for L1TF workaround */
+		unsigned long l1tf_limit = l1tf_pfn_limit() + 1;
+		/*
+		 * We encode swap offsets also with 3 bits below those for pfn
+		 * which makes the usable limit higher.
+		 */
+#if PAGETABLE_LEVELS > 2
+		l1tf_limit <<= PAGE_SHIFT - SWP_OFFSET_FIRST_BIT;
+#endif
+		pages = min_t(unsigned long, l1tf_limit, pages);
+	}
+	return pages;
+}

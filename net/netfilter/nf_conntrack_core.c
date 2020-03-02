@@ -1418,6 +1418,7 @@ get_next_corpse(struct net *net, int (*iter)(struct nf_conn *i, void *data),
 		local_bh_disable();
 		spin_lock(lockp);
 		if (*bucket < net->ct.htable_size) {
+			gmb();
 			hlist_nulls_for_each_entry(h, n, &net->ct.hash[*bucket], hnnode) {
 				if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
 					continue;

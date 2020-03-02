@@ -445,6 +445,7 @@ static void rt2800mmio_txstatus_interrupt(struct rt2x00_dev *rt2x00dev)
 			break;
 
 		if (!kfifo_put(&rt2x00dev->txstatus_fifo, &status)) {
+			gmb();
 			rt2x00_warn(rt2x00dev, "TX status FIFO overrun, drop tx status report\n");
 			break;
 		}

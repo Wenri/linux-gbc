@@ -136,8 +136,10 @@ struct hv_netvsc_packet {
 	u8 page_buf_cnt;
 
 	u16 q_idx;
-	u32 send_buf_index;
+	u16 total_packets;
 
+	u32 total_bytes;
+	u32 send_buf_index;
 	u32 total_data_buflen;
 };
 
@@ -621,7 +623,7 @@ struct nvsp_message {
 
 #define NETVSC_PACKET_SIZE                      4096
 
-#define VRSS_SEND_TAB_SIZE 16
+#define VRSS_SEND_TAB_SIZE 16  /* must be power of 2 */
 #define VRSS_CHANNEL_MAX 64
 
 #define RNDIS_MAX_PKT_DEFAULT 8
@@ -663,6 +665,15 @@ struct netvsc_ethtool_stats {
 	unsigned long tx_busy;
 };
 
+struct netvsc_vf_pcpu_stats {
+	u64     rx_packets;
+	u64     rx_bytes;
+	u64     tx_packets;
+	u64     tx_bytes;
+	struct u64_stats_sync   syncp;
+	u32	tx_dropped;
+};
+
 struct netvsc_reconfig {
 	struct list_head list;
 	u32 event;
@@ -686,8 +697,7 @@ struct net_device_context {
 	struct work_struct work;
 	u32 msg_enable; /* debug level */
 
-	struct netvsc_stats __percpu *tx_stats;
-	struct netvsc_stats __percpu *rx_stats;
+	u32 tx_send_table[VRSS_SEND_TAB_SIZE];
 
 	/* Ethtool settings */
 	u8 duplex;
@@ -699,11 +709,24 @@ struct net_device_context {
 
 	/* State to manage the associated VF interface. */
 	struct net_device __rcu *vf_netdev;
+	struct netvsc_vf_pcpu_stats __percpu *vf_stats;
+	struct delayed_work vf_takeover;
 
 	/* 1: allocated, serial number is valid. 0: not allocated */
 	u32 vf_alloc;
 	/* Serial number of the VF to team with */
 	u32 vf_serial;
+};
+
+/* Per channel data */
+struct netvsc_channel {
+	struct vmbus_channel *channel;
+	struct multi_send_data msd;
+	struct multi_recv_comp mrc;
+	atomic_t queue_sends;
+
+	struct netvsc_stats tx_stats;
+	struct netvsc_stats rx_stats;
 };
 
 /* Per netvsc device */
@@ -736,13 +759,10 @@ struct netvsc_device {
 
 	struct nvsp_message revoke_packet;
 
-	struct vmbus_channel *chn_table[VRSS_CHANNEL_MAX];
-	u32 send_table[VRSS_SEND_TAB_SIZE];
 	u32 max_chn;
 	u32 num_chn;
 	spinlock_t sc_lock; /* Protects num_sc_offered variable */
 	u32 num_sc_offered;
-	atomic_t queue_sends[VRSS_CHANNEL_MAX];
 
 	/* Holds rndis device info */
 	void *extension;
@@ -754,14 +774,14 @@ struct netvsc_device {
 	/* The sub channel callback buffer */
 	unsigned char *sub_cb_buf;
 
-	struct multi_send_data msd[VRSS_CHANNEL_MAX];
 	u32 max_pkt; /* max number of pkt in one send, e.g. 8 */
 	u32 pkt_align; /* alignment bytes, e.g. 8 */
 
-	struct multi_recv_comp mrc[VRSS_CHANNEL_MAX];
 	atomic_t num_outstanding_recvs;
 
 	atomic_t open_cnt;
+
+	struct netvsc_channel chan_table[VRSS_CHANNEL_MAX];
 };
 
 static inline struct netvsc_device *

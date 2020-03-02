@@ -324,7 +324,15 @@ static inline bool key_is_instantiated(const struct key *key)
 		!test_bit(KEY_FLAG_NEGATIVE, &key->flags);
 }
 
+/* rcu_dereference_key() is deprecated. */
 #define rcu_dereference_key(KEY)					\
+	(rcu_dereference_protected((KEY)->payload.rcudata,		\
+				   rwsem_is_locked(&((struct key *)(KEY))->sem)))
+
+#define dereference_key_rcu(KEY)					\
+	(rcu_dereference((KEY)->payload.rcudata))
+
+#define dereference_key_locked(KEY)					\
 	(rcu_dereference_protected((KEY)->payload.rcudata,		\
 				   rwsem_is_locked(&((struct key *)(KEY))->sem)))
 

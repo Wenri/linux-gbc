@@ -58,6 +58,9 @@
 #include <net/sock.h>
 #include <net/ip.h>
 #include <net/tcp_memcontrol.h>
+#ifndef __GENKSYMS__
+#include "slab.h"
+#endif
 
 #include <asm/uaccess.h>
 
@@ -2962,8 +2965,6 @@ static void __mem_cgroup_commit_charge(struct mem_cgroup *memcg,
 	memcg_check_events(memcg, page);
 }
 
-static DEFINE_MUTEX(memcg_limit_mutex);
-
 #ifdef CONFIG_MEMCG_KMEM
 static inline bool memcg_can_account_kmem(struct mem_cgroup *memcg)
 {
@@ -3067,16 +3068,6 @@ static void memcg_uncharge_kmem(struct mem_cgroup *memcg,
 		mem_cgroup_put(memcg);
 }
 
-void memcg_cache_list_add(struct mem_cgroup *memcg, struct kmem_cache *cachep)
-{
-	if (!memcg)
-		return;
-
-	mutex_lock(&memcg->slab_caches_mutex);
-	list_add(&cachep->memcg_params->list, &memcg->memcg_slab_caches);
-	mutex_unlock(&memcg->slab_caches_mutex);
-}
-
 /*
  * helper for acessing a memcg's index. It will be used as an index in the
  * child cache array in kmem_cache, and also to derive its name. This function
@@ -3157,8 +3148,12 @@ int memcg_update_cache_size(struct kmem_cache *s, int num_groups)
 	struct memcg_cache_params *cur_params = s->memcg_params;
 
 	VM_BUG_ON(s->memcg_params && !s->memcg_params->is_root_cache);
-
-	if (num_groups > memcg_limited_groups_array_size) {
+	/*
+	 * Need to do this if we are increasing the size or there are
+	 * kmem_caches with null memcg_params otherwise we will dereference
+	 * in  __memcg_kmem_get_cache()
+	 */
+	if (num_groups > memcg_limited_groups_array_size || !cur_params) {
 		int i;
 		ssize_t size = memcg_caches_array_size(num_groups);
 
@@ -3172,6 +3167,10 @@ int memcg_update_cache_size(struct kmem_cache *s, int num_groups)
 		}
 
 		s->memcg_params->is_root_cache = true;
+
+		/* if there was no kmem_cache->memcg_params, first time so we are done */
+		if (!cur_params)
+			return 0;
 
 		/*
 		 * There is the chance it will be bigger than
@@ -3203,8 +3202,8 @@ int memcg_update_cache_size(struct kmem_cache *s, int num_groups)
 	return 0;
 }
 
-int memcg_register_cache(struct mem_cgroup *memcg, struct kmem_cache *s,
-			 struct kmem_cache *root_cache)
+int memcg_alloc_cache_params(struct mem_cgroup *memcg, struct kmem_cache *s,
+			     struct kmem_cache *root_cache)
 {
 	size_t size = sizeof(struct memcg_cache_params);
 
@@ -3229,7 +3228,44 @@ int memcg_register_cache(struct mem_cgroup *memcg, struct kmem_cache *s,
 	return 0;
 }
 
-void memcg_release_cache(struct kmem_cache *s)
+void memcg_free_cache_params(struct kmem_cache *s)
+{
+	kfree(s->memcg_params);
+}
+
+void memcg_register_cache(struct kmem_cache *s)
+{
+	struct kmem_cache *root;
+	struct mem_cgroup *memcg;
+	int id;
+
+	if (is_root_cache(s))
+		return;
+
+	/*
+	 * Holding the slab_mutex assures nobody will touch the memcg_caches
+	 * array while we are modifying it.
+	 */
+	lockdep_assert_held(&slab_mutex);
+
+	root = s->memcg_params->root_cache;
+	memcg = s->memcg_params->memcg;
+	id = memcg_cache_id(memcg);
+
+	mutex_lock(&memcg->slab_caches_mutex);
+	list_add(&s->memcg_params->list, &memcg->memcg_slab_caches);
+	mutex_unlock(&memcg->slab_caches_mutex);
+
+	VM_BUG_ON(root->memcg_params->memcg_caches[id]);
+	root->memcg_params->memcg_caches[id] = s;
+	/*
+	 * the readers won't lock, make sure everybody sees the updated value,
+	 * so they won't put stuff in the queue again for no reason
+	 */
+	wmb();
+}
+
+void memcg_unregister_cache(struct kmem_cache *s)
 {
 	struct kmem_cache *root;
 	struct mem_cgroup *memcg;
@@ -3243,12 +3279,19 @@ void memcg_release_cache(struct kmem_cache *s)
 		return;
 
 	if (s->memcg_params->is_root_cache)
-		goto out;
+		return;
+
+	/*
+	 * Holding the slab_mutex assures nobody will touch the memcg_caches
+	 * array while we are modifying it.
+	 */
+	lockdep_assert_held(&slab_mutex);
 
 	memcg = s->memcg_params->memcg;
 	id  = memcg_cache_id(memcg);
 
 	root = s->memcg_params->root_cache;
+	VM_BUG_ON(!root->memcg_params->memcg_caches[id]);
 	root->memcg_params->memcg_caches[id] = NULL;
 
 	mutex_lock(&memcg->slab_caches_mutex);
@@ -3256,8 +3299,6 @@ void memcg_release_cache(struct kmem_cache *s)
 	mutex_unlock(&memcg->slab_caches_mutex);
 
 	mem_cgroup_put(memcg);
-out:
-	kfree(s->memcg_params);
 }
 
 /*
@@ -3407,16 +3448,10 @@ static struct kmem_cache *memcg_create_kmem_cache(struct mem_cgroup *memcg,
 						  struct kmem_cache *cachep)
 {
 	struct kmem_cache *new_cachep;
-	int idx;
 
 	BUG_ON(!memcg_can_account_kmem(memcg));
 
-	idx = memcg_cache_id(memcg);
-
 	mutex_lock(&memcg_cache_mutex);
-	new_cachep = cachep->memcg_params->memcg_caches[idx];
-	if (new_cachep)
-		goto out;
 
 	new_cachep = kmem_cache_dup(memcg, cachep);
 	if (new_cachep == NULL) {
@@ -3425,28 +3460,16 @@ static struct kmem_cache *memcg_create_kmem_cache(struct mem_cgroup *memcg,
 	}
 
 	mem_cgroup_get(memcg);
-	atomic_set(&new_cachep->memcg_params->nr_pages , 0);
-
-	cachep->memcg_params->memcg_caches[idx] = new_cachep;
-	/*
-	 * the readers won't lock, make sure everybody sees the updated value,
-	 * so they won't put stuff in the queue again for no reason
-	 */
-	wmb();
 out:
 	mutex_unlock(&memcg_cache_mutex);
 	return new_cachep;
 }
+static DEFINE_MUTEX(memcg_limit_mutex);
 
-void kmem_cache_destroy_memcg_children(struct kmem_cache *s)
+int __kmem_cache_destroy_memcg_children(struct kmem_cache *s)
 {
 	struct kmem_cache *c;
-	int i;
-
-	if (!s->memcg_params)
-		return;
-	if (!s->memcg_params->is_root_cache)
-		return;
+	int i, failed = 0;
 
 	/*
 	 * If the cache is being destroyed, we trust that there is no one else
@@ -3479,8 +3502,12 @@ void kmem_cache_destroy_memcg_children(struct kmem_cache *s)
 		c->memcg_params->dead = false;
 		cancel_work_sync(&c->memcg_params->destroy);
 		kmem_cache_destroy(c);
+
+		if (cache_from_memcg(s, i))
+			failed++;
 	}
 	mutex_unlock(&memcg_limit_mutex);
+	return failed;
 }
 
 struct create_work {

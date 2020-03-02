@@ -420,6 +420,7 @@ static phys_addr_t pgoff_to_phys(struct dax_dev *dax_dev, pgoff_t pgoff,
 	}
 
 	if (i < dax_dev->num_resources) {
+		gmb();
 		res = &dax_dev->res[i];
 		if (phys + size - 1 <= res->end)
 			return phys;

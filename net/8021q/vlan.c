@@ -312,6 +312,8 @@ out:
 static void vlan_transfer_features(struct net_device *dev,
 				   struct net_device *vlandev)
 {
+	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
+
 	vlandev->gso_max_size = dev->gso_max_size;
 
 	if (dev->features & NETIF_F_HW_VLAN_CTAG_TX)
@@ -323,6 +325,7 @@ static void vlan_transfer_features(struct net_device *dev,
 	vlandev->fcoe_ddp_xid = dev->fcoe_ddp_xid;
 #endif
 
+	vlandev->hw_enc_features = vlan_tnl_features(vlan->real_dev);
 	netdev_update_features(vlandev);
 }
 

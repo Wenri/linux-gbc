@@ -640,9 +640,12 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 	struct tc_fq_codel_xstats xstats;
 
 	if (idx < q->flows_cnt) {
-		const struct fq_codel_flow *flow = &q->flows[idx];
-		const struct sk_buff *skb = flow->head;
+		const struct fq_codel_flow *flow;
+		const struct sk_buff *skb;
 
+		gmb();
+		flow = &q->flows[idx];
+		skb = flow->head;
 		memset(&xstats, 0, sizeof(xstats));
 		xstats.type = TCA_FQ_CODEL_XSTATS_CLASS;
 		xstats.class_stats.deficit = flow->deficit;

@@ -77,7 +77,6 @@ static struct svc_xprt_ops svc_rdma_ops = {
 	.xpo_release_rqst = svc_rdma_release_rqst,
 	.xpo_detach = svc_rdma_detach,
 	.xpo_free = svc_rdma_free,
-	.xpo_prep_reply_hdr = svc_rdma_prep_reply_hdr,
 	.xpo_has_wspace = svc_rdma_has_wspace,
 	.xpo_accept = svc_rdma_accept,
 	.xpo_secure_port = svc_rdma_secure_port,
@@ -102,7 +101,6 @@ static struct svc_xprt_ops svc_rdma_bc_ops = {
 	.xpo_create = svc_rdma_bc_create,
 	.xpo_detach = svc_rdma_bc_detach,
 	.xpo_free = svc_rdma_bc_free,
-	.xpo_prep_reply_hdr = svc_rdma_prep_reply_hdr,
 	.xpo_secure_port = svc_rdma_secure_port,
 };
 
@@ -127,7 +125,6 @@ static struct svc_xprt *svc_rdma_bc_create(struct svc_serv *serv,
 	xprt = &cma_xprt->sc_xprt;
 
 	svc_xprt_init(net, &svc_rdma_bc_class, xprt, serv);
-	serv->sv_bc_xprt = xprt;
 
 	dprintk("svcrdma: %s(%p)\n", __func__, xprt);
 	return xprt;

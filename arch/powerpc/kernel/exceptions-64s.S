@@ -46,7 +46,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_REAL_LE)				\
 	mtspr	SPRN_SRR0,r10 ; 				\
 	ld	r10,PACAKMSR(r13) ;				\
 	mtspr	SPRN_SRR1,r10 ; 				\
-	rfid ; 							\
+	RFI_TO_KERNEL ;						\
 	b	. ;	/* prevent speculative execution */
 
 #define SYSCALL_PSERIES_3					\
@@ -54,7 +54,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_REAL_LE)				\
 1:	mfspr	r12,SPRN_SRR1 ;					\
 	xori	r12,r12,MSR_LE ;				\
 	mtspr	SPRN_SRR1,r12 ;					\
-	rfid ;		/* return to userspace */		\
+	RFI_TO_USER ;	/* return to userspace */		\
 	b	. ;	/* prevent speculative execution */
 
 #if defined(CONFIG_RELOCATABLE)
@@ -206,12 +206,18 @@ BEGIN_FTR_SECTION
 	b	data_access_check_stab
 data_access_not_stab:
 END_MMU_FTR_SECTION_IFCLR(MMU_FTR_SLB)
-	EXCEPTION_PROLOG_PSERIES(PACA_EXGEN, data_access_common, EXC_STD,
-				 KVMTEST, 0x300)
+	EXCEPTION_PROLOG_0(PACA_EXGEN)
+	b data_access_pSeries_OOL
 
 	. = 0x380
 	.globl data_access_slb_pSeries
 data_access_slb_pSeries:
+	/*
+	 * PACA_EXSLB+EX_DAR must not be used! It stores a pointer to an
+	 * auxiliary PACA structure that can be used to add fields without
+	 * changing the size of the structure, which would break the kABI
+	 * because the paca[] array is exported.
+	 */
 	HMT_MEDIUM_PPR_DISCARD
 	SET_SCRATCH0(r13)
 	EXCEPTION_PROLOG_0(PACA_EXSLB)
@@ -244,6 +250,9 @@ data_access_slb_pSeries:
 	. = 0x480
 	.globl instruction_access_slb_pSeries
 instruction_access_slb_pSeries:
+	/*
+	 * PACA_EXSLB+EX_DAR must not be used, see comment in data access slb.
+	 */
 	HMT_MEDIUM_PPR_DISCARD
 	SET_SCRATCH0(r13)
 	EXCEPTION_PROLOG_0(PACA_EXSLB)
@@ -297,9 +306,17 @@ hardware_interrupt_hv:
 	. = 0x900
 	.globl decrementer_pSeries
 decrementer_pSeries:
-	_MASKABLE_EXCEPTION_PSERIES(0x900, decrementer, EXC_STD, SOFTEN_TEST_PR)
+	SET_SCRATCH0(r13)
+	EXCEPTION_PROLOG_0(PACA_EXGEN)
+	b	decrementer_pSeries_OOL
 
-	STD_EXCEPTION_HV(0x980, 0x982, hdecrementer)
+	. = 0x980
+	.globl hv_hdecrementer_trampoline
+hv_hdecrementer_trampoline:
+	HMT_MEDIUM
+	SET_SCRATCH0(r13)
+	EXCEPTION_PROLOG_0(PACA_EXGEN)
+	b	hdecrementer_hv
 
 	MASKABLE_EXCEPTION_PSERIES(0xa00, 0xa00, doorbell_super)
 	KVM_HANDLER_PR(PACA_EXGEN, EXC_STD, 0xa00)
@@ -317,8 +334,14 @@ system_call_pSeries:
 	std	r9,PACA_EXGEN+EX_R9(r13)
 	std	r10,PACA_EXGEN+EX_R10(r13)
 	mfcr	r9
+	INTERRUPT_TO_KERNEL
 	KVMTEST(0xc00)
 	GET_SCRATCH0(r13)
+#else
+	mr	r12,r13
+	GET_PACA(r13)
+	INTERRUPT_TO_KERNEL
+	mr	r13,r12
 #endif
 	SYSCALL_PSERIES_1
 	SYSCALL_PSERIES_2_RFID
@@ -501,7 +524,7 @@ BEGIN_FTR_SECTION
 	LOAD_HANDLER(r12, machine_check_handle_early)
 1:	mtspr	SPRN_SRR0,r12
 	mtspr	SPRN_SRR1,r11
-	rfid
+	RFI_TO_KERNEL
 	b	.	/* prevent speculative execution */
 2:
 	/* Stack overflow. Stay on emergency stack and panic.
@@ -530,6 +553,9 @@ machine_check_pSeries_0:
 	KVM_HANDLER_SKIP(PACA_EXMC, EXC_STD, 0x200)
 
 	/* moved from 0x300 */
+data_access_pSeries_OOL:
+	EXCEPTION_PROLOG_PSERIES_OOL(PACA_EXGEN, data_access_common, EXC_STD,
+				     KVMTEST, 0x300)
 data_access_check_stab:
 	GET_PACA(r13)
 	std	r9,PACA_EXSLB+EX_R9(r13)
@@ -623,7 +649,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_CFAR)
 	ld	r11,PACA_EXGEN+EX_R11(r13)
 	ld	r12,PACA_EXGEN+EX_R12(r13)
 	ld	r13,PACA_EXGEN+EX_R13(r13)
-	HRFID
+	HRFI_TO_UNKNOWN
 	b	.
 #endif
 
@@ -738,11 +764,111 @@ masked_##_H##interrupt:					\
 	ld	r10,PACA_EXGEN+EX_R10(r13);		\
 	ld	r11,PACA_EXGEN+EX_R11(r13);		\
 	GET_SCRATCH0(r13);				\
-	##_H##rfid;					\
+	##_H##RFI_TO_KERNEL;				\
 	b	.
 	
 	MASKED_INTERRUPT()
 	MASKED_INTERRUPT(H)
+
+	.globl stf_barrier_fallback
+stf_barrier_fallback:
+	ld	r13,PACA_AUX_PTR(r13)		/* r13 now = paca_aux pointer */
+	std	r9,PACA_AUX_EXRFI+EX_R9(r13)
+	std	r10,PACA_AUX_EXRFI+EX_R10(r13)
+	sync
+	ld	r9,PACA_AUX_EXRFI+EX_R9(r13)
+	ld	r10,PACA_AUX_EXRFI+EX_R10(r13)
+	ori	31,31,0
+	.rept 14
+	b	1f
+1:
+	.endr
+	GET_PACA(r13);
+	blr
+
+	.globl rfi_flush_fallback
+rfi_flush_fallback:
+	SET_SCRATCH0(r13);
+	GET_PACA(r13);
+	ld	r13,PACA_AUX_PTR(r13)		/* r13 now = paca_aux pointer */
+	std	r9,PACA_AUX_EXRFI+EX_R9(r13)
+	std	r10,PACA_AUX_EXRFI+EX_R10(r13)
+	std	r11,PACA_AUX_EXRFI+EX_R11(r13)
+	mfctr	r9
+	ld	r10,PACA_AUX_RFI_FLUSH_FALLBACK_AREA(r13)
+	ld	r11,PACA_AUX_L1D_FLUSH_SIZE(r13)
+	srdi	r11,r11,(7 + 3) /* 128 byte lines, unrolled 8x */
+	mtctr	r11
+	DCBT_STOP_ALL_STREAM_IDS(r11) /* Stop prefetch streams */
+
+	/* order ld/st prior to dcbt stop all streams with flushing */
+	hwsync
+
+	/*
+	 * The load adresses are at staggered offsets within cachelines,
+	 * which suits some pipelines better (on others it should not
+	 * hurt).
+	 */
+1:
+	ld	r11,(0x80 + 8)*0(r10)
+	ld	r11,(0x80 + 8)*1(r10)
+	ld	r11,(0x80 + 8)*2(r10)
+	ld	r11,(0x80 + 8)*3(r10)
+	ld	r11,(0x80 + 8)*4(r10)
+	ld	r11,(0x80 + 8)*5(r10)
+	ld	r11,(0x80 + 8)*6(r10)
+	ld	r11,(0x80 + 8)*7(r10)
+	addi	r10,r10,0x80*8
+	bdnz	1b
+
+	mtctr	r9
+	ld	r9,PACA_AUX_EXRFI+EX_R9(r13)
+	ld	r10,PACA_AUX_EXRFI+EX_R10(r13)
+	ld	r11,PACA_AUX_EXRFI+EX_R11(r13)
+	GET_SCRATCH0(r13);
+	rfid
+
+	.globl hrfi_flush_fallback
+hrfi_flush_fallback:
+	SET_SCRATCH0(r13);
+	GET_PACA(r13);
+	ld	r13,PACA_AUX_PTR(r13)		/* r13 now = paca_aux pointer */
+	std	r9,PACA_AUX_EXRFI+EX_R9(r13)
+	std	r10,PACA_AUX_EXRFI+EX_R10(r13)
+	std	r11,PACA_AUX_EXRFI+EX_R11(r13)
+	mfctr	r9
+	ld	r10,PACA_AUX_RFI_FLUSH_FALLBACK_AREA(r13)
+	ld	r11,PACA_AUX_L1D_FLUSH_SIZE(r13)
+	srdi	r11,r11,(7 + 3) /* 128 byte lines, unrolled 8x */
+	mtctr	r11
+	DCBT_STOP_ALL_STREAM_IDS(r11) /* Stop prefetch streams */
+
+	/* order ld/st prior to dcbt stop all streams with flushing */
+	hwsync
+
+	/*
+	 * The load adresses are at staggered offsets within cachelines,
+	 * which suits some pipelines better (on others it should not
+	 * hurt.
+	 */
+1:
+	ld	r11,(0x80 + 8)*0(r10)
+	ld	r11,(0x80 + 8)*1(r10)
+	ld	r11,(0x80 + 8)*2(r10)
+	ld	r11,(0x80 + 8)*3(r10)
+	ld	r11,(0x80 + 8)*4(r10)
+	ld	r11,(0x80 + 8)*5(r10)
+	ld	r11,(0x80 + 8)*6(r10)
+	ld	r11,(0x80 + 8)*7(r10)
+	addi	r10,r10,0x80*8
+	bdnz	1b
+
+	mtctr	r9
+	ld	r9,PACA_AUX_EXRFI+EX_R9(r13)
+	ld	r10,PACA_AUX_EXRFI+EX_R10(r13)
+	ld	r11,PACA_AUX_EXRFI+EX_R11(r13)
+	GET_SCRATCH0(r13);
+	hrfid
 
 /*
  * Called from arch_local_irq_enable when an interrupt needs
@@ -830,7 +956,7 @@ kvmppc_skip_interrupt:
 	addi	r13, r13, 4
 	mtspr	SPRN_SRR0, r13
 	GET_SCRATCH0(r13)
-	rfid
+	RFI_TO_KERNEL
 	b	.
 
 kvmppc_skip_Hinterrupt:
@@ -842,7 +968,7 @@ kvmppc_skip_Hinterrupt:
 	addi	r13, r13, 4
 	mtspr	SPRN_HSRR0, r13
 	GET_SCRATCH0(r13)
-	hrfid
+	HRFI_TO_KERNEL
 	b	.
 #endif
 
@@ -860,7 +986,11 @@ kvmppc_skip_Hinterrupt:
 
 	STD_EXCEPTION_COMMON_ASYNC(0x500, hardware_interrupt, do_IRQ)
 	STD_EXCEPTION_COMMON_ASYNC(0x900, decrementer, timer_interrupt)
+.globl decrementer_pSeries_OOL
+decrementer_pSeries_OOL:
+	_MASKABLE_EXCEPTION_PSERIES_OOL(0x900, decrementer, EXC_STD, SOFTEN_TEST_PR)
 	STD_EXCEPTION_COMMON(0x980, hdecrementer, hdec_interrupt)
+	STD_EXCEPTION_HV_OOL(0x982, hdecrementer)
 #ifdef CONFIG_PPC_DOORBELL
 	STD_EXCEPTION_COMMON_ASYNC(0xa00, doorbell_super, doorbell_exception)
 #else
@@ -972,6 +1102,10 @@ hardware_interrupt_relon_hv:
 	.globl system_call_relon_pSeries
 system_call_relon_pSeries:
 	HMT_MEDIUM
+	mr	r12,r13
+	GET_PACA(r13)
+	INTERRUPT_TO_KERNEL
+	mr	r13,r12
 	SYSCALL_PSERIES_1
 	SYSCALL_PSERIES_2_DIRECT
 	SYSCALL_PSERIES_3
@@ -1547,7 +1681,7 @@ machine_check_handle_early:
 	li	r3,MSR_ME
 	andc	r10,r10,r3		/* Turn off MSR_ME */
 	mtspr	SPRN_SRR1,r10
-	rfid
+	RFI_TO_KERNEL
 	b	.
 2:
 	/*
@@ -1565,7 +1699,7 @@ machine_check_handle_early:
 	 */
 	bl	machine_check_queue_event
 	MACHINE_CHECK_HANDLER_WINDUP
-	rfid
+	RFI_TO_USER_OR_KERNEL
 9:
 	/* Deliver the machine check to host kernel in V mode. */
 	MACHINE_CHECK_HANDLER_WINDUP
@@ -1612,6 +1746,9 @@ slb_miss_realmode:
 	andi.	r10,r12,MSR_RI	/* check for unrecoverable exception */
 	beq-	2f
 
+	andi.	r10,r12,MSR_PR	 /* check for exception from userspace */
+	beq	1f 	/* returning to kernel */
+
 .machine	push
 .machine	"power4"
 	mtcrf	0x80,r9
@@ -1624,7 +1761,23 @@ slb_miss_realmode:
 	ld	r11,PACA_EXSLB+EX_R11(r13)
 	ld	r12,PACA_EXSLB+EX_R12(r13)
 	ld	r13,PACA_EXSLB+EX_R13(r13)
-	rfid
+	RFI_TO_USER
+	b	.	/* prevent speculative execution */
+
+1:
+.machine	push
+.machine	"power4"
+	mtcrf	0x80,r9
+	mtcrf	0x01,r9		/* slb_allocate uses cr0 and cr7 */
+.machine	pop
+
+	RESTORE_PPR_PACA(PACA_EXSLB, r9)
+	ld	r9,PACA_EXSLB+EX_R9(r13)
+	ld	r10,PACA_EXSLB+EX_R10(r13)
+	ld	r11,PACA_EXSLB+EX_R11(r13)
+	ld	r12,PACA_EXSLB+EX_R12(r13)
+	ld	r13,PACA_EXSLB+EX_R13(r13)
+	RFI_TO_KERNEL
 	b	.	/* prevent speculative execution */
 
 2:	mfspr	r11,SPRN_SRR0
@@ -1633,7 +1786,7 @@ slb_miss_realmode:
 	mtspr	SPRN_SRR0,r10
 	ld	r10,PACAKMSR(r13)
 	mtspr	SPRN_SRR1,r10
-	rfid
+	RFI_TO_KERNEL
 	b	.
 
 unrecov_slb:
@@ -1850,6 +2003,9 @@ do_stab_bolted:
 	andi.	r10,r12,MSR_RI
 	beq-	unrecov_slb
 
+	andi.	r10,r12,MSR_PR	 /* check for exception from userspace */
+	beq	1f 	/* returning to kernel */
+
 	mtcrf	0x80,r9			/* restore CR */
 
 	mfmsr	r10
@@ -1863,5 +2019,22 @@ do_stab_bolted:
 	ld	r11,PACA_EXSLB+EX_R11(r13)
 	ld	r12,PACA_EXSLB+EX_R12(r13)
 	ld	r13,PACA_EXSLB+EX_R13(r13)
-	rfid
+	RFI_TO_USER
+	b	.	/* prevent speculative execution */
+
+1:
+	mtcrf	0x80,r9			/* restore CR */
+
+	mfmsr	r10
+	clrrdi	r10,r10,2
+	mtmsrd	r10,1
+
+	mtspr	SPRN_SRR0,r11
+	mtspr	SPRN_SRR1,r12
+	ld	r9,PACA_EXSLB+EX_R9(r13)
+	ld	r10,PACA_EXSLB+EX_R10(r13)
+	ld	r11,PACA_EXSLB+EX_R11(r13)
+	ld	r12,PACA_EXSLB+EX_R12(r13)
+	ld	r13,PACA_EXSLB+EX_R13(r13)
+	RFI_TO_KERNEL
 	b	.	/* prevent speculative execution */

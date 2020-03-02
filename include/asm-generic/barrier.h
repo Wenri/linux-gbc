@@ -42,6 +42,11 @@
 #define wmb()	mb()
 #endif
 
+#ifndef gmb
+#define gmb()	do { } while (0)
+#define barrier_nospec() gmb()
+#endif
+
 #ifndef dma_rmb
 #define dma_rmb()	rmb()
 #endif
@@ -55,19 +60,44 @@
 #endif
 
 #ifdef CONFIG_SMP
+
+#ifndef smp_mb
 #define smp_mb()	mb()
+#endif
+
+#ifndef smp_rmb
 #define smp_rmb()	rmb()
+#endif
+
+#ifndef smp_wmb
 #define smp_wmb()	wmb()
+#endif
+
+#ifndef smp_read_barrier_depends
 #define smp_read_barrier_depends()	read_barrier_depends()
+#endif
+
 #else
+#ifndef smp_mb
 #define smp_mb()	barrier()
+#endif
+
+#ifndef smp_rmb
 #define smp_rmb()	barrier()
+#endif
+
+#ifndef smp_wmb
 #define smp_wmb()	barrier()
+#endif
+
+#ifndef smp_read_barrier_depends
 #define smp_read_barrier_depends()	do { } while (0)
 #endif
 
-#ifndef set_mb
-#define set_mb(var, value)  do { (var) = (value); mb(); } while (0)
+#endif
+
+#ifndef smp_store_mb
+#define smp_store_mb(var, value)  do { WRITE_ONCE(var, value); mb(); } while (0)
 #endif
 
 #ifndef smp_mb__before_atomic
@@ -78,13 +108,16 @@
 #define smp_mb__after_atomic()	smp_mb()
 #endif
 
+#ifndef smp_store_release
 #define smp_store_release(p, v)						\
 do {									\
 	compiletime_assert_atomic_type(*p);				\
 	smp_mb();							\
 	ACCESS_ONCE(*p) = (v);						\
 } while (0)
+#endif
 
+#ifndef smp_load_acquire
 #define smp_load_acquire(p)						\
 ({									\
 	typeof(*p) ___p1 = ACCESS_ONCE(*p);				\
@@ -92,6 +125,7 @@ do {									\
 	smp_mb();							\
 	___p1;								\
 })
+#endif
 
 #endif /* !__ASSEMBLY__ */
 #endif /* __ASM_GENERIC_BARRIER_H */

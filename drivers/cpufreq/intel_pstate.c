@@ -289,12 +289,12 @@ static void intel_pstate_hwp_set(const struct cpumask *cpumask)
 	int min, hw_min, max, hw_max, cpu, range, adj_range;
 	u64 value, cap;
 
-	rdmsrl(MSR_HWP_CAPABILITIES, cap);
-	hw_min = HWP_LOWEST_PERF(cap);
-	hw_max = HWP_HIGHEST_PERF(cap);
-	range = hw_max - hw_min;
-
 	for_each_cpu(cpu, cpumask) {
+		rdmsrl_on_cpu(cpu, MSR_HWP_CAPABILITIES, &cap);
+		hw_min = HWP_LOWEST_PERF(cap);
+		hw_max = HWP_HIGHEST_PERF(cap);
+		range = hw_max - hw_min;
+
 		rdmsrl_on_cpu(cpu, MSR_HWP_REQUEST, &value);
 		adj_range = limits->min_perf_pct * range / 100;
 		min = hw_min + adj_range;
@@ -1024,7 +1024,7 @@ static void intel_pstate_timer_func(unsigned long __data)
 static const struct x86_cpu_id intel_pstate_cpu_ids[] = {
 	ICPU(INTEL_FAM6_SANDYBRIDGE, 		core_params),
 	ICPU(INTEL_FAM6_SANDYBRIDGE_X,		core_params),
-	ICPU(INTEL_FAM6_ATOM_SILVERMONT1,	atom_params),
+	ICPU(INTEL_FAM6_ATOM_SILVERMONT,	atom_params),
 	ICPU(INTEL_FAM6_IVYBRIDGE,		core_params),
 	ICPU(INTEL_FAM6_HASWELL_CORE,		core_params),
 	ICPU(INTEL_FAM6_BROADWELL_CORE,		core_params),

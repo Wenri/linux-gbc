@@ -1,6 +1,8 @@
 #ifndef _ASM_X86_EFI_H
 #define _ASM_X86_EFI_H
 
+#include <asm/spec_ctrl.h>
+
 /*
  * We map the EFI regions needed for runtime services non-contiguously,
  * with preserved alignment on virtual addresses starting from -4G down
@@ -51,10 +53,13 @@ extern u64 asmlinkage efi_call(void *fp, ...);
 #define efi_call_virt(f, ...)						\
 ({									\
 	efi_status_t __s;						\
+	bool ibrs_on;							\
 									\
 	efi_sync_low_kernel_mappings();					\
 	preempt_disable();						\
+	ibrs_on = unprotected_firmware_begin();				\
 	__s = efi_call((void *)efi.systab->runtime->f, __VA_ARGS__);	\
+	unprotected_firmware_end(ibrs_on);				\
 	preempt_enable();						\
 	__s;								\
 })
@@ -82,6 +87,7 @@ extern void efi_memory_uc(u64 addr, unsigned long size);
 extern void __init efi_map_region(efi_memory_desc_t *md);
 extern void __init efi_map_region_fixed(efi_memory_desc_t *md);
 extern void efi_sync_low_kernel_mappings(void);
+extern int __init efi_alloc_page_tables(void);
 extern int efi_setup_page_tables(unsigned long pa_memmap, unsigned num_pages);
 extern void efi_cleanup_page_tables(unsigned long pa_memmap, unsigned num_pages);
 extern void __init old_map_region(efi_memory_desc_t *md);

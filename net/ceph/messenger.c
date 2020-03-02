@@ -1248,6 +1248,7 @@ static void prepare_write_message(struct ceph_connection *con)
 	/* Sneak an ack in there first?  If we can get it into the same
 	 * TCP packet that's a good thing. */
 	if (con->in_seq > con->in_seq_acked) {
+		gmb();
 		con->in_seq_acked = con->in_seq;
 		con_out_kvec_add(con, sizeof (tag_ack), &tag_ack);
 		con->out_temp_ack = cpu_to_le64(con->in_seq_acked);

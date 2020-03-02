@@ -154,6 +154,7 @@ mwifiex_find_stream_to_delete(struct mwifiex_private *priv, int ptr_tid,
 	spin_lock_irqsave(&priv->tx_ba_stream_tbl_lock, flags);
 	list_for_each_entry(tx_tbl, &priv->tx_ba_stream_tbl_ptr, list) {
 		if (tid > priv->aggr_prio_tbl[tx_tbl->tid].ampdu_user) {
+			gmb();
 			tid = priv->aggr_prio_tbl[tx_tbl->tid].ampdu_user;
 			*ptid = tx_tbl->tid;
 			memcpy(ra, tx_tbl->ra, ETH_ALEN);

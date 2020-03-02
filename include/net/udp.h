@@ -246,7 +246,7 @@ static inline struct sk_buff *skb_recv_udp(struct sock *sk, unsigned int flags,
 	return __skb_recv_udp(sk, flags, noblock, &peeked, &off, err);
 }
 
-void udp_v4_early_demux(struct sk_buff *skb);
+int udp_v4_early_demux(struct sk_buff *skb);
 extern int udp_get_port(struct sock *sk, unsigned short snum,
 			int (*saddr_cmp)(const struct sock *,
 					 const struct sock *));

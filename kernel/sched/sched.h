@@ -3,6 +3,7 @@
 #include <linux/sched/sysctl.h>
 #include <linux/sched/rt.h>
 #include <linux/sched/deadline.h>
+#include <linux/sched/smt.h>
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/stop_machine.h>
@@ -1239,6 +1240,9 @@ extern void update_group_power(struct sched_domain *sd, int cpu);
 
 extern void trigger_load_balance(struct rq *rq, int cpu);
 extern void idle_balance(int this_cpu, struct rq *this_rq);
+
+extern void sched_cpu_activate(unsigned int cpu);
+extern void sched_cpu_deactivate(unsigned int cpu);
 
 /*
  * Only depends on SMP, FAIR_GROUP_SCHED may be removed when runnable_avg

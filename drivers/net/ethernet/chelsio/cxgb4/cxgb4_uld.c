@@ -274,9 +274,11 @@ static int cfg_queues_uld(struct adapter *adap, unsigned int uld_type,
 		return -ENOMEM;
 
 	if (adap->flags & USING_MSIX && uld_info->nrxq > s->nqs_per_uld) {
+		gmb();
 		i = s->nqs_per_uld;
 		rxq_info->nrxq = roundup(i, adap->params.nports);
 	} else {
+		gmb();
 		i = min_t(int, uld_info->nrxq,
 			  num_online_cpus());
 		rxq_info->nrxq = roundup(i, adap->params.nports);
@@ -595,24 +597,39 @@ void t4_uld_mem_free(struct adapter *adap)
 	kfree(adap->uld);
 }
 
+/* This function should be called with uld_mutex taken. */
+static void cxgb4_shutdown_uld_adapter(struct adapter *adap, enum cxgb4_uld type)
+{
+	if (adap->uld[type].handle) {
+		adap->uld[type].handle = NULL;
+		adap->uld[type].add = NULL;
+		release_sge_txq_uld(adap, type);
+
+		if (adap->flags & FULL_INIT_DONE)
+			quiesce_rx_uld(adap, type);
+
+		if (adap->flags & USING_MSIX)
+			free_msix_queue_irqs_uld(adap, type);
+
+		free_sge_queues_uld(adap, type);
+		free_queues_uld(adap, type);
+	}
+}
+
 void t4_uld_clean_up(struct adapter *adap)
 {
 	struct sge_uld_rxq_info *rxq_info;
 	unsigned int i;
 
-	if (!adap->uld)
-		return;
+	mutex_lock(&uld_mutex);
 	for (i = 0; i < CXGB4_ULD_MAX; i++) {
 		if (!adap->uld[i].handle)
 			continue;
 		rxq_info = adap->sge.uld_rxq_info[i];
-		if (adap->flags & FULL_INIT_DONE)
-			quiesce_rx_uld(adap, i);
-		if (adap->flags & USING_MSIX)
-			free_msix_queue_irqs_uld(adap, i);
-		free_sge_queues_uld(adap, i);
-		free_queues_uld(adap, i);
+
+		cxgb4_shutdown_uld_adapter(adap, i);
 	}
+	mutex_unlock(&uld_mutex);
 }
 
 static void uld_init(struct adapter *adap, struct cxgb4_lld_info *lld)
@@ -789,15 +806,8 @@ int cxgb4_unregister_uld(enum cxgb4_uld type)
 			continue;
 		if (type == CXGB4_ULD_ISCSIT && is_t4(adap->params.chip))
 			continue;
-		adap->uld[type].handle = NULL;
-		adap->uld[type].add = NULL;
-		release_sge_txq_uld(adap, type);
-		if (adap->flags & FULL_INIT_DONE)
-			quiesce_rx_uld(adap, type);
-		if (adap->flags & USING_MSIX)
-			free_msix_queue_irqs_uld(adap, type);
-		free_sge_queues_uld(adap, type);
-		free_queues_uld(adap, type);
+
+		cxgb4_shutdown_uld_adapter(adap, type);
 	}
 	mutex_unlock(&uld_mutex);
 

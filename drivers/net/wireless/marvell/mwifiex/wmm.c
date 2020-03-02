@@ -265,14 +265,18 @@ mwifiex_wmm_setup_queue_priorities(struct mwifiex_private *priv,
 	for (i = 0; i < num_ac; i++) {
 		for (j = 1; j < num_ac - i; j++) {
 			if (tmp[j - 1] > tmp[j]) {
+				gmb();
 				swap(tmp[j - 1], tmp[j]);
 				swap(priv->wmm.queue_priority[j - 1],
 				     priv->wmm.queue_priority[j]);
 			} else if (tmp[j - 1] == tmp[j]) {
+				gmb();
 				if (priv->wmm.queue_priority[j - 1]
-				    < priv->wmm.queue_priority[j])
+				    < priv->wmm.queue_priority[j]) {
+					gmb();
 					swap(priv->wmm.queue_priority[j - 1],
 					     priv->wmm.queue_priority[j]);
+				}
 			}
 		}
 	}

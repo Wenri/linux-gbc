@@ -6,12 +6,14 @@
 #define KMSG_COMPONENT "cpu"
 #define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
 
+#include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/seq_file.h>
 #include <linux/delay.h>
 #include <linux/cpu.h>
 #include <asm/elf.h>
+#include <asm/facility.h>
 #include <asm/lowcore.h>
 #include <asm/param.h>
 #include <asm/smp.h>
@@ -40,6 +42,18 @@ void cpu_init(void)
 	BUG_ON(current->mm);
 	enter_lazy_tlb(&init_mm, current);
 	memset(idle, 0, sizeof(*idle));
+}
+
+static void show_facilities(struct seq_file *m)
+{
+	unsigned int bit;
+	long *facilities;
+
+	facilities = (long *)&S390_lowcore.stfle_fac_list;
+	seq_puts(m, "facilities      :");
+	for_each_set_bit_left(bit, facilities, MAX_FACILITY_BIT)
+		seq_printf(m, " %d", bit);
+	seq_putc(m, '\n');
 }
 
 /*
@@ -73,6 +87,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 			if (int_hwcap_str[i] && (int_hwcap & (1UL << i)))
 				seq_printf(m, "%s ", int_hwcap_str[i]);
 		seq_puts(m, "\n");
+		show_facilities(m);
 		show_cacheinfo(m);
 	}
 	get_online_cpus();
@@ -110,3 +125,20 @@ const struct seq_operations cpuinfo_op = {
 	.show	= show_cpuinfo,
 };
 
+int s390_isolate_bp(void)
+{
+	if (!test_facility(82))
+		return -EOPNOTSUPP;
+	set_thread_flag(TIF_ISOLATE_BP);
+	return 0;
+}
+EXPORT_SYMBOL(s390_isolate_bp);
+
+int s390_isolate_bp_guest(void)
+{
+	if (!test_facility(82))
+		return -EOPNOTSUPP;
+	set_thread_flag(TIF_ISOLATE_BP_GUEST);
+	return 0;
+}
+EXPORT_SYMBOL(s390_isolate_bp_guest);

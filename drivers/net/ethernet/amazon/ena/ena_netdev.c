@@ -647,6 +647,7 @@ static int validate_tx_req_id(struct ena_ring *tx_ring, u16 req_id)
 	struct ena_tx_buffer *tx_info = NULL;
 
 	if (likely(req_id < tx_ring->ring_size)) {
+		gmb();
 		tx_info = &tx_ring->tx_buffer_info[req_id];
 		if (likely(tx_info->skb))
 			return 0;

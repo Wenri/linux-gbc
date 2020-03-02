@@ -2758,10 +2758,12 @@ static void cfq_arm_slice_timer(struct cfq_data *cfqd)
 	 */
 	if (sample_valid(cic->ttime.ttime_samples) &&
 	    (cfqq->slice_end - jiffies < cic->ttime.ttime_mean)) {
+		gmb();
 		cfq_log_cfqq(cfqd, cfqq, "Not idling. think_time:%lu",
 			     cic->ttime.ttime_mean);
 		return;
 	}
+	gmb();
 
 	/* There are other queues in the group, don't do group idle */
 	if (group_idle && cfqq->cfqg->nr_cfqq > 1)
