@@ -175,11 +175,6 @@ extern struct mutex ls_dc_mutex;
 #define LS_FB_VSYNC_POLSE (1 << 30)
 #define LS_FB_VSYNC_POL (1 << 31)
 
-#define LS_FB_VSYNC1_ENABLE (1 << 16)
-#define LS_FB_HSYNC1_ENABLE (1 << 17)
-#define LS_FB_VSYNC0_ENABLE (1 << 18)
-#define LS_FB_HSYNC0_ENABLE (1 << 19)
-
 struct loongson_i2c {
 	bool used;
 	unsigned int i2c_id;
@@ -233,11 +228,6 @@ struct loongson_framebuffer {
 	struct drm_gem_object *obj;
 };
 
-enum loongson_flip_status {
-	LOONGSON_FLIP_NONE,
-	LOONGSON_FLIP_PENDING,
-	LOONGSON_FLIP_SUBMITTED
-};
 
 struct loongson_crtc {
 	struct drm_crtc base;
@@ -248,23 +238,6 @@ struct loongson_crtc {
 	int height;
 	int last_dpms;
 	bool enabled;
-	struct loongson_flip_work *pflip_works;
-	enum loongson_flip_status pflip_status;
-};
-
-struct loongson_flip_work {
-	struct delayed_work flip_work;
-	struct loongson_drm_device *ldev;
-	int crtc_id;
-	u32 target_vblank;
-	uint64_t base;
-	struct drm_pending_vblank_event *event;
-	struct loongson_bo *old_bo;
-};
-
-struct loongson_irq {
-	bool installed;
-	spinlock_t lock;
 };
 
 struct loongson_encoder {
@@ -338,7 +311,6 @@ struct loongson_drm_device {
 	int				has_sdram;
 	struct drm_display_mode		mode;
 
-	struct loongson_irq irq;
 	struct drm_property *rotation_prop;
 	struct loongson_vbios *vbios;
 	struct loongson_vbios_crtc *crtc_vbios[2];
@@ -360,10 +332,8 @@ struct loongson_drm_device {
 	bool	clone_mode;
 	bool	cursor_showed;
 	bool	inited;
-	unsigned int vsync0_count;
-	unsigned int vsync1_count;
-	unsigned int pageflip_count;
 };
+
 
 static inline struct loongson_bo *
 loongson_bo(struct ttm_buffer_object *bo)
@@ -389,17 +359,15 @@ static inline void loongson_bo_unreserve(struct loongson_bo *bo)
         ttm_bo_unreserve(&bo->bo);
 }
 
-/* irq */
+
 int loongson_vga_irq_enable_vblank(struct drm_device *dev,unsigned int crtc_id);
 void loongson_vga_irq_disable_vblank(struct drm_device *dev,unsigned int crtc_id);
-u32 loongson_crtc_vblank_count(struct drm_device *dev, unsigned int pipe);
 irqreturn_t loongson_vga_irq_handler(int irq,void *arg);
 void loongson_vga_irq_preinstall(struct drm_device *dev);
 int loongson_vga_irq_postinstall(struct drm_device *dev);
 void loongson_vga_irq_uninstall(struct drm_device *dev);
-int loongson_irq_init(struct loongson_drm_device *ldev);
-int loongson_pageflip_irq(struct loongson_drm_device *ldev, unsigned int crtc_id);
-void loongson_flip_work_func(struct work_struct *__work);
+int loongson_vga_drm_irq_uninstall(struct drm_device *dev);
+int loongson_vga_drm_irq_install(struct drm_device *dev);
 
 int loongson_ttm_init(struct loongson_drm_device *ldev);
 void loongson_ttm_fini(struct loongson_drm_device *ldev);
@@ -410,13 +378,10 @@ int loongson_drm_mmap(struct file *filp, struct vm_area_struct *vma);
 struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev,int index);
 struct loongson_crtc *loongson_crtc_init(struct loongson_drm_device *ldev, int index);
 struct loongson_connector *loongson_connector_init(struct loongson_drm_device *ldev,int index);
-void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset);
-
 int loongson_bo_push_sysram(struct loongson_bo *bo);
 int loongson_bo_pin(struct loongson_bo *bo, u32 pl_flag, u64 *gpu_addr);
 int loongson_bo_unpin(struct loongson_bo *bo);
 u64 loongson_bo_gpu_offset(struct loongson_bo *bo);
-void loongson_bo_unref(struct loongson_bo **bo);
 int loongson_gem_create(struct drm_device *dev, u32 size, bool iskernel,struct drm_gem_object **obj);
 int loongson_framebuffer_init(struct drm_device *dev,struct loongson_framebuffer *lfb,const struct drm_mode_fb_cmd2 *mode_cmd,struct drm_gem_object *obj);
 
