@@ -50,69 +50,59 @@ static struct fixed_mdio_bus platform_fmb = {
 
 static int fixed_phy_update_regs(struct fixed_phy *fp)
 {
-	u16 bmsr = BMSR_ANEGCAPABLE;
-	u16 bmcr = 0;
+	u16 bmsr = BMSR_ANEGCAPABLE | BMSR_ESTATEN | BMSR_100FULL | BMSR_10FULL | BMSR_100HALF | BMSR_10HALF;
+	u16 bmcr = BMCR_SPEED1000 | BMCR_SPEED100;
 	u16 lpagb = 0;
 	u16 lpa = 0;
 
 	if (gpio_is_valid(fp->link_gpio))
 		fp->status.link = !!gpio_get_value_cansleep(fp->link_gpio);
 
-	if (!fp->status.link)
-		goto done;
-	bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
 
-	if (fp->status.duplex) {
-		bmcr |= BMCR_FULLDPLX;
+	if (fp->status.link) {
+		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
 
-		switch (fp->status.speed) {
-		case 1000:
-			bmsr |= BMSR_ESTATEN;
-			bmcr |= BMCR_SPEED1000;
-			lpagb |= LPA_1000FULL;
-			break;
-		case 100:
-			bmsr |= BMSR_100FULL;
-			bmcr |= BMCR_SPEED100;
-			lpa |= LPA_100FULL;
-			break;
-		case 10:
-			bmsr |= BMSR_10FULL;
-			lpa |= LPA_10FULL;
-			break;
-		default:
-			pr_warn("fixed phy: unknown speed\n");
+		if (fp->status.duplex) {
+			bmcr |= BMCR_FULLDPLX;
+
+			switch (fp->status.speed) {
+			case 1000:
+				lpagb |= LPA_1000FULL;
+				break;
+			case 100:
+				lpa |= LPA_100FULL;
+				break;
+			case 10:
+				lpa |= LPA_10FULL;
+				break;
+			default:
+				pr_warn("fixed phy: unknown speed\n");
+				return -EINVAL;
+			}
+		} else {
+			switch (fp->status.speed) {
+			case 1000:
+				lpagb |= LPA_1000HALF;
+				break;
+			case 100:
+				lpa |= LPA_100HALF;
+				break;
+			case 10:
+				lpa |= LPA_10HALF;
+				break;
+			default:
+				pr_warn("fixed phy: unknown speed\n");
 			return -EINVAL;
+			}
 		}
-	} else {
-		switch (fp->status.speed) {
-		case 1000:
-			bmsr |= BMSR_ESTATEN;
-			bmcr |= BMCR_SPEED1000;
-			lpagb |= LPA_1000HALF;
-			break;
-		case 100:
-			bmsr |= BMSR_100HALF;
-			bmcr |= BMCR_SPEED100;
-			lpa |= LPA_100HALF;
-			break;
-		case 10:
-			bmsr |= BMSR_10HALF;
-			lpa |= LPA_10HALF;
-			break;
-		default:
-			pr_warn("fixed phy: unknown speed\n");
-			return -EINVAL;
-		}
+
+		if (fp->status.pause)
+			lpa |= LPA_PAUSE_CAP;
+
+		if (fp->status.asym_pause)
+			lpa |= LPA_PAUSE_ASYM;
 	}
 
-	if (fp->status.pause)
-		lpa |= LPA_PAUSE_CAP;
-
-	if (fp->status.asym_pause)
-		lpa |= LPA_PAUSE_ASYM;
-
-done:
 	fp->regs[MII_PHYSID1] = 0;
 	fp->regs[MII_PHYSID2] = 0;
 
