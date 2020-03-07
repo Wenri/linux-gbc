@@ -42,8 +42,11 @@ static int link_update(struct net_device *ndev, struct fixed_phy_status *fp)
 {
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	int link, duplex, speed, speed_value;
-	u32 status = readl(priv->ioaddr + GMAC_S_R_GMII);
-	link = (status & GMAC_S_R_GMII_LINK);
+	u32 status;
+	if (time_after(priv->t_gmii_link + 2, jiffies))
+		return 0;
+	status = readl(priv->ioaddr + GMAC_S_R_GMII);
+	link = !!(status & GMAC_S_R_GMII_LINK);
 	duplex = (status & GMAC_S_R_GMII_MODE);
 	speed_value = (status & GMAC_S_R_GMII_SPEED) >> GMAC_S_R_GMII_SPEED_SHIFT;
 
@@ -53,6 +56,11 @@ static int link_update(struct net_device *ndev, struct fixed_phy_status *fp)
 		speed = SPEED_100;
 	else
 		speed = SPEED_10;
+	if (link && fp->link  && (fp->speed != speed || fp->duplex != duplex)) {
+		/*need pretend to link down for a while to make phy_state_machine detect this*/
+		link = 0;
+		priv->t_gmii_link = jiffies + 2;
+	}
 	fp->link = link;
 	fp->duplex = duplex;
 	fp->speed = speed;

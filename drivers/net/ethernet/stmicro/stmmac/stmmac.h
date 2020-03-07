@@ -109,6 +109,7 @@ struct stmmac_priv {
 	u32 adv_ts;
 	int use_riwt;
 	spinlock_t ptp_lock;
+	ulong t_gmii_link;
 };
 
 extern int phyaddr;
