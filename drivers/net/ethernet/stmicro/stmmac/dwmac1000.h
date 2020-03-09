@@ -114,7 +114,7 @@ enum power_event {
 
 /* Register 54 (SGMII/RGMII status register) */
 #define GMAC_S_R_GMII_LINK		0x8
-#define GMAC_S_R_GMII_SPEED		0x5
+#define GMAC_S_R_GMII_SPEED		0x6
 #define GMAC_S_R_GMII_SPEED_SHIFT	0x1
 #define GMAC_S_R_GMII_MODE		0x1
 #define GMAC_S_R_GMII_SPEED_125		2
