@@ -77,20 +77,25 @@ struct ls_i2c_dev {
 	struct resource		*ioarea;
 	struct i2c_adapter	adapter;
 };
+static void ls_i2c_reinit(struct ls_i2c_dev *dev);
 
 static void ls_i2c_stop(struct ls_i2c_dev *dev)
 {
-again:
-        ls_i2c_writeb(CR_STOP, LS_I2C_CR_REG);
-        ls_i2c_readb(LS_I2C_SR_REG);
-        while (ls_i2c_readb(LS_I2C_SR_REG) & SR_BUSY)
-                goto again;
+	int timeout;
+	do {
+		timeout = 100;
+		ls_i2c_writeb(CR_STOP, LS_I2C_CR_REG);
+		while (ls_i2c_readb(LS_I2C_SR_REG) & SR_BUSY && timeout) {
+			timeout--;
+			if(timeout<10) udelay(1);
+		}
+	} while (!timeout);
 }
 
 static int ls_i2c_start(struct ls_i2c_dev *dev,
 		int dev_addr, int flags)
 {
-	int retry = 5;
+	int retry = 5, sr;
 	unsigned char addr = (dev_addr & 0x7f) << 1;
 	addr |= (flags & I2C_M_RD)? 1:0;
 
@@ -100,9 +105,14 @@ start:
 	ls_i2c_debug("%s <line%d>: i2c device address: 0x%x\n",
 			__func__, __LINE__, addr);
 	ls_i2c_writeb((CR_START | CR_WRITE), LS_I2C_CR_REG);
-	while (ls_i2c_readb(LS_I2C_SR_REG) & SR_TIP) ;
+	while (((sr = ls_i2c_readb(LS_I2C_SR_REG)) & (SR_TIP|SR_AL)) == SR_TIP);
+	if(sr & SR_AL) {
+		ls_i2c_reinit(dev);
+		ls_i2c_stop(dev);
+		goto start;
+	}
 
-	if (ls_i2c_readb(LS_I2C_SR_REG) & SR_NOACK) {
+	if (sr & SR_NOACK) {
 		ls_i2c_stop(dev);
 		while (retry--)
 			goto start;
@@ -120,16 +130,27 @@ static void ls_i2c_init(struct ls_i2c_dev *dev)
         ls_i2c_writeb(0x80, LS_I2C_CTR_REG);
 }
 
+static void ls_i2c_reinit(struct ls_i2c_dev *dev)
+{
+        ls_i2c_writeb(0, LS_I2C_CTR_REG);
+        ls_i2c_writeb(0x80, LS_I2C_CTR_REG);
+	ls_i2c_writeb(CR_IACK, LS_I2C_CR_REG);
+}
+
 static int ls_i2c_read(struct ls_i2c_dev *dev,
 		unsigned char *buf, int count)
 {
-	int i;
+	int i, sr;
 
 	for (i = 0; i < count; i++) {
 		ls_i2c_writeb((i == count - 1)?
 				(CR_READ | CR_ACK) : CR_READ,
 				LS_I2C_CR_REG);
-		while (ls_i2c_readb(LS_I2C_SR_REG) & SR_TIP) ;
+		while (((sr = ls_i2c_readb(LS_I2C_SR_REG)) & (SR_TIP|SR_AL)) == SR_TIP);
+		if(sr & SR_AL) {
+			ls_i2c_reinit(dev);
+			break;
+		}
 		buf[i] = ls_i2c_readb(LS_I2C_RXR_REG);
 		ls_i2c_debug("%s <line%d>: read buf[%d] <= %02x\n",
 				__func__, __LINE__, i, buf[i]);
@@ -141,16 +162,20 @@ static int ls_i2c_read(struct ls_i2c_dev *dev,
 static int ls_i2c_write(struct ls_i2c_dev *dev,
 		unsigned char *buf, int count)
 {
-        int i;
+        int i, sr;
 
         for (i = 0; i < count; i++) {
 		ls_i2c_writeb(buf[i], LS_I2C_TXR_REG);
 		ls_i2c_debug("%s <line%d>: write buf[%d] => %02x\n",
 				__func__, __LINE__, i, buf[i]);
 		ls_i2c_writeb(CR_WRITE, LS_I2C_CR_REG);
-		while (ls_i2c_readb(LS_I2C_SR_REG) & SR_TIP) ;
+		while (((sr = ls_i2c_readb(LS_I2C_SR_REG)) & (SR_TIP|SR_AL)) == SR_TIP);
+		if (sr & SR_AL) {
+			ls_i2c_reinit(dev);
+			break;
+		}
 
-		if (ls_i2c_readb(LS_I2C_SR_REG) & SR_NOACK) {
+		if (sr & SR_NOACK) {
 			ls_i2c_debug("%s <line%d>: device no ack\n",
 					__func__, __LINE__);
 			ls_i2c_stop(dev);
@@ -176,11 +201,13 @@ static int ls_i2c_doxfer(struct ls_i2c_dev *dev,
 		}
 		if (m->flags & I2C_M_RD)
 		{
-			ls_i2c_read(dev, m->buf, m->len);
+			if (ls_i2c_read(dev, m->buf, m->len) != m->len)
+				break;
 		}
 		else
 		{
-			ls_i2c_write(dev, m->buf, m->len);
+			if (ls_i2c_write(dev, m->buf, m->len) != m->len)
+				break;
 		}
 		++m;
 	}
