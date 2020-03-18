@@ -266,12 +266,16 @@ void __init prom_init(void)
 		smbios_parse();
 
 #ifdef CONFIG_EFI_PARTITION
-	if (strstr(einter->description,"uefi") || strstr(einter->description,"UEFI"))
+	if (strstr(einter->description,"uefi") || strstr(einter->description,"UEFI") ||
+		strstr(einter->description,"udk") || strstr(einter->description,"UDK"))
 		set_bit(EFI_BOOT, &loongson_efi_facility);
-	else if (!(strstr(einter->description,"pmon")) || (!strstr(einter->description,"PMON")))
+	else if ((strstr(einter->description,"pmon")) || (strstr(einter->description,"PMON")))
+		clear_bit(EFI_BOOT, &loongson_efi_facility);
+	else
 		dmi_walk(find_token_pmon, NULL);
+
 #endif
-		pr_info("The BIOS Version: %s\n",einter->description);
+	pr_info("The BIOS Version: %s\n",einter->description);
 
 	if (loongson_pch)
 		loongson_pch->early_config();
