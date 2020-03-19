@@ -137,6 +137,18 @@ config GS464V_STABLE_COUNTER
 
 	  If unsure, say No.
 
+config LOONGSON_SUPPORT_IP5
+	bool "Loongson3 ip5 support"
+	depends on LOONGSON_MACH3X
+	default n
+	help
+	  This option enables irqs routing to IP5.
+
+	  If you want to use irqs routing to IP5 of loongson3,
+	  Please enable this option.
+
+	  If unsure, say No.
+
 menuconfig LOONGSON3_HPET_SUPPORT
 	bool "Loongson3 HPET Support"
 	depends on LOONGSON_MACH3X

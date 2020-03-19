@@ -287,8 +287,26 @@ int plat_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity,
 }
 
 #define UNUSED_IPS_GUEST (CAUSEF_IP1 | CAUSEF_IP0)
-#define UNUSED_IPS (CAUSEF_IP5 | CAUSEF_IP4 | CAUSEF_IP1 | CAUSEF_IP0)
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+#define UNUSED_IPS (CAUSEF_IP4 | CAUSEF_IP1 | CAUSEF_IP0)
+#define LOONGSON_INT_ROUTER_INTSR	LOONGSON3_REG32(LOONGSON3_REG_BASE, LOONGSON_INT_ROUTER_OFFSET + 0x20)
 
+void loongson_ip5_dispatch(void)
+{
+	int irq, irqs;
+	
+	irqs = LOONGSON_INT_ROUTER_INTSR & 0xff0000;
+	
+	while((irq = ffs(irqs)) != 0){
+		irq = irq - 1;
+		irqs &= ~(1 << irq);
+		do_IRQ(LOONGSON_SUPPORT_IP5_BASE_IRQ + irq - 16);
+	}
+}
+
+#else
+#define UNUSED_IPS (CAUSEF_IP5 | CAUSEF_IP4 | CAUSEF_IP1 | CAUSEF_IP0)
+#endif
 static void mach_guest_irq_dispatch(unsigned int pending)
 {
 	if (pending & CAUSEF_IP7)
@@ -377,6 +395,10 @@ void mach_irq_dispatch(unsigned int pending)
 	if (pending & CAUSEF_IP6)
 		loongson3_ipi_interrupt(NULL);
 #endif
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+	if (pending & CAUSEF_IP5)
+		loongson_ip5_dispatch();
+#endif
 	if (pending & CAUSEF_IP3)
 		loongson_pch->irq_dispatch();
 	if (pending & CAUSEF_IP2)
@@ -430,18 +452,43 @@ static struct irqaction cascade_irqaction = {
 static inline void mask_loongson_irq(struct irq_data *d)
 {
 	struct irq_desc *desc = irq_to_desc(d->irq);
+
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+	if(!desc->action)
+		return;
+
+	if ((d->irq != LOONGSON_UART_IRQ) && (d->irq < LOONGSON_SUPPORT_IP5_BASE_IRQ))
+		return;
+	/* Workaround: UART IRQ may deliver to any core */
+	if (d->irq == LOONGSON_UART_IRQ)
+		ls64_conf_write32(1 << 10, LS_IRC_ENCLR);
+	else
+		ls64_conf_write32(1 << (16 + d->irq - LOONGSON_SUPPORT_IP5_BASE_IRQ), LS_IRC_ENCLR);
+#else
 	if(!desc->action)
 		return;
 
 	if (d->irq == LOONGSON_UART_IRQ)
 		ls64_conf_write32(1 << 10, LS_IRC_ENCLR);
 
+#endif
 }
 
 static inline void unmask_loongson_irq(struct irq_data *d)
 {
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+	if ((d->irq != LOONGSON_UART_IRQ) && (d->irq < LOONGSON_SUPPORT_IP5_BASE_IRQ))
+		return;
+	/* Workaround: UART IRQ may deliver to any core */
 	if (d->irq == LOONGSON_UART_IRQ)
 		ls64_conf_write32(1 << 10, LS_IRC_ENSET);
+	else
+		ls64_conf_write32(1 << (16 + d->irq - LOONGSON_SUPPORT_IP5_BASE_IRQ), LS_IRC_ENSET);
+#else
+	if (d->irq == LOONGSON_UART_IRQ)
+		ls64_conf_write32(1 << 10, LS_IRC_ENSET);
+
+#endif
 }
 
 static inline unsigned int startup_loongson_irq(struct irq_data *d)
@@ -508,10 +555,32 @@ void __init mach_init_irq(void)
 		*(volatile u32 *)intenset_addr = 1 << 10;
 	}
 
+
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+	if (((*(volatile unsigned int *)0x900000001fe00404) | 0xf00000) != 0xf00000)
+		(*(volatile unsigned int *)0x900000001fe00404) |= 0xf00000;
+
+	for (i = 0; i < LOONGSON_SUPPORT_IP5_IRQ_NUM; i++) {
+		unsigned data = 0;
+		irq_set_chip_and_handler(LOONGSON_SUPPORT_IP5_BASE_IRQ + i,
+			&loongson_irq_chip, handle_level_irq);
+
+		data = LOONGSON_INT_COREx_INTy(loongson_boot_cpu_id, 3);
+		ls64_conf_write8(data, LS_IRC_ENT_HT0(i));
+		data = ls64_conf_read32(LS_IRC_EN);
+		data |= (1 << (i + 16));
+		ls64_conf_write32(data, LS_IRC_ENSET);
+	}
+#endif
+
 	if(cpu_guestmode)
 		set_c0_status(STATUSF_IP2  | STATUSF_IP5 | STATUSF_IP6);
 	else
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+		set_c0_status(STATUSF_IP2 | STATUSF_IP5 | STATUSF_IP6);
+#else
 		set_c0_status(STATUSF_IP2 | STATUSF_IP6);
+#endif
 
 	set_irq_mode();
 }

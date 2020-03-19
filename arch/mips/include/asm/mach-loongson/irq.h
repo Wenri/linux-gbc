@@ -8,6 +8,7 @@
 
 #define LS_IRC_ENT(x)	LS_IRC_OFF(x)
 #define LS_IRC_ENT_LPC	LS_IRC_ENT(0xa)
+#define LS_IRC_ENT_HT0(n)	LS_IRC_ENT(n + 0x10)
 #define LS_IRC_ENT_HT1(n)	LS_IRC_ENT(n + 0x18)
 #define LS_IRC_ENT_PCI(n)	LS_IRC_ENT(n + 0x4)
 
@@ -20,13 +21,22 @@
 
 #ifdef CONFIG_CPU_LOONGSON3
 
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+#define NR_IRQS	1032
+#else
 #define NR_IRQS	(320+32)
+#endif
 /* cpu core interrupt numbers */
 #define MIPS_CPU_IRQ_BASE 56
 
 #define LOONGSON_UART_IRQ   (MIPS_CPU_IRQ_BASE + 2) /* uart */
 #define LOONGSON_BRIDGE_IRQ (MIPS_CPU_IRQ_BASE + 3) /* CASCADE */
 #define LOONGSON_TIMER_IRQ  (MIPS_CPU_IRQ_BASE + 7) /* cpu timer */
+
+#ifdef CONFIG_LOONGSON_SUPPORT_IP5
+#define LOONGSON_SUPPORT_IP5_BASE_IRQ	1024
+#define LOONGSON_SUPPORT_IP5_IRQ_NUM	7
+#endif
 
 #define LOONGSON_HT1_CFG_BASE		ht_control_base
 #define LOONGSON_HT1_INT_VECTOR_BASE	LOONGSON_HT1_CFG_BASE + 0x80
