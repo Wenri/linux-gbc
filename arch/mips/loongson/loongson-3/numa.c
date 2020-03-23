@@ -33,6 +33,7 @@
 #include <asm/wbflush.h>
 #include <boot_param.h>
 #include <loongson.h>
+#include <linux/acpi.h>
 
 unsigned char __node_distances[MAX_NUMNODES][MAX_NUMNODES];
 EXPORT_SYMBOL(__node_distances);
@@ -641,3 +642,24 @@ void __init prom_init_numa_memory(void)
 }
 EXPORT_SYMBOL(prom_init_numa_memory);
 
+#ifdef CONFIG_ACPI
+/*
+ * Mark ACPI NVS memory region, so that we can save/restore it during
+ * hibernation and the subsequent resume.
+ */
+static int __init loongson_mark_nvs_memory(void)
+{
+	int i, mem_type;
+
+	for (i = 0; i < loongson_mem_map->map_count; i++) {
+		mem_type = loongson_mem_map->map[i].mem_type;
+
+		if (mem_type == ACPI_NVS)
+			acpi_nvs_register(loongson_mem_map->map[i].mem_start,
+				loongson_mem_map->map[i].mem_size);
+        }
+
+        return 0;
+}
+core_initcall(loongson_mark_nvs_memory);
+#endif

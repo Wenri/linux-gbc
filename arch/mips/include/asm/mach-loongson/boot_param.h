@@ -13,9 +13,10 @@
 #define SMBIOS_TABLE		10
 #define UMA_VIDEO_RAM		11
 #define VUMA_VIDEO_RAM		12
-#define SYSTEM_RAM_LOW_DMA		13
-#define SYSTEM_RAM_HIGH_DMA		14
-#define MAX_MEMORY_TYPE		15
+#define SYSTEM_RAM_LOW_DMA	13
+#define SYSTEM_RAM_HIGH_DMA	14
+#define ACPI_NVS		15
+#define MAX_MEMORY_TYPE		16
 
 #define VRAM_TYPE_SP	0
 #define VRAM_TYPE_UMA	1
