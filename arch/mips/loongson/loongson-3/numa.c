@@ -320,7 +320,8 @@ static void __init szmem(unsigned int node)
 		}
 	}
 
-	reserve_video_ram(uma_vram_addr, uma_vram_size);
+	if (uma_vram_size > 0)
+		reserve_video_ram(uma_vram_addr, uma_vram_size);
 }
 
 static void __init node_mem_init(unsigned int node)
@@ -533,7 +534,8 @@ static void __init init_node_memblock(void)
 		}
 	}
 
-	reserve_video_ram(uma_vram_addr, uma_vram_size);
+	if (uma_vram_size > 0)
+		reserve_video_ram(uma_vram_addr, uma_vram_size);
 }
 
 static void __init numa_default_distance(void)
