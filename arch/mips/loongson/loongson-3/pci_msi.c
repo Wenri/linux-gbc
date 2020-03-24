@@ -6,6 +6,7 @@
 #include <linux/interrupt.h>
 #include <linux/pci.h>
 #include <loongson-pch.h>
+#include <asm/mach-loongson/loongson.h>
 
 static bool nomsix=1;
 core_param(nomsix, nomsix, bool, 0664);
@@ -48,3 +49,15 @@ void arch_teardown_msi_irq(unsigned int irq)
 {
 	loongson_pch->pch_teardown_msi_irq(irq);
 }
+
+static int __init lspci_msi_init(void)
+{
+	if (cpu_guestmode) {
+		nomsix = 0;
+		nomsi = 0;
+	}
+
+	return 0;
+}
+
+arch_initcall(lspci_msi_init);
