@@ -2357,10 +2357,12 @@ static void __exit kvm_mips_exit(void)
 module_init(kvm_mips_init);
 module_exit(kvm_mips_exit);
 
+#ifdef MODULE
 static const struct cpu_device_id mips_kvm_device[] = {
 	{ .feature = cpu_feature(MIPS_VZ) },
 	{},
 };
 MODULE_DEVICE_TABLE(cpu, mips_kvm_device);
+#endif
 
 EXPORT_TRACEPOINT_SYMBOL(kvm_exit);
