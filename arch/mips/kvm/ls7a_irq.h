@@ -109,6 +109,17 @@ static inline int ls7a_ioapic_in_kernel(struct kvm *kvm)
 	return ret;
 }
 
+static inline int irqchip_in_kernel(struct kvm *kvm)
+{
+
+	int ret = 0;
+	if (kvm->arch.v_ioapic == NULL)
+		return ret;
+	ret = 1;
+
+	return ret;
+}
+
 #ifdef CONFIG_KVM_LOONGSON_IOAPIC_READ_OPT
 	static inline void ls7a_update_read_page_long(struct loongson_kvm_7a_ioapic *s,unsigned int addr,unsigned long value)
 	{
@@ -139,4 +150,5 @@ void ls7a_ioapic_lock(struct loongson_kvm_7a_ioapic *s, unsigned long *flags);
 void ls7a_ioapic_unlock(struct loongson_kvm_7a_ioapic *s, unsigned long *flags);
 int kvm_ls7a_send_userspace_msi(struct kvm *kvm, struct kvm_msi *msi);
 int kvm_ls7a_ioapic_set_irq(struct kvm *kvm, int irq, int level);
+int kvm_ls7a_set_msi(struct kvm_kernel_irq_routing_entry *e,struct kvm *kvm, int irq_source_id, int level, bool line_status);
 #endif

@@ -243,6 +243,8 @@ struct kvm_mips_interrupt {
 #define KVM_IRQCHIP_LS3A_ROUTE	0x3
 #define KVM_IRQCHIP_LS3A_EXTIRQ	0x4
 #define KVM_IRQCHIP_LS3A_IPMASK	0x5
+#define KVM_NR_IRQCHIPS          1
+#define KVM_IRQCHIP_NUM_PINS    64
 
 struct kvm_loongson_ls7a_ioapic_state {
     __u64 int_mask; /*0x020 interrupt mask register*/

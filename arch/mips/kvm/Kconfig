@@ -23,6 +23,10 @@ config KVM
 	select KVM_GENERIC_DIRTYLOG_READ_PROTECT
 	select KVM_MMIO
 	select MMU_NOTIFIER
+	select HAVE_KVM_IRQCHIP
+	select HAVE_KVM_IRQFD
+	select HAVE_KVM_IRQ_ROUTING
+	select HAVE_KVM_EVENTFD
 	select SRCU
 	---help---
 	  Support for hosting Guest kernels.
