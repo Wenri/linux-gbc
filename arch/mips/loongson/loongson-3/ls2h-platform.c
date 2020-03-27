@@ -44,7 +44,7 @@ extern struct pci_ops ls2h_pcie_ops_port3;
 extern void ls2h_init_irq(void);
 extern void ls2h_irq_dispatch(void);
 extern int ls2h_platform_init(void);
-extern int ls2h_pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin);
+extern int ls2h_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 extern int ls2h_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc);
 extern void ls2h_teardown_msi_irq(unsigned int irq);
 #ifdef CONFIG_PM

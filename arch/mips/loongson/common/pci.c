@@ -14,6 +14,9 @@
 #include <boot_param.h>
 #include <loongson-pch.h>
 
+extern int vz_ls7a_pcibios_dev_init(struct pci_dev *dev);
+extern int vz_ls7a_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
+
 static struct resource loongson_pci_mem_resource = {
 	.name	= "pci memory space",
 	.start	= LOONGSON_PCI_MEM_START,
@@ -96,6 +99,8 @@ static int __init pcibios_init(void)
 		loongson_pci_controller.pci_ops = &loongson_780e_pci_ops;
 	} else if (loongson_pch && loongson_pch->board_type == LS7A) {
 		if(cpu_guestmode){
+			loongson_pch->pcibios_map_irq = vz_ls7a_pcibios_map_irq;
+			loongson_pch->pcibios_dev_init = vz_ls7a_pcibios_dev_init;
 			loongson_pci_controller.pci_ops = &vz_ls7a_pci_ops;
 		} else {
 			loongson_pci_controller.pci_ops = &loongson_ls7a_pci_ops;

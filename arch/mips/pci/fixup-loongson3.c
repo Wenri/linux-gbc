@@ -37,6 +37,44 @@
 int plat_device_is_ls3a_pci(const struct device *dev);
 int ls3a_pci_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 int ls3a_pcibios_dev_init(struct pci_dev *pdev);
+int vz_ls7a_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
+int vz_ls7a_pcibios_dev_init(struct pci_dev *dev);
+
+static u8 vz_7a_irq_array[]=
+{
+	LS7A_IOAPIC_UART0_OFFSET    	,
+	LS7A_IOAPIC_I2C0_OFFSET     	,
+	LS7A_IOAPIC_GMAC0_OFFSET    	,
+	LS7A_IOAPIC_GMAC0_PMT_OFFSET	,
+	LS7A_IOAPIC_GMAC1_OFFSET    	,
+	LS7A_IOAPIC_GMAC1_PMT_OFFSET	,
+	LS7A_IOAPIC_SATA0_OFFSET    	,
+	LS7A_IOAPIC_SATA1_OFFSET    	,
+	LS7A_IOAPIC_SATA2_OFFSET    	,
+	LS7A_IOAPIC_DC_OFFSET       	,
+	LS7A_IOAPIC_GPU_OFFSET      	,
+	LS7A_IOAPIC_EHCI0_OFFSET    	,
+	LS7A_IOAPIC_OHCI0_OFFSET    	,
+	LS7A_IOAPIC_EHCI1_OFFSET    	,
+	LS7A_IOAPIC_OHCI1_OFFSET    	,
+	LS7A_IOAPIC_PCIE_F0_PORT0_OFFSET,
+	LS7A_IOAPIC_PCIE_F0_PORT1_OFFSET,
+	LS7A_IOAPIC_PCIE_F0_PORT2_OFFSET,
+	LS7A_IOAPIC_PCIE_F0_PORT3_OFFSET,
+	LS7A_IOAPIC_PCIE_F1_PORT0_OFFSET,
+	LS7A_IOAPIC_PCIE_F1_PORT1_OFFSET,
+	LS7A_IOAPIC_PCIE_H_LO_OFFSET	,
+	LS7A_IOAPIC_PCIE_H_HI_OFFSET	,
+	LS7A_IOAPIC_PCIE_G0_LO_OFFSET	,
+	LS7A_IOAPIC_PCIE_G0_HI_OFFSET	,
+	LS7A_IOAPIC_PCIE_G1_LO_OFFSET	,
+	LS7A_IOAPIC_PCIE_G1_HI_OFFSET	,
+	LS7A_IOAPIC_ACPI_INT_OFFSET	,
+	LS7A_IOAPIC_HPET_INT_OFFSET	,
+	LS7A_IOAPIC_AC97_HDA_OFFSET	,
+	LS7A_IOAPIC_LPC_OFFSET		,
+	LS7A_IOAPIC_GPIO_HI_OFFSET	,
+};
 
 static void print_fixup_info(const struct pci_dev * pdev)
 {
@@ -183,6 +221,26 @@ int __init ls7a_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	}
 }
 
+int vz_ls7a_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
+{
+	struct pci_bus  *bus = dev->bus;
+	unsigned char busnum = dev->bus->number;
+	int fn = dev->devfn & 7;
+	unsigned char irq = 0;
+
+	if(busnum != 0)
+	{
+		while(bus->parent->parent)
+			bus = bus->parent;
+		slot = bus->self->devfn >> 3;
+		fn = bus->self->devfn & 7;
+	}
+
+	irq = vz_7a_irq_array[(slot*8+fn)%sizeof(vz_7a_irq_array)];
+
+	return LS7A_IOAPIC_IRQ_BASE + irq;
+}
+
 int __init rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 {
 	int irq = 0;
@@ -253,6 +311,24 @@ int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 
 int ls7a_pcibios_dev_init(struct pci_dev *dev)
 {
+	return 0;
+}
+
+int vz_ls7a_pcibios_dev_init(struct pci_dev *dev)
+{
+	int irq = 0;
+
+	if (dev->msi_enabled || dev->msix_enabled)
+		return 0;
+	if (dev->irq_managed && dev->irq > 0)
+		return 0;
+
+	irq = vz_ls7a_pcibios_map_irq(dev,dev->devfn >> 3,1);
+	if (irq >= 0) {
+		dev->irq = irq;
+		dev->irq_managed = 1;
+	}
+	pci_write_config_byte(dev, PCI_INTERRUPT_LINE, dev->irq);
 	return 0;
 }
 

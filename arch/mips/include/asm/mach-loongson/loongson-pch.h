@@ -508,7 +508,7 @@ struct platform_controller_hub {
 	void	(*init_irq)(void);
 	void	(*init_swiotlb)(void);
 	void	(*irq_dispatch)(void);
-	int	(*pcibios_map_irq)(struct pci_dev *dev, u8 slot, u8 pin);
+	int	(*pcibios_map_irq)(const struct pci_dev *dev, u8 slot, u8 pin);
 	int	(*pcibios_dev_init)(struct pci_dev *dev);
 	void	(*pch_arch_initcall)(void);
 	void	(*pch_device_initcall)(void);

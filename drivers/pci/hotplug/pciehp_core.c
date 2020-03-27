@@ -36,6 +36,9 @@
 #include "pciehp.h"
 #include <linux/interrupt.h>
 #include <linux/time.h>
+#ifdef CONFIG_CPU_LOONGSON3
+extern u32 cpu_guestmode;
+#endif
 
 /* Global variables */
 bool pciehp_debug;
@@ -330,6 +333,12 @@ static struct pcie_port_service_driver hpdriver_portdrv = {
 static int __init pcied_init(void)
 {
 	int retval = 0;
+
+#ifdef CONFIG_CPU_LOONGSON3
+	if(!cpu_guestmode){
+		return 0;
+	}
+#endif
 
 	retval = pcie_port_service_register(&hpdriver_portdrv);
 	dbg("pcie_port_service_register = %d\n", retval);

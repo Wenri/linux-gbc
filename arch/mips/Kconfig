@@ -976,7 +976,7 @@ config ARCH_DMA_ADDR_T_64BIT
 
 config ARCH_SUPPORTS_UPROBES
 	bool
-+
+
 config DMA_MAYBE_COHERENT
 	select DMA_NONCOHERENT
 	bool

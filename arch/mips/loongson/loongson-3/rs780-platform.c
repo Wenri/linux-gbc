@@ -24,7 +24,7 @@ extern void rs780_teardown_msi_irq(unsigned int irq);
 #ifdef CONFIG_PM
 extern int rs780_init_ops(void);
 #endif
-extern int rs780_pcibios_map_irq(struct pci_dev *dev, u8 slot, u8 pin);
+extern int rs780_pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin);
 
 static void rs780_early_config(void)
 {
