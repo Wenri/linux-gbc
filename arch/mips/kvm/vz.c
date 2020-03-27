@@ -2921,8 +2921,12 @@ static int kvm_vz_set_one_reg(struct kvm_vcpu *vcpu,
 				change_gc0_cause((u32)~CAUSEF_DC, v);
 				kvm_mips_count_enable_cause(vcpu);
 			}
+			if (cpu_has_guestctl2)
+				write_c0_guestctl2(v & 0xec);
 		} else {
 			write_gc0_cause(v);
+			if (cpu_has_guestctl2)
+				write_c0_guestctl2(v & 0xec);
 		}
 		break;
 	case KVM_REG_MIPS_CP0_EPC:
