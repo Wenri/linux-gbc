@@ -108,7 +108,10 @@ static bool loongson_i2c_connector(struct loongson_connector *ls_connector, unsi
 		DRM_INFO("lson 2k i2c apapter err");
 		return false;
 	}
-	return loongson_do_probe_ddc_edid(eeprom_info[id].adapter, buf);
+	if (eeprom_info[id].adapter)
+		return loongson_do_probe_ddc_edid(eeprom_info[id].adapter, buf);
+	else
+		return false;
 #else
 	if ( ls_connector->i2c != NULL  && ls_connector->i2c->adapter != NULL )
 		return loongson_do_probe_ddc_edid(ls_connector->i2c->adapter, buf);
