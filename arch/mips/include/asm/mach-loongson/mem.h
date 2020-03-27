@@ -11,6 +11,23 @@
 #ifndef __ASM_MACH_LOONGSON_MEM_H
 #define __ASM_MACH_LOONGSON_MEM_H
 
+#define SYSTEM_RAM_LOW          1
+#define SYSTEM_RAM_HIGH         2
+#define MEM_RESERVED            3
+#define PCI_IO                  4
+#define PCI_MEM                 5
+#define LOONGSON_CFG_REG        6
+#define VIDEO_ROM               7
+#define ADAPTER_ROM             8
+#define ACPI_TABLE              9
+#define SMBIOS_TABLE            10
+#define UMA_VIDEO_RAM           11
+#define VUMA_VIDEO_RAM          12
+#define SYSTEM_RAM_LOW_DMA      13
+#define SYSTEM_RAM_HIGH_DMA     14
+#define ACPI_NVS                15
+#define MAX_MEMORY_TYPE         16
+
 /*
  * high memory space
  *

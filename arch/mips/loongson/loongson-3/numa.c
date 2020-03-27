@@ -34,6 +34,7 @@
 #include <boot_param.h>
 #include <loongson.h>
 #include <linux/acpi.h>
+#include <mem.h>
 
 unsigned char __node_distances[MAX_NUMNODES][MAX_NUMNODES];
 EXPORT_SYMBOL(__node_distances);
