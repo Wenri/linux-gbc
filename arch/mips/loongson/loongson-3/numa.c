@@ -43,6 +43,7 @@ EXPORT_SYMBOL(__node_data);
 extern u64 vuma_vram_addr;
 extern u64 vuma_vram_size;
 extern struct loongsonlist_mem_map *loongson_mem_map;
+extern bool loongson_acpiboot_flag;
 
 static struct numa_meminfo numa_meminfo;
 static cpumask_t cpus_on_node[MAX_NUMNODES];
@@ -652,15 +653,17 @@ EXPORT_SYMBOL(prom_init_numa_memory);
  */
 static int __init loongson_mark_nvs_memory(void)
 {
-	int i, mem_type;
+	if (loongson_acpiboot_flag == 1) {
+		int i, mem_type;
 
-	for (i = 0; i < loongson_mem_map->map_count; i++) {
-		mem_type = loongson_mem_map->map[i].mem_type;
+		for (i = 0; i < loongson_mem_map->map_count; i++) {
+			mem_type = loongson_mem_map->map[i].mem_type;
 
-		if (mem_type == ACPI_NVS)
-			acpi_nvs_register(loongson_mem_map->map[i].mem_start,
-				loongson_mem_map->map[i].mem_size);
-        }
+			if (mem_type == ACPI_NVS)
+				acpi_nvs_register(loongson_mem_map->map[i].mem_start,
+					loongson_mem_map->map[i].mem_size);
+		}
+	}
 
         return 0;
 }
