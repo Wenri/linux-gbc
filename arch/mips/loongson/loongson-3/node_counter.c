@@ -7,6 +7,8 @@
 #define NODE_COUNTER_FREQ cpu_clock_freq
 #define NODE_COUNTER_PTR 0x900000003FF00408UL
 
+static struct clocksource csrc_node_counter;
+
 #ifndef CONFIG_KVM_GUEST_LS3A3000
 static cycle_t node_counter_read(struct clocksource *cs)
 {
@@ -49,9 +51,37 @@ static cycle_t node_counter_read(struct clocksource *cs)
 }
 #endif
 
+static unsigned long long read_ns_counter(void)
+{
+	/* 64-bit arithmatic can overflow, so use 128-bit.  */
+	u64 t1, t2, t3;
+	unsigned long long rv;
+	u64 mult = csrc_node_counter.mult;
+	u64 shift = csrc_node_counter.shift;
+	u64 cnt = node_counter_read(NULL);
+
+	asm (
+		"dmultu\t%[cnt],%[mult]\n\t"
+		"nor\t%[t1],$0,%[shift]\n\t"
+		"mfhi\t%[t2]\n\t"
+		"mflo\t%[t3]\n\t"
+		"dsll\t%[t2],%[t2],1\n\t"
+		"dsrlv\t%[rv],%[t3],%[shift]\n\t"
+		"dsllv\t%[t1],%[t2],%[t1]\n\t"
+		"or\t%[rv],%[t1],%[rv]\n\t"
+		: [rv] "=&r" (rv), [t1] "=&r" (t1), [t2] "=&r" (t2), [t3] "=&r" (t3)
+		: [cnt] "r" (cnt), [mult] "r" (mult), [shift] "r" (shift)
+		: "hi", "lo");
+	return rv;
+}
+unsigned long long read_node_counter(void)
+{
+	return read_ns_counter();
+}
+
 static cycle_t node_counter_csr_read(struct clocksource *cs)
 {
-    return dread_csr(LOONGSON_CSR_NODE_CONTER);
+	return dread_csr(LOONGSON_CSR_NODE_CONTER);
 }
 
 static void node_counter_suspend(struct clocksource *cs)
@@ -79,7 +109,9 @@ static struct clocksource csrc_node_counter = {
 extern void update_clocksource_for_loongson(struct clocksource *cs);
 extern unsigned long loops_per_jiffy;
 
-//used for adjust clocksource and clockevent for guest when migrate to a diffrent cpu freq
+/* used for adjust clocksource and clockevent for guest when
+ *  migrate to a diffrent cpu freq.
+ */
 void loongson_nodecounter_adjust(void)
 {
 	unsigned int cpu;
@@ -123,11 +155,11 @@ int __init init_node_counter_clocksource(void)
 		}
 		break;
 	case CPU_LOONGSON3_COMP:
-        if(read_csr(LOONGSON_CPU_FEATURE_OFFSET) & LOONGSON_NODE_COUNTER_EN){
-            csrc_node_counter.read = node_counter_csr_read;
-            break;
-        } else
-		    return 0;
+	if(read_csr(LOONGSON_CPU_FEATURE_OFFSET) & LOONGSON_NODE_COUNTER_EN) {
+		csrc_node_counter.read = node_counter_csr_read;
+		break;
+	} else
+		return 0;
 	default:
 		break;
 	}

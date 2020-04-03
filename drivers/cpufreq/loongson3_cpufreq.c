@@ -619,7 +619,8 @@ static int __init cpufreq_init(void)
 		for (i = 0; i < MAX_PACKAGES; i++) {
 			mutex_init(&ls3a4000_mutex[i]);
 		}
-	}
+	} else
+		return -ENODEV;
 
 	for (i = 0; i < MAX_PACKAGES; i++) {
 		spin_lock_init(&cpufreq_reg_lock[i]);
