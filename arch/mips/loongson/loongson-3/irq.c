@@ -226,7 +226,7 @@ int ext_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity,
 	if (!config_enabled(CONFIG_SMP))
 		return -EPERM;
 
-	if (d->irq < LS7A_IOAPIC_IRQ_BASE || d->irq >= LS7A_IOAPIC_IRQ_BASE + LS3A_NUM_MSI_IRQ)
+	if (d->irq < LS7A_IOAPIC_IRQ_BASE || d->irq >= LS3A_MSI_SUB_VECTOR + LS3A_NUM_MSI_IRQ)
 		return -EINVAL;
 
 	spin_lock_irqsave(&affinity_lock, flags);
@@ -270,7 +270,7 @@ int plat_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity,
 	if (!config_enabled(CONFIG_SMP))
 		return -EPERM;
 
-	if (d->irq < LS7A_IOAPIC_IRQ_BASE || d->irq >= LS7A_IOAPIC_IRQ_BASE + LS3A_NUM_MSI_IRQ)
+	if (d->irq < LS7A_IOAPIC_IRQ_BASE || d->irq >= LS3A_MSI_SUB_VECTOR + LS3A_NUM_MSI_IRQ)
 		return -EINVAL;
 
 	if (cpumask_empty(affinity)) {
