@@ -18,8 +18,6 @@
 #include <cs5536/cs5536_mfgpt.h>
 #include <loongson-pch.h>
 
-
-#if defined(CONFIG_LOONGSON3_ENHANCEMENT) && !defined(CONFIG_KVM_GUEST_LS3A3000)
 static cycle_t read_const_cntr64(struct clocksource *clk)
 {
 	cycle_t count;
@@ -39,8 +37,8 @@ static struct clocksource clocksource_loongson = {
        .mask           = CLOCKSOURCE_MASK(64),
        .flags          = CLOCK_SOURCE_IS_CONTINUOUS,
 };
-
-unsigned long long notrace sched_clock(void)
+extern unsigned long long read_node_counter(void);
+unsigned long long read_stable_counter(void)
 {
 	/* 64-bit arithmatic can overflow, so use 128-bit.  */
 	u64 t1, t2, t3;
@@ -64,7 +62,7 @@ unsigned long long notrace sched_clock(void)
 	return rv;
 }
 
-
+unsigned long long (* read_sched_clock)(void);
 static void loongson3_init_clock(void)
 {
 	unsigned long freq;
@@ -74,19 +72,25 @@ static void loongson3_init_clock(void)
 		/* for 3a2000/3a3000 const-freq counter freq equal cpu_clock_freq */
 		clocksource_loongson.rating = 320;
 		freq = cpu_clock_freq;
+		read_sched_clock = read_node_counter;
 	} else if (current_cpu_type() == CPU_LOONGSON3_COMP) {
 		clocksource_loongson.rating = 380;
 		freq = calc_const_freq();
+		read_sched_clock = read_stable_counter;
 	} else
 		panic("old loongson 3 cpu does not support const-frequence counter!");
 
 	clocksource_register_hz(&clocksource_loongson, freq);
 	pr_info("loongson const clocksource register @%ldMhz!\n", freq/1000000);
 }
-#else
-static void loongson3_init_clock(void) {}
-#endif
 
+unsigned long long notrace sched_clock(void)
+{
+	if (likely(read_sched_clock))
+		return read_sched_clock();
+	else
+		return jiffies;
+}
 
 void __init plat_time_init(void)
 {
