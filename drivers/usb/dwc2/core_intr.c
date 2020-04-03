@@ -361,6 +361,7 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2_hsotg *hsotg)
 	if (dwc2_is_device_mode(hsotg)) {
 		dev_dbg(hsotg->dev, "DSTS=0x%0x\n",
 			dwc2_readl(hsotg->regs + DSTS));
+#ifndef CONFIG_CPU_LOONGSON2K
 		if (hsotg->lx_state == DWC2_L2) {
 			u32 dctl = dwc2_readl(hsotg->regs + DCTL);
 
@@ -375,6 +376,8 @@ static void dwc2_handle_wakeup_detected_intr(struct dwc2_hsotg *hsotg)
 		}
 		/* Change to L0 state */
 		hsotg->lx_state = DWC2_L0;
+#endif
+		hsotg->rem_wakeup = 0;
 	} else {
 		if (hsotg->params.hibernation)
 			return;
@@ -440,6 +443,7 @@ static void dwc2_handle_usb_suspend_intr(struct dwc2_hsotg *hsotg)
 			!!(dsts & DSTS_SUSPSTS),
 			hsotg->hw_params.power_optimized);
 		if ((dsts & DSTS_SUSPSTS) && hsotg->hw_params.power_optimized) {
+#ifndef CONFIG_CPU_LOONGSON2K
 			/* Ignore suspend request before enumeration */
 			if (!dwc2_is_device_connected(hsotg)) {
 				dev_dbg(hsotg->dev,
@@ -469,6 +473,8 @@ skip_power_saving:
 
 			/* Call gadget suspend callback */
 			call_gadget(hsotg, suspend);
+#endif
+			hsotg->rem_wakeup = 1;
 		}
 	} else {
 		if (hsotg->op_state == OTG_STATE_A_PERIPHERAL) {
