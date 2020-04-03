@@ -78,10 +78,24 @@ static int ls2h_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
 	unsigned int val;
 	unsigned long flags;
+	int rst_ctrl;
+	#define RST_WDTEN 2
 
 	spin_lock_irqsave(&rtc_lock, flags);
 
+/*
+ls2h RTC_TOY_READ1/0x1fef8030 read result will or RST_CNT/0x1fef0030 read result.
+so we need write RST_CNT/0x1fef0030 to 0 before read RTC_TOY_READ1/0x1fef8030.
+we feed dog if wdt_en, because another core may feed dog when we set RST_CNT/0x1fef0030 to 0.
+*/
+	rst_ctrl = rtc_read(TOY_READ1_REG - 0x8000);
+	if (rst_ctrl & RST_WDTEN)
+		rtc_write(0, TOY_READ1_REG - 0x8000);
 	val = rtc_read(TOY_READ1_REG);
+	if (rst_ctrl & RST_WDTEN) {
+		rtc_write(rst_ctrl, TOY_READ1_REG - 0x8000);
+		rtc_write(1, TOY_READ1_REG - 0x8000 + 4);
+	}
 	tm->tm_year = val;
 	val = rtc_read(TOY_READ0_REG);
 	tm->tm_sec = (val >> TOY_SEC_SHIFT) & TOY_SEC_MASK;
