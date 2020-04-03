@@ -1562,6 +1562,7 @@ static int dwc2_hsotg_process_req_status(struct dwc2_hsotg *hsotg,
 	struct dwc2_hsotg_ep *ep;
 	__le16 reply;
 	int ret;
+	u16 status;
 
 	dev_dbg(hsotg->dev, "%s: USB_REQ_GET_STATUS\n", __func__);
 
@@ -1576,7 +1577,10 @@ static int dwc2_hsotg_process_req_status(struct dwc2_hsotg *hsotg,
 		 * bit 0 => self powered
 		 * bit 1 => remote wakeup
 		 */
-		reply = cpu_to_le16(0);
+		status = 1 << USB_DEVICE_SELF_POWERED;
+		status |= hsotg->remote_wakeup_allowed <<
+			USB_DEVICE_REMOTE_WAKEUP;
+		reply = cpu_to_le16(status);
 		break;
 
 	case USB_RECIP_INTERFACE:
@@ -1686,6 +1690,12 @@ static int dwc2_hsotg_process_req_feature(struct dwc2_hsotg *hsotg,
 	switch (recip) {
 	case USB_RECIP_DEVICE:
 		switch (wValue) {
+		case USB_DEVICE_REMOTE_WAKEUP:
+			if (set)
+				hsotg->remote_wakeup_allowed = 1;
+			else
+				hsotg->remote_wakeup_allowed = 0;
+			break;
 		case USB_DEVICE_TEST_MODE:
 			if ((wIndex & 0xff) != 0)
 				return -EINVAL;
@@ -1693,19 +1703,19 @@ static int dwc2_hsotg_process_req_feature(struct dwc2_hsotg *hsotg,
 				return -EINVAL;
 
 			hsotg->test_mode = wIndex >> 8;
-			ret = dwc2_hsotg_send_reply(hsotg, ep0, NULL, 0);
-			if (ret) {
-				dev_err(hsotg->dev,
-					"%s: failed to send reply\n", __func__);
-				return ret;
-			}
 			break;
 		case USB_DEVICE_B_HNP_ENABLE:
 		case USB_DEVICE_A_ALT_HNP_SUPPORT:
-			ret = dwc2_hsotg_send_reply(hsotg, ep0, NULL, 0);
 			break;
 		default:
 			return -ENOENT;
+		}
+
+		ret = dwc2_hsotg_send_reply(hsotg, ep0, NULL, 0);
+		if (ret) {
+			dev_err(hsotg->dev,
+				"%s: failed to send reply\n", __func__);
+			return ret;
 		}
 		break;
 
@@ -4682,6 +4692,32 @@ static void dwc2_hsotg_dump(struct dwc2_hsotg *hsotg)
 #endif
 }
 
+
+size_t rem_wakeup_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct usb_gadget *gadget = container_of(dev, struct usb_gadget, dev);
+	struct dwc2_hsotg *hsotg = container_of(gadget, struct dwc2_hsotg, gadget);
+
+	memcpy(buf, hsotg->rem_wakeup ? "1\n" : "0\n", 2);
+
+	return 2;
+}
+ssize_t rem_wakeup_store(struct device *dev, struct device_attribute *attr, const char *buf,
+		size_t count) {
+
+	struct usb_gadget *gadget = container_of(dev, struct usb_gadget, dev);
+
+	if (buf[0] == '0')
+		gadget->ops->vbus_session(gadget, 0);
+	else
+		gadget->ops->vbus_session(gadget, 1);
+
+	dev_dbg(dev, "%s: 0x%x\n", __func__, buf[0]);
+
+	return count;
+}
+DEVICE_ATTR_RW(rem_wakeup);
+
 /**
  * dwc2_gadget_init - init function for gadget
  * @dwc2: The data structure for the DWC2 driver.
@@ -4773,6 +4809,8 @@ int dwc2_gadget_init(struct dwc2_hsotg *hsotg, int irq)
 		return ret;
 	}
 	dwc2_hsotg_dump(hsotg);
+
+	device_create_file(&hsotg->gadget.dev, &dev_attr_rem_wakeup);
 
 	return 0;
 }
