@@ -626,7 +626,7 @@ void kvm_vz_load_guesttlb(const struct kvm_mips_tlb *buf, unsigned int index,
 }
 EXPORT_SYMBOL_GPL(kvm_vz_load_guesttlb);
 
-void kvm_loongson_clear_guest_ftlb(void)
+void kvm_loongson_clear_guest_vtlb(void)
 {
 	int idx = read_gc0_index();
 	/* Set root GuestID for root probe and write of guest TLB entry */
@@ -639,9 +639,9 @@ void kvm_loongson_clear_guest_ftlb(void)
 	clear_root_gid();
 	set_c0_diag(LOONGSON_DIAG_ITLB);
 }
-EXPORT_SYMBOL_GPL(kvm_loongson_clear_guest_ftlb);
+EXPORT_SYMBOL_GPL(kvm_loongson_clear_guest_vtlb);
 
-void kvm_loongson_clear_guest_vtlb(void)
+void kvm_loongson_clear_guest_ftlb(void)
 {
 	int i;
 	int idx = read_gc0_index();
@@ -660,7 +660,7 @@ void kvm_loongson_clear_guest_vtlb(void)
 	clear_root_gid();
 	set_c0_diag(LOONGSON_DIAG_ITLB);
 }
-EXPORT_SYMBOL_GPL(kvm_loongson_clear_guest_vtlb);
+EXPORT_SYMBOL_GPL(kvm_loongson_clear_guest_ftlb);
 
 #endif
 
