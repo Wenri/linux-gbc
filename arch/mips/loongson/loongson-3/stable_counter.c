@@ -8,6 +8,7 @@
 
 #define STABLE_TIMER_PERIODIC_EN    (_ULCAST_(1) << 62)
 #define STABLE_TIMER_EN             (_ULCAST_(1) << 61)
+#define STABLE_TIMER_INITVAL_RST    (_ULCAST_(0xffff) << 48)
 #define GSCFG_FLT_EN                (_ULCAST_(1) << 7)
 #define GSCFG_VLT_EN                (_ULCAST_(1) << 6)
 #define STABLE_TIMER_CFG            0x1060
@@ -70,17 +71,18 @@ static void stable_set_mode(enum clock_event_mode mode,
 
 	spin_lock(&stable_lock);
 
+	cfg = dread_csr(STABLE_TIMER_CFG);
+	cfg &= STABLE_TIMER_INITVAL_RST;
+
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
 		printk(KERN_INFO "set stable clock event to periodic mode!\n");
-		cfg = dread_csr(STABLE_TIMER_CFG);
 		cfg |= (STABLE_TIMER_PERIODIC_EN | STABLE_TIMER_EN);
 		period_init = calc_const_freq() / HZ;
 		dwrite_csr(STABLE_TIMER_CFG, cfg | period_init);
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		printk(KERN_INFO "set stable clock event to oneshot mode!\n");
-		cfg = dread_csr(STABLE_TIMER_CFG);
 		/* set timer0 type
 		 * 1 : periodic interrupt
 		 * 0 : non-periodic(oneshot) interrupt
@@ -97,15 +99,17 @@ static void stable_set_mode(enum clock_event_mode mode,
 	spin_unlock(&stable_lock);
 }
 
+
 static int stable_next_event(unsigned long delta,
 		struct clock_event_device *evt)
 {
-	unsigned long cfg = 0;
+	unsigned long cfg;
 
+	cfg = dread_csr(STABLE_TIMER_CFG);
 	cfg &= ~STABLE_TIMER_PERIODIC_EN;
 	cfg |= STABLE_TIMER_EN;
+	cfg &= STABLE_TIMER_INITVAL_RST;
 	dwrite_csr(STABLE_TIMER_CFG, delta | cfg);
-
 	return 0;
 }
 
