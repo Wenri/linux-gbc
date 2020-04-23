@@ -72,12 +72,12 @@ static void stable_set_mode(enum clock_event_mode mode,
 	spin_lock(&stable_lock);
 
 	cfg = dread_csr(STABLE_TIMER_CFG);
-	cfg &= STABLE_TIMER_INITVAL_RST;
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
 		printk(KERN_INFO "set stable clock event to periodic mode!\n");
 		cfg |= (STABLE_TIMER_PERIODIC_EN | STABLE_TIMER_EN);
+		cfg &= STABLE_TIMER_INITVAL_RST;
 		period_init = calc_const_freq() / HZ;
 		dwrite_csr(STABLE_TIMER_CFG, cfg | period_init);
 		break;
@@ -89,6 +89,7 @@ static void stable_set_mode(enum clock_event_mode mode,
 		 */
 		cfg &= ~STABLE_TIMER_PERIODIC_EN;
 		cfg |= STABLE_TIMER_EN;
+		cfg |= ~STABLE_TIMER_INITVAL_RST;
 		dwrite_csr(STABLE_TIMER_CFG, cfg);
 		break;
 	case CLOCK_EVT_MODE_SHUTDOWN:
