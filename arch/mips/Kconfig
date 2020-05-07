@@ -2824,7 +2824,7 @@ config ARCH_SUSPEND_POSSIBLE
 
 source "kernel/power/Kconfig"
 
-if CPU_LOONGSON3 && !KVM_GUEST_LS3A3000
+if CPU_LOONGSON3
 source "drivers/acpi/Kconfig"
 endif
 

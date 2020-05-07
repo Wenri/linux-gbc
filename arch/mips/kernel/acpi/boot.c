@@ -249,7 +249,7 @@ int __init acpi_boot_init(void)
 	if (acpi_disabled)
 		return 1;
 
-	loongson_boot_cpu_id = read_c0_ebase() & 0x3ff;
+	loongson_boot_cpu_id = get_core_id();
 
 
 	/*
