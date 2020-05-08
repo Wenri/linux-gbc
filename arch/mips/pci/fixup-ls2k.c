@@ -67,6 +67,7 @@ int pcibios_plat_dev_init(struct pci_dev *dev)
 			max_payload_spt = cur_payload_spt;
 	}
 
+	if(max_payload_spt >1)
 	max_payload_spt = 1;
 
 	pci_read_config_word(dev, pos + PCI_EXP_DEVCTL, &control);
