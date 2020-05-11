@@ -22,12 +22,12 @@ static void loongson_hide_cursor(struct drm_crtc *crtc)
 	unsigned int tmp;
 	unsigned long base;
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev = (struct loongson_drm_device *)dev->dev_private;
+	struct loongson_drm_device *ldev =
+		(struct loongson_drm_device *)dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	unsigned int crtc_id = loongson_crtc->crtc_id;
 
 	base = (unsigned long)(ldev->rmmio);
-
 
 	tmp = ls_readl(base + LS_FB_CUR_CFG_REG);
 	tmp &= ~0xff;
@@ -40,7 +40,7 @@ static void loongson_hide_cursor(struct drm_crtc *crtc)
 			return;
 
 		if (crtc_id) {
-			ls_writel(tmp | 0x10,base + LS_FB_CUR_CFG_REG);
+			ls_writel(tmp | 0x10, base + LS_FB_CUR_CFG_REG);
 		} else {
 			ls_writel(tmp | 0x00, base + LS_FB_CUR_CFG_REG);
 		}
@@ -48,12 +48,12 @@ static void loongson_hide_cursor(struct drm_crtc *crtc)
 	}
 }
 
-
 static void loongson_show_cursor(struct drm_crtc *crtc)
 {
 	unsigned long base;
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev = (struct loongson_drm_device *)dev->dev_private;
+	struct loongson_drm_device *ldev =
+		(struct loongson_drm_device *)dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	unsigned int crtc_id = loongson_crtc->crtc_id;
 
@@ -63,10 +63,11 @@ static void loongson_show_cursor(struct drm_crtc *crtc)
 		ldev->cursor_crtc_id = 0;
 		ldev->cursor_showed = true;
 	} else {
-		if ((ldev->cursor_crtc_id == crtc_id) ||(ldev->cursor_crtc_id == ldev->num_crtc)) {
-			if(crtc_id == 0){
+		if ((ldev->cursor_crtc_id == crtc_id) ||
+				(ldev->cursor_crtc_id == ldev->num_crtc)) {
+			if(crtc_id == 0) {
 				ls_writel(0x00050202,base + LS_FB_CUR_CFG_REG);
-		        }else{
+			} else {
 				ls_writel(0x00050212,base + LS_FB_CUR_CFG_REG);
 			}
 
@@ -75,7 +76,6 @@ static void loongson_show_cursor(struct drm_crtc *crtc)
 		}
 	}
 }
-
 
 int loongson_crtc_cursor_set2(struct drm_crtc *crtc,
 			struct drm_file *file_priv,
@@ -86,7 +86,8 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc,
 			int32_t hot_y)
 {
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev = (struct loongson_drm_device *)dev->dev_private;
+	struct loongson_drm_device *ldev =
+		(struct loongson_drm_device *)dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	struct loongson_bo *pixels = ldev->cursor.pixels;
 	struct drm_gem_object *obj;
@@ -150,13 +151,12 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc,
 		}
 	}
 
-
 	memcpy(pixels->kmap.virtual,bo->kmap.virtual,32*32*4);
 	/* Program gpu address of cursor buffer */
 	gpu_addr = ldev->cursor.pixels_gpu_addr;
-	ls_writel(gpu_addr,base + LS_FB_CUR_ADDR_REG);
-	ls_writel(0x00eeeeee,base + LS_FB_CUR_BACK_REG);
-	ls_writel(0x00aaaaaa,base + LS_FB_CUR_FORE_REG);
+	ls_writel(gpu_addr, base + LS_FB_CUR_ADDR_REG);
+	ls_writel(0x00eeeeee, base + LS_FB_CUR_BACK_REG);
+	ls_writel(0x00aaaaaa, base + LS_FB_CUR_FORE_REG);
 	loongson_show_cursor(crtc);
 	ret = 0;
 
@@ -178,7 +178,8 @@ out_unref:
 
 int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 {
-	struct loongson_drm_device *ldev = (struct loongson_drm_device *)crtc->dev->dev_private;
+	struct loongson_drm_device *ldev =
+		(struct loongson_drm_device *)crtc->dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	int xorign = 0, yorign = 0;
 	unsigned int crtc_id;
@@ -187,7 +188,6 @@ int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 
 	base = (unsigned long)(ldev->rmmio);
         crtc_id = loongson_crtc->crtc_id;
-
 
 	/*upper edge condition*/
 	yorign = y + crtc->y;
@@ -220,8 +220,8 @@ int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 	tmp = x & 0xffff;
 	tmp |= y << 16;
 	ls_writel(tmp, base + LS_FB_CUR_LOC_ADDR_REG);
-        tmp = ls_readl(base + LS_FB_CUR_CFG_REG);
-        tmp &= ~0xff;
+	tmp = ls_readl(base + LS_FB_CUR_CFG_REG);
+	tmp &= ~0xff;
 
 	if (ldev->cursor_crtc_id != crtc_id && ldev->clone_mode == false) {
 		ldev->cursor_crtc_id = crtc_id;

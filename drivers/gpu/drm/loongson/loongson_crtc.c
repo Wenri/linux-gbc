@@ -34,7 +34,7 @@ int loongson_crtc_resolution_match(unsigned int hdisplay,
 {
 	struct loongson_resolution_param *resolution;
 	int match_index = 0;
-	while(match_index < LS_MAX_RESOLUTIONS ){
+	while (match_index < LS_MAX_RESOLUTIONS ) {
 		resolution = &config_param->resolution;
 		if (hdisplay == resolution->hdisplay)
 			if (vdisplay == resolution->vdisplay)
@@ -44,6 +44,7 @@ int loongson_crtc_resolution_match(unsigned int hdisplay,
 	}
 	return match_index;
 }
+
 /**
  * loongson_crtc_load_lut
  *
@@ -353,7 +354,8 @@ static void config_pll(unsigned long pll_base, struct pix_pll *pll_cfg)
 	val &= ~(0x7fUL);
 
 	/* config new value */
-	val |= ((unsigned long)(pll_cfg->l1_frefc) << 32) | ((unsigned long)(pll_cfg->l1_loopc) << 21) |
+	val |= ((unsigned long)(pll_cfg->l1_frefc) << 32) |
+		((unsigned long)(pll_cfg->l1_loopc) << 21) |
 		((unsigned long)(pll_cfg->l2_div) << 0);
 	ls_writeq(val, pll_base + LO_OFF);
 	/* set_pll_param 1 */
@@ -370,7 +372,6 @@ static void config_pll(unsigned long pll_base, struct pix_pll *pll_cfg)
 	ls_writeq(val, pll_base + LO_OFF);
 #endif
 }
-
 
 /**
  * cal_freq
@@ -536,6 +537,7 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 	vse = mode->vsync_end;  vfl = mode->vtotal;
 	depth = crtc->primary->fb->bits_per_pixel;
 	pix_freq = mode->clock;
+
 	DRM_DEBUG("crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d,"
 			"vse = %d,vfl = %d,depth = %d,pix_freq = %d,x = %d,y = %d\n",
 			crtc_id, hr, hss, hse, hfl, vr, vss, vse, vfl, depth,
@@ -757,13 +759,11 @@ static void loongson_crtc_commit(struct drm_crtc *crtc)
 	struct drm_device *dev = crtc->dev;
 	struct drm_crtc *crtci;
 
-	DRM_DEBUG("loongson_crtc_commit\n");
 	list_for_each_entry(crtci, &dev->mode_config.crtc_list, head) {
 		if (crtci->enabled)
 			loongson_crtc_dpms(crtci, DRM_MODE_DPMS_ON);
         }
 }
-
 
 /**
  * loongson_crtc_destroy
@@ -783,7 +783,6 @@ static void loongson_crtc_destroy(struct drm_crtc *crtc)
 	kfree(loongson_crtc);
 }
 
-
 /**
  * loongosn_crtc_disable
  *
@@ -794,10 +793,10 @@ static void loongson_crtc_destroy(struct drm_crtc *crtc)
 static void loongson_crtc_disable(struct drm_crtc *crtc)
 {
 	int ret;
-	DRM_DEBUG_KMS("\n");
 	loongson_crtc_dpms(crtc, DRM_MODE_DPMS_OFF);
 	if (crtc->primary->fb) {
-		struct loongson_framebuffer *mga_fb = to_loongson_framebuffer(crtc->primary->fb);
+		struct loongson_framebuffer *mga_fb =
+			to_loongson_framebuffer(crtc->primary->fb);
 		struct drm_gem_object *obj = mga_fb->obj;
 		struct loongson_bo *bo = gem_to_loongson_bo(obj);
 		ret = loongson_bo_reserve(bo, false);
@@ -808,8 +807,6 @@ static void loongson_crtc_disable(struct drm_crtc *crtc)
 	}
 	crtc->primary->fb = NULL;
 }
-
-
 
 /**
  * These provide the minimum set of functions required to handle a CRTC
@@ -847,7 +844,8 @@ static const struct drm_crtc_helper_funcs loongson_helper_funcs = {
  *
  * Init CRTC
  */
-struct loongson_crtc *loongson_crtc_init(struct loongson_drm_device *ldev, int index)
+struct loongson_crtc *
+loongson_crtc_init(struct loongson_drm_device *ldev, int index)
 {
 	struct loongson_crtc *ls_crtc;
 	struct loongson_vbios_crtc *vbios_crtc = ldev->crtc_vbios[index];

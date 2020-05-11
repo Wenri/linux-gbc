@@ -14,13 +14,11 @@
 #include <drm/drmP.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_crtc_helper.h>
-
 #include <linux/fb.h>
-
 #include "loongson_drv.h"
 
 static void loongson_dirty_update(struct loongson_fbdev *lfbdev,
-			     int x, int y, int width, int height)
+			int x, int y, int width, int height)
 {
 	int i;
 	struct drm_gem_object *obj;
@@ -87,8 +85,10 @@ static void loongson_dirty_update(struct loongson_fbdev *lfbdev,
 	}
 	for (i = y; i <= y2; i++) {
 		/* assume equal stride for now */
-		src_offset = dst_offset = i * lfbdev->lfb.base.pitches[0] + (x * bpp);
-		memcpy_toio(bo->kmap.virtual + src_offset, lfbdev->sysram + src_offset, (x2 - x + 1) * bpp);
+		src_offset = i * lfbdev->lfb.base.pitches[0] + (x * bpp);
+		dst_offset = i * lfbdev->lfb.base.pitches[0] + (x * bpp);
+		memcpy_toio(bo->kmap.virtual + src_offset,
+			lfbdev->sysram + src_offset, (x2 - x + 1) * bpp);
 
 	}
 	if (unmap)
@@ -97,11 +97,11 @@ static void loongson_dirty_update(struct loongson_fbdev *lfbdev,
 	loongson_bo_unreserve(bo);
 }
 
-
 /**
  * loongson_fillrect
  *
- * @info: represent general information and frame buffer device bottom information
+ * @info: represent general information and frame
+ * buffer device bottom information
  * @rect: point to fb_fillrect structure
  *
  * Draw a rectangle
@@ -111,10 +111,9 @@ static void loongson_fillrect(struct fb_info *info,
 {
 	struct loongson_fbdev *lfbdev = info->par;
 	drm_fb_helper_sys_fillrect(info, rect);
-	loongson_dirty_update(lfbdev, rect->dx, rect->dy, rect->width,
-			 rect->height);
+	loongson_dirty_update(lfbdev, rect->dx, rect->dy,
+			rect->width, rect->height);
 }
-
 
 /**
  * loongson_copyarea
@@ -129,10 +128,9 @@ static void loongson_copyarea(struct fb_info *info,
 {
 	struct loongson_fbdev *lfbdev = info->par;
 	drm_fb_helper_sys_copyarea(info, area);
-	loongson_dirty_update(lfbdev, area->dx, area->dy, area->width,
-			 area->height);
+	loongson_dirty_update(lfbdev, area->dx, area->dy,
+			area->width, area->height);
 }
-
 
 /**
  * loongson_imagablit
@@ -147,10 +145,9 @@ static void loongson_imageblit(struct fb_info *info,
 {
 	struct loongson_fbdev *lfbdev = info->par;
 	drm_fb_helper_sys_imageblit(info, image);
-	loongson_dirty_update(lfbdev, image->dx, image->dy, image->width,
-			 image->height);
+	loongson_dirty_update(lfbdev, image->dx, image->dy,
+			image->width, image->height);
 }
-
 
 /**
  * loongsonfb_ops -- represent fb information
@@ -178,7 +175,6 @@ static struct fb_ops loongsonfb_ops = {
 	.fb_setcmap = drm_fb_helper_setcmap,
 };
 
-
 /**
  * loongsonfb_create_object
  *
@@ -189,8 +185,8 @@ static struct fb_ops loongsonfb_ops = {
  * Create frame buffer object
  */
 static int loongsonfb_create_object(struct loongson_fbdev *afbdev,
-				   const struct drm_mode_fb_cmd2 *mode_cmd,
-				   struct drm_gem_object **gobj_p)
+			const struct drm_mode_fb_cmd2 *mode_cmd,
+			struct drm_gem_object **gobj_p)
 {
 	struct drm_device *dev = afbdev->helper.dev;
 	u32 size;
@@ -206,7 +202,6 @@ static int loongsonfb_create_object(struct loongson_fbdev *afbdev,
 	return ret;
 }
 
-
 /**
  * loongsonfb_create
  *
@@ -217,7 +212,7 @@ static int loongsonfb_create_object(struct loongson_fbdev *afbdev,
  * needs to allocate the DRM framebuffer used to back the fbdev
  */
 static int loongsonfb_create(struct drm_fb_helper *helper,
-			   struct drm_fb_helper_surface_size *sizes)
+			struct drm_fb_helper_surface_size *sizes)
 {
 	struct loongson_fbdev *lfbdev =
 		container_of(helper, struct loongson_fbdev, helper);
@@ -234,10 +229,11 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 	DRM_DEBUG("loongsonfb_create\n");
 	mode_cmd.width = sizes->surface_width;
 	mode_cmd.height = sizes->surface_height;
-	mode_cmd.pitches[0] = ALIGN(mode_cmd.width,64) * ((sizes->surface_bpp + 7) / 8);
+	mode_cmd.pitches[0] =
+		ALIGN(mode_cmd.width,64) * ((sizes->surface_bpp + 7) / 8);
 
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
-							  sizes->surface_depth);
+							sizes->surface_depth);
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 
 	ret = loongsonfb_create_object(lfbdev, &mode_cmd, &gobj);
@@ -246,7 +242,6 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 		return ret;
 	}
 
-	DRM_DEBUG("mode_cmd.pitches[0]=%d\n",mode_cmd.pitches[0]);
 	sysram = vmalloc(size);
 	if (!sysram)
 		goto err_sysram;
@@ -282,7 +277,7 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 
 	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
 	drm_fb_helper_fill_var(info, &lfbdev->helper, sizes->fb_width,
-			       sizes->fb_height);
+			sizes->fb_height);
 
 	info->screen_base = sysram;
 	info->screen_size = size;
@@ -291,8 +286,7 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 	info->fix.smem_start = ldev->mc.vram_base;
 	info->fix.smem_len = size;
 
-	DRM_DEBUG_KMS("allocated %dx%d\n",
-		      fb->width, fb->height);
+	DRM_DEBUG_KMS("allocated %dx%d\n", fb->width, fb->height);
 
 	return 0;
 
@@ -306,7 +300,6 @@ err_sysram:
 	return ret;
 }
 
-
 /**
  * loongson_fbdev_destory
  *
@@ -317,7 +310,7 @@ err_sysram:
  * remove a framebuffer object and so on
  */
 static int loongson_fbdev_destroy(struct drm_device *dev,
-				struct loongson_fbdev *lfbdev)
+			struct loongson_fbdev *lfbdev)
 {
 	struct loongson_framebuffer *lfb = &lfbdev->lfb;
 
@@ -336,7 +329,6 @@ static int loongson_fbdev_destroy(struct drm_device *dev,
 	return 0;
 }
 
-
 /**
  * loongson_fb_helper_funcs -- drm_fb_helper_funcs structure
  *
@@ -345,7 +337,6 @@ static int loongson_fbdev_destroy(struct drm_device *dev,
 static const struct drm_fb_helper_funcs loongson_fb_helper_funcs = {
 	.fb_probe = loongsonfb_create,
 };
-
 
 /**
  * loongson_fbdev_init
@@ -361,17 +352,18 @@ int loongson_fbdev_init(struct loongson_drm_device *ldev)
 	int bpp_sel = 32;
 
 	/* prefer 16bpp on low end gpus with limited VRAM */
-	lfbdev = devm_kzalloc(ldev->dev->dev, sizeof(struct loongson_fbdev), GFP_KERNEL);
+	lfbdev = devm_kzalloc(ldev->dev->dev,
+			sizeof(struct loongson_fbdev), GFP_KERNEL);
 	if (!lfbdev)
 		return -ENOMEM;
 
 	ldev->lfbdev = lfbdev;
 	spin_lock_init(&lfbdev->dirty_lock);
 
-	drm_fb_helper_prepare(ldev->dev, &lfbdev->helper, &loongson_fb_helper_funcs);
+	drm_fb_helper_prepare(ldev->dev, &lfbdev->helper,
+			&loongson_fb_helper_funcs);
 
-	ret = drm_fb_helper_init(ldev->dev, &lfbdev->helper,
-				 ldev->num_crtc, 1);
+	ret = drm_fb_helper_init(ldev->dev, &lfbdev->helper, ldev->num_crtc, 1);
 	if (ret)
 		goto err_fb_helper;
 
@@ -396,7 +388,6 @@ err_fb_helper:
 	return ret;
 }
 
-
 /**
  * loongson_fbdev_fini
  *
@@ -417,7 +408,8 @@ void loongson_fbdev_fini(struct loongson_drm_device *ldev)
  * @ldev: loongson dev supose
  * @state: 0 = resuming, !=0 = suspending
  *
- * This is meant to be used by low level drivers to signal suspend/resume to the core & clients.
+ * This is meant to be used by low level drivers to signal
+ * suspend/resume to the core & clients.
  * It must be called with the console semaphore held
  **/
 void loongson_fbdev_set_suspend(struct loongson_drm_device *ldev, int state)
@@ -434,7 +426,8 @@ void loongson_fbdev_set_suspend(struct loongson_drm_device *ldev, int state)
  *
  * check if
  * */
-bool loongson_fbdev_lobj_is_fb(struct loongson_drm_device *ldev, struct loongson_bo *lobj)
+bool loongson_fbdev_lobj_is_fb(struct loongson_drm_device *ldev,
+			struct loongson_bo *lobj)
 {
 	if (!ldev->lfbdev)
 		return false;
@@ -446,16 +439,16 @@ bool loongson_fbdev_lobj_is_fb(struct loongson_drm_device *ldev, struct loongson
 
 void loongson_fbdev_restore_mode(struct loongson_drm_device *ldev)
 {
-        struct loongson_fbdev *lfbdev = ldev->lfbdev;
-        struct drm_fb_helper *fb_helper;
-        int ret;
+	struct loongson_fbdev *lfbdev = ldev->lfbdev;
+	struct drm_fb_helper *fb_helper;
+	int ret;
 
-        if (!lfbdev)
-                return;
+	if (!lfbdev)
+		return;
 
-        fb_helper = &lfbdev->helper;
+	fb_helper = &lfbdev->helper;
 
-        ret = drm_fb_helper_restore_fbdev_mode_unlocked(fb_helper);
-        if (ret)
+	ret = drm_fb_helper_restore_fbdev_mode_unlocked(fb_helper);
+	if (ret)
 		DRM_ERROR("failed to restore crtc mode\n");
 }

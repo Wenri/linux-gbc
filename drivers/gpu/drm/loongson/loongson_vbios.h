@@ -20,7 +20,7 @@ struct loongson_vbios {
 	uint32_t encoder_offset;
 }__attribute__ ((packed));
 
-enum loongson_crtc_version{
+enum loongson_crtc_version {
 	default_version = 0,
 	crtc_version_max = 0xffffffff,
 }__attribute__ ((packed));
@@ -75,7 +75,7 @@ struct loongson_encoder_config_param{
 	struct ls_encoder_resolution_config encoder_resol_param;
 };
 
-struct loongson_vbios_crtc{
+struct loongson_vbios_crtc {
 	uint32_t next_crtc_offset;
 	uint32_t crtc_id;
 	enum loongson_crtc_version crtc_version;
@@ -98,7 +98,7 @@ enum loongson_edid_method {
 	edid_method_max = 0xffffffff,
 }__attribute__ ((packed));
 
-enum loongson_vbios_i2c_type{
+enum loongson_vbios_i2c_type {
 	i2c_type_null = 0,
 	i2c_type_gpio,
 	i2c_type_cpu,
@@ -106,14 +106,14 @@ enum loongson_vbios_i2c_type{
 	i2c_type_max = 0xffffffff,
 }__attribute__ ((packed));
 
-enum hot_swap_method{
+enum hot_swap_method {
 	hot_swap_disable = 0,
 	hot_swap_polling,
 	hot_swap_irq,
 	hot_swap_max = 0xffffffff,
 }__attribute__ ((packed));
 
-enum loongson_encoder_config{
+enum loongson_encoder_config {
 	encoder_transparent = 0,
 	encoder_os_config,
 	encoder_bios_config, //bios config encoder
@@ -141,7 +141,7 @@ enum connector_type {
 	connector_dpi
 };
 
-enum encoder_type{
+enum encoder_type {
 	encoder_none,
 	encoder_dac,
 	encoder_tmds,

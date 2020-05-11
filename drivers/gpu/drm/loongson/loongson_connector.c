@@ -39,8 +39,8 @@ static struct eep_info{
  * Select the best encoder for the given connector.Used by both the helpers(in the
  * drm_atomic_helper_check_modeset() function)and in the legacy CRTC helpers
  */
-static struct drm_encoder *loongson_connector_best_encoder(struct drm_connector
-						  *connector)
+static struct drm_encoder *
+loongson_connector_best_encoder(struct drm_connector *connector)
 {
 	int enc_id = connector->encoder_ids[0];
 	/* pick the encoder ids */
@@ -49,7 +49,6 @@ static struct drm_encoder *loongson_connector_best_encoder(struct drm_connector
 	return NULL;
 }
 
-
 /**
  * loongson_do_probe_ddc_edid
  *
@@ -57,7 +56,8 @@ static struct drm_encoder *loongson_connector_best_encoder(struct drm_connector
  *
  * Try to fetch EDID information by calling I2C driver functions
  */
-static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf)
+static bool
+loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf)
 {
 	unsigned char start = 0x0;
 	unsigned int che_tmp = 0;
@@ -79,7 +79,7 @@ static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned cha
 		if (buf[126] != 0) {
 			buf[126] = 0;
 			che_tmp = 0;
-			for(i = 0;i < 127;i++) {
+			for(i = 0; i < 127; i++) {
 				che_tmp += buf[i];
 			}
 			buf[127] = 256-(che_tmp)%256;
@@ -100,11 +100,12 @@ static bool loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned cha
  *
  * According to i2c bus,acquire screen information
  */
-static bool loongson_i2c_connector(struct loongson_connector *ls_connector, unsigned char *buf)
+static bool
+loongson_i2c_connector(struct loongson_connector *ls_connector, unsigned char *buf)
 {
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	int id  = ls_connector->connector_id;
-	if ( id >> 1 ) {
+	if (id >> 1) {
 		DRM_INFO("lson 2k i2c apapter err");
 		return false;
 	}
@@ -113,10 +114,10 @@ static bool loongson_i2c_connector(struct loongson_connector *ls_connector, unsi
 	else
 		return false;
 #else
-	if ( ls_connector->i2c != NULL  && ls_connector->i2c->adapter != NULL )
+	if (ls_connector->i2c != NULL && ls_connector->i2c->adapter != NULL)
 		return loongson_do_probe_ddc_edid(ls_connector->i2c->adapter, buf);
 	else{
-		DRM_INFO_ONCE("get loongson connector  adapter err\n");
+		DRM_INFO_ONCE("get loongson connector adapter err\n");
 		return false;
 	}
 #endif
@@ -134,7 +135,8 @@ static int loongson_vga_get_modes(struct drm_connector *connector)
 {
 	enum loongson_edid_method ledid_method;
 	struct loongson_vbios_connector *lbios_connector;
-	struct loongson_connector *ls_connector = to_loongson_connector(connector);
+	struct loongson_connector *ls_connector =
+		to_loongson_connector(connector);
 	unsigned char buf[EDID_LENGTH *2];
 	bool dret = false;
 	int ret = 0;
@@ -146,11 +148,12 @@ static int loongson_vga_get_modes(struct drm_connector *connector)
 		memcpy(buf, lbios_connector->internal_edid, EDID_LENGTH*2);
 		dret = true;
 		DRM_INFO_ONCE("conn-%d Do Vbios edid ",ls_connector->connector_id);
-	}else
+	} else
 		dret = loongson_i2c_connector(ls_connector, buf);
 
 	if (dret == true) {
-		drm_mode_connector_update_edid_property(connector, (struct edid *)buf);
+		drm_mode_connector_update_edid_property(connector,
+				(struct edid *)buf);
 		ret = drm_add_edid_modes(connector, (struct edid *)buf);
 	}
 
@@ -168,18 +171,21 @@ static int loongson_vga_mode_valid(struct drm_connector *connector,
 				 struct drm_display_mode *mode)
 {
 	struct drm_device *dev = connector->dev;
-	struct loongson_drm_device *ldev = (struct loongson_drm_device*)dev->dev_private;
+	struct loongson_drm_device *ldev =
+		(struct loongson_drm_device*)dev->dev_private;
 	int id = connector->index;
 
-        if(mode->hdisplay % 64)
+        if (mode->hdisplay % 64)
 		return MODE_BAD;
-	if(mode->hdisplay > ldev->crtc_vbios[id]->crtc_max_weight || mode->vdisplay > ldev->crtc_vbios[id]->crtc_max_height)
+	if (mode->hdisplay > ldev->crtc_vbios[id]->crtc_max_weight ||
+			mode->vdisplay > ldev->crtc_vbios[id]->crtc_max_height)
 		return MODE_BAD;
+
 	return MODE_OK;
 }
 
 /**
- * loongson_vga_detect
+ * loongson_connector_detect
  *
  * @connector: point to drm_connector
  * @force: bool
@@ -188,8 +194,8 @@ static int loongson_vga_mode_valid(struct drm_connector *connector,
  * The parameter force is set to false whilst polling,
  * true when checking the connector due to a user request
  */
-static enum drm_connector_status loongson_connector_detect(struct drm_connector
-						   *connector, bool force)
+static enum drm_connector_status
+loongson_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct loongson_connector *ls_connector;
 	struct loongson_vbios_connector *lsvbios_conn;
@@ -204,15 +210,15 @@ static enum drm_connector_status loongson_connector_detect(struct drm_connector
 		return connector_status_connected;
 
 	ledid_method = lsvbios_conn->edid_method;
-	DRM_DEBUG("connect%d edid_method:%d\n", ls_connector->connector_id, ledid_method);
+	DRM_DEBUG("connect%d edid_method:%d\n",
+			ls_connector->connector_id, ledid_method);
 	switch (ledid_method) {
 	case edid_method_i2c:
 	case edid_method_null:
 	case edid_method_max:
-		if ( loongson_i2c_connector(ls_connector, buf) == true) {
+		if (loongson_i2c_connector(ls_connector, buf) == true) {
 			DRM_INFO_ONCE("Loongson connector%d connected",
 					ls_connector->connector_id);
-
 			ret = connector_status_connected;
 		}
 		break;
@@ -471,6 +477,7 @@ static int loongson_connector_backlight_update(struct backlight_device *bd)
 	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 	return 0;
 }
+
 /**
  * loongson_connector_get_brightness
  * @ls_connector loongson drm connector
@@ -489,6 +496,7 @@ static const struct backlight_ops ls_backlight_device_ops = {
 	.update_status  = loongson_connector_backlight_update,
 	.get_brightness = loongson_connector_get_brightness,
 };
+
 /**
  * loongson_connector_backlight_register
  * @ls_connector loongson drm connector
@@ -502,7 +510,7 @@ int loongson_connector_backlight_register(struct loongson_connector *ls_connecto
 	props.type = BACKLIGHT_RAW;
 	props.max_brightness = ls_connector->bl.max;
 	props.brightness = ls_connector->bl.level;
-;
+
 	ls_connector->bl.device =
 		backlight_device_register("loongson-gpu",
 					  ls_connector->base.kdev,
@@ -522,6 +530,7 @@ int loongson_connector_backlight_register(struct loongson_connector *ls_connecto
 
 	return 0;
 }
+
 /** loongson_connector_pwm_init
  * @ls_connector loongson drm connector
  * */
@@ -564,7 +573,7 @@ int  loongson_connector_late_register(struct drm_connector *connector)
 	{
 		loongson_connector_backlight_pwm_funcs_register(ls_connector);
 		ret = loongson_connector_pwm_init(ls_connector);
-		if (ret == 0){
+		if (ret == 0) {
 			ret = loongson_connector_backlight_register(ls_connector);
 
 			if (ret == 0)
@@ -596,6 +605,7 @@ void loongson_connector_early_unregister(struct drm_connector *connector)
 	}
 	bl->present = false;
 }
+
 /**
  * These provide the minimum set of functions required to handle a connector
  *
@@ -611,7 +621,6 @@ static const struct drm_connector_funcs loongson_vga_connector_funcs = {
         .fill_modes = drm_helper_probe_single_connector_modes,
         .destroy = loongson_connector_destroy,
 };
-
 
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 
@@ -634,7 +643,6 @@ static int dvi_eep_probe(struct i2c_client *client, const struct i2c_device_id *
 	return 0;
 }
 
-
 static int vga_eep_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	eeprom_info[1].adapter = client->adapter;
@@ -642,13 +650,12 @@ static int vga_eep_probe(struct i2c_client *client, const struct i2c_device_id *
 	return 0;
 }
 
-
-
 static int eep_remove(struct i2c_client *client)
 {
 	i2c_unregister_device(client);
 	return 0;
 }
+
 static struct i2c_driver vga_eep_driver = {
 	.driver = {
 		.name = "vga_eep-edid",
@@ -669,10 +676,7 @@ static struct i2c_driver dvi_eep_driver = {
 	.id_table = dvi_eep_ids,
 };
 
-
-
 #endif
-
 
 /**
  * loongson_vga_init
@@ -683,19 +687,20 @@ static struct i2c_driver dvi_eep_driver = {
  * Vga is the interface between host and monitor
  * This function is to init vga
  */
-struct loongson_connector *loongson_connector_init(struct loongson_drm_device *ldev, int index)
+struct loongson_connector
+*loongson_connector_init(struct loongson_drm_device *ldev, int index)
 {
 	struct drm_connector *connector;
 	struct loongson_connector *ls_connector;
-	struct loongson_vbios_connector *lsvbios_connector = ldev->connector_vbios[index];
-
+	struct loongson_vbios_connector *lsvbios_connector =
+		ldev->connector_vbios[index];
 
 	ls_connector = kzalloc(sizeof(struct loongson_connector), GFP_KERNEL);
 	if (!ls_connector)
 		return NULL;
 
 	ls_connector->vbios_connector = lsvbios_connector;
-	ls_connector->ldev   = ldev;
+	ls_connector->ldev = ldev;
 	ls_connector->connector_id = index;
 
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
@@ -707,7 +712,8 @@ struct loongson_connector *loongson_connector_init(struct loongson_drm_device *l
 #else
 	ls_connector->i2c = loongson_i2c_bus_match(ldev,lsvbios_connector->i2c_id);
 	if (!ls_connector->i2c) {
-		DRM_INFO("lson connector-%d match i2c-%d err\n",index,lsvbios_connector->i2c_id);
+		DRM_INFO("lson connector-%d match i2c-%d err\n",
+				index, lsvbios_connector->i2c_id);
 	}
 #endif
 	connector = &ls_connector->base;
@@ -734,6 +740,7 @@ struct loongson_connector *loongson_connector_init(struct loongson_drm_device *l
 	}
 	return ls_connector;
 }
+
 /**
  * loongson_connector_bl_resume
  *
@@ -754,6 +761,7 @@ void  loongson_connector_bl_resume(struct loongson_connector *ls_connector)
 			backlight->power_op(ls_connector, backlight->hw_enabled);
 	}
 }
+
 /**
  * loongson_connector_resume
  *
