@@ -178,7 +178,7 @@ struct loongson_i2c {
 	unsigned int i2c_id;
 	struct i2c_adapter *adapter;
 	struct drm_device *dev;
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	struct i2c_algo_bit_data bit;
 	int data, clock;
 };
@@ -229,7 +229,7 @@ struct loongson_framebuffer {
 
 struct loongson_crtc {
 	struct drm_crtc base;
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	struct loongson_vbios_crtc *vbios_crtc;
 	unsigned int crtc_id;
 	int width;
@@ -240,7 +240,7 @@ struct loongson_crtc {
 
 struct loongson_encoder {
 	struct drm_encoder base;
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	struct loongson_vbios_encoder *vbios_encoder;
 	unsigned int encoder_id;
 	bool (*mode_set_method)(struct loongson_encoder *, struct drm_display_mode *);
@@ -250,7 +250,7 @@ struct loongson_encoder {
 
 struct loongson_connector {
 	struct drm_connector base;
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	struct loongson_vbios_connector *vbios_connector;
 	unsigned int connector_id;
 	struct loongson_i2c *i2c;
@@ -259,7 +259,7 @@ struct loongson_connector {
 
 struct loongson_mode_info {
 	bool mode_config_initialized;
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	struct loongson_crtc *crtc;
 	struct loongson_encoder *encoder;
 	struct loongson_connector *connector;
@@ -282,7 +282,7 @@ struct loongson_fbdev {
 };
 
 
-struct loongson_drm_device {
+struct loongson_device {
 	struct drm_device		*dev;
 
 	resource_size_t			rmmio_base;
@@ -364,15 +364,15 @@ void loongson_vga_irq_uninstall(struct drm_device *dev);
 int loongson_vga_drm_irq_uninstall(struct drm_device *dev);
 int loongson_vga_drm_irq_install(struct drm_device *dev);
 
-int loongson_ttm_init(struct loongson_drm_device *ldev);
-void loongson_ttm_fini(struct loongson_drm_device *ldev);
+int loongson_ttm_init(struct loongson_device *ldev);
+void loongson_ttm_fini(struct loongson_device *ldev);
 
 void loongson_ttm_placement(struct loongson_bo *bo, int domain);
 int loongson_bo_create(struct drm_device *dev, int size, int align,uint32_t flags, struct loongson_bo **ploongsonbo);
 int loongson_drm_mmap(struct file *filp, struct vm_area_struct *vma);
-struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev,int index);
-struct loongson_crtc *loongson_crtc_init(struct loongson_drm_device *ldev, int index);
-struct loongson_connector *loongson_connector_init(struct loongson_drm_device *ldev,int index);
+struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev,int index);
+struct loongson_crtc *loongson_crtc_init(struct loongson_device *ldev, int index);
+struct loongson_connector *loongson_connector_init(struct loongson_device *ldev,int index);
 int loongson_bo_push_sysram(struct loongson_bo *bo);
 int loongson_bo_pin(struct loongson_bo *bo, u32 pl_flag, u64 *gpu_addr);
 int loongson_bo_unpin(struct loongson_bo *bo);
@@ -383,11 +383,11 @@ int loongson_framebuffer_init(struct drm_device *dev,
 		const struct drm_mode_fb_cmd2 *mode_cmd,
 		struct drm_gem_object *obj);
 
-int loongson_fbdev_init(struct loongson_drm_device *ldev);
-void loongson_fbdev_fini(struct loongson_drm_device *ldev);
-bool loongson_fbdev_lobj_is_fb(struct loongson_drm_device *ldev, struct loongson_bo *lobj);
-void loongson_fbdev_restore_mode(struct loongson_drm_device *ldev);
-void loongson_fbdev_set_suspend(struct loongson_drm_device *ldev, int state);
+int loongson_fbdev_init(struct loongson_device *ldev);
+void loongson_fbdev_fini(struct loongson_device *ldev);
+bool loongson_fbdev_lobj_is_fb(struct loongson_device *ldev, struct loongson_bo *lobj);
+void loongson_fbdev_restore_mode(struct loongson_device *ldev);
+void loongson_fbdev_set_suspend(struct loongson_device *ldev, int state);
 
 int loongson_drm_suspend(struct drm_device *dev);
 int loongson_drm_resume(struct drm_device *dev);
@@ -398,13 +398,13 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc, struct drm_file *file_priv,
 int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y);
 
 void * loongson_vbios_test(void);
-int loongson_vbios_init(struct loongson_drm_device *ldev);
-int loongson_vbios_information_display(struct loongson_drm_device *ldev);
+int loongson_vbios_init(struct loongson_device *ldev);
+int loongson_vbios_information_display(struct loongson_device *ldev);
 
-void loongson_encoder_resume(struct loongson_drm_device *ldev);
+void loongson_encoder_resume(struct loongson_device *ldev);
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 		struct drm_display_mode *mode);
-struct loongson_i2c *loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id);
-void loongson_connector_resume(struct loongson_drm_device *ldev);
+struct loongson_i2c *loongson_i2c_bus_match(struct loongson_device *ldev, unsigned int i2c_id);
+void loongson_connector_resume(struct loongson_device *ldev);
 
 #endif

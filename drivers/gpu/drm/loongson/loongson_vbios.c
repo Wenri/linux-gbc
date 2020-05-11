@@ -197,7 +197,7 @@ int loongson_vbios_crc_check(void *vbios) {
 	return 0;
 }
 
-int loongson_vbios_init(struct loongson_drm_device *ldev)
+int loongson_vbios_init(struct loongson_device *ldev)
 {
 	struct loongson_vbios *vbios;
 	int i;
@@ -280,7 +280,7 @@ int loongson_vbios_init(struct loongson_drm_device *ldev)
 	return 0;
 }
 
-int loongson_vbios_information_display(struct loongson_drm_device *ldev){
+int loongson_vbios_information_display(struct loongson_device *ldev){
 
 	int i;
 	struct loongson_vbios_crtc  *crtc;

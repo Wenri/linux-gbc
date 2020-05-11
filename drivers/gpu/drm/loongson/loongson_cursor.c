@@ -22,8 +22,8 @@ static void loongson_hide_cursor(struct drm_crtc *crtc)
 	unsigned int tmp;
 	unsigned long base;
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev =
-		(struct loongson_drm_device *)dev->dev_private;
+	struct loongson_device *ldev =
+		(struct loongson_device *)dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	unsigned int crtc_id = loongson_crtc->crtc_id;
 
@@ -52,8 +52,8 @@ static void loongson_show_cursor(struct drm_crtc *crtc)
 {
 	unsigned long base;
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev =
-		(struct loongson_drm_device *)dev->dev_private;
+	struct loongson_device *ldev =
+		(struct loongson_device *)dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	unsigned int crtc_id = loongson_crtc->crtc_id;
 
@@ -86,8 +86,8 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc,
 			int32_t hot_y)
 {
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev =
-		(struct loongson_drm_device *)dev->dev_private;
+	struct loongson_device *ldev =
+		(struct loongson_device *)dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	struct loongson_bo *pixels = ldev->cursor.pixels;
 	struct drm_gem_object *obj;
@@ -178,8 +178,8 @@ out_unref:
 
 int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 {
-	struct loongson_drm_device *ldev =
-		(struct loongson_drm_device *)crtc->dev->dev_private;
+	struct loongson_device *ldev =
+		(struct loongson_device *)crtc->dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	int xorign = 0, yorign = 0;
 	unsigned int crtc_id;

@@ -218,7 +218,7 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 		container_of(helper, struct loongson_fbdev, helper);
 	struct drm_device *dev = lfbdev->helper.dev;
 	struct drm_mode_fb_cmd2 mode_cmd;
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct fb_info *info;
 	struct drm_framebuffer *fb;
 	struct drm_gem_object *gobj = NULL;
@@ -341,11 +341,11 @@ static const struct drm_fb_helper_funcs loongson_fb_helper_funcs = {
 /**
  * loongson_fbdev_init
  *
- * @ldev: point to loongson_drm_device
+ * @ldev: point to loongson_device
  *
  * Init fbdev
  */
-int loongson_fbdev_init(struct loongson_drm_device *ldev)
+int loongson_fbdev_init(struct loongson_device *ldev)
 {
 	struct loongson_fbdev *lfbdev;
 	int ret;
@@ -391,11 +391,11 @@ err_fb_helper:
 /**
  * loongson_fbdev_fini
  *
- * @ldev: point to loongson_drm_device
+ * @ldev: point to loongson_device
  *
  * Transfer loongson_fbdev_destroy
  */
-void loongson_fbdev_fini(struct loongson_drm_device *ldev)
+void loongson_fbdev_fini(struct loongson_device *ldev)
 {
 	if (!ldev->lfbdev)
 		return;
@@ -412,7 +412,7 @@ void loongson_fbdev_fini(struct loongson_drm_device *ldev)
  * suspend/resume to the core & clients.
  * It must be called with the console semaphore held
  **/
-void loongson_fbdev_set_suspend(struct loongson_drm_device *ldev, int state)
+void loongson_fbdev_set_suspend(struct loongson_device *ldev, int state)
 {
 	if (ldev->lfbdev)
 		fb_set_suspend(ldev->lfbdev->helper.fbdev, state);
@@ -421,12 +421,12 @@ void loongson_fbdev_set_suspend(struct loongson_drm_device *ldev, int state)
 /**
  * loongson_fbdev_lobj_is_fb
  *
- * @ldev  pointer to loongson_drm_device
+ * @ldev  pointer to loongson_device
  * @lobj  pointer to loongson_bo
  *
  * check if
  * */
-bool loongson_fbdev_lobj_is_fb(struct loongson_drm_device *ldev,
+bool loongson_fbdev_lobj_is_fb(struct loongson_device *ldev,
 			struct loongson_bo *lobj)
 {
 	if (!ldev->lfbdev)
@@ -437,7 +437,7 @@ bool loongson_fbdev_lobj_is_fb(struct loongson_drm_device *ldev,
 	return false;
 }
 
-void loongson_fbdev_restore_mode(struct loongson_drm_device *ldev)
+void loongson_fbdev_restore_mode(struct loongson_device *ldev)
 {
 	struct loongson_fbdev *lfbdev = ldev->lfbdev;
 	struct drm_fb_helper *fb_helper;
