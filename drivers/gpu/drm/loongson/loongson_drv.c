@@ -12,14 +12,6 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
-#include "loongson_drv.h"
-#ifdef CONFIG_CPU_LOONGSON2K
-#include "ls2k.h"
-#else
-#include <loongson-pch.h>
-#endif
-#define DEVICE_NAME "loongson-vga"
-
 #include <asm/addrspace.h>
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
@@ -36,11 +28,16 @@
 #include <linux/init.h>
 #include <linux/string.h>
 #include <linux/vga_switcheroo.h>
-/*#include "platform_driver.h"*/
 #include "loongson_drv.h"
+#ifdef CONFIG_CPU_LOONGSON2K
+#include "ls2k.h"
+#else
+#include <loongson-pch.h>
+#endif
 
-#define DRIVER_NAME	"loongson-vga-drm"
-#define DRIVER_DESC	"Loongson VGA DRM"
+#define DEVICE_NAME     "loongson-drm"
+#define DRIVER_NAME	"loongson-drm"
+#define DRIVER_DESC	"Loongson DRM Driver"
 #define DRIVER_DATE	"20180328"
 #define DRIVER_MAJOR	0
 #define DRIVER_MINOR	2
@@ -530,7 +527,6 @@ int loongson_modeset_init(struct loongson_drm_device *ldev)
 		}
 	}
 
-	DRM_DEBUG("loongson drm fbdev init\n");
 	ret = loongson_fbdev_init(ldev);
 
 	if (ret) {
@@ -612,15 +608,16 @@ static int ioctl_get_bo_vram_base(struct drm_device *dev, void *data,
 	return 0;
 }
 
-static struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
+static struct drm_ioctl_desc loongson_ioctls_kms[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
 	DRM_IOCTL_DEF_DRV(LOONGSON_GET_FB_VRAM_BASE,
 			ioctl_get_fb_vram_base, DRM_UNLOCKED|DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(LOONGSON_GET_BO_VRAM_BASE,
 			ioctl_get_bo_vram_base, DRM_UNLOCKED|DRM_AUTH),
 };
+#define DRM_LOONGSON_KMS_MAX_IOCTLS 2
 
 /**
- * loongson_vga_load - setup chip and create an initial config
+ * loongson_load_kms - setup chip and create an initial config
  * @dev: DRM device
  * @flags: startup flags
  *
@@ -629,7 +626,7 @@ static struct drm_ioctl_desc ioctls[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
  *   - allocate initial config memory
  *   - setup the DRM framebuffer with the allocated memory
  */
-static int loongson_vga_load(struct drm_device *dev, unsigned long flags)
+static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 {
 	struct loongson_drm_device *ldev;
 	int ret,r;
@@ -668,14 +665,14 @@ static int loongson_vga_load(struct drm_device *dev, unsigned long flags)
 }
 
 /**
- * loongson_vga_unload--release drm resource
+ * loongson_unload_kms--release drm resource
  *
  * @dev: pointer to drm_device
  *
  * RETURN
  *  release success or fail
  */
-static int loongson_vga_unload(struct drm_device *dev)
+static int loongson_unload_kms(struct drm_device *dev)
 {
 	struct loongson_drm_device *ldev = dev->dev_private;
 
@@ -842,7 +839,7 @@ int loongson_dumb_destroy(struct drm_file *file,
 }
 
 /**
- * loongson_vga_open -Driver callback when a new struct drm_file is opened.
+ * loongson_open_kms -Driver callback when a new struct drm_file is opened.
  * Useful for setting up driver-private data structures like buffer allocators,
  *  execution contexts or similar things.
  *
@@ -853,7 +850,7 @@ int loongson_dumb_destroy(struct drm_file *file,
  * 0 on success, a negative error code on failure, which will be promoted to
  *  userspace as the result of the open() system call.
  */
-static int loongson_vga_open(struct drm_device *dev, struct drm_file *file)
+static int loongson_open_kms(struct drm_device *dev, struct drm_file *file)
 {
 	file->driver_priv = NULL;
 
@@ -887,7 +884,7 @@ static const struct file_operations loongson_drm_driver_fops = {
 };
 
 /**
- * loongson_vga_drm_driver - DRM device structure
+ * loongson_kms_driver - DRM device structure
  *
  * .load: driver callback to complete initialization steps after the driver is registered
  * .unload:Reverse the effects of the driver load callback
@@ -901,11 +898,11 @@ static const struct file_operations loongson_drm_driver_fops = {
  *  to be able to memory map a dumb buffer
  * .dump_destory:This destroys the userspace handle for the given dumb backing storage buffer
  */
-static struct drm_driver loongson_vga_drm_driver = {
+static struct drm_driver loongson_kms_driver = {
 		.driver_features = DRIVER_MODESET | DRIVER_GEM,
-		.load = loongson_vga_load,
-		.unload = loongson_vga_unload,
-		.open = loongson_vga_open,
+		.load = loongson_load_kms,
+		.unload = loongson_unload_kms,
+		.open = loongson_open_kms,
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 #else
 		.set_busid = drm_pci_set_busid,
@@ -915,8 +912,8 @@ static struct drm_driver loongson_vga_drm_driver = {
 		.dumb_create = loongson_dumb_create,
 		.dumb_map_offset = loongson_dumb_mmap_offset,
 		.dumb_destroy = loongson_dumb_destroy,
-		.ioctls = ioctls,
-		.num_ioctls = DRM_LOONGSON_VGA_NUM_IOCTLS,
+		.ioctls = loongson_ioctls_kms,
+		.num_ioctls = DRM_LOONGSON_KMS_MAX_IOCTLS,
 		.name = DRIVER_NAME,
 		.desc = DRIVER_DESC,
 		.date = DRIVER_DATE,
@@ -930,7 +927,6 @@ static int loongson_vga_platform_probe(struct platform_device *pdev)
 {
 	printk(KERN_ERR "loongson_vga_platform_probe\n");
 	return drm_platform_init(&loongson_vga_drm_driver, pdev);
-
 }
 
 static int loongson_vga_platform_remove(struct platform_device *pdev)
@@ -940,46 +936,43 @@ static int loongson_vga_platform_remove(struct platform_device *pdev)
 #else
 
 /**
- * loongson_vga_pci_devices  -- pci device id info
+ * pciidlist -- loongson pci device id
  *
  * __u32 vendor, device            Vendor and device ID or PCI_ANY_ID
  * __u32 subvendor, subdevice     Subsystem ID's or PCI_ANY_ID
  * __u32 class, class_mask        (class,subclass,prog-if) triplet
  * kernel_ulong_t driver_data     Data private to the driver
  */
-static struct pci_device_id loongson_vga_pci_devices[] = {
+static struct pci_device_id pciidlist[] = {
 	{PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_DC)},
 	{0, 0, 0, 0, 0, 0, 0}
 };
 
 /**
- * loongson_vga_pci_register -- add pci device
+ * loongson_pci_probe -- add pci device
  *
  * @pdev PCI device
  * @ent pci device id
  */
-static int loongson_vga_pci_register(struct pci_dev *pdev,
+static int loongson_pci_probe(struct pci_dev *pdev,
 			const struct pci_device_id *ent)
 {
-	return drm_get_pci_dev(pdev, ent, &loongson_vga_drm_driver);
+	return drm_get_pci_dev(pdev, ent, &loongson_kms_driver);
 }
 
 /**
- * loongson_vga_pci_unregister -- release drm device
+ * loongson_pci_remove -- release drm device
  *
  * @pdev PCI device
  */
-static void loongson_vga_pci_unregister(struct pci_dev *pdev)
+static void loongson_pci_remove(struct pci_dev *pdev)
 {
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	drm_put_dev(dev);
 }
 #endif
-/*
- * Suspend & resume.
- */
-/*
- * loongson_drm_suspend - initiate device suspend
+
+/*loongson_drm_suspend - initiate device suspend
  *
  * @pdev: drm dev pointer
  * @state: suspend state
@@ -1031,14 +1024,14 @@ int loongson_drm_resume(struct drm_device *dev)
 }
 
 /**
- * loongson_drm_pm_suspend
+ * loongson_pmops_suspend
  *
  * @dev   pointer to the device
  *
  * Executed before putting the system into a sleep state in which the
  * contents of main memory are preserved.
  */
-static int loongson_drm_pm_suspend(struct device *dev)
+static int loongson_pmops_suspend(struct device *dev)
 {
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 
@@ -1050,14 +1043,14 @@ static int loongson_drm_pm_suspend(struct device *dev)
 }
 
 /**
- * loongson_drm_pm_resume
+ * loongson_pmops_resume
  *
  * @dev pointer to the device
  *
  * Executed after waking the system up from a sleep state in which the
  * contents of main memory were preserved.
  */
-static int loongson_drm_pm_resume(struct device *dev)
+static int loongson_pmops_resume(struct device *dev)
 {
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 
@@ -1070,14 +1063,14 @@ static int loongson_drm_pm_resume(struct device *dev)
 }
 
 /**
- * loongson_drm_pm_freeze
+ * loongson_pmops_freeze
  *
  * @dev pointer to the device
  *
  * Executed after waking the system up from a freezz state in which the
  * contents of main memory were preserved.
  */
-static int loongson_drm_pm_freeze(struct device *dev)
+static int loongson_pmops_freeze(struct device *dev)
 {
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 
@@ -1175,14 +1168,14 @@ module_exit(loongson_vga_platform_exit);
  *@restore:  Hibernation-specific, executed after restoring the contents of main
  *           memory from a hibernation image, analogous to @resume().
  */
-static const struct dev_pm_ops loongson_drm_pm_ops = {
-	.suspend = loongson_drm_pm_suspend,
-	.resume = loongson_drm_pm_resume,
-	.freeze = loongson_drm_pm_freeze,
+static const struct dev_pm_ops loongson_pmops = {
+	.suspend = loongson_pmops_suspend,
+	.resume = loongson_pmops_resume,
+	.freeze = loongson_pmops_freeze,
 };
 
 /**
- * loongson_vga_pci_driver -- pci driver structure
+ * loongson_pci_driver -- pci driver structure
  *
  * .id_table : must be non-NULL for probe to be called
  * .probe: New device inserted
@@ -1190,44 +1183,43 @@ static const struct dev_pm_ops loongson_drm_pm_ops = {
  * .resume: Device suspended
  * .suspend: Device woken up
  */
-static struct pci_driver loongson_vga_pci_driver = {
+static struct pci_driver loongson_pci_driver = {
 	.name		= DRIVER_NAME,
-	.id_table	= loongson_vga_pci_devices,
-	.probe		= loongson_vga_pci_register,
-	.remove		= loongson_vga_pci_unregister,
-	.driver.pm	= &loongson_drm_pm_ops,
+	.id_table	= pciidlist,
+	.probe		= loongson_pci_probe,
+	.remove		= loongson_pci_remove,
+	.driver.pm	= &loongson_pmops,
 };
 
 /**
  * loongson_vga_pci_init()  -- kernel module init function
  */
-static int __init loongson_vga_pci_init(void)
+static int __init loongson_init(void)
 {
-	int ret;
 	struct pci_dev *pdev = NULL;
-	/*if PCIE Graphics card exist,use it as default*/
-	pdev = pci_get_device(PCI_VENDOR_ID_ATI, PCI_ANY_ID, NULL);
-	if(pdev)
-		return 0;
-	/*if PCIE Graphics card of aspeed ast2400 exist, use it as default*/
-	pdev = pci_get_device(0x1a03, PCI_ANY_ID, NULL);
-	if(pdev)
-		return 0;
-	ret = pci_register_driver (&loongson_vga_pci_driver);
-	return ret;
+	/* External card first */
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		if (pdev->vendor == PCI_VENDOR_ID_ATI)
+			return 0;
+		if (pdev->vendor == 0x1a03) /* ASpeed */
+			return 0;
+	}
+	DRM_INFO("loongson kernel modesetting enabled.\n");
+
+	return pci_register_driver(&loongson_pci_driver);
 }
 
 /**
- * loongson_vga_pci_exit()  -- kernel module exit function
+ * loongson_exit()  -- kernel module exit function
  */
-static void __exit loongson_vga_pci_exit(void)
+static void __exit loongson_exit(void)
 {
-	pci_unregister_driver (&loongson_vga_pci_driver);
+	pci_unregister_driver (&loongson_pci_driver);
 }
 
-module_init(loongson_vga_pci_init);
-module_exit(loongson_vga_pci_exit);
+module_init(loongson_init);
+module_exit(loongson_exit);
 #endif
 MODULE_AUTHOR("Zhu Chen <zhuchen@loongson.cn>");
-MODULE_DESCRIPTION("Loongson VGA DRM Driver");
+MODULE_DESCRIPTION("DRIVER_DESC");
 MODULE_LICENSE("GPL");
