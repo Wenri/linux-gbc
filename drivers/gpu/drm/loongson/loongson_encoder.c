@@ -215,7 +215,7 @@ static const struct drm_encoder_funcs loongson_encoder_encoder_funcs = {
  *
  * Init encoder
  */
-struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev, int index)
+struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev, int index)
 {
 	struct drm_encoder *encoder;
 	struct loongson_encoder *ls_encoder;
@@ -260,7 +260,7 @@ void loongson_encoder_do_resume(struct loongson_encoder *ls_encoder)
 	}
 }
 
-void loongson_encoder_resume(struct loongson_drm_device *ldev)
+void loongson_encoder_resume(struct loongson_device *ldev)
 {
 	int i;
 	struct loongson_mode_info *ls_mode_info;

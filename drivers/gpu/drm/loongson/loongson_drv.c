@@ -148,14 +148,14 @@ static const struct drm_mode_config_funcs loongson_mode_funcs = {
 /**
  * loongson_probe_vram
  *
- * @ldev  pointer to loongson_drm_device
+ * @ldev  pointer to loongson_device
  * @mem   vram memory pointer
  *
  * RETURN
  *  probe read/write vram result
  */
 static int
-loongson_probe_vram(struct loongson_drm_device *ldev, void __iomem *mem)
+loongson_probe_vram(struct loongson_device *ldev, void __iomem *mem)
 {
 	int offset;
 	int orig;
@@ -231,12 +231,12 @@ static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev,
 /**
  * loongson_vram_init --Map the framebuffer from the card and configure the core
  *
- * @ldev pointer to loongson_drm_device
+ * @ldev pointer to loongson_device
  *
  * RETURN
  *  vram init result
  */
-static int loongson_vram_init(struct loongson_drm_device *ldev)
+static int loongson_vram_init(struct loongson_device *ldev)
 {
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	struct resource *r;
@@ -291,7 +291,7 @@ static int loongson_vram_init(struct loongson_drm_device *ldev)
 }
 
 /**
- *  loongson_drm_device_init  ----init drm device
+ *  loongson_device_init  ----init drm device
  *
  * @dev   pointer to drm_device structure
  * @flags start up flag
@@ -299,10 +299,10 @@ static int loongson_vram_init(struct loongson_drm_device *ldev)
  * RETURN
  *   drm device init result
  */
-static int loongson_drm_device_init(struct drm_device *dev,
+static int loongson_device_init(struct drm_device *dev,
 					uint32_t flags)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	int ret;
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	struct resource *r;
@@ -383,7 +383,7 @@ int loongson_gem_create(struct drm_device *dev,
  * @Returns  loongson_i2c pointer
  */
 struct loongson_i2c *
-loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id)
+loongson_i2c_bus_match(struct loongson_device *ldev, unsigned int i2c_id)
 {
 	unsigned int i;
 
@@ -426,7 +426,7 @@ void loongson_i2c_create(struct loongson_i2c *ls_i2c, const char *name)
 	i2c_put_adapter(i2c_adapter);
 }
 
-void loongson_i2c_add(struct loongson_drm_device *ldev,
+void loongson_i2c_add(struct loongson_device *ldev,
 			unsigned int i2c_id,
 			const char *name)
 {
@@ -451,9 +451,9 @@ void loongson_i2c_add(struct loongson_drm_device *ldev,
 /**
  * loongson_pre_i2c_bus prepare i2c-adap for gpu hw
  *
- * @ldev  loongson_drm_device
+ * @ldev  loongson_device
  */
-static void loongson_pre_i2c_bus(struct loongson_drm_device *ldev)
+static void loongson_pre_i2c_bus(struct loongson_device *ldev)
 {
 	int encoder_num;
 	int connector_num;
@@ -472,12 +472,12 @@ static void loongson_pre_i2c_bus(struct loongson_drm_device *ldev)
 /**
  * loongson_modeset_init --- init kernel mode setting
  *
- * @ldev: pointer to loongson_drm_device structure
+ * @ldev: pointer to loongson_device structure
  *
  * RETURN
  *  return init result
  */
-int loongson_modeset_init(struct loongson_drm_device *ldev)
+int loongson_modeset_init(struct loongson_device *ldev)
 {
 	struct loongson_vbios_encoder *lsbios_encoder;
 	struct loongson_vbios_connector *lsbios_connector;
@@ -540,11 +540,11 @@ int loongson_modeset_init(struct loongson_drm_device *ldev)
 /**
  * loongson_modeset_fini --- deinit kernel mode setting
  *
- * @ldev: pointer to loongson_drm_device structure
+ * @ldev: pointer to loongson_device structure
  *
  * RETURN
  */
-void loongson_modeset_fini(struct loongson_drm_device *ldev)
+void loongson_modeset_fini(struct loongson_device *ldev)
 {
 }
 
@@ -564,7 +564,7 @@ void loongson_modeset_fini(struct loongson_drm_device *ldev)
 static int ioctl_get_fb_vram_base(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct drm_loongson_param *args = data;
 
 	args->value = ldev->fb_vram_base;
@@ -585,7 +585,7 @@ static int ioctl_get_fb_vram_base(struct drm_device *dev, void *data,
 static int ioctl_get_bo_vram_base(struct drm_device *dev, void *data,
 		struct drm_file *file_priv)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct drm_loongson_param *args = data;
 	struct drm_gem_object *obj;
 	struct loongson_bo *bo;
@@ -628,18 +628,18 @@ static struct drm_ioctl_desc loongson_ioctls_kms[DRM_COMMAND_END - DRM_COMMAND_B
  */
 static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 {
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	int ret,r;
 
 	mutex_init(&ls_dc_mutex);
 	ldev = devm_kzalloc(dev->dev,
-			sizeof(struct loongson_drm_device), GFP_KERNEL);
+			sizeof(struct loongson_device), GFP_KERNEL);
 	if (ldev == NULL)
 		return -ENOMEM;
 	dev->dev_private = (void *)ldev;
 	ldev->dev = dev;
 
-	ret = loongson_drm_device_init(dev, flags);
+	ret = loongson_device_init(dev, flags);
 	DRM_DEBUG("end loongson drm device init.\n");
 	loongson_ttm_init(ldev);
 
@@ -674,7 +674,7 @@ static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
  */
 static int loongson_unload_kms(struct drm_device *dev)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 
 	if (ldev == NULL)
 		return 0;
@@ -983,7 +983,7 @@ static void loongson_pci_remove(struct pci_dev *pdev)
  */
 int loongson_drm_suspend(struct drm_device *dev)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 
 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
@@ -1008,7 +1008,7 @@ int loongson_drm_suspend(struct drm_device *dev)
  */
 int loongson_drm_resume(struct drm_device *dev)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 
         if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;

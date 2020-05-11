@@ -73,7 +73,7 @@ static void loongson_crtc_load_lut(struct drm_crtc *crtc)
  */
 static void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset)
 {
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	unsigned int crtc_id;
 	unsigned long base;
@@ -106,7 +106,7 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 				struct drm_framebuffer *fb,
 				int x, int y, int atomic)
 {
-	struct loongson_drm_device *ldev = crtc->dev->dev_private;
+	struct loongson_device *ldev = crtc->dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	struct drm_gem_object *obj;
 	struct loongson_framebuffer *loongson_fb;
@@ -424,7 +424,7 @@ static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 				  struct drm_framebuffer *old_fb)
 {
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	struct drm_display_mode mode = crtc->mode;
 	struct pix_pll pll_cfg;
@@ -514,7 +514,7 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 				int x, int y, struct drm_framebuffer *old_fb)
 {
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	struct loongson_vbios_crtc *crtc_vbios;
 	struct loongson_crtc_modeparameter  *crtc_mode;
@@ -665,7 +665,7 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 {
 	struct drm_device *dev = crtc->dev;
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
 	unsigned long base;
 	unsigned int crtc_id,val;
@@ -840,12 +840,12 @@ static const struct drm_crtc_helper_funcs loongson_helper_funcs = {
 /**
  * loongosn_crtc_init
  *
- * @ldev: point to the loongson_drm_device structure
+ * @ldev: point to the loongson_device structure
  *
  * Init CRTC
  */
 struct loongson_crtc *
-loongson_crtc_init(struct loongson_drm_device *ldev, int index)
+loongson_crtc_init(struct loongson_device *ldev, int index)
 {
 	struct loongson_crtc *ls_crtc;
 	struct loongson_vbios_crtc *vbios_crtc = ldev->crtc_vbios[index];

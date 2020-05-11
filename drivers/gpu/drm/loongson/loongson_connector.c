@@ -171,8 +171,8 @@ static int loongson_vga_mode_valid(struct drm_connector *connector,
 				 struct drm_display_mode *mode)
 {
 	struct drm_device *dev = connector->dev;
-	struct loongson_drm_device *ldev =
-		(struct loongson_drm_device*)dev->dev_private;
+	struct loongson_device *ldev =
+		(struct loongson_device*)dev->dev_private;
 	int id = connector->index;
 
         if (mode->hdisplay % 64)
@@ -697,7 +697,7 @@ static struct i2c_driver dvi_eep_driver = {
  * This function is to init vga
  */
 struct loongson_connector
-*loongson_connector_init(struct loongson_drm_device *ldev, int index)
+*loongson_connector_init(struct loongson_device *ldev, int index)
 {
 	struct drm_connector *connector;
 	struct loongson_connector *ls_connector;
@@ -777,7 +777,7 @@ void  loongson_connector_bl_resume(struct loongson_connector *ls_connector)
  *
  * @ldev loongson drm device
  * */
-void loongson_connector_resume(struct loongson_drm_device *ldev)
+void loongson_connector_resume(struct loongson_device *ldev)
 {
 	struct loongson_mode_info *ls_mode_info;
 	struct loongson_connector *ls_connector;

@@ -19,12 +19,12 @@
  *
  * @bd: The ttm_bo_device.
  *
- * Return the virtual address of loongson_drm_device
+ * Return the virtual address of loongson_device
  */
-static inline struct loongson_drm_device *
+static inline struct loongson_device *
 loongson_bdev(struct ttm_bo_device *bd)
 {
-	return container_of(bd, struct loongson_drm_device, ttm.bdev);
+	return container_of(bd, struct loongson_device, ttm.bdev);
 }
 
 /**
@@ -60,7 +60,7 @@ loongson_ttm_mem_global_release(struct drm_global_reference *ref)
  *
  * This function is initial loongson memory object, alloc memory
  */
-static int loongson_ttm_global_init(struct loongson_drm_device *ldev)
+static int loongson_ttm_global_init(struct loongson_device *ldev)
 {
 	struct drm_global_reference *global_ref;
 	int r;
@@ -217,7 +217,7 @@ static int loongson_ttm_io_mem_reserve(struct ttm_bo_device *bdev,
 			struct ttm_mem_reg *mem)
 {
 	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
-	struct loongson_drm_device *ldev = loongson_bdev(bdev);
+	struct loongson_device *ldev = loongson_bdev(bdev);
 
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
         struct resource *r;
@@ -356,11 +356,11 @@ struct ttm_bo_driver loongson_bo_driver = {
 /**
  * loongson_ttm_init:
  *
- * @ldev: The struct loongson_drm_device
+ * @ldev: The struct loongson_device
  *
  * loongson ttm init
  */
-int loongson_ttm_init(struct loongson_drm_device *ldev)
+int loongson_ttm_init(struct loongson_device *ldev)
 {
 	int ret;
 	struct drm_device *dev = ldev->dev;
@@ -396,11 +396,11 @@ int loongson_ttm_init(struct loongson_drm_device *ldev)
 /**
  * loongson_ttm_global_release --- release ttm global
  *
- * @ast: The struct loongson_drm_device
+ * @ast: The struct loongson_device
  *
  * release ttm global
  */
-static void loongson_ttm_global_release(struct loongson_drm_device *ast)
+static void loongson_ttm_global_release(struct loongson_device *ast)
 {
         if (ast->ttm.mem_global_ref.release == NULL)
                 return;
@@ -413,11 +413,11 @@ static void loongson_ttm_global_release(struct loongson_drm_device *ast)
 /**
  * loongson_ttm_fini --- deinit ttm
  *
- * @ast: The struct loongson_drm_device
+ * @ast: The struct loongson_device
  *
  * release ttm
  */
-void loongson_ttm_fini(struct loongson_drm_device *ldev)
+void loongson_ttm_fini(struct loongson_device *ldev)
 {
         ttm_bo_device_release(&ldev->ttm.bdev);
 
@@ -473,7 +473,7 @@ void loongson_ttm_placement(struct loongson_bo *bo, int domain)
 int loongson_bo_create(struct drm_device *dev, int size, int align,
 			uint32_t flags, struct loongson_bo **ploongsonbo)
 {
-	struct loongson_drm_device *ldev = dev->dev_private;
+	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_bo *loongsonbo;
 	size_t acc_size;
 	int ret;
@@ -624,7 +624,7 @@ int loongson_bo_push_sysram(struct loongson_bo *bo)
 int loongson_drm_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct drm_file *file_priv;
-	struct loongson_drm_device *ldev;
+	struct loongson_device *ldev;
 
 	if (unlikely(vma->vm_pgoff < DRM_FILE_PAGE_OFFSET))
 		return -EINVAL;
