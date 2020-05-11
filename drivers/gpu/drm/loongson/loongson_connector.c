@@ -64,12 +64,12 @@ loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf)
 	unsigned int i;
 	struct i2c_msg msgs[] = {
 		{
-			.addr = 0x50,
+			.addr = DVO_I2C_ADDR,
 			.flags = 0,
 			.len = 1,
 			.buf = &start,
 		},{
-			.addr = 0x50,
+			.addr = DVO_I2C_ADDR,
 			.flags = I2C_M_RD,
 			.len = EDID_LENGTH * 2,
 			.buf = buf,
@@ -79,20 +79,20 @@ loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf)
 		if (buf[126] != 0) {
 			buf[126] = 0;
 			che_tmp = 0;
-			for(i = 0; i < 127; i++) {
+			for (i = 0; i < 127; i++) {
 				che_tmp += buf[i];
 			}
 			buf[127] = 256-(che_tmp)%256;
 		}
 		if (!drm_edid_block_valid(buf, 0, true, NULL)) {
-                        dev_warn_once(&adapter->dev, "Invalid EDID block\n");
-                        return false;
-                }
-        } else {
-                 dev_warn_once(&adapter->dev, "unable to read EDID block\n");
-                 return false;
-        }
-        return true;
+			dev_warn_once(&adapter->dev, "Invalid EDID block\n");
+			return false;
+		}
+	} else {
+		dev_warn_once(&adapter->dev, "unable to read EDID block\n");
+		return false;
+	}
+	return true;
 }
 
 /**
@@ -202,6 +202,7 @@ loongson_connector_detect(struct drm_connector *connector, bool force)
 	enum drm_connector_status ret = connector_status_disconnected;
 	enum loongson_edid_method ledid_method;
 	unsigned char buf[EDID_LENGTH *2];
+	int i;
 
 	ls_connector = to_loongson_connector(connector);
 	lsvbios_conn = ls_connector->vbios_connector;
@@ -216,11 +217,19 @@ loongson_connector_detect(struct drm_connector *connector, bool force)
 	case edid_method_i2c:
 	case edid_method_null:
 	case edid_method_max:
+		i = pm_runtime_get_sync(connector->dev->dev);
+		if (i < 0)
+			break;
+
 		if (loongson_i2c_connector(ls_connector, buf) == true) {
 			DRM_INFO_ONCE("Loongson connector%d connected",
 					ls_connector->connector_id);
 			ret = connector_status_connected;
+			break;
 		}
+
+		pm_runtime_mark_last_busy(connector->dev->dev);
+		pm_runtime_put_autosuspend(connector->dev->dev);
 		break;
 	case edid_method_vbios:
 	case edid_method_encoder:
@@ -250,7 +259,7 @@ static void loongson_connector_destroy(struct drm_connector *connector)
  * Helper operations for connectors.These functions are used
  * by the atomic and legacy modeset helpers and by the probe helpers.
  */
-static const struct drm_connector_helper_funcs loongson_vga_connector_helper_funcs = {
+static const struct drm_connector_helper_funcs loongson_connector_helper_funcs = {
         .get_modes = loongson_vga_get_modes,
         .mode_valid = loongson_vga_mode_valid,
         .best_encoder = loongson_connector_best_encoder,
@@ -613,7 +622,7 @@ void loongson_connector_early_unregister(struct drm_connector *connector)
  * The functions below allow the core DRM code to control connectors,
  * enumerate available modes and so on.
  */
-static const struct drm_connector_funcs loongson_vga_connector_funcs = {
+static const struct drm_connector_funcs loongson_connector_funcs = {
         .dpms = drm_helper_connector_dpms,
         .detect = loongson_connector_detect,
 	.late_register = loongson_connector_late_register,
@@ -679,7 +688,7 @@ static struct i2c_driver dvi_eep_driver = {
 #endif
 
 /**
- * loongson_vga_init
+ * loongson_connector_init
  *
  * @dev: drm device
  * @connector_id:
@@ -717,11 +726,12 @@ struct loongson_connector
 	}
 #endif
 	connector = &ls_connector->base;
+	connector->connector_type_id = lsvbios_connector->type;
 
 	drm_connector_init(ldev->dev, connector,
-			   &loongson_vga_connector_funcs, DRM_MODE_CONNECTOR_VGA);
+			&loongson_connector_funcs, lsvbios_connector->type);
 
-	drm_connector_helper_add(connector, &loongson_vga_connector_helper_funcs);
+	drm_connector_helper_add(connector, &loongson_connector_helper_funcs);
 
 	drm_connector_register(connector);
 
