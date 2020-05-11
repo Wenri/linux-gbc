@@ -961,7 +961,6 @@ static struct pci_device_id loongson_vga_pci_devices[] = {
 static int loongson_vga_pci_register(struct pci_dev *pdev,
 			const struct pci_device_id *ent)
 {
-	printk(KERN_ERR "loongson_vga_pci_register\n");
 	return drm_get_pci_dev(pdev, ent, &loongson_vga_drm_driver);
 }
 
