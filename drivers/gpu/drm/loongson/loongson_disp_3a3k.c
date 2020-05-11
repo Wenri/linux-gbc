@@ -250,7 +250,6 @@ wfree:
 	kfree(wbuf);
 }
 
-
 static void loongson_encoder_reset_ch7034(struct i2c_adapter *adapter)
 {
 	int i;

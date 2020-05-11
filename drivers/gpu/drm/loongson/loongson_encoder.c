@@ -130,8 +130,9 @@ static void loongson_encoder_mode_set(struct drm_encoder *encoder,
 
 	if (vbios_encoder->config_type == encoder_os_config)
 	{
-		DRM_INFO("Do encoder-%d mode set hdis  %d  vdisp  %d  encoderid  %d \n",
-				ls_encoder->encoder_id, mode->hdisplay, mode->vdisplay, ls_encoder->encoder_id);
+		DRM_INFO("Do encoder-%d mode set hdis %d vdisp %d encoderid %d\n",
+			ls_encoder->encoder_id, mode->hdisplay,
+			mode->vdisplay, ls_encoder->encoder_id);
 		ls_encoder->mode_set_method(ls_encoder, mode);
 	}
 }
@@ -146,9 +147,7 @@ static void loongson_encoder_mode_set(struct drm_encoder *encoder,
  */
 static void loongson_encoder_dpms(struct drm_encoder *encoder, int state)
 {
-
 }
-
 
 /**
  * loongson_encoder_prepare
@@ -161,7 +160,6 @@ static void loongson_encoder_prepare(struct drm_encoder *encoder)
 {
 }
 
-
 /**
  * loongson_encoder_commit
  *
@@ -172,7 +170,6 @@ static void loongson_encoder_prepare(struct drm_encoder *encoder)
 static void loongson_encoder_commit(struct drm_encoder *encoder)
 {
 }
-
 
 /**
  * loongson_encoder_destroy
@@ -188,7 +185,6 @@ static void loongson_encoder_destroy(struct drm_encoder *encoder)
 	kfree(loongson_encoder);
 }
 
-
 /**
  * These provide the minimum set of functions required to handle a encoder
  *
@@ -201,7 +197,6 @@ static const struct drm_encoder_helper_funcs loongson_encoder_helper_funcs = {
 	.commit = loongson_encoder_commit,
 };
 
-
 /**
  * These provide the minimum set of functions required to handle a encoder
  *
@@ -210,7 +205,6 @@ static const struct drm_encoder_helper_funcs loongson_encoder_helper_funcs = {
 static const struct drm_encoder_funcs loongson_encoder_encoder_funcs = {
 	.destroy = loongson_encoder_destroy,
 };
-
 
 /**
  * loongson_encoder_init
@@ -244,7 +238,8 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_drm_device *ldev,
 
 	ls_encoder->i2c = loongson_i2c_bus_match(ldev,lsvbios_enc->i2c_id);
 	if (!ls_encoder->i2c) {
-		DRM_INFO("lson encoder-%d match i2c-%d adap err\n",index,lsvbios_enc->i2c_id);
+		DRM_INFO("lson encoder-%d match i2c-%d adap err\n",
+				index,lsvbios_enc->i2c_id);
 	}
 
 	drm_encoder_init(ldev->dev, encoder, &loongson_encoder_encoder_funcs,
@@ -273,7 +268,7 @@ void loongson_encoder_resume(struct loongson_drm_device *ldev)
 		ls_mode_info = &ldev->mode_info[i];
 		if (ls_mode_info->mode_config_initialized == true){
 			ls_encoder = ls_mode_info->encoder;
-			if ( ls_encoder->vbios_encoder->config_type == encoder_bios_config )
+			if (ls_encoder->vbios_encoder->config_type == encoder_bios_config)
 				continue;
 			loongson_encoder_do_resume(ls_encoder);
 		}

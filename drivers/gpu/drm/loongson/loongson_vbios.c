@@ -21,27 +21,24 @@ uint POLYNOMIAL = 0xEDB88320 ;
 int have_table = 0 ;
 uint table[256] ;
 
-
 void make_table(void)
 {
-    int i, j;
-    have_table = 1 ;
-    for (i = 0 ; i < 256 ; i++)
-        for (j = 0, table[i] = i ; j < 8 ; j++)
-            table[i] = (table[i]>>1)^((table[i]&1)?POLYNOMIAL:0) ;
+	int i, j;
+	have_table = 1 ;
+	for (i = 0 ; i < 256 ; i++)
+		for (j = 0, table[i] = i ; j < 8 ; j++)
+			table[i] = (table[i]>>1)^((table[i]&1)?POLYNOMIAL:0) ;
 }
-
 
 uint lscrc32(uint crc, char *buff, int len)
 {
-    int i;
-    if (!have_table) make_table();
-    crc = ~crc;
-    for (i = 0; i < len; i++)
-        crc = (crc >> 8) ^ table[(crc ^ buff[i]) & 0xff];
-    return ~crc;
+	int i;
+	if (!have_table) make_table();
+	crc = ~crc;
+	for (i = 0; i < len; i++)
+		crc = (crc >> 8) ^ table[(crc ^ buff[i]) & 0xff];
+	return ~crc;
 }
-
 
 void * loongson_vbios_default(void){
 	struct loongson_vbios *vbios;
@@ -52,12 +49,12 @@ void * loongson_vbios_default(void){
 	char * title="Loongson-VBIOS";
 	int i;
 
-	vbios = kzalloc(120*1024,GFP_KERNEL);
+	vbios = kzalloc(120*1024, GFP_KERNEL);
 	vbios_start = (unsigned char *)vbios;
 
 	i = 0;
-	while(*title != '\0'){
-		if(i > 15){
+	while (*title != '\0') {
+		if (i > 15) {
 			vbios->title[15] = '\0';
 			break;
 		}
@@ -71,17 +68,21 @@ void * loongson_vbios_default(void){
 	vbios->crtc_num = 2;
 	vbios->crtc_offset = sizeof(struct loongson_vbios);
 	vbios->connector_num = 2;
-	vbios->connector_offset = sizeof(struct loongson_vbios) + 2 * sizeof(struct loongson_vbios_crtc);
+	vbios->connector_offset = sizeof(struct loongson_vbios) +
+		2 * sizeof(struct loongson_vbios_crtc);
 	vbios->encoder_num = 2;
-	vbios->encoder_offset =
-		sizeof(struct loongson_vbios) + 2 * sizeof(struct loongson_vbios_crtc) + 2 * sizeof(struct loongson_vbios_connector);
-
+	vbios->encoder_offset = sizeof(struct loongson_vbios) +
+		2 * sizeof(struct loongson_vbios_crtc) +
+		2 * sizeof(struct loongson_vbios_connector);
 
 	/*Build loongson_vbios_crtc struct*/
-	crtc_vbios[0] = (struct loongson_vbios_crtc *)(vbios_start + vbios->crtc_offset);
-	crtc_vbios[1] = (struct loongson_vbios_crtc *)(vbios_start + vbios->crtc_offset + sizeof(struct loongson_vbios_crtc));
+	crtc_vbios[0] = (struct loongson_vbios_crtc *)(vbios_start +
+			vbios->crtc_offset);
+	crtc_vbios[1] = (struct loongson_vbios_crtc *)(vbios_start +
+			vbios->crtc_offset + sizeof(struct loongson_vbios_crtc));
 
-	crtc_vbios[0]->next_crtc_offset = sizeof(struct loongson_vbios) + sizeof(struct loongson_vbios_crtc);
+	crtc_vbios[0]->next_crtc_offset = sizeof(struct loongson_vbios) +
+		sizeof(struct loongson_vbios_crtc);
 	crtc_vbios[0]->crtc_id = 0;
 	crtc_vbios[0]->crtc_version = default_version;
 	crtc_vbios[0]->crtc_max_weight = 2048;
@@ -98,14 +99,21 @@ void * loongson_vbios_default(void){
 	crtc_vbios[1]->use_local_param = false;
 
 	/*Build loongson_vbios_encoder struct*/
-	encoder_vbios[0] = (struct loongson_vbios_encoder *)(vbios_start + vbios->encoder_offset);
-	encoder_vbios[1] = (struct loongson_vbios_encoder *)(vbios_start + vbios->encoder_offset + sizeof(struct loongson_vbios_encoder));
+	encoder_vbios[0] = (struct loongson_vbios_encoder *)(vbios_start +
+			vbios->encoder_offset);
+	encoder_vbios[1] = (struct loongson_vbios_encoder *)
+		(vbios_start + vbios->encoder_offset +
+		 sizeof(struct loongson_vbios_encoder));
 
 	/*Build loongson_vbios_connector struct*/
-	connector_vbios[0] = (struct loongson_vbios_connector *)(vbios_start + vbios->connector_offset);
-	connector_vbios[1] = (struct loongson_vbios_connector *)(vbios_start + vbios->connector_offset + sizeof(struct loongson_vbios_connector));
+	connector_vbios[0] = (struct loongson_vbios_connector *)
+		(vbios_start + vbios->connector_offset);
+	connector_vbios[1] = (struct loongson_vbios_connector *)
+		(vbios_start + vbios->connector_offset +
+		 sizeof(struct loongson_vbios_connector));
 
-	connector_vbios[0]->next_connector_offset = vbios->connector_offset + sizeof(struct loongson_vbios_connector);
+	connector_vbios[0]->next_connector_offset =
+		vbios->connector_offset + sizeof(struct loongson_vbios_connector);
 	connector_vbios[1]->next_connector_offset = 0;
 
 #ifdef CONFIG_CPU_LOONGSON2K
@@ -118,14 +126,17 @@ void * loongson_vbios_default(void){
 	encoder_vbios[0]->config_type = encoder_bios_config;
 	encoder_vbios[1]->config_type = encoder_bios_config;
 #else
-	connector_vbios[0]->edid_method = edid_method_null;
-	connector_vbios[1]->edid_method = edid_method_null;
-
 	encoder_vbios[0]->i2c_id = 6;
 	encoder_vbios[1]->i2c_id = 7;
 
 	connector_vbios[0]->i2c_id = 6;
 	connector_vbios[1]->i2c_id = 7;
+
+	connector_vbios[0]->hot_swap_method = hot_swap_polling;
+	connector_vbios[1]->hot_swap_method = hot_swap_polling;
+
+	connector_vbios[0]->edid_method = edid_method_i2c;
+	connector_vbios[1]->edid_method = edid_method_i2c;
 
 	encoder_vbios[0]->config_type = encoder_transparent;
 	encoder_vbios[1]->config_type = encoder_transparent;
@@ -133,16 +144,20 @@ void * loongson_vbios_default(void){
 
 	connector_vbios[0]->i2c_type = i2c_type_gpio;
 	connector_vbios[1]->i2c_type = i2c_type_gpio;
+
 	connector_vbios[0]->hot_swap_method = hot_swap_polling;
 	connector_vbios[1]->hot_swap_method = hot_swap_polling;
 
 	/*Build loongson_vbios_encoder struct*/
-	encoder_vbios[0] = (struct loongson_vbios_encoder *)(vbios_start + vbios->encoder_offset);
-	encoder_vbios[1] = (struct loongson_vbios_encoder *)(vbios_start + vbios->encoder_offset + sizeof(struct loongson_vbios_encoder));
+	encoder_vbios[0] = (struct loongson_vbios_encoder *)
+		(vbios_start + vbios->encoder_offset);
+	encoder_vbios[1] = (struct loongson_vbios_encoder *)
+		(vbios_start + vbios->encoder_offset +
+		 sizeof(struct loongson_vbios_encoder));
 
-	encoder_vbios[0]->next_encoder_offset = vbios->encoder_offset + sizeof(struct loongson_vbios_encoder);
+	encoder_vbios[0]->next_encoder_offset = vbios->encoder_offset +
+		sizeof(struct loongson_vbios_encoder);
 	encoder_vbios[1]->next_encoder_offset = 0;
-
 
 	encoder_vbios[0]->crtc_id = 0;
 	encoder_vbios[1]->crtc_id = 1;
@@ -157,22 +172,21 @@ void * loongson_vbios_default(void){
 }
 
 int loongson_vbios_title_check(struct loongson_vbios *vbios){
-	char * title="Loongson-VBIOS";
+	char *title = "Loongson-VBIOS";
 	int i;
 
 	i = 0;
-	while(*title != '\0' && i <= 15){
-		if(vbios->title[i++] != *title){
+	while (*title != '\0' && i <= 15) {
+		if (vbios->title[i++] != *title) {
 			DRM_ERROR("VBIOS title is wrong,use default setting!\n");
 			return -EINVAL;
 		}
 		title++;
 	}
 	return 0;
-
 }
 
-int loongson_vbios_crc_check(void * vbios){
+int loongson_vbios_crc_check(void *vbios) {
 	unsigned int crc;
 
 	crc = lscrc32(0,(unsigned char *)vbios, VBIOS_SIZE - 0x4);
@@ -194,33 +208,36 @@ int loongson_vbios_init(struct loongson_drm_device *ldev)
 #ifdef CONFIG_CPU_LOONGSON2K
 	ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
 #else
-	if(vgabios_addr)
-	{
-		if(loongson_vbios_crc_check((void *)vgabios_addr)||loongson_vbios_title_check((struct loongson_vbios *)vgabios_addr)){
+	if (vgabios_addr) {
+		if(loongson_vbios_crc_check((void *)vgabios_addr) ||
+		loongson_vbios_title_check((struct loongson_vbios *)vgabios_addr)){
 			DRM_ERROR("UEFI get wrong vbios!");
-		}else{
+		} else {
 			DRM_INFO("VBIOS get from UEFI check success!\n");
 			ldev->vbios = (struct loongson_vbios *)vgabios_addr;
 		}
 	}
-	else if (ls_spiflash_read_status() == 0xff){
+	else if (ls_spiflash_read_status() == 0xff) {
 		DRM_INFO("There is no VBIOS flash chip,use default setting!\n");
 		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-	}else{
+	} else {
 		DRM_INFO("Read VBIOS data from spi flash.\n");
 		ldev->vbios = kzalloc(120*1024,GFP_KERNEL);
-		ls_spiflash_read(VBIOS_START_ADDR,(unsigned char *)ldev->vbios,VBIOS_SIZE);
+		ls_spiflash_read(VBIOS_START_ADDR,
+				(unsigned char *)ldev->vbios, VBIOS_SIZE);
 
 		/*Check VBIOS data.If data is wrong,use default setting*/
-		if(loongson_vbios_crc_check((void *)ldev->vbios)||loongson_vbios_title_check(ldev->vbios)){
+		if(loongson_vbios_crc_check((void *)ldev->vbios) ||
+				loongson_vbios_title_check(ldev->vbios)) {
 			kfree(ldev->vbios);
 			ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-		}else{
+		} else {
 			DRM_INFO("VBIOS get from SPI check success!\n");
 		}
 	}
+
 	if (ldev->vbios->version_minor == 1 && ldev->vbios->version_major == 0 )
-			ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
+		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
 #endif
 
 	vbios = ldev->vbios;
@@ -230,33 +247,38 @@ int loongson_vbios_init(struct loongson_drm_device *ldev)
 		return -1;
 
 	/*get crtc struct points*/
-	ldev->crtc_vbios[0] = (struct loongson_vbios_crtc *)(vbios_start + vbios->crtc_offset);
-	if(vbios->crtc_num > 1)
-	{
-		for(i = 1;i < vbios->crtc_num; i++){
-		ldev->crtc_vbios[i] = (struct loongson_vbios_crtc *)(vbios_start + ldev->crtc_vbios[i - 1]->next_crtc_offset);
+	ldev->crtc_vbios[0] =
+		(struct loongson_vbios_crtc *)(vbios_start + vbios->crtc_offset);
+	if (vbios->crtc_num > 1) {
+		for (i = 1; i < vbios->crtc_num; i++) {
+		ldev->crtc_vbios[i] =
+			(struct loongson_vbios_crtc *)
+			(vbios_start + ldev->crtc_vbios[i - 1]->next_crtc_offset);
 		}
 	}
 
 	/*get connector struct points*/
-	ldev->connector_vbios [0] = (struct loongson_vbios_connector *)(vbios_start + vbios->connector_offset);
-	if(vbios->connector_num > 1){
+	ldev->connector_vbios [0] = (struct loongson_vbios_connector *)
+		(vbios_start + vbios->connector_offset);
+
+	if (vbios->connector_num > 1) {
 		for(i = 1;i < vbios->connector_num; i++){
-		ldev->connector_vbios[i] = (struct loongson_vbios_connector *)(vbios_start + ldev->connector_vbios[i - 1]->next_connector_offset);
+			ldev->connector_vbios[i] =
+				(struct loongson_vbios_connector *)
+				(vbios_start + ldev->connector_vbios[i - 1]->next_connector_offset);
 		}
 	}
 
 	/*get encoder struct points*/
 	ldev->encoder_vbios[0] = (struct loongson_vbios_encoder *)(vbios_start
 			+ vbios->encoder_offset);
-	if(vbios->encoder_num > 1){
-		ldev->encoder_vbios[1] = (struct loongson_vbios_encoder	*)(vbios_start + ldev->encoder_vbios[0]->next_encoder_offset);
+	if (vbios->encoder_num > 1) {
+		ldev->encoder_vbios[1] = (struct loongson_vbios_encoder	*)
+			(vbios_start + ldev->encoder_vbios[0]->next_encoder_offset);
 	}
 	loongson_vbios_information_display(ldev);
 	return 0;
 }
-
-
 
 int loongson_vbios_information_display(struct loongson_drm_device *ldev){
 

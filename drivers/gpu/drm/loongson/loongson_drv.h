@@ -13,6 +13,7 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/loongson_drm.h>
+#include <drm/drm_encoder.h>
 
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
@@ -35,11 +36,9 @@
 #define to_loongson_connector(x) container_of(x, struct loongson_connector, base)
 #define to_loongson_framebuffer(x) container_of(x, struct loongson_framebuffer, base)
 
-
 #define LS_MAX_MODE_INFO 6
 #define LOONGSON_MAX_FB_HEIGHT 4096
 #define LOONGSON_MAX_FB_WIDTH 4096
-
 
 #define CUR_WIDTH_SIZE		32
 #define CUR_HEIGHT_SIZE		32
@@ -49,7 +48,6 @@
 
 #define LOONGSON_GPIO_LCD_EN    62
 #define LOONGSON_GPIO_LCD_VDD   63
-
 
 #define LO_OFF	0
 #define HI_OFF	8
@@ -67,6 +65,7 @@ struct loongson_connector;
 #define RREG32(reg) ls7a_readl((void __iomem *)(ldev->rmmio) + (reg))
 #define WREG32(reg, v) ls7a_writel(v, (void __iomem *)(ldev->rmmio) + (reg))
 #endif
+
 #ifdef CONFIG_CPU_LOONGSON2K
 #define PD_DC_PLL					19
 #define LS_PIX0_PLL					LS2K_PIX0_PLL
@@ -83,12 +82,11 @@ struct loongson_connector;
 extern struct mutex ls_dc_mutex;
 
 #define ls_dc_write(val, addr)          \
-    do {                                \
-        mutex_lock(&ls_dc_mutex);          \
-        *(volatile unsigned long __force *)TO_UNCAC(addr) = (val);          \
-        mutex_unlock(&ls_dc_mutex);        \
-    }while(0)
-
+	do {                                \
+		mutex_lock(&ls_dc_mutex);          \
+		*(volatile unsigned long __force *)TO_UNCAC(addr) = (val); \
+		mutex_unlock(&ls_dc_mutex);        \
+	}while(0)
 
 #ifdef CONFIG_CPU_LOONGSON2K
 #define ls_readl					ls2k_readl
@@ -107,7 +105,7 @@ extern struct mutex ls_dc_mutex;
 #define CURIOLOAD_ARGB		0x4609
 #define CURIOLOAD_IMAGE		0x460A
 #define CURIOHIDE_SHOW		0x460B
-#define FBEDID_GET			0X860C
+#define FBEDID_GET		0X860C
 
 #define LS_FB_CFG_DVO0_REG			(0x1240)
 #define LS_FB_CFG_DVO1_REG			(0x1250)
@@ -291,7 +289,6 @@ struct loongson_drm_device {
 	resource_size_t			rmmio_size;
 	void __iomem			*rmmio;
 
-
 	struct loongson_mc			mc;
 	struct loongson_mode_info		mode_info[LS_MAX_MODE_INFO];
 
@@ -334,7 +331,6 @@ struct loongson_drm_device {
 	bool	inited;
 };
 
-
 static inline struct loongson_bo *
 loongson_bo(struct ttm_buffer_object *bo)
 {
@@ -343,20 +339,20 @@ loongson_bo(struct ttm_buffer_object *bo)
 
 static inline int loongson_bo_reserve(struct loongson_bo *bo, bool no_wait)
 {
-        int ret;
+	int ret;
 
-        ret = ttm_bo_reserve(&bo->bo, true, no_wait, NULL);
-        if (ret) {
-                if (ret != -ERESTARTSYS && ret != -EBUSY)
-                        DRM_ERROR("reserve failed %p\n", bo);
-                return ret;
-        }
-        return 0;
+	ret = ttm_bo_reserve(&bo->bo, true, no_wait, NULL);
+	if (ret) {
+		if (ret != -ERESTARTSYS && ret != -EBUSY)
+			DRM_ERROR("reserve failed %p\n", bo);
+		return ret;
+	}
+	return 0;
 }
 
 static inline void loongson_bo_unreserve(struct loongson_bo *bo)
 {
-        ttm_bo_unreserve(&bo->bo);
+	ttm_bo_unreserve(&bo->bo);
 }
 
 
@@ -383,7 +379,10 @@ int loongson_bo_pin(struct loongson_bo *bo, u32 pl_flag, u64 *gpu_addr);
 int loongson_bo_unpin(struct loongson_bo *bo);
 u64 loongson_bo_gpu_offset(struct loongson_bo *bo);
 int loongson_gem_create(struct drm_device *dev, u32 size, bool iskernel,struct drm_gem_object **obj);
-int loongson_framebuffer_init(struct drm_device *dev,struct loongson_framebuffer *lfb,const struct drm_mode_fb_cmd2 *mode_cmd,struct drm_gem_object *obj);
+int loongson_framebuffer_init(struct drm_device *dev,
+		struct loongson_framebuffer *lfb,
+		const struct drm_mode_fb_cmd2 *mode_cmd,
+		struct drm_gem_object *obj);
 
 int loongson_fbdev_init(struct loongson_drm_device *ldev);
 void loongson_fbdev_fini(struct loongson_drm_device *ldev);
@@ -393,11 +392,11 @@ void loongson_fbdev_set_suspend(struct loongson_drm_device *ldev, int state);
 
 int loongson_drm_suspend(struct drm_device *dev);
 int loongson_drm_resume(struct drm_device *dev);
-			   /* loongson_cursor.c */
+/* loongson_cursor.c */
 int loongson_crtc_cursor_set2(struct drm_crtc *crtc, struct drm_file *file_priv,
-						uint32_t handle, uint32_t width, uint32_t height,int32_t hot_x, int32_t hot_y);
+		uint32_t handle, uint32_t width, uint32_t height,
+		int32_t hot_x, int32_t hot_y);
 int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y);
-
 
 void * loongson_vbios_test(void);
 int loongson_vbios_init(struct loongson_drm_device *ldev);
@@ -405,8 +404,8 @@ int loongson_vbios_information_display(struct loongson_drm_device *ldev);
 
 void loongson_encoder_resume(struct loongson_drm_device *ldev);
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
-				 struct drm_display_mode *mode);
-struct loongson_i2c * loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id);
+		struct drm_display_mode *mode);
+struct loongson_i2c *loongson_i2c_bus_match(struct loongson_drm_device *ldev, unsigned int i2c_id);
 void loongson_connector_resume(struct loongson_drm_device *ldev);
 
 #endif

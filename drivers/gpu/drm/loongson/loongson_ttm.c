@@ -137,7 +137,7 @@ static bool loongson_ttm_bo_is_loongson_bo(struct ttm_buffer_object *bo)
  */
 static int
 loongson_bo_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
-		     struct ttm_mem_type_manager *man)
+			struct ttm_mem_type_manager *man)
 {
 	switch (type) {
 	case TTM_PL_SYSTEM:
@@ -214,7 +214,7 @@ static int loongson_bo_verify_access(struct ttm_buffer_object *bo, struct file *
  * Driver callback on when mapping io memory
  */
 static int loongson_ttm_io_mem_reserve(struct ttm_bo_device *bdev,
-				  struct ttm_mem_reg *mem)
+			struct ttm_mem_reg *mem)
 {
 	struct ttm_mem_type_manager *man = &bdev->man[mem->mem_type];
 	struct loongson_drm_device *ldev = loongson_bdev(bdev);
@@ -258,7 +258,8 @@ static int loongson_ttm_io_mem_reserve(struct ttm_bo_device *bdev,
  *
  * Driver callback, free io memory
  */
-static void loongson_ttm_io_mem_free(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
+static void
+loongson_ttm_io_mem_free(struct ttm_bo_device *bdev, struct ttm_mem_reg *mem)
 {
 }
 
@@ -295,8 +296,8 @@ static struct ttm_backend_func loongson_tt_backend_func = {
  * NULL: out of memeory
  */
 static struct ttm_tt *loongson_ttm_tt_create(struct ttm_bo_device *bdev,
-				 unsigned long size, uint32_t page_flags,
-				 struct page *dummy_read_page)
+			unsigned long size, uint32_t page_flags,
+			struct page *dummy_read_page)
 {
 	struct ttm_tt *tt;
 
@@ -304,8 +305,8 @@ static struct ttm_tt *loongson_ttm_tt_create(struct ttm_bo_device *bdev,
 	if (tt == NULL)
 		return NULL;
 	tt->func = &loongson_tt_backend_func;
-    /* Create a struct ttm_tt to back data with system memory pages.
-     * No pages are actually allocated. NULL out of memory */
+	/* Create a struct ttm_tt to back data with system memory pages.
+	 * No pages are actually allocated. NULL out of memory */
 	if (ttm_tt_init(tt, bdev, size, page_flags, dummy_read_page)) {
 		kfree(tt);
 		return NULL;
@@ -366,17 +367,18 @@ int loongson_ttm_init(struct loongson_drm_device *ldev)
 	struct ttm_bo_device *bdev = &ldev->ttm.bdev;
 	struct pci_dev *gpu_pdev;
 
-	gpu_pdev= pci_get_device(PCI_VENDOR_ID_LOONGSON,PCI_DEVICE_ID_LOONGSON_GPU,NULL);
+	gpu_pdev= pci_get_device(PCI_VENDOR_ID_LOONGSON,
+			PCI_DEVICE_ID_LOONGSON_GPU, NULL);
 	ret = loongson_ttm_global_init(ldev);
 	if (ret)
 		return ret;
 
 	ret = ttm_bo_device_init(&ldev->ttm.bdev,
-				 ldev->ttm.bo_global_ref.ref.object,
-				 &loongson_bo_driver,
-				 dev->anon_inode->i_mapping,
-				 DRM_FILE_PAGE_OFFSET,
-				 true);
+				ldev->ttm.bo_global_ref.ref.object,
+				&loongson_bo_driver,
+				dev->anon_inode->i_mapping,
+				DRM_FILE_PAGE_OFFSET,
+				true);
 	if (ret) {
 		DRM_ERROR("Error initialising bo driver; %d\n", ret);
 		return ret;
@@ -442,7 +444,8 @@ void loongson_ttm_placement(struct loongson_bo *bo, int domain)
 		bo->placements[c++].flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_VRAM;
 #else
 	if (domain & TTM_PL_FLAG_VRAM)
-		bo->placements[c++].flags = TTM_PL_FLAG_WC | TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_VRAM;
+		bo->placements[c++].flags = TTM_PL_FLAG_WC |
+			TTM_PL_FLAG_UNCACHED | TTM_PL_FLAG_VRAM;
 #endif
 	if (domain & TTM_PL_FLAG_SYSTEM)
 		bo->placements[c++].flags = TTM_PL_MASK_CACHING | TTM_PL_FLAG_SYSTEM;
@@ -468,7 +471,7 @@ void loongson_ttm_placement(struct loongson_bo *bo, int domain)
  *  ttm buffer object create result
  */
 int loongson_bo_create(struct drm_device *dev, int size, int align,
-		  uint32_t flags, struct loongson_bo **ploongsonbo)
+			uint32_t flags, struct loongson_bo **ploongsonbo)
 {
 	struct loongson_drm_device *ldev = dev->dev_private;
 	struct loongson_bo *loongsonbo;
@@ -492,12 +495,12 @@ int loongson_bo_create(struct drm_device *dev, int size, int align,
 	loongson_ttm_placement(loongsonbo, TTM_PL_FLAG_VRAM | TTM_PL_FLAG_SYSTEM);
 
 	acc_size = ttm_bo_dma_acc_size(&ldev->ttm.bdev, size,
-				       sizeof(struct loongson_bo));
+			sizeof(struct loongson_bo));
 
 	ret = ttm_bo_init(&ldev->ttm.bdev, &loongsonbo->bo, size,
-			  ttm_bo_type_device, &loongsonbo->placement,
-			  align >> PAGE_SHIFT, false, NULL, acc_size,
-			  NULL, NULL, loongson_bo_ttm_destroy);
+			ttm_bo_type_device, &loongsonbo->placement,
+			align >> PAGE_SHIFT, false, NULL, acc_size,
+			NULL, NULL, loongson_bo_ttm_destroy);
 	if (ret)
 		return ret;
 
@@ -569,7 +572,7 @@ int loongson_bo_unpin(struct loongson_bo *bo)
 	if (bo->pin_count)
 		return 0;
 
-	for (i = 0; i < bo->placement.num_placement ; i++)
+	for (i = 0; i < bo->placement.num_placement; i++)
 		bo->placements[i].flags &= ~TTM_PL_FLAG_NO_EVICT;
 	return ttm_bo_validate(&bo->bo, &bo->placement, false, false);
 }
@@ -596,7 +599,7 @@ int loongson_bo_push_sysram(struct loongson_bo *bo)
 		ttm_bo_kunmap(&bo->kmap);
 
 	loongson_ttm_placement(bo, TTM_PL_FLAG_SYSTEM);
-	for (i = 0; i < bo->placement.num_placement ; i++)
+	for (i = 0; i < bo->placement.num_placement; i++)
 		bo->placements[i].flags |= TTM_PL_FLAG_NO_EVICT;
 
 	/** Changes placement and caching policy of the buffer object
