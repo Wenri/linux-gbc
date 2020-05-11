@@ -50,8 +50,8 @@ int loongson_encoder_resolution_match(unsigned int hdisplay,
 	config_param = vbios_encoder->mode_config_tables;
 	while(match_index < LS_MAX_RESOLUTIONS ){
 		resolution = &config_param->resolution;
-		if (hdisplay == resolution->hdisplay)
-			if (vdisplay == resolution->vdisplay)
+		if (hdisplay == resolution->hdisplay &&
+			vdisplay == resolution->vdisplay)
 				break;
 		match_index++;
 		config_param++;
@@ -72,8 +72,11 @@ static bool mode_set_i2c(struct loongson_encoder *ls_encoder, struct drm_display
 
 	vbios_encoder = ls_encoder->vbios_encoder;
 
-	if (!ls_encoder->i2c)
+	if (!ls_encoder->i2c) {
 		DRM_ERROR("ls encoder modeset no i2c\n");
+		return false;
+	}
+
 	adapter = ls_encoder->i2c->adapter;
 
 	if (!vbios_encoder)
@@ -82,7 +85,6 @@ static bool mode_set_i2c(struct loongson_encoder *ls_encoder, struct drm_display
 	resolution_index = loongson_encoder_resolution_match(
 			mode->hdisplay,mode->vdisplay,
 			ls_encoder);
-
 
 	if (resolution_index == LS_MAX_RESOLUTIONS){
 		DRM_ERROR("ls encoder  mdoeset mach resolution err \n");

@@ -547,7 +547,7 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 			crtc->primary->fb->height);
 
 	crtc_vbios = loongson_crtc->vbios_crtc;
-	if (crtc_vbios->use_local_param) {
+	if (crtc_vbios && crtc_vbios->use_local_param) {
 		/* verdor can dece this value */
 		resolution_index = loongson_crtc_resolution_match(
 				hr,vr,
