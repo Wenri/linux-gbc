@@ -43,7 +43,77 @@
 #define DRIVER_MINOR	2
 #define DRIVER_PATCHLEVEL	0
 
+#ifdef CONFIG_CPU_LOONGSON2K
 struct mutex ls_dc_mutex;
+#endif
+
+u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset)
+{
+	u32 val;
+	val = readl(ldev->rmmio + offset);
+
+	return val;
+}
+
+void ls_mm_wreg(struct loongson_device *ldev, u32 offset, u32 val)
+{
+	writel(val, ldev->rmmio + offset);
+}
+
+u32 ls_io_rreg(struct loongson_device *ldev, u32 offset)
+{
+	u32 val;
+	val = readl(ldev->io + offset);
+
+	return val;
+}
+
+void ls_io_wreg(struct loongson_device *ldev, u32 offset, u32 val)
+{
+	writel(val, ldev->io + offset);
+}
+
+u32 ls_mm_rreg_locked(struct loongson_device *ldev, u32 offset)
+{
+	u32 val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
+	val = readl(ldev->rmmio + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
+
+	return val;
+}
+
+void ls_mm_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
+	writel(val, ldev->rmmio + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
+}
+
+u32 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset)
+{
+	u32 val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
+	val = readl(ldev->io + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
+
+	return val;
+}
+
+void ls_io_wreg_lcoked(struct loongson_device *ldev, u64 offset, u32 val)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
+	writeq(val, ldev->io + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
+}
 
 /**
  * loongson_user_framebuffer_destroy -- release framebuffer, clean up framebuffer resource
@@ -311,6 +381,7 @@ static int loongson_device_init(struct drm_device *dev,
 	loongson_vbios_init(ldev);
 	ldev->num_crtc = ldev->vbios->crtc_num;
 	ldev->fb_vram_base = 0x0;
+
 	/*BAR 0 contains registers */
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 0);
@@ -320,8 +391,6 @@ static int loongson_device_init(struct drm_device *dev,
 	ldev->rmmio_base = pci_resource_start(ldev->dev->pdev, 0);
 	ldev->rmmio_size = pci_resource_len(ldev->dev->pdev, 0);
 #endif
-	DRM_INFO("ldev->rmmio_base = 0x%llx,ldev->rmmio_size = 0x%llx\n",
-			ldev->rmmio_base,ldev->rmmio_size);
 
 	if (!devm_request_mem_region(ldev->dev->dev, ldev->rmmio_base,
 			ldev->rmmio_size, "loongsonfb_mmio")) {
@@ -331,10 +400,20 @@ static int loongson_device_init(struct drm_device *dev,
 #ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	ldev->rmmio = (void *)TO_UNCAC(ldev->rmmio_base);
 #else
+	/* IO */
+	ldev->io = (void *)TO_UNCAC(LS7A_CHIP_CFG_REG_BASE);
+	if (ldev->io == NULL)
+		return -ENOMEM;
+	DRM_INFO("7A io: 0x%lx\n", (unsigned long)ldev->io);
+
+	/* MEM */
 	ldev->rmmio = pcim_iomap(dev->pdev, 0, 0);
 #endif
 	if (ldev->rmmio == NULL)
 		return -ENOMEM;
+
+	DRM_INFO("mmio: 0x%llx, size: 0x%llx\n",
+			ldev->rmmio_base,ldev->rmmio_size);
 
 	ret = loongson_vram_init(ldev);
 	if (ret)
@@ -631,13 +710,17 @@ static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 	struct loongson_device *ldev;
 	int ret,r;
 
-	mutex_init(&ls_dc_mutex);
 	ldev = devm_kzalloc(dev->dev,
 			sizeof(struct loongson_device), GFP_KERNEL);
 	if (ldev == NULL)
 		return -ENOMEM;
 	dev->dev_private = (void *)ldev;
 	ldev->dev = dev;
+#ifdef CONFIG_CPU_LOONGSON2K
+	mutex_init(&ls_dc_mutex);
+#else
+	spin_lock_init(&ldev->mmio_lock);
+#endif
 
 	ret = loongson_device_init(dev, flags);
 	DRM_DEBUG("end loongson drm device init.\n");
@@ -926,7 +1009,7 @@ static struct drm_driver loongson_kms_driver = {
 static int loongson_vga_platform_probe(struct platform_device *pdev)
 {
 	printk(KERN_ERR "loongson_vga_platform_probe\n");
-	return drm_platform_init(&loongson_vga_drm_driver, pdev);
+	return drm_platform_init(&loongson_kms_driver, pdev);
 }
 
 static int loongson_vga_platform_remove(struct platform_device *pdev)

@@ -56,31 +56,14 @@ struct loongson_connector;
 
 #define gem_to_loongson_bo(gobj) container_of((gobj), struct loongson_bo, gem)
 
-#define RREG8(reg) ioread8(((void __iomem *)ldev->rmmio) + (reg))
-#define WREG8(reg, v) iowrite8(v, ((void __iomem *)ldev->rmmio) + (reg))
 #ifdef CONFIG_CPU_LOONGSON2K
 #define RREG32(reg) ls2k_readl((void __iomem *)(ldev->rmmio) + (reg))
 #define WREG32(reg, v) ls2k_writel(v, (void __iomem *)(ldev->rmmio) + (reg))
-#else
-#define RREG32(reg) ls7a_readl((void __iomem *)(ldev->rmmio) + (reg))
-#define WREG32(reg, v) ls7a_writel(v, (void __iomem *)(ldev->rmmio) + (reg))
-#endif
-
-#ifdef CONFIG_CPU_LOONGSON2K
-#define PD_DC_PLL					19
-#define LS_PIX0_PLL					LS2K_PIX0_PLL
-#define LS_PIX1_PLL					LS2K_PIX1_PLL
-#else
-#define HT1LO_PCICFG_BASE			0x1a000000
-#define LS7A_PCH_CFG_SPACE_REG		(TO_UNCAC(HT1LO_PCICFG_BASE)|0x0000a810)
-#define LS7A_PCH_CFG_REG_BASE		((*(volatile unsigned int *)(LS7A_PCH_CFG_SPACE_REG))&0xfffffff0)
-
-#define LS_PIX0_PLL				(LS7A_PCH_CFG_REG_BASE + 0x04b0)
-#define LS_PIX1_PLL				(LS7A_PCH_CFG_REG_BASE + 0x04c0)
-#endif
+#define PD_DC_PLL			19
+#define LS_PIX0_PLL			LS2K_PIX0_PLL
+#define LS_PIX1_PLL			LS2K_PIX1_PLL
 
 extern struct mutex ls_dc_mutex;
-
 #define ls_dc_write(val, addr)          \
 	do {                                \
 		mutex_lock(&ls_dc_mutex);          \
@@ -88,31 +71,29 @@ extern struct mutex ls_dc_mutex;
 		mutex_unlock(&ls_dc_mutex);        \
 	}while(0)
 
-#ifdef CONFIG_CPU_LOONGSON2K
-#define ls_readl					ls2k_readl
-#define ls_readq					ls2k_readq
-#define ls_writel					ls_dc_write
-#define ls_writeq					ls_dc_write
+#define ls_readl			ls2k_readl
+#define ls_readq			ls2k_readq
+#define ls_writel			ls_dc_write
+#define ls_writeq			ls_dc_write
 #else
-#define ls_readl					ls7a_readl
-#define ls_readq					ls7a_readq
-#define ls_writel					ls7a_writel
-#define ls_writeq					ls7a_writeq
+#define LS7A_CHIP_CFG_REG_BASE      	(LS7A_PCH_REG_BASE + 0x00010000)
+#define LS_PIX0_PLL                  	(0x04b0)
+#define LS_PIX1_PLL 			(0x04c0)
 #endif
 
-#define CURIOSET_CORLOR		0x4607
-#define CURIOSET_POSITION	0x4608
-#define CURIOLOAD_ARGB		0x4609
-#define CURIOLOAD_IMAGE		0x460A
-#define CURIOHIDE_SHOW		0x460B
-#define FBEDID_GET		0X860C
+#define CURIOSET_CORLOR			0x4607
+#define CURIOSET_POSITION		0x4608
+#define CURIOLOAD_ARGB			0x4609
+#define CURIOLOAD_IMAGE			0x460A
+#define CURIOHIDE_SHOW			0x460B
+#define FBEDID_GET			0X860C
 
-#define LS_FB_CFG_DVO0_REG			(0x1240)
-#define LS_FB_CFG_DVO1_REG			(0x1250)
+#define LS_FB_CFG_DVO0_REG		(0x1240)
+#define LS_FB_CFG_DVO1_REG		(0x1250)
 #define LS_FB_ADDR0_DVO0_REG		(0x1260)
 #define LS_FB_ADDR0_DVO1_REG		(0x1270)
-#define LS_FB_STRI_DVO0_REG			(0x1280)
-#define LS_FB_STRI_DVO1_REG			(0x1290)
+#define LS_FB_STRI_DVO0_REG		(0x1280)
+#define LS_FB_STRI_DVO1_REG		(0x1290)
 
 #define LS_FB_DITCFG_DVO0_REG		(0x1360)
 #define LS_FB_DITCFG_DVO1_REG		(0x1370)
@@ -140,38 +121,38 @@ extern struct mutex ls_dc_mutex;
 #define LS_FB_GAMDATA_DVO0_REG		(0x1500)
 #define LS_FB_GAMDATA_DVO1_REG		(0x1510)
 
-#define LS_FB_CUR_CFG_REG			(0x1520)
-#define LS_FB_CUR_ADDR_REG			(0x1530)
+#define LS_FB_CUR_CFG_REG		(0x1520)
+#define LS_FB_CUR_ADDR_REG		(0x1530)
 #define LS_FB_CUR_LOC_ADDR_REG		(0x1540)
-#define LS_FB_CUR_BACK_REG			(0x1550)
-#define LS_FB_CUR_FORE_REG			(0x1560)
+#define LS_FB_CUR_BACK_REG		(0x1550)
+#define LS_FB_CUR_FORE_REG		(0x1560)
 
-#define LS_FB_INT_REG				(0x1570)
+#define LS_FB_INT_REG			(0x1570)
 
 #define LS_FB_ADDR1_DVO0_REG		(0x1580)
 #define LS_FB_ADDR1_DVO1_REG		(0x1590)
 
 /*offset*/
-#define LS_FB_CFG_FORMAT32 (1 << 2)
-#define LS_FB_CFG_FORMAT16 (11 << 0)
-#define LS_FB_CFG_FORMAT15 (1 << 1)
-#define LS_FB_CFG_FORMAT12 (1 << 0)
-#define LS_FB_CFG_FB_SWITCH (1 << 7)
-#define LS_FB_CFG_ENABLE (1 << 8)
-#define LS_FB_CFG_SWITCH_PANEL (1 << 9)
-#define LS_FB_CFG_GAMMA (1 << 12)
-#define LS_FB_CFG_RESET (1 << 20)
+#define LS_FB_CFG_FORMAT32 		(1 << 2)
+#define LS_FB_CFG_FORMAT16 		(11 << 0)
+#define LS_FB_CFG_FORMAT15 		(1 << 1)
+#define LS_FB_CFG_FORMAT12 		(1 << 0)
+#define LS_FB_CFG_FB_SWITCH 		(1 << 7)
+#define LS_FB_CFG_ENABLE 		(1 << 8)
+#define LS_FB_CFG_SWITCH_PANEL		(1 << 9)
+#define LS_FB_CFG_GAMMA 		(1 << 12)
+#define LS_FB_CFG_RESET 		(1 << 20)
 
-#define LS_FB_PANCFG_BASE 0x80001010
-#define LS_FB_PANCFG_DE (1 << 0)
-#define LS_FB_PANCFG_DEPOL (1 << 1)
-#define LS_FB_PANCFG_CLKEN (1 << 8)
-#define LS_FB_PANCFG_CLKPOL (1 << 9)
+#define LS_FB_PANCFG_BASE 		0x80001010
+#define LS_FB_PANCFG_DE 		(1 << 0)
+#define LS_FB_PANCFG_DEPOL 		(1 << 1)
+#define LS_FB_PANCFG_CLKEN 		(1 << 8)
+#define LS_FB_PANCFG_CLKPOL 		(1 << 9)
 
-#define LS_FB_HSYNC_POLSE (1 << 30)
-#define LS_FB_HSYNC_POL (1 << 31)
-#define LS_FB_VSYNC_POLSE (1 << 30)
-#define LS_FB_VSYNC_POL (1 << 31)
+#define LS_FB_HSYNC_POLSE 		(1 << 30)
+#define LS_FB_HSYNC_POL 		(1 << 31)
+#define LS_FB_VSYNC_POLSE 		(1 << 30)
+#define LS_FB_VSYNC_POL 		(1 << 31)
 
 struct loongson_i2c {
 	bool used;
@@ -220,12 +201,10 @@ struct loongson_bo {
 	int pin_count;
 };
 
-
 struct loongson_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_gem_object *obj;
 };
-
 
 struct loongson_crtc {
 	struct drm_crtc base;
@@ -270,7 +249,6 @@ struct loongson_cursor {
 	u64 pixels_gpu_addr;
 };
 
-
 struct loongson_fbdev {
 	struct drm_fb_helper helper;
 	struct loongson_framebuffer lfb;
@@ -281,13 +259,13 @@ struct loongson_fbdev {
 	spinlock_t dirty_lock;
 };
 
-
 struct loongson_device {
 	struct drm_device		*dev;
 
 	resource_size_t			rmmio_base;
 	resource_size_t			rmmio_size;
 	void __iomem			*rmmio;
+	void __iomem                    *io;
 
 	struct loongson_mc			mc;
 	struct loongson_mode_info		mode_info[LS_MAX_MODE_INFO];
@@ -328,6 +306,8 @@ struct loongson_device {
 	bool	clone_mode;
 	bool	cursor_showed;
 	bool	inited;
+
+	spinlock_t mmio_lock;
 };
 
 static inline struct loongson_bo *
@@ -353,7 +333,6 @@ static inline void loongson_bo_unreserve(struct loongson_bo *bo)
 {
 	ttm_bo_unreserve(&bo->bo);
 }
-
 
 int loongson_vga_irq_enable_vblank(struct drm_device *dev,unsigned int crtc_id);
 void loongson_vga_irq_disable_vblank(struct drm_device *dev,unsigned int crtc_id);
@@ -407,4 +386,13 @@ bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 struct loongson_i2c *loongson_i2c_bus_match(struct loongson_device *ldev, unsigned int i2c_id);
 void loongson_connector_resume(struct loongson_device *ldev);
 
+u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset);
+void ls_mm_wreg(struct loongson_device *ldev, u32 offset, u32 val);
+u32 ls_mm_rreg_locked(struct loongson_device *ldev, u32 offset);
+void ls_mm_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val);
+
+u32 ls_io_rreg(struct loongson_device *ldev, u32 offset);
+void ls_io_wreg(struct loongson_device *ldev, u32 offset, u32 val);
+u32 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset);
+void ls_io_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val);
 #endif
