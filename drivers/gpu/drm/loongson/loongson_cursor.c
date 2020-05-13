@@ -29,10 +29,10 @@ static void loongson_hide_cursor(struct drm_crtc *crtc)
 
 	base = (unsigned long)(ldev->rmmio);
 
-	tmp = ls_readl(base + LS_FB_CUR_CFG_REG);
+	tmp = ls_mm_rreg(ldev, LS_FB_CUR_CFG_REG);
 	tmp &= ~0xff;
 	if (ldev->clone_mode == true) {
-		ls_writel(tmp | 0x00, base + LS_FB_CUR_CFG_REG);
+		ls_mm_wreg(ldev, LS_FB_CUR_CFG_REG, tmp | 0x00);
 		ldev->cursor_showed = false;
 		return;
 	} else {
@@ -40,9 +40,9 @@ static void loongson_hide_cursor(struct drm_crtc *crtc)
 			return;
 
 		if (crtc_id) {
-			ls_writel(tmp | 0x10, base + LS_FB_CUR_CFG_REG);
+			ls_mm_wreg(ldev, LS_FB_CUR_CFG_REG, tmp | 0x10);
 		} else {
-			ls_writel(tmp | 0x00, base + LS_FB_CUR_CFG_REG);
+			ls_mm_wreg(ldev, LS_FB_CUR_CFG_REG, tmp | 0x00);
 		}
 		ldev->cursor_showed = false;
 	}
@@ -59,16 +59,16 @@ static void loongson_show_cursor(struct drm_crtc *crtc)
 
 	base = (unsigned long)(ldev->rmmio);
 	if (ldev->clone_mode == true) {
-		ls_writel(0x00050202, base + LS_FB_CUR_CFG_REG);
+		ls_mm_wreg(ldev, LS_FB_CUR_CFG_REG, 0x00050202);
 		ldev->cursor_crtc_id = 0;
 		ldev->cursor_showed = true;
 	} else {
 		if ((ldev->cursor_crtc_id == crtc_id) ||
 				(ldev->cursor_crtc_id == ldev->num_crtc)) {
 			if(crtc_id == 0) {
-				ls_writel(0x00050202,base + LS_FB_CUR_CFG_REG);
+				ls_mm_wreg(ldev, LS_FB_CUR_CFG_REG, 0x00050202);
 			} else {
-				ls_writel(0x00050212,base + LS_FB_CUR_CFG_REG);
+				ls_mm_wreg(ldev, LS_FB_CUR_CFG_REG, 0x00050212);
 			}
 
 			ldev->cursor_showed = true;
@@ -154,9 +154,9 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc,
 	memcpy(pixels->kmap.virtual,bo->kmap.virtual,32*32*4);
 	/* Program gpu address of cursor buffer */
 	gpu_addr = ldev->cursor.pixels_gpu_addr;
-	ls_writel(gpu_addr, base + LS_FB_CUR_ADDR_REG);
-	ls_writel(0x00eeeeee, base + LS_FB_CUR_BACK_REG);
-	ls_writel(0x00aaaaaa, base + LS_FB_CUR_FORE_REG);
+	ls_mm_wreg(ldev, LS_FB_CUR_ADDR_REG, gpu_addr);
+	ls_mm_wreg(ldev, LS_FB_CUR_BACK_REG, 0x00eeeeee);
+	ls_mm_wreg(ldev, LS_FB_CUR_FORE_REG, 0x00aaaaaa);
 	loongson_show_cursor(crtc);
 	ret = 0;
 
@@ -219,8 +219,8 @@ int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y)
 
 	tmp = x & 0xffff;
 	tmp |= y << 16;
-	ls_writel(tmp, base + LS_FB_CUR_LOC_ADDR_REG);
-	tmp = ls_readl(base + LS_FB_CUR_CFG_REG);
+	ls_mm_wreg(ldev, LS_FB_CUR_LOC_ADDR_REG, tmp);
+	tmp = ls_mm_rreg(ldev, LS_FB_CUR_CFG_REG);
 	tmp &= ~0xff;
 
 	if (ldev->cursor_crtc_id != crtc_id && ldev->clone_mode == false) {
