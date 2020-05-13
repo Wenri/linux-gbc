@@ -28,14 +28,18 @@
 
 #include <ls2k.h>
 #include <linux/spinlock.h>
-DEFINE_SPINLOCK(ls2k_io_lock);
+DEFINE_RAW_SPINLOCK(ls2k_io_lock);
 EXPORT_SYMBOL(ls2k_io_lock);
 u64 loongson_chiptemp[MAX_PACKAGES];
 u32 nr_cpus_loongson;
 u32 cores_per_package;
 u32 loongson_hwmon;
+u32 loongson_apb_war = 1;
+EXPORT_SYMBOL(loongson_apb_war);
 
 void __init mips_reboot_setup(void);
+
+#define PCICFG_BASE      0xfe00000000
 
 void __init device_tree_init(void)
 {
@@ -143,6 +147,29 @@ no_np:
 	return 0;
 }
 
+static int __init setup_apb_war(void)
+{
+	uint64_t addr = 0;
+	uint64_t device = 16;
+	uint64_t function = 0;
+	uint64_t reg = 0;
+	uint32_t data = 0;
+	void *addrp = NULL;
+
+	/*Loongson-2k's apb io issue was fixed when the vpu was added*/
+	addr = (device << 11) | (function << 8) | reg;
+	addrp = (void *)(TO_UNCAC(PCICFG_BASE) | (addr & 0xffff));
+	data = le32_to_cpu(*(volatile unsigned int *)addrp);
+
+	if(0xffffffff != data) {
+		loongson_apb_war = 0;
+	} else {
+		loongson_apb_war = 1;
+	}
+
+	return 0;
+}
+
 void __init plat_mem_setup(void)
 {
 
@@ -168,4 +195,5 @@ int __init ls2k_publish_devices(void)
 
 arch_initcall(setup_package);
 arch_initcall(setup_dma_ops);
+arch_initcall(setup_apb_war);
 device_initcall(ls2k_publish_devices);

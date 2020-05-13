@@ -309,22 +309,21 @@ static inline void iounmap(const volatile void __iomem *addr)
 }
 
 #ifdef CONFIG_CPU_LOONGSON2K
-extern spinlock_t ls2k_io_lock;
+extern raw_spinlock_t ls2k_io_lock;
+extern u32 loongson_apb_war;
 
 #define ls2k_var_apbio() \
-   unsigned long flags;
+   unsigned long flags = 0;
 
 #define ls2k_lock_apbio(addr) \
-   do { \
-       if((addr>=CKSEG1ADDR(0x1fe00000) && addr<CKSEG1ADDR(0x1fe0e000)) || ((addr>=(UNCAC_BASE+0x1fe00000) && addr<(UNCAC_BASE+0x1fe0e000)))) \
-       spin_lock_irqsave(&ls2k_io_lock, flags); \
-   } while(0)
+	if ((1 == loongson_apb_war) && \
+		((addr>=CKSEG1ADDR(0x1fe00000) && addr<CKSEG1ADDR(0x1fe0e000)) || ((addr>=(UNCAC_BASE+0x1fe00000) && addr<(UNCAC_BASE+0x1fe0e000))))) \
+			raw_spin_lock_irqsave(&ls2k_io_lock, flags);
 
 #define ls2k_unlock_apbio(addr) \
-   do { \
-       if((addr>=CKSEG1ADDR(0x1fe00000) && addr<CKSEG1ADDR(0x1fe0e000)) || ((addr>=(UNCAC_BASE+0x1fe00000) && addr<(UNCAC_BASE+0x1fe0e000)))) \
-       spin_unlock_irqrestore(&ls2k_io_lock, flags); \
-   } while(0)
+	if ((1 == loongson_apb_war) && \
+		((addr>=CKSEG1ADDR(0x1fe00000) && addr<CKSEG1ADDR(0x1fe0e000)) || ((addr>=(UNCAC_BASE+0x1fe00000) && addr<(UNCAC_BASE+0x1fe0e000))))) \
+			raw_spin_unlock_irqrestore(&ls2k_io_lock, flags);
 #else
 #define ls2k_var_apbio()
 #define ls2k_lock_apbio(addr)
