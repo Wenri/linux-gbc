@@ -249,6 +249,10 @@ static void kvm_vz_queue_io_int_cb(struct kvm_vcpu *vcpu,
 	 * cp0 accesses
 	 */
 	switch (intr) {
+	case 1:
+		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_FREQ);
+		break;
+
 	case 2:
 		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_IO);
 		break;
@@ -259,10 +263,6 @@ static void kvm_vz_queue_io_int_cb(struct kvm_vcpu *vcpu,
 
 	case 4:
 		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_PM);
-		break;
-
-	case 5:
-		kvm_vz_queue_irq(vcpu, MIPS_EXC_INT_FREQ);
 		break;
 
 	case 6:
@@ -285,6 +285,10 @@ static void kvm_vz_dequeue_io_int_cb(struct kvm_vcpu *vcpu,
 	 * cp0 accesses
 	 */
 	switch (intr) {
+	case -1:
+		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_FREQ);
+		break;
+
 	case -2:
 		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_IO);
 		break;
@@ -297,16 +301,10 @@ static void kvm_vz_dequeue_io_int_cb(struct kvm_vcpu *vcpu,
 		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_PM);
 		break;
 
-	case -5:
-		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_FREQ);
-		break;
-
 	case -6:
 		kvm_vz_dequeue_irq(vcpu, MIPS_EXC_INT_IPI);
  		break;
  
-		break;
-
 	default:
 		break;
 	}
@@ -319,7 +317,7 @@ static u32 kvm_vz_priority_to_irq[MIPS_EXC_MAX] = {
 	[MIPS_EXC_INT_HT]    = C_IRQ1,
 	[MIPS_EXC_INT_IPI]   = C_IRQ4,
 	[MIPS_EXC_INT_PM]    = C_IRQ2,
-	[MIPS_EXC_INT_FREQ]  = C_IRQ3,
+	[MIPS_EXC_INT_FREQ]  = C_SW1,
 };
 
 static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
@@ -333,11 +331,13 @@ static int kvm_vz_irq_deliver_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 		set_gc0_cause(C_TI);
 		break;
 
+	case MIPS_EXC_INT_FREQ:
+		set_gc0_cause(irq);
+		break;
 	case MIPS_EXC_INT_IO:
 	case MIPS_EXC_INT_HT:
 	case MIPS_EXC_INT_IPI:
 	case MIPS_EXC_INT_PM:
-	case MIPS_EXC_INT_FREQ:
 		if (cpu_has_guestctl2)
 			set_c0_guestctl2(irq);
 		else
@@ -374,11 +374,13 @@ static int kvm_vz_irq_clear_cb(struct kvm_vcpu *vcpu, unsigned int priority,
 		}
 		break;
 
+	case MIPS_EXC_INT_FREQ:
+		clear_gc0_cause(irq);
+		break;
 	case MIPS_EXC_INT_IO:
 	case MIPS_EXC_INT_HT:
 	case MIPS_EXC_INT_IPI:
 	case MIPS_EXC_INT_PM:
-	case MIPS_EXC_INT_FREQ:
 		/* Clear GuestCtl2.VIP irq if not using Hardware Clear */
 		if (cpu_has_guestctl2) {
 			if (!(read_c0_guestctl2() & (irq << 14)))

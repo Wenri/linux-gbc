@@ -137,6 +137,7 @@ int stable_clockevent_init(void)
 		/* Loongson3A2000 and Loongson3A3000 has no stable timer */
 		return -ENXIO;
 	case CPU_LOONGSON3_COMP:
+		ls_stable_freq = calc_const_freq();
 		break;
 	default:
 		return -ENXIO;
