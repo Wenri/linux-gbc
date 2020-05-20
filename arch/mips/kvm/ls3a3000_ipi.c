@@ -43,6 +43,7 @@ static int ls3a_gipi_writel(struct loongson_kvm_ls3a_ipi * ipi, gpa_t addr, int 
 			irq.cpu = no;
 			irq.irq = 6;
 			kvm_vcpu_ioctl_interrupt(kvm->vcpus[no],&irq);
+			kvm_vcpu_kick(kvm->vcpus[no]);
 			break;
 
 		case CORE0_CLEAR_OFF:
