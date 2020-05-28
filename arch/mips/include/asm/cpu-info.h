@@ -87,6 +87,11 @@ struct cpuinfo_mips {
 	void			*data;	/* Additional data */
 	u16			watch_reg_masks[NUM_WATCH_REGS];
 	unsigned int		kscratch_mask; /* Usable KScratch mask. */
+	/*
+	 * Cache Coherency attribute for write-combine memory writes.
+	 * (shifted by _CACHE_SHIFT)
+	 */
+	unsigned int		writecombine;
 	int			package;/* physical package number */
 	int			core;	/* physical core number */
 #if defined(CONFIG_CPU_LOONGSON3) || defined(CONFIG_CPU_LOONGSON2K)
