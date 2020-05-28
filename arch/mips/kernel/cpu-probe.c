@@ -1422,6 +1422,7 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV;
 #else
 		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
 #endif
 		break;
 	case PRID_IMP_LOONGSON2K:
@@ -1450,6 +1451,7 @@ static inline void cpu_probe_loongson(struct cpuinfo_mips *c, unsigned int cpu)
 		__cpu_full_name[cpu] = "ICT Loongson-3A R4 (Loongson-3A4000)";
 		decode_configs(c);
 		c->options |= MIPS_CPU_FTLB | MIPS_CPU_TLBINV | MIPS_CPU_LDPTE;
+		c->writecombine = _CACHE_UNCACHED_ACCELERATED;
 		c->lses |= MIPS_LSE_CPUCFG;
 		if (read_cfg(LOONGSON_CPUCFG_CONFIG_FIELD2) & MIPS_LSE_LAMO){
 			c->lses |= MIPS_HAS_LSE_LAMO;
