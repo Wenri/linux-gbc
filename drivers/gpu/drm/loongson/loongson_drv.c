@@ -29,11 +29,6 @@
 #include <linux/string.h>
 #include <linux/vga_switcheroo.h>
 #include "loongson_drv.h"
-#ifdef CONFIG_CPU_LOONGSON2K
-#include "ls2k.h"
-#else
-#include <loongson-pch.h>
-#endif
 
 #define DEVICE_NAME     "loongson-drm"
 #define DRIVER_NAME	"loongson-drm"
@@ -43,9 +38,7 @@
 #define DRIVER_MINOR	2
 #define DRIVER_PATCHLEVEL	0
 
-#ifdef CONFIG_CPU_LOONGSON2K
 struct mutex ls_dc_mutex;
-#endif
 
 u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset)
 {
@@ -214,7 +207,6 @@ static const struct drm_mode_config_funcs loongson_mode_funcs = {
 	.fb_create = loongson_user_framebuffer_create,
 };
 
-#ifndef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 /**
  * loongson_probe_vram
  *
@@ -268,7 +260,6 @@ loongson_probe_vram(struct loongson_device *ldev, void __iomem *mem)
 	DRM_INFO("loongson vram test success.\n");
 	return offset - 65536;
 }
-#endif
 
 #ifdef CONFIG_CPU_SUPPORTS_UNCACHED_ACCELERATED
 static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev,
@@ -308,31 +299,30 @@ static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev,
  */
 static int loongson_vram_init(struct loongson_device *ldev)
 {
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	struct resource *r;
-#else
-	struct pci_dev *vram_pdev;
 	void __iomem *mem;
-#endif
 	struct apertures_struct *aper = alloc_apertures(1);
 	if (!aper)
 		return -ENOMEM;
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-	ldev->vram_pdev = ldev->dev->platformdev;
-	/* BAR 0 is VRAM */
-	r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 1);
-	ldev->mc.vram_base  = r->start;
-	ldev->mc.vram_window  = r->end - r->start + 1;
 
-    	ldev->mc.vram_size = ldev->mc.vram_window;
-#else
-	vram_pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON,
-			PCI_DEVICE_ID_LOONGSON_GPU, NULL);
-	ldev->vram_pdev = vram_pdev;
-	/* BAR 0 is VRAM */
-	ldev->mc.vram_base = pci_resource_start(ldev->vram_pdev, 2);
-	ldev->mc.vram_window = pci_resource_len(ldev->vram_pdev, 2);
-#endif
+	switch (ldev->gpu) {
+	case LS7A_GPU:
+		ldev->vram_pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON,
+				PCI_DEVICE_ID_LOONGSON_GPU, NULL);
+		/* BAR 0 is VRAM */
+		ldev->mc.vram_base = pci_resource_start(ldev->vram_pdev, 2);
+		ldev->mc.vram_window = pci_resource_len(ldev->vram_pdev, 2);
+		break;
+	case LS2K_GPU:
+		ldev->vram_pdev = ldev->dev->platformdev;
+		/* BAR 0 is VRAM */
+		r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 1);
+		ldev->mc.vram_base  = r->start;
+		ldev->mc.vram_window  = r->end - r->start + 1;
+		ldev->mc.vram_size = ldev->mc.vram_window;
+		break;
+	}
+
 	aper->ranges[0].base = ldev->mc.vram_base;
 	aper->ranges[0].size = ldev->mc.vram_window;
 
@@ -374,23 +364,24 @@ static int loongson_device_init(struct drm_device *dev,
 {
 	struct loongson_device *ldev = dev->dev_private;
 	int ret;
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	struct resource *r;
-#endif
 
 	loongson_vbios_init(ldev);
 	ldev->num_crtc = ldev->vbios->crtc_num;
 	ldev->fb_vram_base = 0x0;
 
 	/*BAR 0 contains registers */
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-	r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 0);
-	ldev->rmmio_base = r->start;
-	ldev->rmmio_size = r->end - r->start + 1;
-#else
-	ldev->rmmio_base = pci_resource_start(ldev->dev->pdev, 0);
-	ldev->rmmio_size = pci_resource_len(ldev->dev->pdev, 0);
-#endif
+	switch (ldev->gpu) {
+	case LS7A_GPU:
+		ldev->rmmio_base = pci_resource_start(ldev->dev->pdev, 0);
+		ldev->rmmio_size = pci_resource_len(ldev->dev->pdev, 0);
+		break;
+	case LS2K_GPU:
+		r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 0);
+		ldev->rmmio_base = r->start;
+		ldev->rmmio_size = r->end - r->start + 1;
+		break;
+	}
 
 	if (!devm_request_mem_region(ldev->dev->dev, ldev->rmmio_base,
 			ldev->rmmio_size, "loongsonfb_mmio")) {
@@ -716,11 +707,9 @@ static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 		return -ENOMEM;
 	dev->dev_private = (void *)ldev;
 	ldev->dev = dev;
-#ifdef CONFIG_CPU_LOONGSON2K
+	ldev->gpu = loongson_find_gpu();
 	mutex_init(&ls_dc_mutex);
-#else
 	spin_lock_init(&ldev->mmio_lock);
-#endif
 
 	ret = loongson_device_init(dev, flags);
 	DRM_DEBUG("end loongson drm device init.\n");
@@ -986,10 +975,7 @@ static struct drm_driver loongson_kms_driver = {
 		.load = loongson_load_kms,
 		.unload = loongson_unload_kms,
 		.open = loongson_open_kms,
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-#else
 		.set_busid = drm_pci_set_busid,
-#endif
 		.fops = &loongson_drm_driver_fops,
 		.gem_free_object = loongson_gem_free_object,
 		.dumb_create = loongson_dumb_create,
@@ -1005,18 +991,15 @@ static struct drm_driver loongson_kms_driver = {
 		.patchlevel = DRIVER_PATCHLEVEL,
 };
 
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-static int loongson_vga_platform_probe(struct platform_device *pdev)
+static int loongson_platform_probe(struct platform_device *pdev)
 {
-	printk(KERN_ERR "loongson_vga_platform_probe\n");
 	return drm_platform_init(&loongson_kms_driver, pdev);
 }
 
-static int loongson_vga_platform_remove(struct platform_device *pdev)
+static int loongson_platform_remove(struct platform_device *pdev)
 {
 	return 0;
 }
-#else
 
 /**
  * pciidlist -- loongson pci device id
@@ -1053,7 +1036,6 @@ static void loongson_pci_remove(struct pci_dev *pdev)
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	drm_put_dev(dev);
 }
-#endif
 
 /*loongson_drm_suspend - initiate device suspend
  *
@@ -1116,13 +1098,9 @@ int loongson_drm_resume(struct drm_device *dev)
  */
 static int loongson_pmops_suspend(struct device *dev)
 {
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	return loongson_drm_suspend(drm_dev);
-#endif
 }
 
 /**
@@ -1135,14 +1113,10 @@ static int loongson_pmops_suspend(struct device *dev)
  */
 static int loongson_pmops_resume(struct device *dev)
 {
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	DRM_DEBUG("loongson_drm_pm_resume");
 	return loongson_drm_resume(drm_dev);
-#endif
 }
 
 /**
@@ -1155,9 +1129,6 @@ static int loongson_pmops_resume(struct device *dev)
  */
 static int loongson_pmops_freeze(struct device *dev)
 {
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
-#else
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
 	struct drm_connector *connector;
@@ -1170,10 +1141,7 @@ static int loongson_pmops_freeze(struct device *dev)
 	}
 	drm_modeset_unlock_all(drm_dev);
 	return 0;
-#endif
 }
-
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 
 #ifdef CONFIG_OF
 static struct of_device_id ls_fb_id_table[] = {
@@ -1181,15 +1149,10 @@ static struct of_device_id ls_fb_id_table[] = {
 	{},
 };
 #endif
-static struct platform_driver loongson_vga_platform_driver = {
-	.probe	= loongson_vga_platform_probe,
-	.remove = loongson_vga_platform_remove,
-#if 0
-#ifdef	CONFIG_SUSPEND
-	.suspend = ls_fb_suspend,
-	.resume	 = ls_fb_resume,
-#endif
-#endif
+
+static struct platform_driver loongson_platform_driver = {
+	.probe	= loongson_platform_probe,
+	.remove = loongson_platform_remove,
 	.driver = {
 		.owner  = THIS_MODULE,
 		.name	= "ls-fb",
@@ -1200,32 +1163,6 @@ static struct platform_driver loongson_vga_platform_driver = {
 	},
 };
 
-/**
- * loongson_vga_pci_init()  -- kernel module init function
- */
-static int __init loongson_vga_platform_init(void)
-{
-	int ret;
-	struct pci_dev *pdev = NULL;
-	/*if PCIE Graphics card exist,use it as default*/
-	pdev = pci_get_device(PCI_VENDOR_ID_ATI, PCI_ANY_ID, NULL);
-	if(pdev)
-		return 0;
-	ret = platform_driver_register(&loongson_vga_platform_driver);
-	return ret;
-}
-
-/**
- * loongson_vga_pci_exit()  -- kernel module exit function
- */
-static void __exit loongson_vga_platform_exit(void)
-{
-	platform_driver_unregister(&loongson_vga_platform_driver);
-}
-
-module_init(loongson_vga_platform_init);
-module_exit(loongson_vga_platform_exit);
-#else
 /*
  * * struct dev_pm_ops - device PM callbacks
  *
@@ -1274,22 +1211,50 @@ static struct pci_driver loongson_pci_driver = {
 	.driver.pm	= &loongson_pmops,
 };
 
+enum loongson_gpu loongson_find_gpu(void)
+{
+	struct pci_dev *pdev = NULL;
+	enum loongson_gpu gpu;
+
+	pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_DC, NULL);
+	if (pdev)
+		gpu = LS7A_GPU;
+	else
+		gpu = LS2K_GPU;
+
+	return gpu;
+}
+
 /**
- * loongson_vga_pci_init()  -- kernel module init function
+ * loongson_init()  -- kernel module init function
  */
 static int __init loongson_init(void)
 {
+	int ret = -1;
+	enum loongson_gpu gpu;
 	struct pci_dev *pdev = NULL;
-	/* External card first */
-	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
-		if (pdev->vendor == PCI_VENDOR_ID_ATI)
-			return 0;
-		if (pdev->vendor == 0x1a03) /* ASpeed */
-			return 0;
-	}
-	DRM_INFO("loongson kernel modesetting enabled.\n");
 
-	return pci_register_driver(&loongson_pci_driver);
+	for_each_pci_dev(pdev) {
+		if ((pdev->class >> 16) == 0x3) {
+			if (pdev->vendor == PCI_VENDOR_ID_ATI)
+				return 0;
+			if (pdev->vendor == 0x1a03) /* ASpeed */
+				return 0;
+		}
+	}
+
+	gpu = loongson_find_gpu();
+	DRM_INFO("loongson_drm find device %d\n", gpu);
+	switch (gpu) {
+	case LS7A_GPU:
+		ret = pci_register_driver(&loongson_pci_driver);
+		break;
+	case LS2K_GPU:
+		ret = platform_driver_register(&loongson_platform_driver);
+		break;
+	}
+
+	return ret;
 }
 
 /**
@@ -1297,12 +1262,21 @@ static int __init loongson_init(void)
  */
 static void __exit loongson_exit(void)
 {
-	pci_unregister_driver (&loongson_pci_driver);
+	enum loongson_gpu gpu;
+
+	gpu = loongson_find_gpu();
+	switch (gpu) {
+	case LS7A_GPU:
+		pci_unregister_driver (&loongson_pci_driver);
+		break;
+	case LS2K_GPU:
+		platform_driver_unregister(&loongson_platform_driver);
+		break;
+	}
 }
 
 module_init(loongson_init);
 module_exit(loongson_exit);
-#endif
 MODULE_AUTHOR("Zhu Chen <zhuchen@loongson.cn>");
 MODULE_DESCRIPTION("DRIVER_DESC");
 MODULE_LICENSE("GPL");
