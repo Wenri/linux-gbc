@@ -259,8 +259,14 @@ struct loongson_fbdev {
 	spinlock_t dirty_lock;
 };
 
+enum loongson_gpu {
+	LS7A_GPU,
+	LS2K_GPU,
+};
+
 struct loongson_device {
 	struct drm_device		*dev;
+	enum loongson_gpu 		gpu;
 
 	resource_size_t			rmmio_base;
 	resource_size_t			rmmio_size;
@@ -386,6 +392,7 @@ bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 struct loongson_i2c *loongson_i2c_bus_match(struct loongson_device *ldev, unsigned int i2c_id);
 void loongson_connector_resume(struct loongson_device *ldev);
 
+enum loongson_gpu loongson_find_gpu(void);
 u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset);
 void ls_mm_wreg(struct loongson_device *ldev, u32 offset, u32 val);
 u32 ls_mm_rreg_locked(struct loongson_device *ldev, u32 offset);

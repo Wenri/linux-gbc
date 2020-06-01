@@ -11,11 +11,6 @@
  */
 
 #include "loongson_drv.h"
-#ifdef CONFIG_CPU_LOONGSON2K
-#include "ls2k.h"
-#else
-#include <loongson-pch.h>
-#endif
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_plane_helper.h>
@@ -292,7 +287,7 @@ static void config_pll(struct loongson_device *ldev,
 	unsigned long val;
 
 #ifdef CONFIG_CPU_LOONGSON2K
-        /* set sel_pll_out0 0 */
+	/* set sel_pll_out0 0 */
 	val = ls_readq(pll_base);
 	val &= ~(1UL << 0);
 	ls_writeq(val, pll_base);
@@ -573,19 +568,19 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 				pix_freq, x, y);
 	}
 
-#ifdef CONFIG_CPU_LOONGSON2K
-	if (crtc_id) {
-		reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
-		reg_val &= ~LS_FB_CFG_RESET;
-		reg_val &= ~LS_FB_CFG_ENABLE;
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, reg_val);
-	} else {
-		reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
-		reg_val &= ~LS_FB_CFG_RESET;
-		reg_val &= ~LS_FB_CFG_ENABLE;
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, reg_val);
+	if (ldev->gpu == LS2K_GPU) {
+		if (crtc_id) {
+			reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
+			reg_val &= ~LS_FB_CFG_RESET;
+			reg_val &= ~LS_FB_CFG_ENABLE;
+			ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, reg_val);
+		} else {
+			reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
+			reg_val &= ~LS_FB_CFG_RESET;
+			reg_val &= ~LS_FB_CFG_ENABLE;
+			ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, reg_val);
+		}
 	}
-#endif /*CONFIG_CPU_LOONGSON2K*/
 
 	loongson_crtc->width = hr;
 	loongson_crtc->height = vr;

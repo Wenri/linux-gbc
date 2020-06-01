@@ -21,15 +21,12 @@
 #include <linux/gpio.h>
 #include <linux/pwm.h>
 #include <linux/moduleparam.h>
-
 #include "loongson_drv.h"
 
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 static struct eep_info{
 	struct i2c_adapter *adapter;
 	unsigned short addr;
 }eeprom_info[2];
-#endif
 
 /**
  * loongson_connector_best_encoder
@@ -103,24 +100,28 @@ loongson_do_probe_ddc_edid(struct i2c_adapter *adapter, unsigned char *buf)
 static bool
 loongson_i2c_connector(struct loongson_connector *ls_connector, unsigned char *buf)
 {
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
 	int id  = ls_connector->connector_id;
-	if (id >> 1) {
-		DRM_INFO("lson 2k i2c apapter err");
-		return false;
+	switch (ls_connector->ldev->gpu) {
+	case LS7A_GPU:
+		if (ls_connector->i2c != NULL && ls_connector->i2c->adapter != NULL)
+			return loongson_do_probe_ddc_edid(ls_connector->i2c->adapter, buf);
+		else{
+			DRM_INFO_ONCE("get loongson connector adapter err\n");
+			return false;
+		}
+		break;
+	case LS2K_GPU:
+		if (id >> 1) {
+			DRM_INFO("lson 2k i2c apapter err");
+			return false;
+		}
+		if (eeprom_info[id].adapter)
+			return loongson_do_probe_ddc_edid(eeprom_info[id].adapter, buf);
+		else
+			return false;
+		break;
 	}
-	if (eeprom_info[id].adapter)
-		return loongson_do_probe_ddc_edid(eeprom_info[id].adapter, buf);
-	else
-		return false;
-#else
-	if (ls_connector->i2c != NULL && ls_connector->i2c->adapter != NULL)
-		return loongson_do_probe_ddc_edid(ls_connector->i2c->adapter, buf);
-	else{
-		DRM_INFO_ONCE("get loongson connector adapter err\n");
-		return false;
-	}
-#endif
+	return false;
 }
 
 /**
@@ -202,7 +203,6 @@ loongson_connector_detect(struct drm_connector *connector, bool force)
 	enum drm_connector_status ret = connector_status_disconnected;
 	enum loongson_edid_method ledid_method;
 	unsigned char buf[EDID_LENGTH *2];
-	int i;
 
 	ls_connector = to_loongson_connector(connector);
 	lsvbios_conn = ls_connector->vbios_connector;
@@ -217,9 +217,8 @@ loongson_connector_detect(struct drm_connector *connector, bool force)
 	case edid_method_i2c:
 	case edid_method_null:
 	case edid_method_max:
-		i = pm_runtime_get_sync(connector->dev->dev);
-		if (i < 0)
-			break;
+		if (ls_connector->ldev->gpu == LS7A_GPU)
+			pm_runtime_get_sync(connector->dev->dev);
 
 		if (loongson_i2c_connector(ls_connector, buf) == true) {
 			DRM_INFO_ONCE("Loongson connector%d connected",
@@ -631,8 +630,6 @@ static const struct drm_connector_funcs loongson_connector_funcs = {
         .destroy = loongson_connector_destroy,
 };
 
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-
 static const struct i2c_device_id dvi_eep_ids[] = {
 	{ "dvi-eeprom-edid", 0 },
 	{ /* END OF LIST */ }
@@ -685,8 +682,6 @@ static struct i2c_driver dvi_eep_driver = {
 	.id_table = dvi_eep_ids,
 };
 
-#endif
-
 /**
  * loongson_connector_init
  *
@@ -712,19 +707,24 @@ struct loongson_connector
 	ls_connector->ldev = ldev;
 	ls_connector->connector_id = index;
 
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-	if(index == 0){
-		i2c_add_driver(&dvi_eep_driver);
-	}else{
-		i2c_add_driver(&vga_eep_driver);
+	switch (ldev->gpu) {
+	case LS7A_GPU:
+		ls_connector->i2c =
+			loongson_i2c_bus_match(ldev,lsvbios_connector->i2c_id);
+		if (!ls_connector->i2c) {
+			DRM_INFO("lson connector-%d match i2c-%d err\n",
+					index, lsvbios_connector->i2c_id);
+		}
+		break;
+	case LS2K_GPU:
+		if(index == 0){
+			i2c_add_driver(&dvi_eep_driver);
+		}else{
+			i2c_add_driver(&vga_eep_driver);
+		}
+		break;
 	}
-#else
-	ls_connector->i2c = loongson_i2c_bus_match(ldev,lsvbios_connector->i2c_id);
-	if (!ls_connector->i2c) {
-		DRM_INFO("lson connector-%d match i2c-%d err\n",
-				index, lsvbios_connector->i2c_id);
-	}
-#endif
+
 	connector = &ls_connector->base;
 	connector->connector_type_id = lsvbios_connector->type;
 
