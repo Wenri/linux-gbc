@@ -205,60 +205,6 @@ static const struct drm_mode_config_funcs loongson_mode_funcs = {
 	.fb_create = loongson_user_framebuffer_create,
 };
 
-/**
- * loongson_probe_vram
- *
- * @ldev  pointer to loongson_device
- * @mem   vram memory pointer
- *
- * RETURN
- *  probe read/write vram result
- */
-static int
-loongson_probe_vram(struct loongson_device *ldev, void __iomem *mem)
-{
-	int offset;
-	int orig;
-	int test1, test2;
-	int orig1, orig2;
-	unsigned int vram_size;
-
-	/* Probe */
-	orig = ioread16(mem);
-	iowrite16(0, mem);
-
-	vram_size = ldev->mc.vram_window;
-
-	/*vram read and write test*/
-
-	for (offset = 0x100000; offset < vram_size; offset += 0x4000) {
-		orig1 = ioread8(mem + offset);
-		orig2 = ioread8(mem + offset + 0x100);
-
-		iowrite16(0xaa55, mem + offset);
-		iowrite16(0xaa55, mem + offset + 0x100);
-
-		test1 = ioread16(mem + offset);
-		test2 = ioread16(mem);
-
-		iowrite16(orig1, mem + offset);
-		iowrite16(orig2, mem + offset + 0x100);
-
-		if (test1 != 0xaa55) {
-			break;
-		}
-
-		if (test2) {
-			break;
-		}
-	}
-
-	iowrite16(orig, mem);
-
-	DRM_INFO("loongson vram test success.\n");
-	return offset - 65536;
-}
-
 #ifdef CONFIG_CPU_SUPPORTS_UNCACHED_ACCELERATED
 static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev,
 			int bar,
@@ -298,7 +244,6 @@ static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev,
 static int loongson_vram_init(struct loongson_device *ldev)
 {
 	struct resource *r;
-	void __iomem *mem;
 	struct apertures_struct *aper = alloc_apertures(1);
 	if (!aper)
 		return -ENOMEM;
@@ -310,16 +255,20 @@ static int loongson_vram_init(struct loongson_device *ldev)
 		/* BAR 0 is VRAM */
 		ldev->mc.vram_base = pci_resource_start(ldev->vram_pdev, 2);
 		ldev->mc.vram_window = pci_resource_len(ldev->vram_pdev, 2);
+		ldev->mc.vram_size = ldev->mc.vram_window;
 		break;
 	case LS2K_GPU:
-		ldev->vram_pdev = ldev->dev->platformdev;
+		ldev->vram_plat_dev = ldev->dev->platformdev;
 		/* BAR 0 is VRAM */
-		r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 1);
+		r = platform_get_resource(ldev->vram_plat_dev, IORESOURCE_MEM, 1);
 		ldev->mc.vram_base  = r->start;
 		ldev->mc.vram_window  = r->end - r->start + 1;
 		ldev->mc.vram_size = ldev->mc.vram_window;
 		break;
 	}
+
+	DRM_INFO("vram base: 0x%llx, size: 0x%llx\n",
+			ldev->mc.vram_base, ldev->mc.vram_size);
 
 	aper->ranges[0].base = ldev->mc.vram_base;
 	aper->ranges[0].size = ldev->mc.vram_window;
@@ -332,18 +281,6 @@ static int loongson_vram_init(struct loongson_device *ldev)
 		DRM_ERROR("can't reserve VRAM\n");
 		return -ENXIO;
 	}
-
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-#else
-#ifdef CONFIG_CPU_SUPPORTS_UNCACHED_ACCELERATED
-	mem = ls_uncache_acc_iomap(ldev->vram_pdev, 2, 0, 0);
-#else
-	mem = pci_iomap(ldev->vram_pdev, 2, 0);
-#endif
-	ldev->mc.vram_size = loongson_probe_vram(ldev, mem);
-
-	pci_iounmap(ldev->vram_pdev, mem);
-#endif
 
 	return 0;
 }
@@ -1246,7 +1183,6 @@ static int __init loongson_init(void)
 	}
 
 	gpu = loongson_find_gpu();
-	DRM_INFO("loongson_drm find device %d\n", gpu);
 	switch (gpu) {
 	case LS7A_GPU:
 		ret = pci_register_driver(&loongson_pci_driver);

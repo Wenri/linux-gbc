@@ -254,11 +254,8 @@ struct loongson_device {
 	struct loongson_fbdev *lfbdev;
 	struct loongson_cursor cursor;
 
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-	struct platform_device *vram_pdev;	/**< PCI device structure */
-#else
-	struct pci_dev *vram_pdev;		/**< PCI device structure */
-#endif
+	struct platform_device *vram_plat_dev;	/* platform device structure */
+	struct pci_dev *vram_pdev;		/* PCI device structure */
 
 	bool				suspended;
 	int				num_crtc;
