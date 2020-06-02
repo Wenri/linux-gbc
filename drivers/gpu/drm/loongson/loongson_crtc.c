@@ -286,87 +286,90 @@ static void config_pll(struct loongson_device *ldev,
 {
 	unsigned long val;
 
-#ifdef CONFIG_CPU_LOONGSON2K
-	/* set sel_pll_out0 0 */
-	val = ls_readq(pll_base);
-	val &= ~(1UL << 0);
-	ls_writeq(val, pll_base);
+	switch (ldev->gpu) {
+	case LS2K_GPU:
+		/* set sel_pll_out0 0 */
+		val = ls_io_rreg_locked(ldev, pll_base);
+		val &= ~(1UL << 0);
+		ls_io_wreg_locked(ldev, pll_base, val);
 
-	/* pll_pd 1 */
-	val = ls_readq(pll_base);
-	val |= (1UL << 19);
-	ls_writeq(val, pll_base);
+		/* pll_pd 1 */
+		val = ls_io_rreg_locked(ldev, pll_base);
+		val |= (1UL << 19);
+		ls_io_wreg_locked(ldev, pll_base, val);
 
-	/* set_pll_param 0 */
-	val = ls_readq(pll_base);
-	val &= ~(1UL << 2);
-	ls_writeq(val, pll_base);
+		/* set_pll_param 0 */
+		val = ls_io_rreg_locked(ldev, pll_base);
+		val &= ~(1UL << 2);
+		ls_io_wreg_locked(ldev, pll_base, val);
 
-	/* set new div ref, loopc, div out */
-	/* clear old value first*/
-	val = (1 << 7) | (1L << 42) | (3 << 10) |
-		((unsigned long)(pll_cfg->l1_loopc) << 32) |
-		((unsigned long)(pll_cfg->l1_frefc) << 26);
-	ls_writeq(val, pll_base);
-	ls_writeq(pll_cfg->l2_div, pll_base + 8);
+		/* set new div ref, loopc, div out */
+		/* clear old value first*/
+		val = (1 << 7) | (1L << 42) | (3 << 10) |
+			((unsigned long)(pll_cfg->l1_loopc) << 32) |
+			((unsigned long)(pll_cfg->l1_frefc) << 26);
+		ls_io_wreg_locked(ldev, pll_base, val);
+		ls_io_wreg_locked(ldev, pll_base + 8, pll_cfg->l2_div);
 
-	/* set_pll_param 1 */
-	val = ls_readq(pll_base);
-	val |= (1UL << 2);
-	ls_writeq(val, pll_base);
+		/* set_pll_param 1 */
+		val = ls_io_rreg_locked(ldev, pll_base);
+		val |= (1UL << 2);
+		ls_io_wreg_locked(ldev, pll_base, val);
 
-	/* pll_pd 0 */
-	val = ls_readq(pll_base);
-	val &= ~(1UL << 19);
-	ls_writeq(val, pll_base);
+		/* pll_pd 0 */
+		val = ls_io_rreg_locked(ldev, pll_base);
+		val &= ~(1UL << 19);
+		ls_io_wreg_locked(ldev, pll_base, val);
 
-	/* wait pll lock */
-	while(!(ls_readl(pll_base) & 0x10000));
-	/* set sel_pll_out0 1 */
-	val = ls_readq(pll_base);
-	val |= (1UL << 0);
-	ls_writeq(val, pll_base);
-#else
-	/* clear sel_pll_out0 */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val &= ~(1UL << 8);
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-	/* set pll_pd */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val |= (1UL << 13);
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-	/* clear set_pll_param */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val &= ~(1UL << 11);
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-	/* clear old value & config new value */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val &= ~(0x7fUL << 0);
-	val |= (pll_cfg->l1_frefc << 0); /* refc */
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-	val = ls_io_rreg(ldev, pll_base + 0x0);
-	val &= ~(0x7fUL << 0);
-	val |= (pll_cfg->l2_div << 0);   /* div */
-	val &= ~(0x1ffUL << 21);
+		/* wait pll lock 32bit */
+		while(!(ls_io_rreg_locked(ldev, pll_base) & 0x10000));
+		/* set sel_pll_out0 1 */
+		val = ls_io_rreg_locked(ldev, pll_base);
+		val |= (1UL << 0);
+		ls_io_wreg_locked(ldev, pll_base, val);
+		break;
+	case LS7A_GPU:
+		/* clear sel_pll_out0 */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val &= ~(1UL << 8);
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		/* set pll_pd */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val |= (1UL << 13);
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		/* clear set_pll_param */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val &= ~(1UL << 11);
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		/* clear old value & config new value */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val &= ~(0x7fUL << 0);
+		val |= (pll_cfg->l1_frefc << 0); /* refc */
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		val = ls_io_rreg(ldev, pll_base + 0x0);
+		val &= ~(0x7fUL << 0);
+		val |= (pll_cfg->l2_div << 0);   /* div */
+		val &= ~(0x1ffUL << 21);
 
-	val |= (pll_cfg->l1_loopc << 21);/* loopc */
-	ls_io_wreg(ldev, pll_base + 0x0, val);
-	/* set set_pll_param */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val |= (1UL << 11);
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-	/* clear pll_pd */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val &= ~(1UL << 13);
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-	/* wait pll lock */
-	while(!(ls_io_rreg(ldev, pll_base + 0x4) & 0x80))
-		cpu_relax();
-	/* set sel_pll_out0 */
-	val = ls_io_rreg(ldev, pll_base + 0x4);
-	val |= (1UL << 8);
-	ls_io_wreg(ldev, pll_base + 0x4, val);
-#endif
+		val |= (pll_cfg->l1_loopc << 21);/* loopc */
+		ls_io_wreg(ldev, pll_base + 0x0, val);
+		/* set set_pll_param */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val |= (1UL << 11);
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		/* clear pll_pd */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val &= ~(1UL << 13);
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		/* wait pll lock */
+		while(!(ls_io_rreg(ldev, pll_base + 0x4) & 0x80))
+			cpu_relax();
+		/* set sel_pll_out0 */
+		val = ls_io_rreg(ldev, pll_base + 0x4);
+		val |= (1UL << 8);
+		ls_io_wreg(ldev, pll_base + 0x4, val);
+		break;
+	}
 }
 
 /**
