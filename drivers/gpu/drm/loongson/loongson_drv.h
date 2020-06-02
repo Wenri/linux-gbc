@@ -17,11 +17,6 @@
 
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
-#ifdef CONFIG_CPU_LOONGSON2K
-#include "ls2k.h"
-#else
-#include <loongson-pch.h>
-#endif
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -56,30 +51,10 @@ struct loongson_connector;
 
 #define gem_to_loongson_bo(gobj) container_of((gobj), struct loongson_bo, gem)
 
-#ifdef CONFIG_CPU_LOONGSON2K
-#define RREG32(reg) ls2k_readl((void __iomem *)(ldev->rmmio) + (reg))
-#define WREG32(reg, v) ls2k_writel(v, (void __iomem *)(ldev->rmmio) + (reg))
-#define PD_DC_PLL			19
-#define LS_PIX0_PLL			LS2K_PIX0_PLL
-#define LS_PIX1_PLL			LS2K_PIX1_PLL
-
-extern struct mutex ls_dc_mutex;
-#define ls_dc_write(val, addr)          \
-	do {                                \
-		mutex_lock(&ls_dc_mutex);          \
-		*(volatile unsigned long __force *)TO_UNCAC(addr) = (val); \
-		mutex_unlock(&ls_dc_mutex);        \
-	}while(0)
-
-#define ls_readl			ls2k_readl
-#define ls_readq			ls2k_readq
-#define ls_writel			ls_dc_write
-#define ls_writeq			ls_dc_write
-#else
-#define LS7A_CHIP_CFG_REG_BASE      	(LS7A_PCH_REG_BASE + 0x00010000)
+#define LS2K_CHIP_CFG_REG_BASE		(0x1fe10000)
+#define LS7A_CHIP_CFG_REG_BASE      	(0x10010000)
 #define LS_PIX0_PLL                  	(0x04b0)
 #define LS_PIX1_PLL 			(0x04c0)
-#endif
 
 #define CURIOSET_CORLOR			0x4607
 #define CURIOSET_POSITION		0x4608
@@ -400,6 +375,6 @@ void ls_mm_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val);
 
 u32 ls_io_rreg(struct loongson_device *ldev, u32 offset);
 void ls_io_wreg(struct loongson_device *ldev, u32 offset, u32 val);
-u32 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset);
-void ls_io_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val);
+u64 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset);
+void ls_io_wreg_locked(struct loongson_device *ldev, u32 offset, u64 val);
 #endif
