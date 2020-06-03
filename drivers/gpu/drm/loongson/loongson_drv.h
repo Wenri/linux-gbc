@@ -392,10 +392,7 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc, struct drm_file *file_priv,
 		int32_t hot_x, int32_t hot_y);
 int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y);
 
-void * loongson_vbios_test(void);
-int loongson_vbios_init(struct loongson_device *ldev);
-int loongson_vbios_information_display(struct loongson_device *ldev);
-
+int loongson_vbios_init_legacy(struct loongson_device *ldev);
 void loongson_encoder_resume(struct loongson_device *ldev);
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 		struct drm_display_mode *mode);
