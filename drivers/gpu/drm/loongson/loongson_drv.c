@@ -445,7 +445,7 @@ void loongson_i2c_add(struct loongson_device *ldev,
 	if (ls_i2c != NULL)
 		return;
 
-	for(i = 0; i < LS_MAX_I2C_BUS; i ++){
+	for (i = 0; i < LS_MAX_I2C_BUS; i++) {
 		if (ldev->i2c_bus[i].used == false) {
 			ldev->i2c_bus[i].i2c_id = i2c_id;
 			ldev->i2c_bus[i].ldev = ldev;
@@ -470,7 +470,7 @@ static void loongson_pre_i2c_bus(struct loongson_device *ldev)
 	encoder_num = ldev->vbios->encoder_num;
 	connector_num = ldev->vbios->connector_num;
 
-	for (i = 0; i < encoder_num; i++ ) {
+	for (i = 0; i < encoder_num; i++) {
 		i2c_id = ldev->encoder_vbios[i]->i2c_id;
 		loongson_i2c_add(ldev,i2c_id,DVO_I2C_NAME);
 	}
@@ -665,6 +665,9 @@ static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 
 	ldev->inited = true;
 
+	/*Enable IRQ*/
+	loongson_irq_init(ldev);
+
 	/* Make small buffers to store a hardware
 	 * cursor (double buffered icon updates) */
 	loongson_bo_create(dev, roundup(32*32*4, PAGE_SIZE), 0, 0,
@@ -754,7 +757,7 @@ int loongson_dumb_create(struct drm_file *file,
  *
  * @bo: the pointer to loongson ttm buffer object
  */
-static void loongson_bo_unref(struct loongson_bo **bo)
+void loongson_bo_unref(struct loongson_bo **bo)
 {
 	struct ttm_buffer_object *tbo;
 
@@ -908,24 +911,35 @@ static const struct file_operations loongson_drm_driver_fops = {
  * .dump_destory:This destroys the userspace handle for the given dumb backing storage buffer
  */
 static struct drm_driver loongson_kms_driver = {
-		.driver_features = DRIVER_MODESET | DRIVER_GEM,
-		.load = loongson_load_kms,
-		.unload = loongson_unload_kms,
-		.open = loongson_open_kms,
-		.set_busid = drm_pci_set_busid,
-		.fops = &loongson_drm_driver_fops,
-		.gem_free_object = loongson_gem_free_object,
-		.dumb_create = loongson_dumb_create,
-		.dumb_map_offset = loongson_dumb_mmap_offset,
-		.dumb_destroy = loongson_dumb_destroy,
-		.ioctls = loongson_ioctls_kms,
-		.num_ioctls = DRM_LOONGSON_KMS_MAX_IOCTLS,
-		.name = DRIVER_NAME,
-		.desc = DRIVER_DESC,
-		.date = DRIVER_DATE,
-		.major = DRIVER_MAJOR,
-		.minor = DRIVER_MINOR,
-		.patchlevel = DRIVER_PATCHLEVEL,
+	.driver_features = DRIVER_MODESET | DRIVER_GEM | DRIVER_HAVE_IRQ,
+	.load = loongson_load_kms,
+	.unload = loongson_unload_kms,
+	.open = loongson_open_kms,
+	.set_busid = drm_pci_set_busid,
+	.fops = &loongson_drm_driver_fops,
+	.gem_free_object = loongson_gem_free_object,
+	.dumb_create = loongson_dumb_create,
+	.dumb_map_offset = loongson_dumb_mmap_offset,
+	.dumb_destroy = loongson_dumb_destroy,
+	.ioctls = loongson_ioctls_kms,
+	.num_ioctls = DRM_LOONGSON_KMS_MAX_IOCTLS,
+
+	/*vblank*/
+	.enable_vblank = loongson_irq_enable_vblank,
+	.disable_vblank = loongson_irq_disable_vblank,
+	.get_vblank_counter = loongson_crtc_vblank_count,
+	/*IRQ*/
+	.irq_preinstall = loongson_irq_preinstall,
+	.irq_postinstall = loongson_irq_postinstall,
+	.irq_uninstall = loongson_irq_uninstall,
+	.irq_handler = loongson_irq_handler,
+
+	.name = DRIVER_NAME,
+	.desc = DRIVER_DESC,
+	.date = DRIVER_DATE,
+	.major = DRIVER_MAJOR,
+	.minor = DRIVER_MINOR,
+	.patchlevel = DRIVER_PATCHLEVEL,
 };
 
 static int loongson_platform_probe(struct platform_device *pdev)
