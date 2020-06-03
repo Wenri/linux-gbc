@@ -157,11 +157,14 @@ struct loongson_mc {
 };
 
 struct loongson_backlight {
+	struct backlight_device *device;
+	struct pwm_device *pwm;
+	u32 pwm_id;
+	u32 pwm_polarity;
+	u32 pwm_period;
 	bool present;
 	bool hw_enabled;
 	unsigned int level,max,min;
-	struct pwm_device *pwm;
-	struct backlight_device *device;
 	int (*get_resource)(struct loongson_connector *ls_connector);
 	void (*free_resource)(struct loongson_connector *ls_connector);
 	int (*setup)(struct loongson_connector *ls_connector);
@@ -233,8 +236,12 @@ struct loongson_encoder {
 struct loongson_connector {
 	struct drm_connector base;
 	struct loongson_device *ldev;
-	struct loongson_vbios_connector *vbios_connector;
-	unsigned int connector_id;
+	u16 id;
+	u32 type;
+	u16 i2c_id;
+	u16 hotplug;
+	u16 edid_method;
+	u8* vbios_edid;
 	struct loongson_i2c *i2c;
 	struct loongson_backlight bl;
 };
