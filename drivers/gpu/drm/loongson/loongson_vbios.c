@@ -1,4 +1,5 @@
 #include "loongson_drv.h"
+#include "loongson_legacy_vbios.h"
 #include "loongson_vbios.h"
 
 #define VBIOS_START 0x1000
@@ -57,6 +58,115 @@ static void* get_vbios_from_flash(void)
 
 	DRM_INFO("Get vbios from flash Success.\n");
 	return vbios;
+}
+
+static struct loongson_vbios_connector* get_connector_legacy(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios *vbios = ldev->vbios;
+	struct loongson_vbios_connector *connector = NULL;
+	u8 *start;
+	u32 offset;
+
+	start = (u8 *)vbios;
+	offset = vbios->connector_offset;
+	connector = (struct loongson_vbios_connector *)(start + offset);
+	if (index == 1) {
+		offset = connector->next;
+		connector = (struct loongson_vbios_connector *)(start + offset);
+	}
+
+	return connector;
+}
+
+u32 get_connector_type(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_connector *connector = NULL;
+	u32 type = -1;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		connector = get_connector_legacy(ldev, index);
+		type = connector->type;
+	}
+
+	return type;
+}
+
+u16 get_connector_i2cid(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_connector *connector = NULL;
+	u16 i2c_id = -1;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		connector = get_connector_legacy(ldev, index);
+		i2c_id = connector->i2c_id;
+	}
+
+	return i2c_id;
+}
+
+u16 get_hotplug_mode(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_connector *connector = NULL;
+	u16 mode = -1;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		connector = get_connector_legacy(ldev, index);
+		mode = connector->hotplug;
+	}
+
+	return mode;
+}
+
+u16 get_edid_method(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_connector *connector = NULL;
+	u16 method = -1;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		connector = get_connector_legacy(ldev, index);
+		method = connector->edid_method;
+	}
+
+	return method;
+}
+
+u8* get_vbios_edid(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_connector *connector;
+	u8* edid = NULL;
+
+	edid = kzalloc(sizeof(u8) * EDID_LENGTH * 2, GFP_KERNEL);
+	if (!edid)
+		return edid;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		connector = get_connector_legacy(ldev, index);
+		memcpy(edid, connector->internal_edid, EDID_LENGTH * 2);
+	}
+
+	return edid;
+}
+
+u32 get_vbios_pwm(struct loongson_device *ldev, u32 index, u16 request)
+{
+	struct loongson_vbios_connector *connector;
+	u32 value = -1;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		connector = get_connector_legacy(ldev, index);
+		switch (request) {
+		case VBIOS_PWM_ID:
+			value = connector->bl_pwm.pwm_id;
+			break;
+		case VBIOS_PWM_PERIOD:
+			value = connector->bl_pwm.period_ns;
+			break;
+		case VBIOS_PWM_POLARITY:
+			value = connector->bl_pwm.polarity;
+		}
+	}
+
+	return value;
 }
 
 void* loongson_get_vbios(void)

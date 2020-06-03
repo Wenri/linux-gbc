@@ -94,11 +94,11 @@ struct loongson_vbios_crtc {
 }__attribute__ ((packed));
 
 enum loongson_edid_method {
-	edid_method_null = 0,
-	edid_method_i2c,
-	edid_method_vbios,
-	edid_method_encoder,
-	edid_method_max = 0xffffffff,
+	via_null = 0,
+	via_i2c,
+	via_vbios,
+	via_encoder,
+	via_max = 0xffffffff,
 }__attribute__ ((packed));
 
 enum loongson_vbios_i2c_type {
@@ -109,11 +109,11 @@ enum loongson_vbios_i2c_type {
 	i2c_type_max = 0xffffffff,
 }__attribute__ ((packed));
 
-enum hot_swap_method {
-	hot_swap_disable = 0,
-	hot_swap_polling,
-	hot_swap_irq,
-	hot_swap_max = 0xffffffff,
+enum hotplug {
+	disable = 0,
+	polling,
+	irq,
+	hotplug_max = 0xffffffff,
 }__attribute__ ((packed));
 
 enum loongson_encoder_config {
@@ -162,14 +162,14 @@ struct loongson_backlight_pwm {
 };
 
 struct loongson_vbios_connector{
-	uint32_t next_connector_offset;
+	uint32_t next;
 	uint32_t crtc_id;
 	enum loongson_edid_method edid_method;
 	enum loongson_vbios_i2c_type i2c_type;
 	uint32_t i2c_id;
 	uint32_t encoder_id;
 	enum connector_type type;
-	enum hot_swap_method hot_swap_method;
+	enum hotplug hotplug;
 	uint32_t hot_swap_irq;
 	uint32_t edid_version;
 	uint8_t internal_edid[256];

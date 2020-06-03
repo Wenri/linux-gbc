@@ -87,9 +87,9 @@ void *loongson_vbios_default_legacy(void)
 		(vbios_start + vbios->connector_offset +
 		 sizeof(struct loongson_vbios_connector));
 
-	connector_vbios[0]->next_connector_offset =
+	connector_vbios[0]->next =
 		vbios->connector_offset + sizeof(struct loongson_vbios_connector);
-	connector_vbios[1]->next_connector_offset = 0;
+	connector_vbios[1]->next = 0;
 
 	switch (gpu) {
 	case LS7A_GPU:
@@ -102,11 +102,8 @@ void *loongson_vbios_default_legacy(void)
 		connector_vbios[0]->i2c_id = 6;
 		connector_vbios[1]->i2c_id = 7;
 
-		connector_vbios[0]->hot_swap_method = hot_swap_polling;
-		connector_vbios[1]->hot_swap_method = hot_swap_polling;
-
-		connector_vbios[0]->edid_method = edid_method_i2c;
-		connector_vbios[1]->edid_method = edid_method_i2c;
+		connector_vbios[0]->edid_method = via_i2c;
+		connector_vbios[1]->edid_method = via_i2c;
 		break;
 	case LS2K_GPU:
 		encoder_vbios[0]->i2c_id = 2;
@@ -118,16 +115,16 @@ void *loongson_vbios_default_legacy(void)
 		connector_vbios[0]->i2c_id = 2;
 		connector_vbios[1]->i2c_id = 3;
 
-		connector_vbios[0]->edid_method = edid_method_i2c;
-		connector_vbios[1]->edid_method = edid_method_i2c;
+		connector_vbios[0]->edid_method = via_i2c;
+		connector_vbios[1]->edid_method = via_i2c;
 		break;
 	}
 
+	connector_vbios[0]->hotplug = polling;
+	connector_vbios[1]->hotplug = polling;
+
 	connector_vbios[0]->i2c_type = i2c_type_gpio;
 	connector_vbios[1]->i2c_type = i2c_type_gpio;
-
-	connector_vbios[0]->hot_swap_method = hot_swap_polling;
-	connector_vbios[1]->hot_swap_method = hot_swap_polling;
 
 	/*Build loongson_vbios_encoder struct*/
 	encoder_vbios[0] = (struct loongson_vbios_encoder *)
@@ -182,7 +179,7 @@ static void get_connector_legacy(struct loongson_device *ldev)
 	if (vbios->connector_num > 1) {
 		for (i = 1; i < vbios->connector_num; i++) {
 		ldev->connector_vbios[i] = (struct loongson_vbios_connector *)
-			(start + ldev->connector_vbios[i - 1]->next_connector_offset);
+			(start + ldev->connector_vbios[i - 1]->next);
 		}
 	}
 }
@@ -244,7 +241,7 @@ static int show_vbios_info(struct loongson_device *ldev)
 		DRM_INFO("\tencoder%d(%s) i2c:%d \n", crtc->encoder_id, config_method, encoder->i2c_id);
 		DRM_INFO("\tconnector%d:\n", encoder->connector_id);
 		DRM_INFO("\t    %s", edid_methods[connector->edid_method]);
-		DRM_INFO("\t    Detect:%s\n", detect_methods[connector->hot_swap_method]);
+		DRM_INFO("\t    Detect:%s\n", detect_methods[connector->hotplug]);
 	}
 
 	return 0;
