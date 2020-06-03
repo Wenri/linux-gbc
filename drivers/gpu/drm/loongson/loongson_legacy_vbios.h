@@ -188,4 +188,6 @@ struct loongson_vbios_encoder{
 	struct loongson_encoder_config_param mode_config_tables[LS_MAX_RESOLUTIONS];
 }__attribute__ ((packed));
 
+void *loongson_vbios_default_legacy(void);
+
 #endif /*__LOONGSON_LEGACY_VBIOS_H__*/

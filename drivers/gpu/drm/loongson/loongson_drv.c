@@ -29,6 +29,8 @@
 #include <linux/string.h>
 #include <linux/vga_switcheroo.h>
 #include "loongson_drv.h"
+#include "loongson_legacy_vbios.h"
+#include "loongson_vbios.h"
 
 #define DEVICE_NAME     "loongson-drm"
 #define DRIVER_NAME	"loongson-drm"
@@ -301,7 +303,17 @@ static int loongson_device_init(struct drm_device *dev,
 	int ret;
 	struct resource *r;
 
-	loongson_vbios_init(ldev);
+	ldev->vbios = loongson_get_vbios();
+	if (!ldev->vbios) {
+		DRM_ERROR("Get vbios failed!\n");
+		return -EIO;
+	}
+
+	if(is_legacy_vbios(ldev->vbios))
+		loongson_vbios_init_legacy(ldev);
+	else
+		loongson_vbios_init(ldev);
+
 	ldev->num_crtc = ldev->vbios->crtc_num;
 	ldev->fb_vram_base = 0x0;
 

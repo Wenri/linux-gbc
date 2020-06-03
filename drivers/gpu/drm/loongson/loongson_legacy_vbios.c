@@ -10,49 +10,9 @@
  * option) any later version.
  */
 #include "loongson_drv.h"
+#include "loongson_legacy_vbios.h"
 
-#define VBIOS_START_ADDR 0x1000
-#define VBIOS_SIZE 0x1E000
-
-uint POLYNOMIAL = 0xEDB88320 ;
-int have_table = 0 ;
-uint table[256] ;
-
-u64 vgabios_addr __attribute__((weak)) = 0;
-extern unsigned char ls_spiflash_read_status(void);
-extern int ls_spiflash_read(int addr, unsigned char *buf,int data_len);
-
-int __attribute__((weak))
-ls_spiflash_read(int addr, unsigned char *buf, int data_len)
-{
-	return 0;
-}
-
-unsigned char __attribute__((weak)) ls_spiflash_read_status(void)
-{
-	return 0xff;
-}
-
-void make_table(void)
-{
-	int i, j;
-	have_table = 1 ;
-	for (i = 0 ; i < 256 ; i++)
-		for (j = 0, table[i] = i ; j < 8 ; j++)
-			table[i] = (table[i]>>1)^((table[i]&1)?POLYNOMIAL:0) ;
-}
-
-uint lscrc32(uint crc, char *buff, int len)
-{
-	int i;
-	if (!have_table) make_table();
-	crc = ~crc;
-	for (i = 0; i < len; i++)
-		crc = (crc >> 8) ^ table[(crc ^ buff[i]) & 0xff];
-	return ~crc;
-}
-
-void * loongson_vbios_default(void)
+void *loongson_vbios_default_legacy(void)
 {
 	struct loongson_vbios *vbios;
 	struct loongson_vbios_crtc * crtc_vbios[2];
@@ -192,86 +152,7 @@ void * loongson_vbios_default(void)
 	return (void *)vbios;
 }
 
-int loongson_vbios_title_check(struct loongson_vbios *vbios){
-	char *title = "Loongson-VBIOS";
-	int i;
-
-	i = 0;
-	while (*title != '\0' && i <= 15) {
-		if (vbios->title[i++] != *title) {
-			DRM_ERROR("VBIOS title is wrong,use default setting!\n");
-			return -EINVAL;
-		}
-		title++;
-	}
-	return 0;
-}
-
-int loongson_vbios_crc_check(void *vbios) {
-	unsigned int crc;
-
-	crc = lscrc32(0,(unsigned char *)vbios, VBIOS_SIZE - 0x4);
-	if(*(unsigned int *)((unsigned char *)vbios + VBIOS_SIZE - 0x4) != crc){
-		DRM_ERROR("VBIOS crc check is wrong,use default setting!\n");
-		return -EINVAL;
-	}
-	return 0;
-}
-
-static struct loongson_vbios* loongson_get_vbios_from_bios(void)
-{
-	struct loongson_vbios* vbios = NULL;
-	int ret = 0;
-
-	if (!vgabios_addr)
-		return vbios;
-
-	vbios = kzalloc(256*1024, GFP_KERNEL);
-	if (!vbios)
-		return vbios;
-
-	memcpy(vbios, (void *)vgabios_addr, VBIOS_SIZE);
-	DRM_INFO("Get vbios from bios Success.\n");
-
-	ret = loongson_vbios_title_check((void *)vbios);
-	if (ret) {
-		kfree(vbios);
-		vbios = NULL;
-	}
-
-	return vbios;
-}
-
-static struct loongson_vbios* loongson_get_vbios_from_flash(void)
-{
-	struct loongson_vbios* vbios = NULL;
-	int ret = -1;
-
-	ret = ls_spiflash_read_status();
-	if (ret == 0xff)
-		return vbios;
-
-	vbios = kzalloc(256*1024, GFP_KERNEL);
-	if (!vbios)
-		return vbios;
-
-	ret = ls_spiflash_read(VBIOS_START_ADDR, (u8 *)vbios, VBIOS_SIZE);
-	if (ret) {
-		kfree(vbios);
-		vbios = NULL;
-	}
-	DRM_INFO("Get vbios from flash Success.\n");
-
-	ret = loongson_vbios_title_check((void *)vbios);
-	if (ret) {
-		kfree(vbios);
-		vbios = NULL;
-	}
-
-	return vbios;
-}
-
-void loongson_get_crtc_legacy(struct loongson_device *ldev)
+static void get_crtc_legacy(struct loongson_device *ldev)
 {
 	struct loongson_vbios *vbios = ldev->vbios;
 	unsigned char *start = (unsigned char *)vbios;
@@ -288,7 +169,7 @@ void loongson_get_crtc_legacy(struct loongson_device *ldev)
 	}
 }
 
-void loongson_get_connector_legacy(struct loongson_device *ldev)
+static void get_connector_legacy(struct loongson_device *ldev)
 {
        struct loongson_vbios *vbios = ldev->vbios;
        unsigned char *start = (unsigned char *)vbios;
@@ -306,7 +187,7 @@ void loongson_get_connector_legacy(struct loongson_device *ldev)
 	}
 }
 
-void loongson_get_encoder_legacy(struct loongson_device *ldev)
+static void get_encoder_legacy(struct loongson_device *ldev)
 {
 	struct loongson_vbios *vbios = ldev->vbios;
 	unsigned char *start = (unsigned char *)vbios;
@@ -320,42 +201,8 @@ void loongson_get_encoder_legacy(struct loongson_device *ldev)
 	}
 }
 
-int loongson_vbios_init(struct loongson_device *ldev)
+static int show_vbios_info(struct loongson_device *ldev)
 {
-	u32 minor, major, version;
-
-	ldev->vbios = loongson_get_vbios_from_bios();
-	if (ldev->vbios == NULL)
-		ldev->vbios = loongson_get_vbios_from_flash();
-	if (ldev->vbios == NULL)
-		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-
-	minor = ldev->vbios->version_minor;
-	major = ldev->vbios->version_major;
-	version = major * 10 + minor;
-
-	if (version <= 2) {
-		/* Workaround for legacy vbios(=0.1) read from bios or flash */
-		if (version == 1 && ldev->gpu == LS7A_GPU) {
-			if (ldev->vbios != NULL)
-				kfree(ldev->vbios);
-			ldev->vbios = (struct loongson_vbios *)
-				loongson_vbios_default();
-		}
-
-		loongson_get_crtc_legacy(ldev);
-		loongson_get_encoder_legacy(ldev);
-		loongson_get_connector_legacy(ldev);
-		loongson_vbios_information_display(ldev);
-	} else {
-		/* TODO */
-	}
-
-	return 0;
-}
-
-int loongson_vbios_information_display(struct loongson_device *ldev){
-
 	int i;
 	struct loongson_vbios_crtc  *crtc;
 	struct loongson_vbios_encoder *encoder;
@@ -381,7 +228,7 @@ int loongson_vbios_information_display(struct loongson_device *ldev){
 		"HPD"
 	};
 
-	DRM_INFO("Loongson Vbios: V%d.%d\n",
+	DRM_INFO("Using legacy Vbios: V%d.%d\n",
 			ldev->vbios->version_major,ldev->vbios->version_minor);
 
 	DRM_INFO("crtc:%d encoder:%d connector:%d\n",
@@ -399,6 +246,52 @@ int loongson_vbios_information_display(struct loongson_device *ldev){
 		DRM_INFO("\t    %s", edid_methods[connector->edid_method]);
 		DRM_INFO("\t    Detect:%s\n", detect_methods[connector->hot_swap_method]);
 	}
+
+	return 0;
+}
+
+static u32 get_vbios_version(struct loongson_vbios *vbios)
+{
+	u32 minor, major, version;
+
+	minor = vbios->version_minor;
+	major = vbios->version_major;
+	version = major * 10 + minor;
+
+	return version;
+}
+
+bool is_legacy_vbios(struct loongson_vbios *vbios)
+{
+	u32 version = get_vbios_version(vbios);
+
+	if (version <= 2)
+		return true;
+	else
+		return false;
+}
+
+int loongson_vbios_init_legacy(struct loongson_device *ldev)
+{
+	u32 version = get_vbios_version(ldev->vbios);
+	int ret = 0;
+
+	/* check vbios is valid */
+	ret = strcmp(ldev->vbios->title, "Loongson-VBIOS");
+	if (ret)
+		return -EINVAL;
+
+	/* Workaround for legacy vbios(=0.1) read from bios or flash */
+	if (version == 1 && ldev->gpu == LS7A_GPU) {
+		kfree(ldev->vbios);
+		ldev->vbios = (struct loongson_vbios *)
+			loongson_vbios_default_legacy();
+	}
+
+	get_crtc_legacy(ldev);
+	get_encoder_legacy(ldev);
+	get_connector_legacy(ldev);
+	show_vbios_info(ldev);
 
 	return 0;
 }
