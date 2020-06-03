@@ -218,82 +218,139 @@ int loongson_vbios_crc_check(void *vbios) {
 	return 0;
 }
 
-int loongson_vbios_init(struct loongson_device *ldev)
+static struct loongson_vbios* loongson_get_vbios_from_bios(void)
 {
-	struct loongson_vbios *vbios;
+	struct loongson_vbios* vbios = NULL;
+	int ret = 0;
+
+	if (!vgabios_addr)
+		return vbios;
+
+	vbios = kzalloc(256*1024, GFP_KERNEL);
+	if (!vbios)
+		return vbios;
+
+	memcpy(vbios, (void *)vgabios_addr, VBIOS_SIZE);
+	DRM_INFO("Get vbios from bios Success.\n");
+
+	ret = loongson_vbios_title_check((void *)vbios);
+	if (ret) {
+		kfree(vbios);
+		vbios = NULL;
+	}
+
+	return vbios;
+}
+
+static struct loongson_vbios* loongson_get_vbios_from_flash(void)
+{
+	struct loongson_vbios* vbios = NULL;
+	int ret = -1;
+
+	ret = ls_spiflash_read_status();
+	if (ret == 0xff)
+		return vbios;
+
+	vbios = kzalloc(256*1024, GFP_KERNEL);
+	if (!vbios)
+		return vbios;
+
+	ret = ls_spiflash_read(VBIOS_START_ADDR, (u8 *)vbios, VBIOS_SIZE);
+	if (ret) {
+		kfree(vbios);
+		vbios = NULL;
+	}
+	DRM_INFO("Get vbios from flash Success.\n");
+
+	ret = loongson_vbios_title_check((void *)vbios);
+	if (ret) {
+		kfree(vbios);
+		vbios = NULL;
+	}
+
+	return vbios;
+}
+
+void loongson_get_crtc_legacy(struct loongson_device *ldev)
+{
+	struct loongson_vbios *vbios = ldev->vbios;
+	unsigned char *start = (unsigned char *)vbios;
 	int i;
-	unsigned char * vbios_start;
 
-	ldev->vbios = NULL;
-
-	if (vgabios_addr) {
-		if(loongson_vbios_crc_check((void *)vgabios_addr) ||
-		loongson_vbios_title_check((struct loongson_vbios *)vgabios_addr)){
-			DRM_ERROR("UEFI get wrong vbios!");
-		} else {
-			DRM_INFO("VBIOS get from UEFI check success!\n");
-			ldev->vbios = (struct loongson_vbios *)vgabios_addr;
-		}
-	}
-	else if (ls_spiflash_read_status() == 0xff) {
-		DRM_INFO("There is no VBIOS flash chip,use default setting!\n");
-		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-	} else {
-		DRM_INFO("Read VBIOS data from spi flash.\n");
-		ldev->vbios = kzalloc(120*1024,GFP_KERNEL);
-		ls_spiflash_read(VBIOS_START_ADDR,
-				(unsigned char *)ldev->vbios, VBIOS_SIZE);
-
-		/*Check VBIOS data.If data is wrong,use default setting*/
-		if(loongson_vbios_crc_check((void *)ldev->vbios) ||
-				loongson_vbios_title_check(ldev->vbios)) {
-			kfree(ldev->vbios);
-			ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-		} else {
-			DRM_INFO("VBIOS get from SPI check success!\n");
-		}
-	}
-
-	if (ldev->vbios->version_minor == 1 && ldev->vbios->version_major == 0 )
-		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-
-	vbios = ldev->vbios;
-	vbios_start = (unsigned char *)vbios;
-
-	if(vbios == NULL)
-		return -1;
-
-	/*get crtc struct points*/
+	/* get crtc struct points */
 	ldev->crtc_vbios[0] =
-		(struct loongson_vbios_crtc *)(vbios_start + vbios->crtc_offset);
+		(struct loongson_vbios_crtc *)(start + vbios->crtc_offset);
 	if (vbios->crtc_num > 1) {
-		for (i = 1; i < vbios->crtc_num; i++) {
-		ldev->crtc_vbios[i] =
-			(struct loongson_vbios_crtc *)
-			(vbios_start + ldev->crtc_vbios[i - 1]->next_crtc_offset);
+		for(i = 1; i < vbios->crtc_num; i++) {
+		ldev->crtc_vbios[i] = (struct loongson_vbios_crtc *)
+			(start + ldev->crtc_vbios[i - 1]->next_crtc_offset);
 		}
 	}
+}
 
-	/*get connector struct points*/
-	ldev->connector_vbios [0] = (struct loongson_vbios_connector *)
-		(vbios_start + vbios->connector_offset);
+void loongson_get_connector_legacy(struct loongson_device *ldev)
+{
+       struct loongson_vbios *vbios = ldev->vbios;
+       unsigned char *start = (unsigned char *)vbios;
+       int i;
+
+       /* get connector struct points */
+       ldev->connector_vbios[0] = (struct loongson_vbios_connector *)
+	       (start + vbios->connector_offset);
 
 	if (vbios->connector_num > 1) {
-		for(i = 1;i < vbios->connector_num; i++){
-			ldev->connector_vbios[i] =
-				(struct loongson_vbios_connector *)
-				(vbios_start + ldev->connector_vbios[i - 1]->next_connector_offset);
+		for (i = 1; i < vbios->connector_num; i++) {
+		ldev->connector_vbios[i] = (struct loongson_vbios_connector *)
+			(start + ldev->connector_vbios[i - 1]->next_connector_offset);
 		}
 	}
+}
 
-	/*get encoder struct points*/
-	ldev->encoder_vbios[0] = (struct loongson_vbios_encoder *)(vbios_start
-			+ vbios->encoder_offset);
-	if (vbios->encoder_num > 1) {
-		ldev->encoder_vbios[1] = (struct loongson_vbios_encoder	*)
-			(vbios_start + ldev->encoder_vbios[0]->next_encoder_offset);
+void loongson_get_encoder_legacy(struct loongson_device *ldev)
+{
+	struct loongson_vbios *vbios = ldev->vbios;
+	unsigned char *start = (unsigned char *)vbios;
+
+	/* get encoder struct points */
+	ldev->encoder_vbios[0] =
+		(struct loongson_vbios_encoder *)(start + vbios->encoder_offset);
+	if(vbios->encoder_num > 1){
+		ldev->encoder_vbios[1] = (struct loongson_vbios_encoder *)
+			(start + ldev->encoder_vbios[0]->next_encoder_offset);
 	}
-	loongson_vbios_information_display(ldev);
+}
+
+int loongson_vbios_init(struct loongson_device *ldev)
+{
+	u32 minor, major, version;
+
+	ldev->vbios = loongson_get_vbios_from_bios();
+	if (ldev->vbios == NULL)
+		ldev->vbios = loongson_get_vbios_from_flash();
+	if (ldev->vbios == NULL)
+		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
+
+	minor = ldev->vbios->version_minor;
+	major = ldev->vbios->version_major;
+	version = major * 10 + minor;
+
+	if (version <= 2) {
+		/* Workaround for legacy vbios(=0.1) read from bios or flash */
+		if (version == 1 && ldev->gpu == LS7A_GPU) {
+			if (ldev->vbios != NULL)
+				kfree(ldev->vbios);
+			ldev->vbios = (struct loongson_vbios *)
+				loongson_vbios_default();
+		}
+
+		loongson_get_crtc_legacy(ldev);
+		loongson_get_encoder_legacy(ldev);
+		loongson_get_connector_legacy(ldev);
+		loongson_vbios_information_display(ldev);
+	} else {
+		/* TODO */
+	}
+
 	return 0;
 }
 
