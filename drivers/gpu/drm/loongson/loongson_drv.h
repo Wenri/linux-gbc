@@ -20,7 +20,7 @@
 
 #include <linux/module.h>
 #include <linux/types.h>
-#include "loongson_vbios.h"
+#include "loongson_legacy_vbios.h"
 
 #define DVO_I2C_NAME "loongson_dvo_i2c"
 #define DVO_I2C_ADDR 0x50

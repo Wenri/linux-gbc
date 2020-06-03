@@ -4,6 +4,9 @@
  * @driver_priv: Pointer to driver-private information.
  */
 
+#ifndef __LOONGSON_LEGACY_VBIOS_H__
+#define __LOONGSON_LEGACY_VBIOS_H__
+
 #define LS_MAX_RESOLUTIONS 10
 #define LS_MAX_REG_TABLE   256
 
@@ -185,3 +188,4 @@ struct loongson_vbios_encoder{
 	struct loongson_encoder_config_param mode_config_tables[LS_MAX_RESOLUTIONS];
 }__attribute__ ((packed));
 
+#endif /*__LOONGSON_LEGACY_VBIOS_H__*/
