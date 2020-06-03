@@ -10,9 +10,6 @@
  * option) any later version.
  */
 #include "loongson_drv.h"
-#ifndef CONFIG_CPU_LOONGSON2K
-#include <ls7a-spiflash.h>
-#endif
 
 #define VBIOS_START_ADDR 0x1000
 #define VBIOS_SIZE 0x1E000
@@ -20,6 +17,21 @@
 uint POLYNOMIAL = 0xEDB88320 ;
 int have_table = 0 ;
 uint table[256] ;
+
+u64 vgabios_addr __attribute__((weak)) = 0;
+extern unsigned char ls_spiflash_read_status(void);
+extern int ls_spiflash_read(int addr, unsigned char *buf,int data_len);
+
+int __attribute__((weak))
+ls_spiflash_read(int addr, unsigned char *buf, int data_len)
+{
+	return 0;
+}
+
+unsigned char __attribute__((weak)) ls_spiflash_read_status(void)
+{
+	return 0xff;
+}
 
 void make_table(void)
 {
@@ -40,7 +52,8 @@ uint lscrc32(uint crc, char *buff, int len)
 	return ~crc;
 }
 
-void * loongson_vbios_default(void){
+void * loongson_vbios_default(void)
+{
 	struct loongson_vbios *vbios;
 	struct loongson_vbios_crtc * crtc_vbios[2];
 	struct loongson_vbios_connector *connector_vbios[2];
@@ -48,9 +61,11 @@ void * loongson_vbios_default(void){
 	unsigned char * vbios_start;
 	char * title="Loongson-VBIOS";
 	int i;
+	enum loongson_gpu gpu;
 
 	vbios = kzalloc(120*1024, GFP_KERNEL);
 	vbios_start = (unsigned char *)vbios;
+	gpu = loongson_find_gpu();
 
 	i = 0;
 	while (*title != '\0') {
@@ -116,31 +131,37 @@ void * loongson_vbios_default(void){
 		vbios->connector_offset + sizeof(struct loongson_vbios_connector);
 	connector_vbios[1]->next_connector_offset = 0;
 
-#ifdef CONFIG_CPU_LOONGSON2K
-	connector_vbios[0]->edid_method = edid_method_i2c;
-	connector_vbios[1]->edid_method = edid_method_i2c;
+	switch (gpu) {
+	case LS7A_GPU:
+		encoder_vbios[0]->i2c_id = 6;
+		encoder_vbios[1]->i2c_id = 7;
 
-	connector_vbios[0]->i2c_id = 2;
-	connector_vbios[1]->i2c_id = 3;
+		encoder_vbios[0]->config_type = encoder_transparent;
+		encoder_vbios[1]->config_type = encoder_transparent;
 
-	encoder_vbios[0]->config_type = encoder_bios_config;
-	encoder_vbios[1]->config_type = encoder_bios_config;
-#else
-	encoder_vbios[0]->i2c_id = 6;
-	encoder_vbios[1]->i2c_id = 7;
+		connector_vbios[0]->i2c_id = 6;
+		connector_vbios[1]->i2c_id = 7;
 
-	connector_vbios[0]->i2c_id = 6;
-	connector_vbios[1]->i2c_id = 7;
+		connector_vbios[0]->hot_swap_method = hot_swap_polling;
+		connector_vbios[1]->hot_swap_method = hot_swap_polling;
 
-	connector_vbios[0]->hot_swap_method = hot_swap_polling;
-	connector_vbios[1]->hot_swap_method = hot_swap_polling;
+		connector_vbios[0]->edid_method = edid_method_i2c;
+		connector_vbios[1]->edid_method = edid_method_i2c;
+		break;
+	case LS2K_GPU:
+		encoder_vbios[0]->i2c_id = 2;
+		encoder_vbios[1]->i2c_id = 3;
 
-	connector_vbios[0]->edid_method = edid_method_i2c;
-	connector_vbios[1]->edid_method = edid_method_i2c;
+		encoder_vbios[0]->config_type = encoder_bios_config;
+		encoder_vbios[1]->config_type = encoder_bios_config;
 
-	encoder_vbios[0]->config_type = encoder_transparent;
-	encoder_vbios[1]->config_type = encoder_transparent;
-#endif
+		connector_vbios[0]->i2c_id = 2;
+		connector_vbios[1]->i2c_id = 3;
+
+		connector_vbios[0]->edid_method = edid_method_i2c;
+		connector_vbios[1]->edid_method = edid_method_i2c;
+		break;
+	}
 
 	connector_vbios[0]->i2c_type = i2c_type_gpio;
 	connector_vbios[1]->i2c_type = i2c_type_gpio;
@@ -205,9 +226,6 @@ int loongson_vbios_init(struct loongson_device *ldev)
 
 	ldev->vbios = NULL;
 
-#ifdef CONFIG_CPU_LOONGSON2K
-	ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-#else
 	if (vgabios_addr) {
 		if(loongson_vbios_crc_check((void *)vgabios_addr) ||
 		loongson_vbios_title_check((struct loongson_vbios *)vgabios_addr)){
@@ -238,7 +256,6 @@ int loongson_vbios_init(struct loongson_device *ldev)
 
 	if (ldev->vbios->version_minor == 1 && ldev->vbios->version_major == 0 )
 		ldev->vbios = (struct loongson_vbios *)loongson_vbios_default();
-#endif
 
 	vbios = ldev->vbios;
 	vbios_start = (unsigned char *)vbios;

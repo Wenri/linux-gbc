@@ -422,9 +422,6 @@ void loongson_i2c_create(struct loongson_i2c *ls_i2c, const char *name)
 	ls_i2c->adapter = i2c_adapter;
 	ls_i2c->used = true;
 
-#ifdef CONFIG_DRM_LOONGSON_VGA_PLATFORM
-	return;
-#endif
 	memset(&i2c_info, 0, sizeof(struct i2c_board_info));
 	strncpy(i2c_info.type, name, I2C_NAME_SIZE);
 	i2c_info.addr = DVO_I2C_ADDR;
@@ -505,7 +502,8 @@ int loongson_modeset_init(struct loongson_device *ldev)
 
 	ldev->dev->mode_config.fb_base = ldev->mc.vram_base;
 
-	loongson_pre_i2c_bus(ldev);
+	if (ldev->gpu == LS7A_GPU)
+		loongson_pre_i2c_bus(ldev);
 
 	for (i = 0; (i < ldev->num_crtc && i < LS_MAX_MODE_INFO); i++) {
 		lsbios_crtc = ldev->crtc_vbios[i];

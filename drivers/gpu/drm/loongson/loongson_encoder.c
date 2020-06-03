@@ -238,10 +238,12 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev, int
 	encoder = &ls_encoder->base;
 	encoder->possible_crtcs = 1 << index;
 
-	ls_encoder->i2c = loongson_i2c_bus_match(ldev,lsvbios_enc->i2c_id);
-	if (!ls_encoder->i2c) {
-		DRM_INFO("lson encoder-%d match i2c-%d adap err\n",
-				index,lsvbios_enc->i2c_id);
+	if (ldev->gpu == LS7A_GPU) {
+		ls_encoder->i2c =
+			loongson_i2c_bus_match(ldev, lsvbios_enc->i2c_id);
+		if (!ls_encoder->i2c)
+			DRM_INFO("lson encoder-%d match i2c-%d adap err\n",
+					index, lsvbios_enc->i2c_id);
 	}
 
 	drm_encoder_init(ldev->dev, encoder, &loongson_encoder_encoder_funcs,
