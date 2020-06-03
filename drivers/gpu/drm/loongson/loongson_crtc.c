@@ -66,7 +66,7 @@ static void loongson_crtc_load_lut(struct drm_crtc *crtc)
    CRTCEXT0 has to be programmed last to trigger an update and make the
    new addr variable take effect.
  */
-static void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset)
+void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset)
 {
 	struct loongson_device *ldev;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
@@ -687,11 +687,13 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 			val |= LS_FB_CFG_ENABLE;
 			ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, val);
 		}
+		drm_crtc_vblank_on(crtc);
 		loongson_crtc->enabled = true;
 		break;
 	case DRM_MODE_DPMS_OFF:
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
+		drm_crtc_vblank_off(crtc);
 		if (crtc_id) {
 			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
 			val &= ~LS_FB_CFG_ENABLE;
@@ -805,6 +807,78 @@ static void loongson_crtc_disable(struct drm_crtc *crtc)
 	crtc->primary->fb = NULL;
 }
 
+int loongson_crtc_page_flip(struct drm_crtc *crtc,
+		struct drm_framebuffer *fb,
+		struct drm_pending_vblank_event *event,
+		uint32_t page_flip_flags)
+{
+	struct drm_device *dev = crtc->dev;
+	struct loongson_device *ldev = dev->dev_private;
+	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
+	struct loongson_framebuffer *old_fb;
+	struct loongson_framebuffer *new_fb;
+	struct drm_gem_object *obj;
+	struct loongson_flip_work *work;
+	struct loongson_bo *new_bo;
+	int ret;
+	u64 base;
+
+	work = kzalloc(sizeof(*work), GFP_KERNEL);
+	if (work == NULL)
+		return -ENOMEM;
+
+	INIT_DELAYED_WORK(&work->flip_work, loongson_flip_work_func);
+
+	old_fb = to_loongson_framebuffer(crtc->primary->fb);
+	obj = old_fb->obj;
+	work->old_bo = gem_to_loongson_bo(obj);
+
+	work->event = event;
+	work->ldev = ldev;
+	work->crtc_id = loongson_crtc->crtc_id;
+
+	new_fb = to_loongson_framebuffer(fb);
+	obj = new_fb->obj;
+	new_bo = gem_to_loongson_bo(obj);
+
+	/* pinthenewbuffer */
+	ret = loongson_bo_reserve(new_bo, false);
+	if (unlikely(ret != 0)) {
+		DRM_ERROR("failed to reserve new bo buffer before flip\n");
+		goto cleanup;
+	}
+
+	ret = loongson_bo_pin(new_bo, TTM_PL_FLAG_VRAM, &base);
+	if (unlikely(ret != 0)) {
+		ret = -EINVAL;
+		DRM_ERROR("failed to pin new bo buffer before flip\n");
+		goto unreserve;
+	}
+
+	loongson_bo_unreserve(new_bo);
+	work->base = base;
+
+	ret = drm_crtc_vblank_get(crtc);
+	if (ret)
+		goto cleanup;
+
+	loongson_crtc->pflip_works = work;
+	crtc->primary->fb = fb;
+
+	loongson_flip_work_func(&work->flip_work.work);
+
+	return 0;
+
+unreserve:
+	loongson_bo_unreserve(new_bo);
+
+cleanup:
+	loongson_bo_unref(&work->old_bo);
+	kfree(work);
+
+	return 0;
+}
+
 /**
  * These provide the minimum set of functions required to handle a CRTC
  * Each driver is responsible for filling out this structure at startup time
@@ -817,6 +891,7 @@ static const struct drm_crtc_funcs loongson_crtc_funcs = {
 	.cursor_move = loongson_crtc_cursor_move,
 	.set_config = drm_crtc_helper_set_config,
 	.destroy = loongson_crtc_destroy,
+	.page_flip = loongson_crtc_page_flip,
 };
 
 /**
