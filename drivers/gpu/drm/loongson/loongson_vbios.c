@@ -21,7 +21,7 @@ unsigned char __attribute__((weak)) ls_spiflash_read_status(void)
 	return 0xff;
 }
 
-static void* get_vbios_from_bios(void)
+static void *get_vbios_from_bios(void)
 {
 	void *vbios = NULL;
 
@@ -38,7 +38,7 @@ static void* get_vbios_from_bios(void)
 	return vbios;
 }
 
-static void* get_vbios_from_flash(void)
+static void *get_vbios_from_flash(void)
 {
 	void *vbios = NULL;
 	int ret = -1;
@@ -61,7 +61,7 @@ static void* get_vbios_from_flash(void)
 	return vbios;
 }
 
-static struct loongson_vbios_encoder*
+static struct loongson_vbios_encoder *
 get_encoder_legacy(struct loongson_device *ldev, u32 index)
 {
 	struct loongson_vbios *vbios = (struct loongson_vbios*)ldev->vbios;
@@ -116,6 +116,190 @@ get_connector_legacy(struct loongson_device *ldev, u32 index)
 	}
 
 	return connector;
+}
+
+static u32 get_vbios_version(struct loongson_vbios *vbios)
+{
+	u32 minor, major, version;
+
+	minor = vbios->version_minor;
+	major = vbios->version_major;
+	version = major * 10 + minor;
+
+	return version;
+}
+
+static bool is_legacy_vbios(struct loongson_vbios *vbios)
+{
+	u32 version = get_vbios_version(vbios);
+
+	if (version <= 2)
+		return true;
+	else
+		return false;
+}
+
+static void *loongson_vbios_default(void)
+{
+	struct loongson_vbios *vbios;
+	struct loongson_vbios_crtc *crtc_vbios[2];
+	struct loongson_vbios_connector *connector_vbios[2];
+	struct loongson_vbios_encoder *encoder_vbios[2];
+	unsigned char *vbios_start;
+	enum loongson_gpu gpu;
+
+	gpu = loongson_find_gpu();
+	vbios = kzalloc(VBIOS_SIZE, GFP_KERNEL);
+	vbios_start = (unsigned char *)vbios;
+
+	/*Build loongson_vbios struct*/
+	vbios->version_major = 0;
+	vbios->version_minor = 1;
+	vbios->crtc_num = 2;
+	vbios->crtc_offset = sizeof(struct loongson_vbios);
+	vbios->connector_num = 2;
+	vbios->connector_offset =
+		sizeof(struct loongson_vbios) + 2 *
+		sizeof(struct loongson_vbios_crtc);
+	vbios->encoder_num = 2;
+	vbios->encoder_offset =
+		sizeof(struct loongson_vbios) + 2 *
+		sizeof(struct loongson_vbios_crtc) + 2 *
+		sizeof(struct loongson_vbios_connector);
+
+	/*Build loongson_vbios_crtc struct*/
+	crtc_vbios[0] = (struct loongson_vbios_crtc *)
+		(vbios_start + vbios->crtc_offset);
+	crtc_vbios[1] = (struct loongson_vbios_crtc *)(vbios_start +
+			vbios->crtc_offset +
+			sizeof(struct loongson_vbios_crtc));
+
+	crtc_vbios[0]->next = sizeof(struct loongson_vbios) +
+		sizeof(struct loongson_vbios_crtc);
+	crtc_vbios[0]->crtc_id = 0;
+	crtc_vbios[1]->next = 0;
+	crtc_vbios[1]->crtc_id = 1;
+	crtc_vbios[1]->encoder_id = 1;
+
+	/*Build loongson_vbios_connector struct*/
+	connector_vbios[0] = (struct loongson_vbios_connector *)(vbios_start +
+			vbios->connector_offset);
+	connector_vbios[1] = (struct loongson_vbios_connector *)(vbios_start +
+			vbios->connector_offset +
+			sizeof(struct loongson_vbios_connector));
+
+	connector_vbios[0]->next = vbios->connector_offset +
+		sizeof(struct loongson_vbios_connector);
+	connector_vbios[1]->next = 0;
+
+	connector_vbios[0]->hotplug = disable;
+	connector_vbios[1]->hotplug = disable;
+
+	/*Build loongson_vbios_encoder struct*/
+	encoder_vbios[0] = (struct loongson_vbios_encoder *)
+		(vbios_start + vbios->encoder_offset);
+	encoder_vbios[1] = (struct loongson_vbios_encoder *)(vbios_start +
+			vbios->encoder_offset +
+			sizeof(struct loongson_vbios_encoder));
+
+	encoder_vbios[0]->next = vbios->encoder_offset +
+		sizeof(struct loongson_vbios_encoder);
+	encoder_vbios[1]->next = 0;
+
+	encoder_vbios[0]->config_type = encoder_bios_config;
+	encoder_vbios[1]->config_type = encoder_bios_config;
+
+	encoder_vbios[0]->connector_id = 0;
+	encoder_vbios[1]->connector_id = 1;
+
+	switch (gpu) {
+	case LS7A_GPU:
+		encoder_vbios[0]->i2c_id = 6;
+		encoder_vbios[1]->i2c_id = 7;
+
+		connector_vbios[0]->i2c_id = 6;
+		connector_vbios[1]->i2c_id = 7;
+		break;
+	case LS2K_GPU:
+		encoder_vbios[0]->i2c_id = 2;
+		encoder_vbios[1]->i2c_id = 3;
+
+		connector_vbios[0]->i2c_id = 2;
+		connector_vbios[1]->i2c_id = 3;
+		break;
+	}
+
+	return (void *)vbios;
+}
+
+static int show_legacy_vbios(struct loongson_device *ldev)
+{
+	int index;
+	struct loongson_vbios *vbios = (struct loongson_vbios *)ldev->vbios;
+	struct loongson_vbios_crtc *crtc;
+	struct loongson_vbios_connector *connector;
+	struct loongson_vbios_encoder *encoder;
+	char *config_method;
+	char *encoder_methods[] = {
+		"NONE",
+		"OS",
+		"BIOS",
+		"ERR"
+	};
+
+	char *edid_methods[] = {
+		"No EDID",
+		"Reading EDID via built-in I2C",
+		"Use the VBIOS built-in EDID information",
+		"Get EDID via encoder chip"
+	};
+
+	char *detect_methods[] = {
+		"SHOW",
+		"POLL",
+		"HPD",
+		"NONE"
+	};
+
+
+	DRM_INFO("Using legacy Vbios: v%d.%d\n",
+			vbios->version_major, vbios->version_minor);
+
+	for (index=0; index < vbios->crtc_num; index++) {
+		crtc      = get_crtc_legacy(ldev, index);
+		if (!crtc)
+			continue;
+		encoder   = get_encoder_legacy(ldev, crtc->encoder_id);
+		if (!encoder)
+			continue;
+		connector = get_connector_legacy(ldev, encoder->connector_id);
+		if (!connector)
+			continue;
+		config_method = encoder_methods[encoder->config_type&0x3];
+		DRM_INFO("\tencoder%d(%s) i2c:%d \n",
+				crtc->encoder_id, config_method, encoder->i2c_id);
+		DRM_INFO("\tconnector%d:\n", encoder->connector_id);
+		DRM_INFO("\t   %s", edid_methods[connector->edid_method&0x3]);
+		DRM_INFO("\t  Detect:%s\n",
+				detect_methods[connector->hotplug&0x3]);
+	}
+
+	return 0;
+}
+
+static int loongson_vbios_init_legacy(struct loongson_device *ldev)
+{
+	struct loongson_vbios *vbios = (struct loongson_vbios *)ldev->vbios;
+
+	if (vbios->version_minor == 1) {
+		kfree(vbios);
+		vbios = loongson_vbios_default();
+		ldev->vbios = vbios;
+	}
+
+	show_legacy_vbios(ldev);
+
+	return 0;
 }
 
 static struct crtc_timing *
@@ -381,11 +565,6 @@ parse_vbios_default(struct desc_node *this, struct vbios_cmd *cmd)
 	DRM_WARN("Current descriptor[T-%d][V-%d] cannot be interprete.\n",
 			vb_desc->type, vb_desc->ver);
 	return false;
-}
-
-#define FUNC(t, v, f) \
-{ \
-	.type = t, .ver = v, .func = f,\
 }
 
 static struct desc_func tables[] = {
@@ -690,14 +869,12 @@ u32 get_crtc_id(struct loongson_device *ldev, u32 index)
 
 u32 get_crtc_max_freq(struct loongson_device *ldev, u32 index)
 {
-	struct loongson_vbios_crtc *crtc;
 	struct vbios_cmd vbt_cmd;
 	u32 max_freq = 0;
 	bool ret = false;
 
 	if (is_legacy_vbios(ldev->vbios)) {
-		crtc = get_crtc_legacy(ldev, index);
-		max_freq = crtc->crtc_max_freq;
+		max_freq = 200000; 
 	} else {
 		vbt_cmd.index = index;
 		vbt_cmd.type = desc_crtc;
@@ -714,14 +891,12 @@ u32 get_crtc_max_freq(struct loongson_device *ldev, u32 index)
 
 u32 get_crtc_max_width(struct loongson_device *ldev, u32 index)
 {
-	struct loongson_vbios_crtc *crtc;
 	struct vbios_cmd vbt_cmd;
 	u32 max_width = 0;
 	bool ret = false;
 
 	if (is_legacy_vbios(ldev->vbios)) {
-		crtc = get_crtc_legacy(ldev, index);
-		max_width = crtc->crtc_max_weight;
+		max_width = 2048;
 	} else {
 		vbt_cmd.index = index;
 		vbt_cmd.type = desc_crtc;
@@ -738,14 +913,12 @@ u32 get_crtc_max_width(struct loongson_device *ldev, u32 index)
 
 u32 get_crtc_max_height(struct loongson_device *ldev, u32 index)
 {
-	struct loongson_vbios_crtc *crtc;
 	struct vbios_cmd vbt_cmd;
 	u32 max_height = 0;
 	bool ret = false;
 
 	if (is_legacy_vbios(ldev->vbios)) {
-		crtc = get_crtc_legacy(ldev, index);
-		max_height = crtc->crtc_max_height;
+		max_height = 2048;
 	} else {
 		vbt_cmd.index = index;
 		vbt_cmd.type = desc_crtc;
@@ -1004,30 +1177,30 @@ bool get_loongson_i2c(struct loongson_device *ldev)
 	return ret;
 }
 
-void* loongson_get_vbios(void)
+bool loongson_vbios_init(struct loongson_device *ldev)
 {
-	void* vbios = NULL;
-	enum loongson_gpu gpu;
+	void* vbios;
+	struct loongson_vbios *header;
 
-	gpu = loongson_find_gpu();
 	vbios = get_vbios_from_bios();
-	if (vbios == NULL)
+	if (!vbios)
 		vbios = get_vbios_from_flash();
-	if (vbios == NULL && gpu == LS2K_GPU)
-		vbios = (struct loongson_vbios *)loongson_vbios_default_legacy();
+	if (!vbios)
+		vbios = loongson_vbios_default();
+	if (!vbios)
+		return false;
 
-	return vbios;
-}
+	header = ldev->vbios = vbios;
+	ldev->num_crtc = header->crtc_num;
 
-int loongson_vbios_init(struct loongson_device *ldev)
-{
-	u32 ret;
+	if (is_legacy_vbios(ldev->vbios))
+		loongson_vbios_init_legacy(ldev);
+	else {
+		INIT_LIST_HEAD(&ldev->desc_list);
+		parse_vbios_desc(ldev);
+	}
 
-	INIT_LIST_HEAD(&ldev->desc_list);
-
-	ret = parse_vbios_desc(ldev);
-
-	return ret;
+	return true;
 }
 
 void loongson_vbios_exit(struct loongson_device *ldev)

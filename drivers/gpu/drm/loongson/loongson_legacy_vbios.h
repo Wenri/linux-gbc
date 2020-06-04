@@ -180,7 +180,7 @@ struct loongson_vbios_encoder{
 	u32 reserve;
 	enum encoder_config config_type;
 	enum loongson_vbios_i2c_type i2c_type;
-	uint32_t i2c_id;
+	u32 i2c_id;
 	enum encoder_type type;
 	struct encoder_config_param encoder_config[LS_MAX_RESOLUTIONS];
 }__attribute__ ((packed));

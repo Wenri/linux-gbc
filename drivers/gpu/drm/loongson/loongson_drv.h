@@ -2,25 +2,20 @@
 #define __LOONGSON_DRV_H__
 
 #include <video/vga.h>
-
 #include <drm/ttm/ttm_bo_api.h>
 #include <drm/ttm/ttm_bo_driver.h>
 #include <drm/ttm/ttm_placement.h>
 #include <drm/ttm/ttm_memory.h>
 #include <drm/ttm/ttm_module.h>
 #include <drm/drmP.h>
-
 #include <drm/drm_gem.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/loongson_drm.h>
 #include <drm/drm_encoder.h>
-
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
-
 #include <linux/module.h>
 #include <linux/types.h>
-#include "loongson_legacy_vbios.h"
 
 #define DVO_I2C_NAME "loongson_dvo_i2c"
 #define DVO_I2C_ADDR 0x50
@@ -281,8 +276,8 @@ struct loongson_encoder {
 	u32 i2c_id;
 	u32 encoder_id;
 	u32 connector_id;
-	enum encoder_config config_type;
-	enum encoder_type type;
+	u32 config_type;
+	u32 type;
 	bool (*mode_set_method)(struct loongson_encoder *, struct drm_display_mode *);
 };
 
@@ -353,11 +348,8 @@ struct loongson_device {
 
 	struct loongson_irq irq;
 	struct drm_property *rotation_prop;
-	struct loongson_vbios *vbios;
+	void *vbios;
 	struct list_head desc_list;
-	struct loongson_vbios_crtc *crtc_vbios[2];
-	struct loongson_vbios_connector *connector_vbios[2];
-	struct loongson_vbios_encoder *encoder_vbios[4];
 	struct loongson_i2c i2c_bus[LS_MAX_I2C_BUS];
 	int fb_mtrr;
 
@@ -453,7 +445,6 @@ int loongson_crtc_cursor_set2(struct drm_crtc *crtc, struct drm_file *file_priv,
 		int32_t hot_x, int32_t hot_y);
 int loongson_crtc_cursor_move(struct drm_crtc *crtc, int x, int y);
 
-int loongson_vbios_init_legacy(struct loongson_device *ldev);
 void loongson_encoder_resume(struct loongson_device *ldev);
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder,
 		struct drm_display_mode *mode);

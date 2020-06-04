@@ -1,6 +1,8 @@
 #ifndef __LOONGSON_VBIOS_H__
 #define __LOONGSON_VBIOS_H__
 
+#include "loongson_legacy_vbios.h"
+
 #define VBIOS_PWM_ID                    0x0
 #define VBIOS_PWM_PERIOD                0x1
 #define VBIOS_PWM_POLARITY              0x2
@@ -24,6 +26,11 @@
 #define VBIOS_ENCODER_CONFIG_TYPE       0x4
 #define VBIOS_ENCODER_CONFIG_PARAM      0x1
 #define VBIOS_ENCODER_CONFIG_NUM        0x2
+
+#define FUNC(t, v, f) \
+{ \
+	.type = t, .ver = v, .func = f,\
+}
 
 struct desc_node;
 struct vbios_cmd;
@@ -108,11 +115,6 @@ struct vbios_cmd {
 	void *res;
 };
 
-#define FUNC(t, v, f) \
-{ \
-	.type = t, .ver = v, .func = f,\
-}
-
 struct desc_func {
 	enum desc_type type;
 	u16 ver;
@@ -168,10 +170,8 @@ struct vbios_cfg_encoder {
 	struct vbios_conf_reg config_regs[256];
 } __attribute__((packed));
 
-int loongson_vbios_init(struct loongson_device *ldev);
+bool loongson_vbios_init(struct loongson_device *ldev);
 void loongson_vbios_exit(struct loongson_device *ldev);
-void* loongson_get_vbios(void);
-bool is_legacy_vbios(struct loongson_vbios *vbios);
 u32 get_connector_type(struct loongson_device *ldev, u32 index);
 u16 get_connector_i2cid(struct loongson_device *ldev, u32 index);
 u16 get_hotplug_mode(struct loongson_device *ldev, u32 index);
