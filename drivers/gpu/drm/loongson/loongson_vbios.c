@@ -314,6 +314,25 @@ parse_vbios_cfg_encoder(struct desc_node *this, struct vbios_cmd *cmd)
 }
 
 static bool
+parse_vbios_i2c(struct desc_node *this, struct vbios_cmd *cmd)
+{
+	bool ret = true;
+	int i;
+	struct loongson_i2c *val = (struct loongson_i2c *)cmd->res;
+	struct vbios_i2c *vbios_i2c = (struct vbios_i2c *)this->data;
+	u32 num = this->desc->size/(sizeof(*vbios_i2c));
+
+	for (i = 0; (i < num && i < LS_MAX_I2C_BUS); i++) {
+		val->i2c_id = vbios_i2c->id;
+		val->use = true;
+		val++;
+		vbios_i2c++;
+	}
+
+	return ret;
+}
+
+static bool
 parse_vbios_backlight(struct desc_node *this, struct vbios_cmd *cmd)
 {
 
@@ -377,6 +396,7 @@ static struct desc_func tables[] = {
 	FUNC(desc_connector, ver_v1, parse_vbios_connector),
 	FUNC(desc_encoder, ver_v1, parse_vbios_encoder),
 	FUNC(desc_cfg_encoder, ver_v1, parse_vbios_cfg_encoder),
+	FUNC(desc_i2c, ver_v1, parse_vbios_i2c),
 };
 
 
@@ -954,6 +974,34 @@ enum encoder_type get_encoder_type(struct loongson_device *ldev, u32 index)
 	}
 
 	return type;
+}
+
+bool get_loongson_i2c(struct loongson_device *ldev)
+{
+	struct vbios_cmd vbt_cmd;
+	bool ret = false;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		if (ldev->gpu == LS7A_GPU) {
+			ldev->i2c_bus[0].i2c_id = 6;
+			ldev->i2c_bus[0].use = true;
+			ldev->i2c_bus[1].i2c_id = 7;
+			ldev->i2c_bus[1].use = true;
+		} else if (ldev->gpu == LS2K_GPU) {
+			ldev->i2c_bus[0].i2c_id = 2;
+			ldev->i2c_bus[0].use = true;
+			ldev->i2c_bus[1].i2c_id = 3;
+			ldev->i2c_bus[1].use = true;
+		}
+		ret = true;
+	} else {
+		vbt_cmd.index = 0;
+		vbt_cmd.type = desc_i2c;
+		vbt_cmd.res = (void *)&ldev->i2c_bus;
+		ret = vbios_get_data(ldev, &vbt_cmd);
+	}
+
+	return ret;
 }
 
 void* loongson_get_vbios(void)

@@ -135,7 +135,8 @@ struct loongson_connector;
 #define LS_FB_HSYNC0_ENABLE 		(1 << 19)
 
 struct loongson_i2c {
-	bool used;
+	bool use;
+	bool init;
 	unsigned int i2c_id;
 	struct i2c_adapter *adapter;
 	struct drm_device *dev;
