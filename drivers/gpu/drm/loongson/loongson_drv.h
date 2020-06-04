@@ -260,11 +260,15 @@ struct loongson_irq {
 struct loongson_encoder {
 	struct drm_encoder base;
 	struct loongson_device *ldev;
-	struct loongson_vbios_encoder *vbios_encoder;
-	unsigned int encoder_id;
-	bool (*mode_set_method)(struct loongson_encoder *, struct drm_display_mode *);
 	struct loongson_i2c *i2c;
+	struct encoder_config_param *encoder_config;
 	int last_dpms;
+	u32 i2c_id;
+	u32 encoder_id;
+	u32 connector_id;
+	enum encoder_config config_type;
+	enum encoder_type type;
+	bool (*mode_set_method)(struct loongson_encoder *, struct drm_display_mode *);
 };
 
 struct loongson_connector {

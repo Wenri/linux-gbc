@@ -133,9 +133,9 @@ void *loongson_vbios_default_legacy(void)
 		(vbios_start + vbios->encoder_offset +
 		 sizeof(struct loongson_vbios_encoder));
 
-	encoder_vbios[0]->next_encoder_offset = vbios->encoder_offset +
-		sizeof(struct loongson_vbios_encoder);
-	encoder_vbios[1]->next_encoder_offset = 0;
+	encoder_vbios[0]->next =
+		vbios->encoder_offset + sizeof(struct loongson_vbios_encoder);
+	encoder_vbios[1]->next = 0;
 
 	encoder_vbios[0]->crtc_id = 0;
 	encoder_vbios[1]->crtc_id = 1;
@@ -194,7 +194,7 @@ static void get_encoder_legacy(struct loongson_device *ldev)
 		(struct loongson_vbios_encoder *)(start + vbios->encoder_offset);
 	if(vbios->encoder_num > 1){
 		ldev->encoder_vbios[1] = (struct loongson_vbios_encoder *)
-			(start + ldev->encoder_vbios[0]->next_encoder_offset);
+			(start + ldev->encoder_vbios[0]->next);
 	}
 }
 
