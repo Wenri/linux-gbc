@@ -122,7 +122,7 @@ static void loongson_encoder_mode_set(struct drm_encoder *encoder,
 		return;
 
 	if (ls_encoder->config_type == encoder_os_config) {
-		DRM_INFO("Do encoder-%d mode set hdis %d vdisp %d encoderid %d\n",
+		DRM_DEBUG_KMS("Do encoder-%d mode set hdis %d vdisp %d encoderid %d\n",
 			ls_encoder->encoder_id, mode->hdisplay,
 			mode->vdisplay, ls_encoder->encoder_id);
 		ls_encoder->mode_set_method(ls_encoder, mode);
@@ -246,7 +246,7 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev, int
 
 void loongson_encoder_do_resume(struct loongson_encoder *ls_encoder)
 {
-	if (ls_encoder) {
+	if (ls_encoder && ls_encoder->base.crtc) {
 		DRM_INFO("Do ls encoder-%d resmue\n",ls_encoder->encoder_id);
 		ls_encoder->mode_set_method(ls_encoder,&ls_encoder->base.crtc->mode);
 	}
