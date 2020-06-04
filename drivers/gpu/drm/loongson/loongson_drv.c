@@ -499,8 +499,6 @@ static void loongson_pre_i2c_bus(struct loongson_device *ldev)
 int loongson_modeset_init(struct loongson_device *ldev)
 {
 	struct loongson_vbios_encoder *lsbios_encoder;
-	struct loongson_vbios_connector *lsbios_connector;
-	struct loongson_vbios_crtc *lsbios_crtc;
 	struct loongson_encoder *ls_encoder;
 	struct loongson_connector *ls_connector;
 	struct loongson_crtc     *ls_crtc;
@@ -518,20 +516,14 @@ int loongson_modeset_init(struct loongson_device *ldev)
 		loongson_pre_i2c_bus(ldev);
 
 	for (i = 0; (i < ldev->num_crtc && i < LS_MAX_MODE_INFO); i++) {
-		lsbios_crtc = ldev->crtc_vbios[i];
-
-		DRM_INFO("loongson CRTC-%d init\n",i);
-
 		ls_crtc =  loongson_crtc_init(ldev, i);
 		if (ls_crtc){
 			ldev->mode_info[i].crtc = ls_crtc;
 			lsbios_encoder =
-				ldev->encoder_vbios[lsbios_crtc->encoder_id];
+				ldev->encoder_vbios[ls_crtc->encoder_id];
 			ls_encoder = loongson_encoder_init(ldev,
-					lsbios_crtc->encoder_id);
+					ls_crtc->encoder_id);
 			ldev->mode_info[i].encoder = ls_encoder;
-			lsbios_connector =
-				ldev->connector_vbios[lsbios_encoder->connector_id];
 			ls_connector = loongson_connector_init(ldev,
 					lsbios_encoder->connector_id);
 			ldev->mode_info[i].connector = ls_connector;

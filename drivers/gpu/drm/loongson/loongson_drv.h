@@ -184,6 +184,35 @@ struct loongson_bo {
 	int pin_count;
 };
 
+struct loongson_timing {
+	/* horizontal timing. */
+	u32 htotal;
+	u32 hdisplay;
+	u32 hsync_start;
+	u32 hsync_width;
+	u32 hsync_pll;
+
+	/* vertical timing. */
+	u32 vtotal;
+	u32 vdisplay;
+	u32 vsync_start;
+	u32 vsync_width;
+	u32 vsync_pll;
+
+	/* refresh timing. */
+	s32 clock;
+	u32 hfreq;
+	u32 vfreq;
+
+	/* clock phase. this clock phase only applies to panel. */
+	u32 clock_phase;
+};
+
+struct crtc_timing {
+	u32 num;
+	struct loongson_timing *tables;
+};
+
 struct loongson_framebuffer {
 	struct drm_framebuffer base;
 	struct drm_gem_object *obj;
@@ -198,12 +227,17 @@ enum loongson_flip_status {
 struct loongson_crtc {
 	struct drm_crtc base;
 	struct loongson_device *ldev;
-	struct loongson_vbios_crtc *vbios_crtc;
-	unsigned int crtc_id;
-	int width;
-	int height;
-	int last_dpms;
+	u32 crtc_id;
+	s32 width;
+	s32 height;
+	s32 last_dpms;
 	bool enabled;
+	u32 encoder_id;
+	u32 max_freq;
+	u32 max_width;
+	u32 max_height;
+	bool is_vb_timing;
+	struct crtc_timing *timing;
 	struct loongson_flip_work *pflip_works;
 	enum loongson_flip_status pflip_status;
 };

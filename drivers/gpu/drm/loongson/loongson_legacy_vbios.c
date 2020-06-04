@@ -56,8 +56,8 @@ void *loongson_vbios_default_legacy(void)
 	crtc_vbios[1] = (struct loongson_vbios_crtc *)(vbios_start +
 			vbios->crtc_offset + sizeof(struct loongson_vbios_crtc));
 
-	crtc_vbios[0]->next_crtc_offset = sizeof(struct loongson_vbios) +
-		sizeof(struct loongson_vbios_crtc);
+	crtc_vbios[0]->next =
+		sizeof(struct loongson_vbios) + sizeof(struct loongson_vbios_crtc);
 	crtc_vbios[0]->crtc_id = 0;
 	crtc_vbios[0]->crtc_version = default_version;
 	crtc_vbios[0]->crtc_max_weight = 2048;
@@ -65,7 +65,7 @@ void *loongson_vbios_default_legacy(void)
 	crtc_vbios[0]->encoder_id = 0;
 	crtc_vbios[0]->use_local_param = false;
 
-	crtc_vbios[1]->next_crtc_offset = 0;
+	crtc_vbios[1]->next = 0;
 	crtc_vbios[1]->crtc_id = 1;
 	crtc_vbios[1]->crtc_version = default_version;
 	crtc_vbios[1]->crtc_max_weight = 2048;
@@ -161,7 +161,7 @@ static void get_crtc_legacy(struct loongson_device *ldev)
 	if (vbios->crtc_num > 1) {
 		for(i = 1; i < vbios->crtc_num; i++) {
 		ldev->crtc_vbios[i] = (struct loongson_vbios_crtc *)
-			(start + ldev->crtc_vbios[i - 1]->next_crtc_offset);
+			(start + ldev->crtc_vbios[i - 1]->next);
 		}
 	}
 }

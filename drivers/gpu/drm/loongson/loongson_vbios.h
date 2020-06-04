@@ -15,4 +15,14 @@ u8* get_vbios_edid(struct loongson_device *ldev, u32 index);
 u16 get_edid_method(struct loongson_device *ldev, u32 index);
 u32 get_vbios_pwm(struct loongson_device *ldev, u32 index, u16 request);
 
+u32 get_crtc_id(struct loongson_device *ldev, u32 index);
+u32 get_crtc_max_freq(struct loongson_device *ldev, u32 index);
+u32 get_crtc_max_width(struct loongson_device *ldev, u32 index);
+u32 get_crtc_max_height(struct loongson_device *ldev, u32 index);
+u32 get_crtc_encoder_id(struct loongson_device *ldev, u32 index);
+bool get_crtc_is_vb_timing(struct loongson_device *ldev, u32 index);
+
+struct crtc_timing *
+get_crtc_timing(struct loongson_device *ldev, u32 index);
+
 #endif /* __LOONGSON_VBIOS_H__ */
