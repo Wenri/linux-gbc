@@ -101,9 +101,6 @@ void *loongson_vbios_default_legacy(void)
 
 		connector_vbios[0]->i2c_id = 6;
 		connector_vbios[1]->i2c_id = 7;
-
-		connector_vbios[0]->edid_method = via_i2c;
-		connector_vbios[1]->edid_method = via_i2c;
 		break;
 	case LS2K_GPU:
 		encoder_vbios[0]->i2c_id = 2;
@@ -114,11 +111,11 @@ void *loongson_vbios_default_legacy(void)
 
 		connector_vbios[0]->i2c_id = 2;
 		connector_vbios[1]->i2c_id = 3;
-
-		connector_vbios[0]->edid_method = via_i2c;
-		connector_vbios[1]->edid_method = via_i2c;
 		break;
 	}
+
+	connector_vbios[0]->edid_method = via_i2c;
+	connector_vbios[1]->edid_method = via_i2c;
 
 	connector_vbios[0]->hotplug = polling;
 	connector_vbios[1]->hotplug = polling;

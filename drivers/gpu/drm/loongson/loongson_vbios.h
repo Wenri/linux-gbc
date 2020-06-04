@@ -72,6 +72,18 @@ struct vbios_backlight {
 	enum vbios_backlight_type  type;
 } __attribute__((packed));
 
+enum i2c_type {
+	i2c_cpu,
+	i2c_gpio,
+	i2c_max = -1
+};
+
+struct vbios_i2c {
+	u32 feature;
+	u16  id;
+	enum i2c_type type;
+}__attribute__((packed));
+
 struct vbios_pwm {
 	u32 feature;
 	u8  pwm;
@@ -186,5 +198,6 @@ get_encoder_type(struct loongson_device *ldev, u32 index);
 struct cfg_encoder*
 get_encoder_config(struct loongson_device *ldev, u32 index);
 u32 get_encoder_cfg_num(struct loongson_device *ldev, u32 index);
+bool get_loongson_i2c(struct loongson_device *ldev);
 
 #endif /* __LOONGSON_VBIOS_H__ */
