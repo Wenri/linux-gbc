@@ -11,6 +11,7 @@
  */
 
 #include "loongson_drv.h"
+#include "loongson_vbios.h"
 #include <drm/drmP.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_plane_helper.h>
@@ -19,25 +20,38 @@ DEFINE_SPINLOCK(loongson_crtc_lock);
 
 /**
  * loongson_crtc_resolution_match
+ * @loongson_crtc_mode_match
  * @hdisplay
  * @vdisplay
- * @ config_param
+ * @ls_crtc
+ * @Returns   struct crtc_vbios_timing *
  * */
-int loongson_crtc_resolution_match(unsigned int hdisplay,
-		unsigned int vdisplay,
-		struct loongson_crtc_config_param *config_param)
+static struct loongson_timing *
+loongson_crtc_get_timing(u32 hdisplay, u32 vdisplay,
+		struct loongson_crtc *ls_crtc)
 {
-	struct loongson_resolution_param *resolution;
 	int match_index = 0;
-	while (match_index < LS_MAX_RESOLUTIONS ) {
-		resolution = &config_param->resolution;
-		if (hdisplay == resolution->hdisplay)
-			if (vdisplay == resolution->vdisplay)
-				break;
-		match_index++;
-		config_param++;
+	struct crtc_timing *timing = ls_crtc->timing;
+	struct loongson_timing *config = NULL, *table = NULL;
+
+	table = timing->tables;
+	if (!table) {
+		DRM_INFO("crtc mode table null \n");
+		return config;
 	}
-	return match_index;
+
+	while (match_index < timing->num) {
+		if (vdisplay == table->vdisplay &&
+			hdisplay == table->hdisplay) {
+			config = table;
+			break;
+		}
+
+		match_index++;
+		table++;
+		}
+
+	return config;
 }
 
 /**
@@ -514,10 +528,8 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 {
 	struct drm_device *dev = crtc->dev;
 	struct loongson_device *ldev = dev->dev_private;
-	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
-	struct loongson_vbios_crtc *crtc_vbios;
-	struct loongson_crtc_modeparameter  *crtc_mode;
-	int resolution_index;
+	struct loongson_crtc *ls_crtc = to_loongson_crtc(crtc);
+	struct loongson_timing  *crtc_mode;
 	unsigned int pix_freq;
 	unsigned int depth;
 	unsigned int hr, hss, hse, hfl;
@@ -526,7 +538,7 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 	struct pix_pll pll_cfg;
 	unsigned int crtc_id;
 
-	crtc_id = loongson_crtc->crtc_id;
+	crtc_id = ls_crtc->crtc_id;
 
 	hr = mode->hdisplay;    hss = mode->hsync_start;
 	hse = mode->hsync_end;  hfl = mode->htotal;
@@ -535,41 +547,33 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 	depth = crtc->primary->fb->bits_per_pixel;
 	pix_freq = mode->clock;
 
-	DRM_DEBUG("crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d,"
-			"vse = %d,vfl = %d,depth = %d,pix_freq = %d,x = %d,y = %d\n",
-			crtc_id, hr, hss, hse, hfl, vr, vss, vse, vfl, depth,
-			pix_freq, x, y);
-
-	DRM_DEBUG("fb width = %d,height = %d\n", crtc->primary->fb->width,
-			crtc->primary->fb->height);
-
-	crtc_vbios = loongson_crtc->vbios_crtc;
-	if (crtc_vbios && crtc_vbios->use_local_param) {
-		/* verdor can dece this value */
-		resolution_index = loongson_crtc_resolution_match(
-				hr,vr,
-				crtc_vbios->mode_config_tables);
-		if (resolution_index ==  LS_MAX_RESOLUTIONS) {
-			DRM_DEBUG("match  width = %d,height  %d not support\n",vr ,hr);
+	if (ls_crtc->is_vb_timing) {
+		crtc_mode = loongson_crtc_get_timing(hr, vr, ls_crtc);
+		if (!crtc_mode) {
+			DRM_ERROR("match  vdisp = %d, hdisp %d no support\n",vr ,hr);
 			return 1;
 		}
 
-		crtc_mode = &crtc_vbios->mode_config_tables[resolution_index].crtc_resol_param;
-
-		hr = crtc_mode->horizontaldisplay;
-		hss = crtc_mode->horizontalsyncstart;
-		hse = crtc_mode->horizontalsyncstart+crtc_mode->horizontalsyncwidth;
-		hfl = crtc_mode->horizontaltotal;
-		vr = crtc_mode->verticaldisplay;
-		vss = crtc_mode->verticalsyncstart;
-		vse = crtc_mode->verticalsyncstart+crtc_mode->verticalsyncheight;
-		vfl = crtc_mode->verticaltotal;
-		pix_freq = crtc_mode->pixelclock;
-		DRM_DEBUG("from config_file crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d,"
-				"vse = %d,vfl = %d,pix_freq = %d,x = %d,y = %d\n",
-				crtc_id, hr, hss, hse, hfl, vr, vss, vse, vfl,
-				pix_freq, x, y);
+		hr = crtc_mode->hdisplay;
+		hss = crtc_mode->hsync_start;
+		hse = crtc_mode->hsync_start+crtc_mode->hsync_width;
+		hfl = crtc_mode->htotal;
+		vr = crtc_mode->vdisplay;
+		vss = crtc_mode->vsync_start;
+		vse = crtc_mode->vsync_start+crtc_mode->vsync_width;
+		vfl = crtc_mode->vtotal;
+		pix_freq = crtc_mode->clock;
 	}
+
+	DRM_DEBUG_KMS("crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d,"
+			"vse = %d,vfl = %d,depth = %d,pix_freq = %d,x = %d,y = %d\n",
+			crtc_id, hr, hss, hse, hfl, vr, vss, vse, vfl, depth,
+			pix_freq, x, y);
+	DRM_DEBUG_KMS("fb width = %d,height = %d\n", crtc->primary->fb->width,
+			crtc->primary->fb->height);
+
+	ls_crtc->width = hr;
+	ls_crtc->height = vr;
 
 	if (ldev->gpu == LS2K_GPU) {
 		if (crtc_id) {
@@ -585,8 +589,6 @@ static int loongson_crtc_mode_set(struct drm_crtc *crtc,
 		}
 	}
 
-	loongson_crtc->width = hr;
-	loongson_crtc->height = vr;
 	ret = cal_freq(pix_freq, &pll_cfg);
 
 	if (crtc_id == 0) {
@@ -920,7 +922,6 @@ struct loongson_crtc *
 loongson_crtc_init(struct loongson_device *ldev, int index)
 {
 	struct loongson_crtc *ls_crtc;
-	struct loongson_vbios_crtc *vbios_crtc = ldev->crtc_vbios[index];
 
 	ls_crtc = kzalloc(sizeof(struct loongson_crtc) +
 			(1 * sizeof(struct drm_connector *)),
@@ -929,8 +930,17 @@ loongson_crtc_init(struct loongson_device *ldev, int index)
 	if (ls_crtc == NULL)
 		return NULL;
 
-	ls_crtc->vbios_crtc = vbios_crtc;
-	ls_crtc->crtc_id = vbios_crtc->crtc_id;
+	ls_crtc->ldev = ldev;
+	ls_crtc->crtc_id = get_crtc_id(ldev, index);
+	ls_crtc->max_freq = get_crtc_max_freq(ldev, index);
+	ls_crtc->max_width = get_crtc_max_width(ldev, index);
+	ls_crtc->max_height = get_crtc_max_height(ldev, index);
+	ls_crtc->encoder_id = get_crtc_encoder_id(ldev, index);
+	ls_crtc->is_vb_timing = get_crtc_is_vb_timing(ldev, index);
+
+	if (ls_crtc->is_vb_timing)
+		ls_crtc->timing = get_crtc_timing(ldev, index);
+
 	drm_crtc_init(ldev->dev, &ls_crtc->base, &loongson_crtc_funcs);
 
 	drm_crtc_helper_add(&ls_crtc->base, &loongson_helper_funcs);

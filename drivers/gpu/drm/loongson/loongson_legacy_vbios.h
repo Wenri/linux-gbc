@@ -30,26 +30,23 @@ enum loongson_crtc_version {
 
 struct loongson_crtc_modeparameter{
 	/* horizontal timing. */
-	uint32_t horizontaltotal;
-	uint32_t horizontaldisplay;
-	uint32_t horizontalsyncstart;
-	uint32_t horizontalsyncwidth;
-	uint32_t horizontalsyncpolarity;
-
+	u32 htotal;
+	u32 hdisplay;
+	u32 hsync_start;
+	u32 hsync_width;
+	u32 hsync_pll;
 	/* vertical timing. */
-	uint32_t verticaltotal;
-	uint32_t verticaldisplay;
-	uint32_t verticalsyncstart;
-	uint32_t verticalsyncheight;
-	uint32_t verticalsyncpolarity;
-
+	u32 vtotal;
+	u32 vdisplay;
+	u32 vsync_start;
+	u32 vsync_width;
+	u32 vsync_pll;
 	/* refresh timing. */
-	int32_t pixelclock;
-	uint32_t horizontalfrequency;
-	uint32_t verticalfrequency;
-
+	s32 clock;
+	u32 hfreq;
+	u32 vfreq;
 	/* clock phase. this clock phase only applies to panel. */
-	uint32_t clockphasepolarity;
+	u32 clock_phase;
 };
 
 struct loongson_encoder_conf_reg{
@@ -79,16 +76,16 @@ struct loongson_encoder_config_param{
 };
 
 struct loongson_vbios_crtc {
-	uint32_t next_crtc_offset;
-	uint32_t crtc_id;
+	u32 next;
+	u32 crtc_id;
 	enum loongson_crtc_version crtc_version;
-	uint32_t crtc_max_freq;
-	uint32_t crtc_max_weight;
-	uint32_t crtc_max_height;
-	uint32_t connector_id;
-	uint32_t phy_num;
-	uint32_t encoder_id;
-	uint32_t reserve;
+	u32 crtc_max_freq;
+	u32 crtc_max_weight;
+	u32 crtc_max_height;
+	u32 connector_id;
+	u32 phy_num;
+	u32 encoder_id;
+	u32 reserve;
 	bool use_local_param;
 	struct loongson_crtc_config_param mode_config_tables[LS_MAX_RESOLUTIONS];
 }__attribute__ ((packed));

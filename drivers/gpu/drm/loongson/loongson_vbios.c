@@ -60,7 +60,27 @@ static void* get_vbios_from_flash(void)
 	return vbios;
 }
 
-static struct loongson_vbios_connector* get_connector_legacy(struct loongson_device *ldev, u32 index)
+static struct loongson_vbios_crtc*
+get_crtc_legacy(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios *vbios = ldev->vbios;
+	struct loongson_vbios_crtc *crtc = NULL;
+	u8 *start;
+	u32 offset;
+
+	start = (u8 *)vbios;
+	offset = vbios->crtc_offset;
+	crtc = (struct loongson_vbios_crtc *)(start + offset);
+	if (index == 1) {
+		offset = crtc->next;
+		crtc = (struct loongson_vbios_crtc *)(start + offset);
+	}
+
+	return crtc;
+}
+
+static struct loongson_vbios_connector*
+get_connector_legacy(struct loongson_device *ldev, u32 index)
 {
 	struct loongson_vbios *vbios = ldev->vbios;
 	struct loongson_vbios_connector *connector = NULL;
@@ -76,6 +96,61 @@ static struct loongson_vbios_connector* get_connector_legacy(struct loongson_dev
 	}
 
 	return connector;
+}
+
+static struct crtc_timing *
+get_crtc_timing_legacy(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_crtc_config_param *vbios_tables;
+	struct loongson_crtc_modeparameter *param;
+	struct loongson_vbios_crtc *vbios_crtc;
+	struct loongson_timing *tables;
+	struct crtc_timing *timing;
+	s32 i = 0;
+	u32 tables_size = (sizeof(struct loongson_timing)*LS_MAX_RESOLUTIONS);
+
+	vbios_crtc = get_crtc_legacy(ldev,index);
+
+	timing =
+		(struct crtc_timing *)kzalloc(sizeof(struct crtc_timing), GFP_KERNEL);
+	if (!timing)
+		return NULL;
+
+	tables= kzalloc(tables_size, GFP_KERNEL);
+	if (!tables) {
+		kfree(timing);
+		return NULL;
+	}
+
+	timing->tables = tables;
+
+	vbios_tables = vbios_crtc->mode_config_tables;
+
+	while(vbios_tables->resolution.used){
+		param = &vbios_tables->crtc_resol_param;
+
+		tables->htotal = param->htotal;
+		tables->hdisplay = param->hdisplay;
+		tables->hsync_start = param->hsync_start;
+		tables->hsync_width = param->hsync_width;
+		tables->hsync_pll = param->hsync_pll;
+		tables->vtotal = param->vtotal;
+		tables->vdisplay = param->vdisplay;
+		tables->vsync_start = param->vsync_start;
+		tables->vsync_width = param->vsync_width;
+		tables->vsync_pll = param->vsync_pll;
+		tables->clock = param->clock;
+		tables->hfreq = param->hfreq;
+		tables->vfreq = param->vfreq;
+		tables->clock_phase = param->clock_phase;
+
+		i++;
+		tables++;
+		vbios_tables++;
+	}
+	timing->num = i;
+
+	return timing;
 }
 
 u32 get_connector_type(struct loongson_device *ldev, u32 index)
@@ -167,6 +242,87 @@ u32 get_vbios_pwm(struct loongson_device *ldev, u32 index, u16 request)
 	}
 
 	return value;
+}
+
+u32 get_crtc_id(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_crtc *crtc;
+	u32 crtc_id = 0;
+	if (is_legacy_vbios(ldev->vbios)) {
+		crtc = get_crtc_legacy(ldev, index);
+		crtc_id = crtc->crtc_id;
+	}
+
+	return crtc_id;
+}
+
+u32 get_crtc_max_freq(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_crtc *crtc;
+	u32 max_freq = 0;
+	if (is_legacy_vbios(ldev->vbios)) {
+		crtc = get_crtc_legacy(ldev, index);
+		max_freq = crtc->crtc_max_freq;
+	}
+
+	return max_freq;
+}
+
+u32 get_crtc_max_width(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_crtc *crtc;
+	u32 max_width = 0;
+	if (is_legacy_vbios(ldev->vbios)) {
+		crtc = get_crtc_legacy(ldev, index);
+		max_width = crtc->crtc_max_weight;
+	}
+
+	return max_width;
+}
+
+u32 get_crtc_max_height(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_crtc *crtc;
+	u32 max_height = 0;
+	if (is_legacy_vbios(ldev->vbios)) {
+		crtc = get_crtc_legacy(ldev, index);
+		max_height = crtc->crtc_max_height;
+	}
+
+	return max_height;
+}
+
+u32 get_crtc_encoder_id(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_crtc *crtc;
+	u32 encoder_id = 0;
+	if (is_legacy_vbios(ldev->vbios)) {
+		crtc = get_crtc_legacy(ldev, index);
+		encoder_id = crtc->encoder_id;
+	}
+
+	return encoder_id;
+}
+
+bool get_crtc_is_vb_timing(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_crtc *crtc;
+	bool vb_timing = false;
+	if (is_legacy_vbios(ldev->vbios)) {
+		crtc = get_crtc_legacy(ldev, index);
+		vb_timing = crtc->use_local_param;
+	}
+
+	return vb_timing;
+}
+
+struct crtc_timing *get_crtc_timing(struct loongson_device *ldev,
+		u32 index)
+{
+	if (is_legacy_vbios(ldev->vbios))
+		return get_crtc_timing_legacy(ldev, index);
+
+	return NULL;
 }
 
 void* loongson_get_vbios(void)
