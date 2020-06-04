@@ -38,18 +38,20 @@ int loongson_encoder_resolution_match(unsigned int hdisplay,
 		unsigned int vdisplay,
 		struct loongson_encoder *ls_encoder)
 {
-	struct encoder_config_param *config_param;
-	struct loongson_resolution_param *resolution;
+	struct cfg_encoder *config_param;
 	int match_index = 0;
 
 	if (ls_encoder->config_type == encoder_transparent)
 		return match_index;
 
 	config_param = ls_encoder->encoder_config;
-	while(match_index < LS_MAX_RESOLUTIONS ){
-		resolution = &config_param->resolution;
-		if (hdisplay == resolution->hdisplay &&
-			vdisplay == resolution->vdisplay)
+	if (!config_param) {
+		return ls_encoder->cfg_num;
+	}
+
+	while (match_index < ls_encoder->cfg_num) {
+		if (vdisplay == config_param->vdisplay)
+			if (hdisplay == config_param->hdisplay)
 				break;
 		match_index++;
 		config_param++;
@@ -63,8 +65,9 @@ static bool mode_set_i2c(struct loongson_encoder *ls_encoder, struct drm_display
 	unsigned char write_data[2];
 	struct i2c_msg write_msgs;
 	struct i2c_adapter *adapter;
-	struct encoder_conf_reg *ls_reg;
-	int resolution_index;
+	struct config_reg *ls_reg;
+	struct cfg_encoder *config_param;
+	int resolution;
 	int reg_num;
 
 	if (!ls_encoder->i2c) {
@@ -74,18 +77,18 @@ static bool mode_set_i2c(struct loongson_encoder *ls_encoder, struct drm_display
 
 	adapter = ls_encoder->i2c->adapter;
 
-	resolution_index = loongson_encoder_resolution_match(
-			mode->hdisplay,mode->vdisplay,
-			ls_encoder);
+	resolution = loongson_encoder_resolution_match(mode->hdisplay,
+			mode->vdisplay, ls_encoder);
 
-	if (resolution_index == LS_MAX_RESOLUTIONS){
+	if (resolution == ls_encoder->cfg_num) {
 		DRM_ERROR("ls encoder  mdoeset mach resolution err \n");
 		return false;
 	}
 
-	reg_num = ls_encoder->encoder_config[resolution_index].encoder_resol_param.reg_num;
+	config_param = ls_encoder->encoder_config;
+	reg_num = config_param[resolution].reg_num;
 	for (i = 0; i < reg_num; i++) {
-		ls_reg = &ls_encoder->encoder_config[resolution_index].encoder_resol_param.config_regs[i];
+		ls_reg = &config_param[resolution].config_regs[i];
 		write_msgs.flags  = 0;
 		write_msgs.addr   = ls_reg->dev_addr;
 		write_data[0]     = ls_reg->reg;
@@ -218,6 +221,8 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev, int
 	ls_encoder->i2c_id = get_encoder_i2c_id(ldev, index);
 	ls_encoder->type = get_encoder_type(ldev, index);
 	ls_encoder->encoder_config = get_encoder_config(ldev, index);
+	ls_encoder->cfg_num = get_encoder_cfg_num(ldev, index);
+
 	ls_encoder->encoder_id = index;
 	ls_encoder->ldev = ldev;
 	ls_encoder->mode_set_method = mode_set_i2c;

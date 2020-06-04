@@ -257,12 +257,26 @@ struct loongson_irq {
 	spinlock_t                      lock;
 };
 
+struct config_reg{
+	u8 dev_addr;
+	u8 reg;
+	u8 value;
+}__attribute__((packed));
+
+struct cfg_encoder {
+	u32 hdisplay;
+	u32 vdisplay;
+	u8 reg_num;
+	struct config_reg config_regs[256];
+};
+
 struct loongson_encoder {
 	struct drm_encoder base;
 	struct loongson_device *ldev;
 	struct loongson_i2c *i2c;
-	struct encoder_config_param *encoder_config;
+	struct cfg_encoder *encoder_config;
 	int last_dpms;
+	u32 cfg_num;
 	u32 i2c_id;
 	u32 encoder_id;
 	u32 connector_id;

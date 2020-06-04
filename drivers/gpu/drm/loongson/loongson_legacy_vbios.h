@@ -72,7 +72,7 @@ struct loongson_crtc_config_param{
 };
 struct encoder_config_param{
 	struct loongson_resolution_param resolution;
-	struct encoder_resolution_config encoder_resol_param;
+	struct encoder_resolution_config encoder_param;
 };
 
 struct loongson_vbios_crtc {
