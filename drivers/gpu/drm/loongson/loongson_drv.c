@@ -966,12 +966,32 @@ static void loongson_pci_remove(struct pci_dev *pdev)
  */
 int loongson_drm_suspend(struct drm_device *dev)
 {
+	u32 r;
+	struct loongson_bo *lbo;
+	struct drm_framebuffer *drm_fb;
+	struct loongson_framebuffer *lfb;
 	struct loongson_device *ldev = dev->dev_private;
 
 	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
 
 	drm_kms_helper_poll_disable(dev);
+
+	mutex_lock(&dev->mode_config.fb_lock);
+	drm_for_each_fb(drm_fb, dev) {
+		lfb = to_loongson_framebuffer(drm_fb);
+		lbo = gem_to_loongson_bo(lfb->obj);
+		r = loongson_bo_reserve(lbo, false);
+		if (unlikely(r))
+			continue;
+
+		r = loongson_bo_unpin(lbo);
+		loongson_bo_unreserve(lbo);
+	}
+	mutex_unlock(&dev->mode_config.fb_lock);
+
+	/* evict vram memory. copy fb from vram to ttm pages*/
+	ttm_bo_evict_mm(&ldev->ttm.bdev, TTM_PL_VRAM);
 
 	console_lock();
 	loongson_fbdev_set_suspend(ldev, 1);
@@ -991,10 +1011,28 @@ int loongson_drm_suspend(struct drm_device *dev)
  */
 int loongson_drm_resume(struct drm_device *dev)
 {
+	u32 r;
+	u64 gpu_addr;
+	struct loongson_bo *lbo;
+	struct drm_framebuffer *drm_fb;
+	struct loongson_framebuffer *lfb;
 	struct loongson_device *ldev = dev->dev_private;
 
         if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
+
+	mutex_lock(&dev->mode_config.fb_lock);
+	drm_for_each_fb(drm_fb, dev) {
+		lfb = to_loongson_framebuffer(drm_fb);
+		lbo = gem_to_loongson_bo(lfb->obj);
+		r = loongson_bo_reserve(lbo, false);
+		if (unlikely(r))
+			continue;
+
+		loongson_bo_pin(lbo, TTM_PL_FLAG_VRAM, &gpu_addr);
+		loongson_bo_unreserve(lbo);
+	}
+	mutex_unlock(&dev->mode_config.fb_lock);
 
 	console_lock();
 	loongson_encoder_resume(ldev);
@@ -1049,15 +1087,7 @@ static int loongson_pmops_freeze(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
-	struct drm_connector *connector;
-	DRM_DEBUG("loongson_drm_pm_freeze");
-
-	drm_modeset_lock_all(drm_dev);
-	/*turn off display hw*/
-	list_for_each_entry(connector, &drm_dev->mode_config.connector_list, head){
-		drm_helper_connector_dpms(connector, DRM_MODE_DPMS_OFF);
-	}
-	drm_modeset_unlock_all(drm_dev);
+	loongson_drm_suspend(drm_dev);
 	return 0;
 }
 
@@ -1110,6 +1140,8 @@ static const struct dev_pm_ops loongson_pmops = {
 	.suspend = loongson_pmops_suspend,
 	.resume = loongson_pmops_resume,
 	.freeze = loongson_pmops_freeze,
+	.poweroff = loongson_pmops_freeze,
+	.restore = loongson_pmops_resume,
 };
 
 /**
