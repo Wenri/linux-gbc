@@ -1,9 +1,29 @@
 #ifndef __LOONGSON_VBIOS_H__
 #define __LOONGSON_VBIOS_H__
 
-#define VBIOS_PWM_ID           0x0
-#define VBIOS_PWM_PERIOD       0x1
-#define VBIOS_PWM_POLARITY     0x2
+#define VBIOS_PWM_ID                    0x0
+#define VBIOS_PWM_PERIOD                0x1
+#define VBIOS_PWM_POLARITY              0x2
+
+#define VBIOS_CRTC_ID                   0x1
+#define VBIOS_CRTC_ENCODER_ID           0x2
+#define VBIOS_CRTC_MAX_FREQ             0x3
+#define VBIOS_CRTC_MAX_WIDTH            0x4
+#define VBIOS_CRTC_MAX_HEIGHT           0x5
+#define VBIOS_CRTC_IS_VB_TIMING         0x6
+
+#define VBIOS_CONNECTOR_I2C_ID          0x1
+#define VBIOS_CONNECTOR_INTERNAL_EDID   0x2
+#define VBIOS_CONNECTOR_TYPE            0x3
+#define VBIOS_CONNECTOR_HOTPLUG         0x4
+#define VBIOS_CONNECTOR_EDID_METHOD     0x5
+
+#define VBIOS_ENCODER_I2C_ID            0x1
+#define VBIOS_ENCODER_CONNECTOR_ID      0x2
+#define VBIOS_ENCODER_TYPE              0x3
+#define VBIOS_ENCODER_CONFIG_TYPE       0x4
+#define VBIOS_ENCODER_CONFIG_PARAM      0x1
+#define VBIOS_ENCODER_CONFIG_NUM        0x2
 
 struct desc_node;
 struct vbios_cmd;
@@ -48,14 +68,12 @@ struct vbios_header {
 
 struct vbios_backlight {
 	u32 feature;
-	u8  index;
 	u8  used;
 	enum vbios_backlight_type  type;
 } __attribute__((packed));
 
 struct vbios_pwm {
 	u32 feature;
-	u8  index;
 	u8  pwm;
 	u8  polarity;
 	u32 peroid;
@@ -74,7 +92,7 @@ struct vbios_desc {
 struct vbios_cmd {
 	u8    index;
 	enum desc_type type;
-	void *req;
+	u64 *req;
 	void *res;
 };
 
@@ -97,6 +115,46 @@ struct desc_node {
 	struct vbios_desc *desc;
 	parse_func *parse;
 };
+
+struct vbios_encoder {
+	u32 feature;
+	u32 i2c_id;
+	u32 connector_id;
+	enum encoder_type type;
+	enum encoder_config config_type;
+} __attribute__((packed));
+
+struct vbios_connector {
+	u32 feature;
+	u32 i2c_id;
+	u8 internal_edid[256];
+	enum connector_type type;
+	enum hotplug hotplug;
+	enum loongson_edid_method edid_method;
+} __attribute__((packed));
+
+struct vbios_crtc {
+	u32 feature;
+	u32 crtc_id;
+	u32 encoder_id;
+	u32 max_freq;
+	u32 max_width;
+	u32 max_height;
+	bool is_vb_timing;
+} __attribute__((packed));
+
+struct vbios_conf_reg{
+	u8 dev_addr;
+	u8 reg;
+	u8 value;
+}__attribute__((packed));
+
+struct vbios_cfg_encoder {
+	u32 hdisplay;
+	u32 vdisplay;
+	u8 reg_num;
+	struct vbios_conf_reg config_regs[256];
+} __attribute__((packed));
 
 int loongson_vbios_init(struct loongson_device *ldev);
 void loongson_vbios_exit(struct loongson_device *ldev);
@@ -125,7 +183,8 @@ enum encoder_config
 get_encoder_config_type(struct loongson_device *ldev, u32 index);
 enum encoder_type
 get_encoder_type(struct loongson_device *ldev, u32 index);
-struct encoder_config_param*
+struct cfg_encoder*
 get_encoder_config(struct loongson_device *ldev, u32 index);
+u32 get_encoder_cfg_num(struct loongson_device *ldev, u32 index);
 
 #endif /* __LOONGSON_VBIOS_H__ */
