@@ -168,6 +168,12 @@ loongson_bo_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
 	return 0;
 }
 
+static struct loongson_bo *
+loongson_bo(struct ttm_buffer_object *bo)
+{
+	return container_of(bo, struct loongson_bo, bo);
+}
+
 /**
  * loongson_bo_evict_flags:
  *
@@ -356,6 +362,24 @@ struct ttm_bo_driver loongson_bo_driver = {
 	.lru_tail = &ttm_bo_default_lru_tail,
 	.swap_lru_tail = &ttm_bo_default_swap_lru_tail,
 };
+
+int loongson_bo_reserve(struct loongson_bo *bo, bool no_wait)
+{
+	int ret;
+
+	ret = ttm_bo_reserve(&bo->bo, true, no_wait, NULL);
+	if (ret) {
+		if (ret != -ERESTARTSYS && ret != -EBUSY)
+			DRM_ERROR("reserve failed %p\n", bo);
+		return ret;
+	}
+	return 0;
+}
+
+void loongson_bo_unreserve(struct loongson_bo *bo)
+{
+	ttm_bo_unreserve(&bo->bo);
+}
 
 /**
  * loongson_ttm_init:

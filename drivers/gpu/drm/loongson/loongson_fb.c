@@ -10,10 +10,6 @@
  * option) any later version.
  */
 
-#include <linux/module.h>
-#include <drm/drmP.h>
-#include <drm/drm_fb_helper.h>
-#include <drm/drm_crtc_helper.h>
 #include <linux/fb.h>
 #include "loongson_drv.h"
 

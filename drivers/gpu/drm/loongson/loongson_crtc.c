@@ -12,9 +12,6 @@
 
 #include "loongson_drv.h"
 #include "loongson_vbios.h"
-#include <drm/drmP.h>
-#include <drm/drm_crtc_helper.h>
-#include <drm/drm_plane_helper.h>
 
 DEFINE_SPINLOCK(loongson_crtc_lock);
 
