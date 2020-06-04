@@ -4,6 +4,7 @@
 
 #define VBIOS_START 0x1000
 #define VBIOS_SIZE 0x40000
+#define VBIOS_DESC_OFFSET 0x6000
 
 u64 vgabios_addr __attribute__((weak)) = 0;
 extern unsigned char ls_spiflash_read_status(void);
@@ -172,6 +173,173 @@ get_crtc_timing_legacy(struct loongson_device *ldev, u32 index)
 	return timing;
 }
 
+static bool
+parse_vbios_backlight(struct desc_node *this, struct vbios_cmd *cmd)
+{
+
+	return 0;
+}
+
+static bool
+parse_vbios_pwm(struct desc_node *this, struct vbios_cmd *cmd)
+{
+	bool ret = true;
+	u16 request = (u16)(u64)cmd->req;
+	u32 *val = (u32 *)cmd->res;
+	struct vbios_pwm *pwm = (struct vbios_pwm *)this->data;
+
+	switch(request) {
+		case VBIOS_PWM_ID:
+			*val = pwm->pwm;
+			break;
+		case VBIOS_PWM_PERIOD:
+			*val = pwm->peroid;
+			break;
+		case VBIOS_PWM_POLARITY:
+			*val = pwm->polarity;
+			break;
+		default:
+			ret  = false;
+			break;
+	}
+
+	return ret;
+}
+
+static bool
+parse_vbios_header(struct desc_node *this, struct vbios_cmd *cmd)
+{
+
+	return true;
+}
+
+static bool
+parse_vbios_default(struct desc_node *this, struct vbios_cmd *cmd)
+{
+	struct vbios_desc *vb_desc ;
+
+	vb_desc = this->desc;
+	DRM_WARN("Current descriptor[T-%d][V-%d] cannot be interprete.\n",
+			vb_desc->type, vb_desc->ver);
+	return false;
+}
+
+#define FUNC(t, v, f) \
+{ \
+	.type = t, .ver = v, .func = f,\
+}
+
+static struct desc_func tables[] = {
+	FUNC(desc_backlight, ver_v1, parse_vbios_backlight),
+	FUNC(desc_pwm, ver_v1, parse_vbios_pwm),
+	FUNC(desc_header, ver_v1, parse_vbios_header),
+};
+
+
+static inline parse_func *get_parse_func(struct vbios_desc *vb_desc)
+{
+	int i;
+	u32 type = vb_desc->type;
+	u32 ver  = vb_desc->ver;
+	parse_func  *func = parse_vbios_default;
+	u32 tt_num = ARRAY_SIZE(tables);
+
+	for (i = 0; i < tt_num; i++) {
+		if ((tables[i].ver == ver) && (tables[i].type == type)) {
+			func = tables[i].func;
+			break;
+		}
+	}
+
+	return func;
+}
+
+static inline void free_desc_list(struct loongson_device *ldev)
+{
+	struct desc_node *node, *tmp;
+
+	list_for_each_entry_safe(node, tmp,&ldev->desc_list, head) {
+		list_del(&node->head);
+		kfree(node);
+	}
+}
+
+static inline u32
+insert_desc_list(struct loongson_device *ldev, struct vbios_desc *vb_desc)
+{
+	struct desc_node *node;
+	parse_func  *func = NULL;
+
+	WARN_ON(!ldev || !vb_desc);
+	node = (struct desc_node *)kzalloc(sizeof(*node), GFP_KERNEL);
+	if (!node)
+		return -ENOMEM;
+
+	func = get_parse_func(vb_desc);
+	node->parse = func;
+	node->desc  = (void *)vb_desc;
+	node->data  = ((u8 *)ldev->vbios + vb_desc->offset);
+	list_add_tail(&node->head, &ldev->desc_list);
+
+	return 0;
+}
+
+static u32 parse_vbios_desc(struct loongson_device *ldev)
+{
+	u32 ret = 0;
+	struct vbios_desc *desc;
+	enum desc_type type = 0;
+	u8 *vbios = (u8 *)ldev->vbios;
+
+	WARN_ON(!vbios);
+
+	desc = (struct vbios_desc *)(vbios + VBIOS_DESC_OFFSET);
+	while (1) {
+		type = desc->type;
+		if (type == desc_max)
+			break;
+
+		ret = insert_desc_list(ldev, desc);
+		if (ret)
+			DRM_DEBUG_KMS("Parse T-%d V-%d failed[%d]\n",
+					desc->ver, desc->type, ret);
+
+		desc++;
+	}
+
+	return ret;
+}
+
+static inline struct desc_node *
+get_desc_node(struct loongson_device *ldev, u16 type, u8 index)
+{
+	struct desc_node *node, *tmp;
+	struct vbios_desc *vb_desc;
+
+	list_for_each_entry_safe(node, tmp, &ldev->desc_list, head) {
+		vb_desc = node->desc;
+		if (vb_desc->type == type && vb_desc->index == index)
+			break;
+	}
+
+	return node;
+}
+
+static bool
+vbios_get_data(struct loongson_device *ldev, struct vbios_cmd *cmd)
+{
+	bool ret = false;
+	struct desc_node *node;
+
+	WARN_ON(!cmd);
+
+	node = get_desc_node(ldev, cmd->type, cmd->index);
+	if (node && node->parse) {
+		ret = node->parse(node, cmd);
+	}
+	return ret;
+}
+
 u32 get_connector_type(struct loongson_device *ldev, u32 index)
 {
 	struct loongson_vbios_connector *connector = NULL;
@@ -243,7 +411,9 @@ u8* get_vbios_edid(struct loongson_device *ldev, u32 index)
 
 u32 get_vbios_pwm(struct loongson_device *ldev, u32 index, u16 request)
 {
+	bool ret = false;
 	struct loongson_vbios_connector *connector;
+	struct vbios_cmd vbt_cmd;
 	u32 value = -1;
 
 	if (is_legacy_vbios(ldev->vbios)) {
@@ -257,6 +427,18 @@ u32 get_vbios_pwm(struct loongson_device *ldev, u32 index, u16 request)
 			break;
 		case VBIOS_PWM_POLARITY:
 			value = connector->bl_pwm.polarity;
+		}
+	} else {
+		vbt_cmd.index = index;
+		vbt_cmd.type  = desc_pwm;
+		vbt_cmd.req   = (void *)(ulong)request;
+		vbt_cmd.res   = (void *)(ulong)&value;
+		ret = vbios_get_data(ldev, &vbt_cmd);
+		if (ret == false) {
+			/*TODO
+			 * add debug mesg
+			 * */
+			value = 0xffffffff;
 		}
 	}
 
@@ -432,7 +614,21 @@ void* loongson_get_vbios(void)
 
 int loongson_vbios_init(struct loongson_device *ldev)
 {
-	/* TODO */
-	return 0;
+	u32 ret;
+
+	INIT_LIST_HEAD(&ldev->desc_list);
+
+	ret = parse_vbios_desc(ldev);
+
+	return ret;
+}
+
+void loongson_vbios_exit(struct loongson_device *ldev)
+{
+	if (!is_legacy_vbios(ldev->vbios)) {
+		free_desc_list(ldev);
+	}
+
+	kfree(ldev->vbios);
 }
 
