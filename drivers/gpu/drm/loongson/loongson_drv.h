@@ -1,21 +1,17 @@
 #ifndef __LOONGSON_DRV_H__
 #define __LOONGSON_DRV_H__
 
+#include <linux/types.h>
+#include <linux/i2c.h>
+#include <linux/i2c-algo-bit.h>
 #include <video/vga.h>
-#include <drm/ttm/ttm_bo_api.h>
 #include <drm/ttm/ttm_bo_driver.h>
-#include <drm/ttm/ttm_placement.h>
-#include <drm/ttm/ttm_memory.h>
-#include <drm/ttm/ttm_module.h>
 #include <drm/drmP.h>
 #include <drm/drm_gem.h>
 #include <drm/drm_fb_helper.h>
+#include <drm/drm_crtc_helper.h>
 #include <drm/loongson_drm.h>
 #include <drm/drm_encoder.h>
-#include <linux/i2c.h>
-#include <linux/i2c-algo-bit.h>
-#include <linux/module.h>
-#include <linux/types.h>
 
 #define DVO_I2C_NAME "loongson_dvo_i2c"
 #define DVO_I2C_ADDR 0x50
@@ -373,30 +369,6 @@ struct loongson_device {
 	spinlock_t mmio_lock;
 };
 
-static inline struct loongson_bo *
-loongson_bo(struct ttm_buffer_object *bo)
-{
-	return container_of(bo, struct loongson_bo, bo);
-}
-
-static inline int loongson_bo_reserve(struct loongson_bo *bo, bool no_wait)
-{
-	int ret;
-
-	ret = ttm_bo_reserve(&bo->bo, true, no_wait, NULL);
-	if (ret) {
-		if (ret != -ERESTARTSYS && ret != -EBUSY)
-			DRM_ERROR("reserve failed %p\n", bo);
-		return ret;
-	}
-	return 0;
-}
-
-static inline void loongson_bo_unreserve(struct loongson_bo *bo)
-{
-	ttm_bo_unreserve(&bo->bo);
-}
-
 /*irq*/
 int loongson_irq_enable_vblank(struct drm_device *dev, unsigned int crtc_id);
 void loongson_irq_disable_vblank(struct drm_device *dev, unsigned int crtc_id);
@@ -415,6 +387,8 @@ void loongson_ttm_fini(struct loongson_device *ldev);
 void loongson_ttm_placement(struct loongson_bo *bo, int domain);
 int loongson_bo_create(struct drm_device *dev, int size, int align,uint32_t flags, struct loongson_bo **ploongsonbo);
 int loongson_drm_mmap(struct file *filp, struct vm_area_struct *vma);
+int loongson_bo_reserve(struct loongson_bo *bo, bool no_wait);
+void loongson_bo_unreserve(struct loongson_bo *bo);
 struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev,int index);
 struct loongson_crtc *loongson_crtc_init(struct loongson_device *ldev, int index);
 struct loongson_connector *loongson_connector_init(struct loongson_device *ldev,int index);

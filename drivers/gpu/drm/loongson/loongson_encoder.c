@@ -10,8 +10,6 @@
  * option) any later version.
  */
 
-#include <drm/drmP.h>
-#include <drm/drm_crtc_helper.h>
 #include "loongson_drv.h"
 #include "loongson_vbios.h"
 

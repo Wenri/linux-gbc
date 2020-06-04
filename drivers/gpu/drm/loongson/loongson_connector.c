@@ -10,17 +10,10 @@
  * option) any later version.
  */
 
-#include <linux/export.h>
-#include <linux/i2c.h>
-#include <linux/i2c-algo-bit.h>
 #include <linux/pm_runtime.h>
-#include <drm/drmP.h>
-#include <drm/drm_plane_helper.h>
-#include <drm/drm_crtc_helper.h>
 #include <drm/drm_edid.h>
 #include <linux/gpio.h>
 #include <linux/pwm.h>
-#include <linux/moduleparam.h>
 #include "loongson_drv.h"
 #include "loongson_vbios.h"
 

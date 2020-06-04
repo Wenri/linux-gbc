@@ -10,24 +10,10 @@
  * option) any later version.
  */
 
-#include <drm/drmP.h>
-#include <drm/drm_crtc_helper.h>
-#include <asm/addrspace.h>
-#include <linux/dma-mapping.h>
-#include <linux/vmalloc.h>
 #include <linux/console.h>
-#include <linux/device.h>
-#include <linux/slab.h>
-#include <linux/fs.h>
 #include <linux/pci.h>
-#include <linux/pci_ids.h>
-#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/errno.h>
-#include <linux/init.h>
-#include <linux/string.h>
-#include <linux/vga_switcheroo.h>
 #include "loongson_drv.h"
 #include "loongson_vbios.h"
 

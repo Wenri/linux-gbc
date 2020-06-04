@@ -10,7 +10,6 @@
  * option) any later version.
  */
 
-#include <drm/drmP.h>
 #include "loongson_drv.h"
 
 /*
