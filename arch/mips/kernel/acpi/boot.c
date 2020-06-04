@@ -41,6 +41,8 @@
 #include <asm/io.h>
 #include <asm/smp.h>
 #include <asm/numa.h>
+#include <loongson.h>
+
 static unsigned int num_processors;
 int acpi_disabled = 0;
 EXPORT_SYMBOL(acpi_disabled);
@@ -152,10 +154,15 @@ void __init acpi_boot_table_init(void)
 	}
 }
 
-static void set_processor_mask(int cpuid)
+static void set_processor_mask(struct acpi_madt_local_apic *processor)
 {
 
 	int cpu;
+	int cpuid = processor->id;
+
+	if(!cpu_guestmode && (!(processor->lapic_flags & ACPI_MADT_ENABLED))) {
+		return;
+	}
 
 	if (num_processors >= nr_cpu_ids) {
 		pr_warning(
@@ -171,8 +178,10 @@ static void set_processor_mask(int cpuid)
 	__cpu_number_map[cpuid] = cpu;
 	__cpu_logical_map[cpu] = cpuid;
 	set_cpu_possible(cpu, true);
-	set_cpu_present(cpu, true);
-	num_processors++;
+	if (processor->lapic_flags & ACPI_MADT_ENABLED) {
+		set_cpu_present(cpu, true);
+		num_processors++;
+	}
 	loongson_reserved_cpus_mask &= (~(1 << cpuid));
 }
 
@@ -188,7 +197,8 @@ acpi_parse_lapic(struct acpi_subtable_header * header, const unsigned long end)
 
 	acpi_table_print_madt_entry(header);
 
-	if (processor->lapic_flags & ACPI_MADT_ENABLED) set_processor_mask(processor->id);
+	set_processor_mask(processor);
+
 	return 0;
 }
 
@@ -366,8 +376,12 @@ acpi_numa_processor_affinity_init(struct acpi_srat_cpu_affinity *pa)
 		printk(KERN_INFO "SRAT: PXM %u -> CPU 0x%02x -> Node %u skipped apicid that is too big\n", pxm, pa->apic_id, node);
 		return;
 	}
+	
+	if(!cpu_guestmode)
+		numa_add_cpu(__cpu_number_map[pa->apic_id], node);
+	else
+		numa_add_cpu(pa->apic_id, node);
 
-	numa_add_cpu(__cpu_number_map[pa->apic_id], node);
 	set_cpuid_to_node(pa->apic_id, node);
 	node_set(node, numa_nodes_parsed);
 	acpi_numa = 1;
