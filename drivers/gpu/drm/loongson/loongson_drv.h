@@ -339,6 +339,7 @@ struct loongson_device {
 	struct loongson_irq irq;
 	struct drm_property *rotation_prop;
 	struct loongson_vbios *vbios;
+	struct list_head desc_list;
 	struct loongson_vbios_crtc *crtc_vbios[2];
 	struct loongson_vbios_connector *connector_vbios[2];
 	struct loongson_vbios_encoder *encoder_vbios[4];
