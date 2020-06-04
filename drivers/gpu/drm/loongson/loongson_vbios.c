@@ -60,6 +60,25 @@ static void* get_vbios_from_flash(void)
 	return vbios;
 }
 
+static struct loongson_vbios_encoder*
+get_encoder_legacy(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios *vbios = (struct loongson_vbios*)ldev->vbios;
+	struct loongson_vbios_encoder *encoder = NULL;
+	u8 *start;
+	u32 offset;
+
+	start = (u8 *)vbios;
+	offset = vbios->encoder_offset;
+	encoder = (struct loongson_vbios_encoder *)(start + offset);
+	if (index == 1) {
+		offset =  encoder->next;
+		encoder = (struct loongson_vbios_encoder *)(start + offset);
+	}
+
+	return encoder;
+}
+
 static struct loongson_vbios_crtc*
 get_crtc_legacy(struct loongson_device *ldev, u32 index)
 {
@@ -323,6 +342,77 @@ struct crtc_timing *get_crtc_timing(struct loongson_device *ldev,
 		return get_crtc_timing_legacy(ldev, index);
 
 	return NULL;
+}
+
+u32 get_encoder_connector_id(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_encoder *encoder = NULL;
+	u32 connector_id = 0;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		encoder = get_encoder_legacy(ldev, index);
+		connector_id = encoder->connector_id;
+	}
+
+	return connector_id;
+}
+
+u32 get_encoder_i2c_id(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_encoder *encoder = NULL;
+	u32 i2c_id = 0;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		encoder = get_encoder_legacy(ldev, index);
+		i2c_id = encoder->i2c_id;
+	}
+
+	return i2c_id;
+}
+
+struct encoder_config_param
+*get_encoder_config(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_encoder *encoder = NULL;
+	struct encoder_config_param *encoder_config = NULL;
+	u32 size = 0;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		encoder = get_encoder_legacy(ldev, index);
+		size = sizeof(struct encoder_config_param);
+		encoder_config = kzalloc(size * LS_MAX_RESOLUTIONS, GFP_KERNEL);
+		memcpy(encoder_config, encoder->encoder_config,
+				size * LS_MAX_RESOLUTIONS);
+	}
+
+	return encoder_config;
+}
+
+enum encoder_config
+get_encoder_config_type(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_encoder *encoder = NULL;
+	enum encoder_config config_type = encoder_bios_config;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		encoder = get_encoder_legacy(ldev, index);
+		config_type = encoder->config_type;
+	}
+
+	return config_type;
+}
+
+enum encoder_type get_encoder_type(struct loongson_device *ldev, u32 index)
+{
+	struct loongson_vbios_encoder *encoder;
+	enum encoder_type type = encoder_dac;
+
+	if (is_legacy_vbios(ldev->vbios)) {
+		encoder = get_encoder_legacy(ldev, index);
+		type = encoder->type;
+	}
+
+	return type;
 }
 
 void* loongson_get_vbios(void)

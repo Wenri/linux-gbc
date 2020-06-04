@@ -278,9 +278,7 @@ static void loongson_encoder_reset_ch7034(struct i2c_adapter *adapter)
 
 bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder, struct drm_display_mode *mode)
 {
-	struct loongson_vbios_encoder  *lsvbios_encoder;
 	struct i2c_adapter *adapter;
-	lsvbios_encoder = ls_encoder->vbios_encoder;
 
 	if (!ls_encoder->i2c) {
 		DRM_ERROR("Loongson encoder modeset no i2c\n");
@@ -293,7 +291,7 @@ bool loongson_encoder_reset_3a3k(struct loongson_encoder *ls_encoder, struct drm
 		return false;
 	}
 
-	switch (lsvbios_encoder->i2c_id) {
+	switch (ls_encoder->i2c_id) {
 	case LS_CH9022_I2C_ID:
 		if (adapter)
 			loongson_encoder_reset_ch9022(adapter);

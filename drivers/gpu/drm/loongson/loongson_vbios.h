@@ -25,4 +25,13 @@ bool get_crtc_is_vb_timing(struct loongson_device *ldev, u32 index);
 struct crtc_timing *
 get_crtc_timing(struct loongson_device *ldev, u32 index);
 
+u32 get_encoder_connector_id(struct loongson_device *ldev, u32 index);
+u32 get_encoder_i2c_id(struct loongson_device *ldev, u32 index);
+enum encoder_config
+get_encoder_config_type(struct loongson_device *ldev, u32 index);
+enum encoder_type
+get_encoder_type(struct loongson_device *ldev, u32 index);
+struct encoder_config_param*
+get_encoder_config(struct loongson_device *ldev, u32 index);
+
 #endif /* __LOONGSON_VBIOS_H__ */
