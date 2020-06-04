@@ -11,7 +11,6 @@ loongson-y := loongson_drv.o \
 	loongson_connector.o \
 	loongson_fb.o \
 	loongson_cursor.o \
-	loongson_legacy_vbios.o \
 	loongson_vbios.o \
 	loongson_ttm.o \
 	loongson_disp_3a3k.o

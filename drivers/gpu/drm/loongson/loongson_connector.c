@@ -144,26 +144,21 @@ static int loongson_get_modes(struct drm_connector *connector)
 	u32 edid_method = ls_connector->edid_method;
 	u32 size = sizeof(u8) * EDID_LENGTH * 2;
 	int ret = -1;
-	bool success = false;
 
 	switch (edid_method) {
 		case via_vbios:
 			memcpy(edid, ls_connector->vbios_edid, size);
-			success = true;
 			break;
 		case via_null:
 		case via_max:
 		case via_encoder:
 		case via_i2c:
 		default:
-			success = get_edid_i2c(ls_connector, edid);
+			get_edid_i2c(ls_connector, edid);
 	}
 
-	if (success) {
-		drm_mode_connector_update_edid_property(connector,
-				(struct edid *)edid);
-		ret = drm_add_edid_modes(connector, (struct edid *)edid);
-	}
+	drm_mode_connector_update_edid_property(connector, (struct edid *)edid);
+	ret = drm_add_edid_modes(connector, (struct edid *)edid);
 
 	return ret;
 }

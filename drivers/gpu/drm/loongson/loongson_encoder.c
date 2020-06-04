@@ -227,9 +227,6 @@ struct loongson_encoder *loongson_encoder_init(struct loongson_device *ldev, int
 	ls_encoder->ldev = ldev;
 	ls_encoder->mode_set_method = mode_set_i2c;
 
-	if (ldev->vbios->version_minor == 1 && ldev->vbios->version_major == 0 )
-		ls_encoder->mode_set_method = loongson_encoder_reset_3a3k;
-
 	encoder = &ls_encoder->base;
 	encoder->possible_crtcs = 1 << index;
 

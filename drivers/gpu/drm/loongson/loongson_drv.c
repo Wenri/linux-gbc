@@ -302,18 +302,10 @@ static int loongson_device_init(struct drm_device *dev,
 	int ret;
 	struct resource *r;
 
-	ldev->vbios = loongson_get_vbios();
-	if (!ldev->vbios) {
+	if (!loongson_vbios_init(ldev)) {
 		DRM_ERROR("Get vbios failed!\n");
-		return -EIO;
+		return -ENOMEM;
 	}
-
-	if(is_legacy_vbios(ldev->vbios))
-		loongson_vbios_init_legacy(ldev);
-	else
-		loongson_vbios_init(ldev);
-
-	ldev->num_crtc = ldev->vbios->crtc_num;
 	ldev->fb_vram_base = 0x0;
 
 	/*BAR 0 contains registers */
