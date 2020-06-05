@@ -136,6 +136,7 @@ static int loongson_get_modes(struct drm_connector *connector)
 	u8 edid[EDID_LENGTH *2];
 	u32 edid_method = ls_connector->edid_method;
 	u32 size = sizeof(u8) * EDID_LENGTH * 2;
+	bool success = true;
 	int ret = -1;
 
 	switch (edid_method) {
@@ -147,14 +148,22 @@ static int loongson_get_modes(struct drm_connector *connector)
 		case via_encoder:
 		case via_i2c:
 		default:
-			get_edid_i2c(ls_connector, edid);
+			success = get_edid_i2c(ls_connector, edid);
 	}
 
-	drm_mode_connector_update_edid_property(connector, (struct edid *)edid);
-	ret = drm_add_edid_modes(connector, (struct edid *)edid);
+	if (success) {
+		drm_mode_connector_update_edid_property(connector,
+				(struct edid *)edid);
+		ret = drm_add_edid_modes(connector, (struct edid *)edid);
+	} else {
+		drm_add_modes_noedid(connector, 1920, 1080);
+		drm_add_modes_noedid(connector, 1024, 768);
+		ret = 0;
+	}
 
 	return ret;
 }
+
 /*
  * loongson_mode_valid
  *
@@ -170,6 +179,29 @@ static int loongson_mode_valid(struct drm_connector *connector,
 		return MODE_BAD;
 
 	return MODE_OK;
+}
+
+static bool is_connected(struct loongson_connector *ls_connector)
+{
+	unsigned char start = 0x0;
+	struct i2c_adapter *adapter;
+	struct i2c_msg msgs = {
+		.addr = DVO_I2C_ADDR,
+		.flags = 0,
+		.len = 1,
+		.buf = &start,
+	};
+
+	if (!ls_connector->i2c)
+		return  false;
+
+	adapter = ls_connector->i2c->adapter;
+	if (i2c_transfer(adapter, &msgs, 1) != 1) {
+		DRM_DEBUG_KMS("display-%d not connect\n", ls_connector->id);
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -188,7 +220,6 @@ loongson_connector_detect(struct drm_connector *connector, bool force)
 	struct loongson_connector *ls_connector;
 	enum drm_connector_status ret = connector_status_disconnected;
 	enum loongson_edid_method edid_method;
-	u8 edid[EDID_LENGTH *2];
 
 	ls_connector = to_loongson_connector(connector);
 
@@ -205,12 +236,8 @@ loongson_connector_detect(struct drm_connector *connector, bool force)
 		if (ls_connector->ldev->gpu == LS7A_GPU)
 			pm_runtime_get_sync(connector->dev->dev);
 
-		if (get_edid_i2c(ls_connector, edid) == true) {
-			DRM_INFO_ONCE("Loongson connector%d connected",
-					ls_connector->id);
+		if (is_connected(ls_connector))
 			ret = connector_status_connected;
-			break;
-		}
 
 		pm_runtime_mark_last_busy(connector->dev->dev);
 		pm_runtime_put_autosuspend(connector->dev->dev);
