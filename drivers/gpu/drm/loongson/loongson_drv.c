@@ -27,28 +27,52 @@
 
 u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset)
 {
-	u32 val;
+	u32 val = 0;
+	unsigned long flags;
+
+#ifdef CONFIG_CPU_LOONGSON3
+	ls7a_read(val, (ulong)ldev->rmmio + offset);
+#else
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
 	val = readl(ldev->rmmio + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
+#endif
 
 	return val;
 }
 
 void ls_mm_wreg(struct loongson_device *ldev, u32 offset, u32 val)
 {
+#ifdef CONFIG_CPU_LOONGSON3
+	ls7a_write(val, (ulong)ldev->rmmio + offset);
+#else
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
 	writel(val, ldev->rmmio + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
+#endif
 }
 
-u32 ls_io_rreg(struct loongson_device *ldev, u32 offset)
+u32 ls7a_io_rreg(struct loongson_device *ldev, u32 offset)
 {
 	u32 val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
 	val = readl(ldev->io + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
 
 	return val;
 }
 
-void ls_io_wreg(struct loongson_device *ldev, u32 offset, u32 val)
+void ls7a_io_wreg(struct loongson_device *ldev, u32 offset, u32 val)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&ldev->mmio_lock, flags);
 	writel(val, ldev->io + offset);
+	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
 }
 
 u32 ls_mm_rreg_locked(struct loongson_device *ldev, u32 offset)
@@ -72,7 +96,7 @@ void ls_mm_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val)
 	spin_unlock_irqrestore(&ldev->mmio_lock, flags);
 }
 
-u64 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset)
+u64 ls2k_io_rreg(struct loongson_device *ldev, u32 offset)
 {
 	u64 val;
 	unsigned long flags;
@@ -84,7 +108,7 @@ u64 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset)
 	return val;
 }
 
-void ls_io_wreg_locked(struct loongson_device *ldev, u32 offset, u64 val)
+void ls2k_io_wreg(struct loongson_device *ldev, u32 offset, u64 val)
 {
 	unsigned long flags;
 
