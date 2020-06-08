@@ -12,6 +12,9 @@
 #include <drm/drm_crtc_helper.h>
 #include <drm/loongson_drm.h>
 #include <drm/drm_encoder.h>
+#ifdef CONFIG_CPU_LOONGSON3
+#include "loongson-pch.h"
+#endif
 
 #define DVO_I2C_NAME "loongson_dvo_i2c"
 #define DVO_I2C_ADDR 0x50
@@ -431,8 +434,8 @@ void ls_mm_wreg(struct loongson_device *ldev, u32 offset, u32 val);
 u32 ls_mm_rreg_locked(struct loongson_device *ldev, u32 offset);
 void ls_mm_wreg_locked(struct loongson_device *ldev, u32 offset, u32 val);
 
-u32 ls_io_rreg(struct loongson_device *ldev, u32 offset);
-void ls_io_wreg(struct loongson_device *ldev, u32 offset, u32 val);
-u64 ls_io_rreg_locked(struct loongson_device *ldev, u32 offset);
-void ls_io_wreg_locked(struct loongson_device *ldev, u32 offset, u64 val);
+u32 ls7a_io_rreg(struct loongson_device *ldev, u32 offset);
+void ls7a_io_wreg(struct loongson_device *ldev, u32 offset, u32 val);
+u64 ls2k_io_rreg(struct loongson_device *ldev, u32 offset);
+void ls2k_io_wreg(struct loongson_device *ldev, u32 offset, u64 val);
 #endif
