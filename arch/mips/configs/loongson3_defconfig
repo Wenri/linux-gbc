@@ -4873,6 +4873,7 @@ CONFIG_CRYPTO_WORKQUEUE=y
 # CONFIG_CRYPTO_MCRYPTD is not set
 CONFIG_CRYPTO_AUTHENC=m
 # CONFIG_CRYPTO_TEST is not set
+CONFIG_SW_SE_CHIP=y
 
 #
 # Authenticated Encryption with Associated Data
