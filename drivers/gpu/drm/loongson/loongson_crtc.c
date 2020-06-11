@@ -25,7 +25,7 @@ DEFINE_SPINLOCK(loongson_crtc_lock);
  * */
 static struct loongson_timing *
 loongson_crtc_get_timing(u32 hdisplay, u32 vdisplay,
-		struct loongson_crtc *ls_crtc)
+			 struct loongson_crtc *ls_crtc)
 {
 	int match_index = 0;
 	struct crtc_timing *timing = ls_crtc->timing;
@@ -39,14 +39,14 @@ loongson_crtc_get_timing(u32 hdisplay, u32 vdisplay,
 
 	while (match_index < timing->num) {
 		if (vdisplay == table->vdisplay &&
-			hdisplay == table->hdisplay) {
+		    hdisplay == table->hdisplay) {
 			config = table;
 			break;
 		}
 
 		match_index++;
 		table++;
-		}
+	}
 
 	return config;
 }
@@ -60,41 +60,26 @@ loongson_crtc_get_timing(u32 hdisplay, u32 vdisplay,
  */
 static void loongson_crtc_load_lut(struct drm_crtc *crtc)
 {
-
 }
 
-/*
-   This is how the framebuffer base address is stored in g200 cards:
-   * Assume @offset is the gpu_addr variable of the framebuffer object
-   * Then addr is the number of _pixels_ (not bytes) from the start of
-     VRAM to the first pixel we want to display. (divided by 2 for 32bit
-     framebuffers)
-   * addr is stored in the CRTCEXT0, CRTCC and CRTCD registers
-   addr<20> -> CRTCEXT0<6>
-   addr<19-16> -> CRTCEXT0<3-0>
-   addr<15-8> -> CRTCC<7-0>
-   addr<7-0> -> CRTCD<7-0>
-   CRTCEXT0 has to be programmed last to trigger an update and make the
-   new addr variable take effect.
+/**
+ * loongson_set_start_address
+ *
+ * @crtc: point to a drm_crtc structure
+ * @offset: framebuffer base address
  */
 void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset)
 {
 	struct loongson_device *ldev;
-	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
-	unsigned int crtc_id;
-	unsigned long base;
+	struct loongson_crtc *loongson_crtc;
+	u32 crtc_offset;
 
-	crtc_id = loongson_crtc->crtc_id;
 	ldev = crtc->dev->dev_private;
-	base = (unsigned long)(ldev->rmmio);
+	loongson_crtc = to_loongson_crtc(crtc);
+	crtc_offset = loongson_crtc->crtc_offset;
 
-	if (crtc_id == 0) {
-		ls_mm_wreg(ldev, LS_FB_ADDR0_DVO0_REG, offset);
-		ls_mm_wreg(ldev, LS_FB_ADDR1_DVO0_REG, offset);
-	} else {
-		ls_mm_wreg(ldev, LS_FB_ADDR0_DVO1_REG, offset);
-		ls_mm_wreg(ldev, LS_FB_ADDR1_DVO1_REG, offset);
-	}
+	ls_mm_wreg(ldev, LS_FB_ADDR0_REG + crtc_offset, offset);
+	ls_mm_wreg(ldev, LS_FB_ADDR1_REG + crtc_offset, offset);
 }
 
 /**
@@ -109,8 +94,8 @@ void loongson_set_start_address(struct drm_crtc *crtc, unsigned offset)
  * Ast is different - we will force move buffers out of VRAM
  */
 static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
-				struct drm_framebuffer *fb,
-				int x, int y, int atomic)
+				     struct drm_framebuffer *fb, int x, int y,
+				     int atomic)
 {
 	struct loongson_device *ldev = crtc->dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
@@ -119,13 +104,14 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 	struct loongson_bo *bo;
 	struct drm_crtc *crtci;
 	struct drm_device *dev = crtc->dev;
-	unsigned int depth, ret;
-	unsigned int crtc_id, crtc_address, crtc_count;
-	unsigned int width, pitch, pitch_fb;
-	unsigned int cfg_reg = 0;
+	u32 depth, ret;
+	u32 crtc_address, crtc_count;
+	u32 width, pitch, pitch_fb;
+	u32 cfg_reg = 0;
 	u64 gpu_addr;
+	u32 crtc_offset;
 
-	crtc_id = loongson_crtc->crtc_id;
+	crtc_offset = loongson_crtc->crtc_offset;
 	ldev = crtc->dev->dev_private;
 	width = crtc->primary->fb->width;
 	depth = crtc->primary->fb->bits_per_pixel;
@@ -153,11 +139,13 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 
 	if (ldev->num_crtc < 2 || crtc_count < 2) {
 		ldev->clone_mode = false;
-	} else if (ldev->mode_info[0].connector->base.status == connector_status_connected
-		&& ldev->mode_info[1].connector->base.status == connector_status_connected
-		&& loongson_fb->base.width == crtc->mode.hdisplay
-		&& loongson_fb->base.height == crtc->mode.vdisplay
-		&& x == 0 && y == 0) {
+	} else if (ldev->mode_info[0].connector->base.status ==
+			   connector_status_connected &&
+		   ldev->mode_info[1].connector->base.status ==
+			   connector_status_connected &&
+		   loongson_fb->base.width == crtc->mode.hdisplay &&
+		   loongson_fb->base.height == crtc->mode.vdisplay && x == 0 &&
+		   y == 0) {
 		ldev->clone_mode = true;
 	} else {
 		ldev->clone_mode = false;
@@ -187,94 +175,36 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
 
 	cfg_reg = LS_FB_CFG_RESET | LS_FB_CFG_ENABLE;
 	pitch = (width * 2 + 255) & ~255;
-	crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 2;
+	crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x, 64) * 2;
+	switch (depth) {
+	case 16:
+		cfg_reg |= LS_FB_CFG_FORMAT16;
+		break;
+	case 15:
+		cfg_reg |= LS_FB_CFG_FORMAT15;
+		break;
+	case 12:
+		cfg_reg |= LS_FB_CFG_FORMAT12;
+		break;
+	case 32:
+	case 24:
+	default:
+		cfg_reg |= LS_FB_CFG_FORMAT32;
+		pitch = crtc->primary->fb->pitches[0];
+		crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x, 64) * 4;
+		break;
+	}
+
 	if (ldev->clone_mode == false) {
-		if (crtc_id == 0) {
-			switch (depth) {
-			case 16:
-				cfg_reg |= LS_FB_CFG_FORMAT16;
-				break;
-			case 15:
-				cfg_reg |= LS_FB_CFG_FORMAT15;
-				break;
-			case 12:
-				cfg_reg |= LS_FB_CFG_FORMAT12;
-				break;
-			case 32:
-			case 24:
-			default:
-				cfg_reg |= LS_FB_CFG_FORMAT32;
-				pitch = crtc->primary->fb->pitches[0];
-				crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
-				break;
-			}
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, cfg_reg);
-		ls_mm_wreg(ldev, LS_FB_STRI_DVO0_REG, pitch);
-		} else {
-			switch (depth) {
-			case 16:
-				cfg_reg |= LS_FB_CFG_FORMAT16;
-				break;
-			case 15:
-				cfg_reg |= LS_FB_CFG_FORMAT15;
-				break;
-			case 12:
-				cfg_reg |= LS_FB_CFG_FORMAT12;
-				break;
-			case 32:
-			case 24:
-			default:
-				cfg_reg |= LS_FB_CFG_FORMAT32;
-				pitch = crtc->primary->fb->pitches[0];
-				crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
-				break;
-			}
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, cfg_reg);
-		ls_mm_wreg(ldev, LS_FB_STRI_DVO1_REG, pitch);
-		}
+		ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, cfg_reg);
+		ls_mm_wreg(ldev, LS_FB_STRI_REG + crtc_offset, pitch);
 	} else {
-		/*HDMI*/
-		switch (depth) {
-		case 16:
-			cfg_reg |= LS_FB_CFG_FORMAT16;
-			break;
-		case 15:
-			cfg_reg |= LS_FB_CFG_FORMAT15;
-			break;
-		case 12:
-			cfg_reg |= LS_FB_CFG_FORMAT12;
-			break;
-		case 32:
-		case 24:
-		default:
-			cfg_reg |= LS_FB_CFG_FORMAT32;
-			pitch = crtc->primary->fb->pitches[0];
-			crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
-			break;
-		}
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, cfg_reg);
-		ls_mm_wreg(ldev, LS_FB_STRI_DVO0_REG, pitch);
-		/*VGA*/
-		switch (depth) {
-		case 16:
-			cfg_reg |= LS_FB_CFG_FORMAT16 | LS_FB_CFG_SWITCH_PANEL;
-			break;
-		case 15:
-			cfg_reg |= LS_FB_CFG_FORMAT15 | LS_FB_CFG_SWITCH_PANEL;
-			break;
-		case 12:
-			cfg_reg |= LS_FB_CFG_FORMAT12 | LS_FB_CFG_SWITCH_PANEL;
-			break;
-		case 32:
-		case 24:
-		default:
-			cfg_reg |= LS_FB_CFG_FORMAT32 | LS_FB_CFG_SWITCH_PANEL;
-			pitch = crtc->primary->fb->pitches[0];
-			crtc_address = (u32)gpu_addr + y * pitch_fb + ALIGN(x,64) * 4;
-			break;
-		}
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, cfg_reg);
-		ls_mm_wreg(ldev, LS_FB_STRI_DVO1_REG, pitch);
+		ls_mm_wreg(ldev, LS_FB_CFG_REG, cfg_reg);
+		ls_mm_wreg(ldev, LS_FB_STRI_REG, pitch);
+
+		cfg_reg |= LS_FB_CFG_SWITCH_PANEL;
+		ls_mm_wreg(ldev, LS_FB_CFG_REG + REG_OFFSET, cfg_reg);
+		ls_mm_wreg(ldev, LS_FB_STRI_REG + REG_OFFSET, pitch);
 	}
 
 	loongson_set_start_address(crtc, (u32)crtc_address);
@@ -292,8 +222,8 @@ static int loongson_crtc_do_set_base(struct drm_crtc *crtc,
  *
  * Config pll apply to 7a
  */
-static void config_pll(struct loongson_device *ldev,
-		unsigned long pll_base, struct pix_pll *pll_cfg)
+static void config_pll(struct loongson_device *ldev, unsigned long pll_base,
+		       struct pix_pll *pll_cfg)
 {
 	unsigned long val;
 	u32 count = 0;
@@ -318,8 +248,8 @@ static void config_pll(struct loongson_device *ldev,
 		/* set new div ref, loopc, div out */
 		/* clear old value first*/
 		val = (1 << 7) | (1L << 42) | (3 << 10) |
-			((unsigned long)(pll_cfg->l1_loopc) << 32) |
-			((unsigned long)(pll_cfg->l1_frefc) << 26);
+		      ((unsigned long)(pll_cfg->l1_loopc) << 32) |
+		      ((unsigned long)(pll_cfg->l1_frefc) << 26);
 		ls2k_io_wreg(ldev, pll_base, val);
 		ls2k_io_wreg(ldev, pll_base + 8, pll_cfg->l2_div);
 
@@ -366,10 +296,10 @@ static void config_pll(struct loongson_device *ldev,
 		ls7a_io_wreg(ldev, pll_base + 0x4, val);
 		val = ls7a_io_rreg(ldev, pll_base + 0x0);
 		val &= ~(0x7fUL << 0);
-		val |= (pll_cfg->l2_div << 0);   /* div */
+		val |= (pll_cfg->l2_div << 0); /* div */
 		val &= ~(0x1ffUL << 21);
 
-		val |= (pll_cfg->l1_loopc << 21);/* loopc */
+		val |= (pll_cfg->l1_loopc << 21); /* loopc */
 		ls7a_io_wreg(ldev, pll_base + 0x0, val);
 		/* set set_pll_param */
 		val = ls7a_io_rreg(ldev, pll_base + 0x4);
@@ -405,7 +335,8 @@ static void config_pll(struct loongson_device *ldev,
  *
  * Calculate frequency
  */
-static unsigned int cal_freq(unsigned int pixclock_khz, struct pix_pll * pll_config)
+static unsigned int cal_freq(unsigned int pixclock_khz,
+			     struct pix_pll *pll_config)
 {
 	unsigned int pstdiv, loopc, frefc;
 	unsigned long a, b, c;
@@ -415,9 +346,8 @@ static unsigned int cal_freq(unsigned int pixclock_khz, struct pix_pll * pll_con
 		a = (unsigned long)pixclock_khz * pstdiv;
 		for (frefc = 3; frefc < 6; frefc++) {
 			for (loopc = 24; loopc < 161; loopc++) {
-
 				if ((loopc < 12 * frefc) ||
-						(loopc > 32 * frefc))
+				    (loopc > 32 * frefc))
 					continue;
 
 				b = 100000L * loopc / frefc;
@@ -445,7 +375,7 @@ static unsigned int cal_freq(unsigned int pixclock_khz, struct pix_pll * pll_con
  * the legacy CRTC helpers to set a new framebuffer and scanout position
  */
 static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
-				  struct drm_framebuffer *old_fb)
+				       struct drm_framebuffer *old_fb)
 {
 	struct drm_device *dev = crtc->dev;
 	struct loongson_device *ldev = dev->dev_private;
@@ -453,72 +383,48 @@ static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	struct drm_display_mode mode = crtc->mode;
 	struct pix_pll pll_cfg;
 
-	unsigned int crtc_id, pix_freq, reg_val;
-	unsigned int hr, hss, hse, hfl;
-	unsigned int vr, vss, vse, vfl;
+	u32 pix_freq;
+	u32 hr, hss, hse, hfl;
+	u32 vr, vss, vse, vfl;
+	u32 reg_val = 0;
+	u32 crtc_offset;
 
-	crtc_id = loongson_crtc->crtc_id;
-	hr = mode.hdisplay;    hfl = mode.htotal;
-	hse = mode.hsync_end;  hss = mode.hsync_start;
-	vr = mode.vdisplay;    vfl = mode.vtotal;
-	vse = mode.vsync_end;  vss = mode.vsync_start;
+	crtc_offset = loongson_crtc->crtc_offset;
+	hr = mode.hdisplay;
+	hfl = mode.htotal;
+	hse = mode.hsync_end;
+	hss = mode.hsync_start;
+	vr = mode.vdisplay;
+	vfl = mode.vtotal;
+	vse = mode.vsync_end;
+	vss = mode.vsync_start;
 	pix_freq = mode.clock;
 
-	if (crtc_id) {
-		reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
-		reg_val &= ~LS_FB_CFG_ENABLE;
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, reg_val);
-	} else {
-		reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
-		reg_val &= ~LS_FB_CFG_ENABLE;
-		ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, reg_val);
-	}
+	reg_val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
+	reg_val &= ~LS_FB_CFG_ENABLE;
+	ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, reg_val);
 
 	cal_freq(pix_freq, &pll_cfg);
+	config_pll(ldev, LS_PIX_PLL + crtc_offset, &pll_cfg);
+	loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
 
-	if (crtc_id) {
-		config_pll(ldev, LS_PIX1_PLL, &pll_cfg);
-		loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
+	ls_mm_wreg(ldev, LS_FB_DITCFG_REG + crtc_offset, 0);
+	ls_mm_wreg(ldev, LS_FB_DITTAB_LO_REG + crtc_offset, 0);
+	ls_mm_wreg(ldev, LS_FB_DITTAB_HI_REG + crtc_offset, 0);
 
-		ls_mm_wreg(ldev, LS_FB_DITCFG_DVO1_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_LO_DVO1_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_HI_DVO1_REG, 0);
+	reg_val = LS_FB_PANCFG_BASE | LS_FB_PANCFG_DE | LS_FB_PANCFG_CLKEN |
+		  LS_FB_PANCFG_CLKPOL;
+	ls_mm_wreg(ldev, LS_FB_PANCFG_REG + crtc_offset, reg_val);
+	ls_mm_wreg(ldev, LS_FB_PANTIM_REG + crtc_offset, 0);
 
-		reg_val = 0;
-		reg_val = LS_FB_PANCFG_BASE |
-			LS_FB_PANCFG_DE |
-			LS_FB_PANCFG_CLKEN |
-			LS_FB_PANCFG_CLKPOL;
+	ls_mm_wreg(ldev, LS_FB_HDISPLAY_REG + crtc_offset, (hfl << 16) | hr);
+	ls_mm_wreg(ldev, LS_FB_HSYNC_REG + crtc_offset,
+		   LS_FB_HSYNC_POLSE | (hse << 16) | hss);
 
-		ls_mm_wreg(ldev, LS_FB_PANCFG_DVO1_REG, reg_val);
-		ls_mm_wreg(ldev, LS_FB_PANTIM_DVO1_REG, 0);
+	ls_mm_wreg(ldev, LS_FB_VDISPLAY_REG + crtc_offset, (vfl << 16) | vr);
+	ls_mm_wreg(ldev, LS_FB_VSYNC_REG + crtc_offset,
+		   LS_FB_VSYNC_POLSE | (vse << 16) | vss);
 
-		ls_mm_wreg(ldev, LS_FB_HDISPLAY_DVO1_REG, (hfl << 16) | hr);
-		ls_mm_wreg(ldev, LS_FB_HSYNC_DVO1_REG, LS_FB_HSYNC_POLSE | (hse << 16) | hss);
-		ls_mm_wreg(ldev, LS_FB_VDISPLAY_DVO1_REG, (vfl << 16) | vr);
-		ls_mm_wreg(ldev, LS_FB_VSYNC_DVO1_REG, LS_FB_VSYNC_POLSE | (vse << 16) | vss);
-	} else {
-		config_pll(ldev, LS_PIX0_PLL, &pll_cfg);
-		loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
-
-		ls_mm_wreg(ldev, LS_FB_DITCFG_DVO0_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_LO_DVO0_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_HI_DVO0_REG, 0);
-
-		reg_val = 0;
-		reg_val = LS_FB_PANCFG_BASE |
-			LS_FB_PANCFG_DE |
-			LS_FB_PANCFG_CLKEN |
-			LS_FB_PANCFG_CLKPOL;
-
-		ls_mm_wreg(ldev, LS_FB_PANCFG_DVO0_REG, reg_val);
-		ls_mm_wreg(ldev, LS_FB_PANTIM_DVO0_REG, 0);
-
-		ls_mm_wreg(ldev, LS_FB_HDISPLAY_DVO0_REG, (hfl << 16) | hr);
-		ls_mm_wreg(ldev, LS_FB_HSYNC_DVO0_REG, LS_FB_HSYNC_POLSE | (hse << 16) | hss);
-		ls_mm_wreg(ldev, LS_FB_VDISPLAY_DVO0_REG, (vfl << 16) | vr);
-		ls_mm_wreg(ldev, LS_FB_VSYNC_DVO0_REG, LS_FB_VSYNC_POLSE | (vse << 16) | vss);
-	}
 	return 0;
 }
 
@@ -533,133 +439,104 @@ static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
  * Used by the legacy CRTC helpers to set a new mode
  */
 static int loongson_crtc_mode_set(struct drm_crtc *crtc,
-				struct drm_display_mode *mode,
-				struct drm_display_mode *adjusted_mode,
-				int x, int y, struct drm_framebuffer *old_fb)
+				  struct drm_display_mode *mode,
+				  struct drm_display_mode *adjusted_mode, int x,
+				  int y, struct drm_framebuffer *old_fb)
 {
 	struct drm_device *dev = crtc->dev;
 	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_crtc *ls_crtc = to_loongson_crtc(crtc);
-	struct loongson_timing  *crtc_mode;
-	unsigned int pix_freq;
-	unsigned int depth;
-	unsigned int hr, hss, hse, hfl;
-	unsigned int vr, vss, vse, vfl;
-	int ret, reg_val;
+	struct loongson_timing *crtc_mode;
 	struct pix_pll pll_cfg;
-	unsigned int crtc_id;
+	u32 hr, hss, hse, hfl;
+	u32 vr, vss, vse, vfl;
+	u32 pix_freq;
+	u32 depth;
+	u32 crtc_id;
+	u32 crtc_offset;
+	u32 reg_val = 0;
+	u32 ret;
 
+	crtc_offset = ls_crtc->crtc_offset;
 	crtc_id = ls_crtc->crtc_id;
-
-	hr = mode->hdisplay;    hss = mode->hsync_start;
-	hse = mode->hsync_end;  hfl = mode->htotal;
-	vr = mode->vdisplay;    vss = mode->vsync_start;
-	vse = mode->vsync_end;  vfl = mode->vtotal;
 	depth = crtc->primary->fb->bits_per_pixel;
 	pix_freq = mode->clock;
+
+	hr = mode->hdisplay;
+	hss = mode->hsync_start;
+	hse = mode->hsync_end;
+	hfl = mode->htotal;
+	vr = mode->vdisplay;
+	vss = mode->vsync_start;
+	vse = mode->vsync_end;
+	vfl = mode->vtotal;
 
 	if (ls_crtc->is_vb_timing) {
 		crtc_mode = loongson_crtc_get_timing(hr, vr, ls_crtc);
 		if (!crtc_mode) {
-			DRM_ERROR("match  vdisp = %d, hdisp %d no support\n",vr ,hr);
+			DRM_ERROR("match  vdisp = %d, hdisp %d no support\n",
+				  vr, hr);
 			return 1;
 		}
 
 		hr = crtc_mode->hdisplay;
 		hss = crtc_mode->hsync_start;
-		hse = crtc_mode->hsync_start+crtc_mode->hsync_width;
+		hse = crtc_mode->hsync_start + crtc_mode->hsync_width;
 		hfl = crtc_mode->htotal;
 		vr = crtc_mode->vdisplay;
 		vss = crtc_mode->vsync_start;
-		vse = crtc_mode->vsync_start+crtc_mode->vsync_width;
+		vse = crtc_mode->vsync_start + crtc_mode->vsync_width;
 		vfl = crtc_mode->vtotal;
 		pix_freq = crtc_mode->clock;
 	}
 
-	DRM_DEBUG_KMS("crtc_id = %d,hr = %d,hss = %d,hse = %d,hfl = %d,vr = %d,vss = %d,"
-			"vse = %d,vfl = %d,depth = %d,pix_freq = %d,x = %d,y = %d\n",
-			crtc_id, hr, hss, hse, hfl, vr, vss, vse, vfl, depth,
-			pix_freq, x, y);
-	DRM_DEBUG_KMS("fb width = %d,height = %d\n", crtc->primary->fb->width,
-			crtc->primary->fb->height);
+	DRM_DEBUG_KMS("id = %d, depth = %d, pix_freq = %d, x = %d, y = %d\n",
+		      crtc_id, depth, pix_freq, x, y);
+	DRM_DEBUG_KMS("hr = %d, hss = %d, hse = %d, hfl = %d\n",
+		      hr, hss, hse, hfl);
+	DRM_DEBUG_KMS("vr = %d, vss = %d, vse = %d, vfl = %d\n",
+		      vr, vss, vse, vfl);
+
+	DRM_DEBUG_KMS("fb width = %d, height = %d\n", crtc->primary->fb->width,
+		      crtc->primary->fb->height);
 
 	ls_crtc->width = hr;
 	ls_crtc->height = vr;
 
 	if (ldev->gpu == LS2K_GPU) {
-		if (crtc_id) {
-			reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
-			reg_val &= ~LS_FB_CFG_RESET;
-			reg_val &= ~LS_FB_CFG_ENABLE;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, reg_val);
-		} else {
-			reg_val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
-			reg_val &= ~LS_FB_CFG_RESET;
-			reg_val &= ~LS_FB_CFG_ENABLE;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, reg_val);
-		}
+		reg_val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
+		reg_val &= ~LS_FB_CFG_RESET;
+		reg_val &= ~LS_FB_CFG_ENABLE;
+		ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, reg_val);
 	}
 
 	ret = cal_freq(pix_freq, &pll_cfg);
+	if (ret)
+		config_pll(ldev, LS_PIX_PLL + crtc_offset, &pll_cfg);
 
-	if (crtc_id == 0) {
-		if (ret) {
-			config_pll(ldev, LS_PIX0_PLL, &pll_cfg);
-		}
+	loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
 
-		loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
+	/* these 4 lines cause out of range, because
+	 * the hfl hss vfl vss are different with PMON vgamode cfg.
+	 * So the refresh freq in kernel and refresh freq in PMON are different.
+	 * */
+	ls_mm_wreg(ldev, LS_FB_DITCFG_REG + crtc_offset, 0);
+	ls_mm_wreg(ldev, LS_FB_DITTAB_LO_REG + crtc_offset, 0);
+	ls_mm_wreg(ldev, LS_FB_DITTAB_HI_REG + crtc_offset, 0);
 
-		/* these 4 lines cause out of range, because
-		 * the hfl hss vfl vss are different with PMON vgamode cfg.
-		 * So the refresh freq in kernel and refresh freq in PMON are different.
-		 * */
-		ls_mm_wreg(ldev, LS_FB_DITCFG_DVO0_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_LO_DVO0_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_HI_DVO0_REG, 0);
+	reg_val = LS_FB_PANCFG_BASE | LS_FB_PANCFG_DE | LS_FB_PANCFG_CLKEN |
+		  LS_FB_PANCFG_CLKPOL;
 
-		reg_val = 0;
-		reg_val = LS_FB_PANCFG_BASE |
-			LS_FB_PANCFG_DE |
-			LS_FB_PANCFG_CLKEN |
-			LS_FB_PANCFG_CLKPOL;
+	ls_mm_wreg(ldev, LS_FB_PANCFG_REG + crtc_offset, reg_val);
+	ls_mm_wreg(ldev, LS_FB_PANTIM_REG + crtc_offset, 0);
 
-		ls_mm_wreg(ldev, LS_FB_PANCFG_DVO0_REG, reg_val);
-		ls_mm_wreg(ldev, LS_FB_PANTIM_DVO0_REG, 0);
+	ls_mm_wreg(ldev, LS_FB_HDISPLAY_REG + crtc_offset, (hfl << 16) | hr);
+	ls_mm_wreg(ldev, LS_FB_HSYNC_REG + crtc_offset,
+		   LS_FB_HSYNC_POLSE | (hse << 16) | hss);
 
-		ls_mm_wreg(ldev, LS_FB_HDISPLAY_DVO0_REG, (hfl << 16) | hr);
-		ls_mm_wreg(ldev, LS_FB_HSYNC_DVO0_REG, LS_FB_HSYNC_POLSE | (hse << 16) | hss);
-		ls_mm_wreg(ldev, LS_FB_VDISPLAY_DVO0_REG, (vfl << 16) | vr);
-		ls_mm_wreg(ldev, LS_FB_VSYNC_DVO0_REG, LS_FB_VSYNC_POLSE | (vse << 16) | vss);
-
-	} else {
-		if (ret) {
-			config_pll(ldev, LS_PIX1_PLL, &pll_cfg);
-		}
-
-		loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
-
-		/* these 4 lines cause out of range, because
-		 * the hfl hss vfl vss are different with PMON vgamode cfg.
-		 * So the refresh freq in kernel and refresh freq in PMON are different.
-		 * */
-		ls_mm_wreg(ldev, LS_FB_DITCFG_DVO1_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_LO_DVO1_REG, 0);
-		ls_mm_wreg(ldev, LS_FB_DITTAB_HI_DVO1_REG, 0);
-
-		reg_val = 0;
-		reg_val = LS_FB_PANCFG_BASE |
-			LS_FB_PANCFG_DE |
-			LS_FB_PANCFG_CLKEN |
-			LS_FB_PANCFG_CLKPOL;
-
-		ls_mm_wreg(ldev, LS_FB_PANCFG_DVO1_REG, reg_val);
-		ls_mm_wreg(ldev, LS_FB_PANTIM_DVO1_REG, 0);
-
-		ls_mm_wreg(ldev, LS_FB_HDISPLAY_DVO1_REG, (hfl << 16) | hr);
-		ls_mm_wreg(ldev, LS_FB_HSYNC_DVO1_REG, LS_FB_HSYNC_POLSE | (hse << 16) | hss);
-		ls_mm_wreg(ldev, LS_FB_VDISPLAY_DVO1_REG, (vfl << 16) | vr);
-		ls_mm_wreg(ldev, LS_FB_VSYNC_DVO1_REG, LS_FB_VSYNC_POLSE | (vse << 16) | vss);
-	}
+	ls_mm_wreg(ldev, LS_FB_VDISPLAY_REG + crtc_offset, (vfl << 16) | vr);
+	ls_mm_wreg(ldev, LS_FB_VSYNC_REG + crtc_offset,
+		   LS_FB_VSYNC_POLSE | (vse << 16) | vss);
 
 	ldev->cursor_crtc_id = ldev->num_crtc;
 	ldev->cursor_showed = false;
@@ -679,27 +556,21 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 	struct drm_device *dev = crtc->dev;
 	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_crtc *loongson_crtc = to_loongson_crtc(crtc);
-	unsigned int crtc_id,val;
+	u32 val;
+	u32 crtc_offset;
 
-	crtc_id = loongson_crtc->crtc_id;
+	crtc_offset = loongson_crtc->crtc_offset;
 
-	if (ldev->inited == false) {
-		return ;
-	}
+	if (ldev->inited == false)
+		return;
 
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
-		if (crtc_id) {
-			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
-			val |= LS_FB_CFG_ENABLE;
-			if (ldev->clone_mode == true)
-				val |= LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, val);
-		} else {
-			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
-			val |= LS_FB_CFG_ENABLE;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, val);
-		}
+		val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
+		val |= LS_FB_CFG_ENABLE;
+		if (ldev->clone_mode == true)
+			val |= LS_FB_CFG_SWITCH_PANEL;
+		ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, val);
 		drm_crtc_vblank_on(crtc);
 		loongson_crtc->enabled = true;
 		break;
@@ -707,26 +578,19 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
 		drm_crtc_vblank_off(crtc);
-		if (crtc_id) {
-			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
-			val &= ~LS_FB_CFG_ENABLE;
-			val &= ~LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, val);
-		} else {
-			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
-			val &= ~LS_FB_CFG_ENABLE;
-			val &= ~LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, val);
-		}
+		val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
+		val &= ~LS_FB_CFG_ENABLE;
+		val &= ~LS_FB_CFG_SWITCH_PANEL;
+		ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, val);
 		loongson_crtc->enabled = false;
 		/*Disable clone  timing*/
 		if (ldev->clone_mode) {
-			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO1_REG);
+			val = ls_mm_rreg(ldev, LS_FB_CFG_REG);
 			val &= ~LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO1_REG, val);
-			val = ls_mm_rreg(ldev, LS_FB_CFG_DVO0_REG);
+			ls_mm_wreg(ldev, LS_FB_CFG_REG, val);
+			val = ls_mm_rreg(ldev, LS_FB_CFG_REG + REG_OFFSET);
 			val &= ~LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_DVO0_REG, val);
+			ls_mm_wreg(ldev, LS_FB_CFG_REG + REG_OFFSET, val);
 		}
 		ldev->clone_mode = false;
 		break;
@@ -774,7 +638,7 @@ static void loongson_crtc_commit(struct drm_crtc *crtc)
 	list_for_each_entry(crtci, &dev->mode_config.crtc_list, head) {
 		if (crtci->enabled)
 			loongson_crtc_dpms(crtci, DRM_MODE_DPMS_ON);
-        }
+	}
 }
 
 /**
@@ -820,10 +684,9 @@ static void loongson_crtc_disable(struct drm_crtc *crtc)
 	crtc->primary->fb = NULL;
 }
 
-int loongson_crtc_page_flip(struct drm_crtc *crtc,
-		struct drm_framebuffer *fb,
-		struct drm_pending_vblank_event *event,
-		uint32_t page_flip_flags)
+int loongson_crtc_page_flip(struct drm_crtc *crtc, struct drm_framebuffer *fb,
+			    struct drm_pending_vblank_event *event,
+			    uint32_t page_flip_flags)
 {
 	struct drm_device *dev = crtc->dev;
 	struct loongson_device *ldev = dev->dev_private;
@@ -833,7 +696,7 @@ int loongson_crtc_page_flip(struct drm_crtc *crtc,
 	struct drm_gem_object *obj;
 	struct loongson_flip_work *work;
 	struct loongson_bo *new_bo;
-	int ret;
+	u32 ret;
 	u64 base;
 
 	work = kzalloc(sizeof(*work), GFP_KERNEL);
@@ -929,19 +792,20 @@ static const struct drm_crtc_helper_funcs loongson_helper_funcs = {
  *
  * Init CRTC
  */
-struct loongson_crtc *
-loongson_crtc_init(struct loongson_device *ldev, int index)
+struct loongson_crtc *loongson_crtc_init(struct loongson_device *ldev,
+					 int index)
 {
 	struct loongson_crtc *ls_crtc;
 
 	ls_crtc = kzalloc(sizeof(struct loongson_crtc) +
-			(1 * sizeof(struct drm_connector *)),
-			GFP_KERNEL);
+				  (1 * sizeof(struct drm_connector *)),
+			  GFP_KERNEL);
 
 	if (ls_crtc == NULL)
 		return NULL;
 
 	ls_crtc->ldev = ldev;
+	ls_crtc->crtc_offset = index * REG_OFFSET;
 	ls_crtc->crtc_id = get_crtc_id(ldev, index);
 	ls_crtc->max_freq = get_crtc_max_freq(ldev, index);
 	ls_crtc->max_width = get_crtc_max_width(ldev, index);
