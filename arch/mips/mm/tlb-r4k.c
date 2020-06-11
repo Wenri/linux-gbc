@@ -738,11 +738,11 @@ void  tlb_init(void)
 	    current_cpu_type() == CPU_R12000 ||
 	    current_cpu_type() == CPU_R14000)
 		write_c0_framemask(0);
-
+#ifdef CONFIG_CPU_LOONGSON3
 	if ((current_cpu_type() == CPU_LOONGSON3_COMP) &&
 			cpu_guestmode)
 		guest_fixup = 1;
-
+#endif
 	if (cpu_has_rixi) {
 		/*
 		 * Enable the no read, no exec bits, and enable large virtual
