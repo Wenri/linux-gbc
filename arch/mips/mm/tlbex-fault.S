@@ -13,6 +13,21 @@
 	.macro tlb_do_page_fault, write
 	NESTED(tlb_do_page_fault_\write, PT_SIZE, sp)
 	SAVE_ALL
+
+	/* Only Check for 3A4000 and later guest */
+	PTR_LA	t0, guest_fixup
+	ld	t0, 0(t0)
+	beqz	t0, 1f
+	/* Invalid the refilled line */
+	tlbp
+	mfc0	t0, CP0_INDEX
+	bltz	t0, 1f
+	dmfc0	t0, CP0_ENTRYHI
+	ori	t0, t0, MIPS_ENTRYHI_EHINV
+	dmtc0	t0, CP0_ENTRYHI
+	___ehb
+	tlbwi
+1:
 	MFC0	a2, CP0_BADVADDR
 	KMODE
 	move	a0, sp
