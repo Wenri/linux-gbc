@@ -22,8 +22,12 @@
 #include <asm/pgtable.h>
 #include <asm/tlb.h>
 #include <asm/tlbmisc.h>
+#ifdef CONFIG_CPU_LOONGSON3
+#include <loongson.h>
+#endif
 
 extern void build_tlb_refill_handler(void);
+int guest_fixup;
 
 /* Atomicity and interruptability */
 #ifdef CONFIG_MIPS_MT_SMTC
@@ -734,6 +738,10 @@ void  tlb_init(void)
 	    current_cpu_type() == CPU_R12000 ||
 	    current_cpu_type() == CPU_R14000)
 		write_c0_framemask(0);
+
+	if ((current_cpu_type() == CPU_LOONGSON3_COMP) &&
+			cpu_guestmode)
+		guest_fixup = 1;
 
 	if (cpu_has_rixi) {
 		/*
