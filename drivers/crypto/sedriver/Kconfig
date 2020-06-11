@@ -1,0 +1,8 @@
+#
+# se chip configuration
+#
+config SW_SE_CHIP
+	tristate "se chip driver"
+	default  m
+	---help---
+		If unsure, say N.
