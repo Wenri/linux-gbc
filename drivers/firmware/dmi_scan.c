@@ -9,9 +9,6 @@
 #include <linux/random.h>
 #include <asm/dmi.h>
 #include <asm/unaligned.h>
-#ifndef CONFIG_CPU_LOONGSON2K
-#include <loongson.h>
-#endif
 
 struct kobject *dmi_kobj;
 EXPORT_SYMBOL_GPL(dmi_kobj);
@@ -625,11 +622,6 @@ void __init dmi_scan_machine(void)
 			goto out;
 		}
 	} else if (IS_ENABLED(CONFIG_DMI_SCAN_MACHINE_NON_EFI_FALLBACK)) {
-#ifndef CONFIG_CPU_LOONGSON2K
-		if (cpu_guestmode)
-			goto error;
-#endif
-
 		p = dmi_early_remap(0xF0000, 0x10000);
 		if (p == NULL)
 			goto error;
