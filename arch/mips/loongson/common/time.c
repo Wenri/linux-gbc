@@ -107,6 +107,9 @@ void __init plat_time_init(void)
 
 	loongson3_init_clock();
 
+	if(cpu_guestmode)
+		preset_lpj = cpu_clock_freq / HZ;
+
 #if defined(CONFIG_RS780_HPET) || defined(CONFIG_LS7A_HPET)
 	if(!cpu_guestmode)
 		setup_hpet_timer();
