@@ -273,7 +273,7 @@ int ls3a_ext_intctl_write(struct kvm *kvm , gpa_t addr, unsigned size, unsigned 
 			state->en.reg_u8[reg_count] = val_data_u8;
 			size --;
 		}
-		ext_irq_update_core(kvm,0,(offset -0x1b00)/8);
+		ext_irq_update_core(kvm,0,(offset -0x1600)/8);
 	} else if (offset >= 0x1680 && offset < 0x16a0) {
 		if (size == 8) {
 			reg_count = (offset -0x1680)/8;
