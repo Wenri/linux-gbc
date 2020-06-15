@@ -8,7 +8,7 @@
 #define __LOONGSON_LEGACY_VBIOS_H__
 
 #define LS_MAX_RESOLUTIONS 10
-#define LS_MAX_REG_TABLE   256
+#define LS_MAX_REG_TABLE 256
 
 struct loongson_vbios {
 	char title[16];
@@ -21,14 +21,14 @@ struct loongson_vbios {
 	uint32_t connector_offset;
 	uint32_t encoder_num;
 	uint32_t encoder_offset;
-}__attribute__ ((packed));
+} __packed;
 
 enum loongson_crtc_version {
 	default_version = 0,
 	crtc_version_max = 0xffffffff,
-}__attribute__ ((packed));
+} __packed;
 
-struct loongson_crtc_modeparameter{
+struct loongson_crtc_modeparameter {
 	/* horizontal timing. */
 	u32 htotal;
 	u32 hdisplay;
@@ -49,28 +49,28 @@ struct loongson_crtc_modeparameter{
 	u32 clock_phase;
 };
 
-struct encoder_conf_reg{
+struct encoder_conf_reg {
 	unsigned char dev_addr;
 	unsigned char reg;
 	unsigned char value;
-}__attribute__((packed));
+} __packed;
 
-struct encoder_resolution_config{
+struct encoder_resolution_config {
 	unsigned char reg_num;
 	struct encoder_conf_reg config_regs[LS_MAX_REG_TABLE];
-}__attribute__((packed));
+} __packed;
 
-struct loongson_resolution_param{
+struct loongson_resolution_param {
 	bool used;
 	uint32_t hdisplay;
 	uint32_t vdisplay;
 };
 
-struct loongson_crtc_config_param{
+struct loongson_crtc_config_param {
 	struct loongson_resolution_param resolution;
 	struct loongson_crtc_modeparameter crtc_resol_param;
 };
-struct encoder_config_param{
+struct encoder_config_param {
 	struct loongson_resolution_param resolution;
 	struct encoder_resolution_config encoder_param;
 };
@@ -88,7 +88,7 @@ struct loongson_vbios_crtc {
 	u32 reserve;
 	bool use_local_param;
 	struct loongson_crtc_config_param mode_config_tables[LS_MAX_RESOLUTIONS];
-}__attribute__ ((packed));
+} __packed;
 
 enum loongson_edid_method {
 	via_null = 0,
@@ -96,7 +96,7 @@ enum loongson_edid_method {
 	via_vbios,
 	via_encoder,
 	via_max = 0xffffffff,
-}__attribute__ ((packed));
+} __packed;
 
 enum loongson_vbios_i2c_type {
 	i2c_type_null = 0,
@@ -104,21 +104,21 @@ enum loongson_vbios_i2c_type {
 	i2c_type_cpu,
 	i2c_type_encoder,
 	i2c_type_max = 0xffffffff,
-}__attribute__ ((packed));
+} __packed;
 
 enum hotplug {
 	disable = 0,
 	polling,
 	irq,
 	hotplug_max = 0xffffffff,
-}__attribute__ ((packed));
+} __packed;
 
 enum encoder_config {
 	encoder_transparent = 0,
 	encoder_os_config,
 	encoder_bios_config, //bios config encoder
 	encoder_type_max = 0xffffffff,
-}__attribute__ ((packed));
+} __packed;
 
 enum connector_type {
 	connector_unknown,
@@ -154,11 +154,11 @@ enum encoder_type {
 };
 
 struct loongson_backlight_pwm {
-    uint8_t pwm_id, polarity;
-    uint32_t  period_ns;
+	uint8_t pwm_id, polarity;
+	uint32_t period_ns;
 };
 
-struct loongson_vbios_connector{
+struct loongson_vbios_connector {
 	uint32_t next;
 	uint32_t crtc_id;
 	enum loongson_edid_method edid_method;
@@ -171,9 +171,9 @@ struct loongson_vbios_connector{
 	uint32_t edid_version;
 	uint8_t internal_edid[256];
 	struct loongson_backlight_pwm bl_pwm;
-}__attribute__ ((packed));
+} __packed;
 
-struct loongson_vbios_encoder{
+struct loongson_vbios_encoder {
 	u32 next;
 	u32 crtc_id;
 	u32 connector_id;
@@ -183,7 +183,7 @@ struct loongson_vbios_encoder{
 	u32 i2c_id;
 	enum encoder_type type;
 	struct encoder_config_param encoder_config[LS_MAX_RESOLUTIONS];
-}__attribute__ ((packed));
+} __packed;
 
 void *loongson_vbios_default_legacy(void);
 

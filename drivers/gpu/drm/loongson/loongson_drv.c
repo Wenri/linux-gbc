@@ -17,13 +17,13 @@
 #include "loongson_drv.h"
 #include "loongson_vbios.h"
 
-#define DEVICE_NAME     "loongson-drm"
-#define DRIVER_NAME	"loongson-drm"
-#define DRIVER_DESC	"Loongson DRM Driver"
-#define DRIVER_DATE	"20180328"
-#define DRIVER_MAJOR	0
-#define DRIVER_MINOR	2
-#define DRIVER_PATCHLEVEL	0
+#define DEVICE_NAME "loongson-drm"
+#define DRIVER_NAME "loongson-drm"
+#define DRIVER_DESC "Loongson DRM Driver"
+#define DRIVER_DATE "20180328"
+#define DRIVER_MAJOR 0
+#define DRIVER_MINOR 2
+#define DRIVER_PATCHLEVEL 0
 
 u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset)
 {
@@ -151,9 +151,9 @@ static const struct drm_framebuffer_funcs loongson_fb_funcs = {
  *  init result
  */
 int loongson_framebuffer_init(struct drm_device *dev,
-			struct loongson_framebuffer *lfb,
-			const struct drm_mode_fb_cmd2 *mode_cmd,
-			struct drm_gem_object *obj)
+			      struct loongson_framebuffer *lfb,
+			      const struct drm_mode_fb_cmd2 *mode_cmd,
+			      struct drm_gem_object *obj)
 {
 	int ret;
 
@@ -179,9 +179,8 @@ int loongson_framebuffer_init(struct drm_device *dev,
  * error code encoded with ERR_PTR()
  */
 static struct drm_framebuffer *
-loongson_user_framebuffer_create(struct drm_device *dev,
-			struct drm_file *filp,
-			const struct drm_mode_fb_cmd2 *mode_cmd)
+loongson_user_framebuffer_create(struct drm_device *dev, struct drm_file *filp,
+				 const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct drm_gem_object *obj;
 	struct loongson_framebuffer *loongson_fb;
@@ -217,10 +216,9 @@ static const struct drm_mode_config_funcs loongson_mode_funcs = {
 };
 
 #ifdef CONFIG_CPU_SUPPORTS_UNCACHED_ACCELERATED
-static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev,
-			int bar,
-			unsigned long offset,
-			unsigned long maxlen)
+static void __iomem *ls_uncache_acc_iomap(struct pci_dev *dev, int bar,
+					  unsigned long offset,
+					  unsigned long maxlen)
 {
 	resource_size_t start = pci_resource_start(dev, bar);
 	resource_size_t len = pci_resource_len(dev, bar);
@@ -261,8 +259,9 @@ static int loongson_vram_init(struct loongson_device *ldev)
 
 	switch (ldev->gpu) {
 	case LS7A_GPU:
-		ldev->vram_pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON,
-				PCI_DEVICE_ID_LOONGSON_GPU, NULL);
+		ldev->vram_pdev =
+			pci_get_device(PCI_VENDOR_ID_LOONGSON,
+				       PCI_DEVICE_ID_LOONGSON_GPU, NULL);
 		/* BAR 0 is VRAM */
 		ldev->mc.vram_base = pci_resource_start(ldev->vram_pdev, 2);
 		ldev->mc.vram_window = pci_resource_len(ldev->vram_pdev, 2);
@@ -271,15 +270,16 @@ static int loongson_vram_init(struct loongson_device *ldev)
 	case LS2K_GPU:
 		ldev->vram_plat_dev = ldev->dev->platformdev;
 		/* BAR 0 is VRAM */
-		r = platform_get_resource(ldev->vram_plat_dev, IORESOURCE_MEM, 1);
-		ldev->mc.vram_base  = r->start;
-		ldev->mc.vram_window  = r->end - r->start + 1;
+		r = platform_get_resource(ldev->vram_plat_dev, IORESOURCE_MEM,
+					  1);
+		ldev->mc.vram_base = r->start;
+		ldev->mc.vram_window = r->end - r->start + 1;
 		ldev->mc.vram_size = ldev->mc.vram_window;
 		break;
 	}
 
-	DRM_INFO("vram base: 0x%llx, size: 0x%llx\n",
-			ldev->mc.vram_base, ldev->mc.vram_size);
+	DRM_INFO("vram base: 0x%llx, size: 0x%llx\n", ldev->mc.vram_base,
+		 ldev->mc.vram_size);
 
 	aper->ranges[0].base = ldev->mc.vram_base;
 	aper->ranges[0].size = ldev->mc.vram_window;
@@ -288,7 +288,8 @@ static int loongson_vram_init(struct loongson_device *ldev)
 	kfree(aper);
 
 	if (!devm_request_mem_region(ldev->dev->dev, ldev->mc.vram_base,
-			ldev->mc.vram_window, "loongsondrmfb_vram")) {
+				     ldev->mc.vram_window,
+				     "loongsondrmfb_vram")) {
 		DRM_ERROR("can't reserve VRAM\n");
 		return -ENXIO;
 	}
@@ -305,8 +306,7 @@ static int loongson_vram_init(struct loongson_device *ldev)
  * RETURN
  *   drm device init result
  */
-static int loongson_device_init(struct drm_device *dev,
-					uint32_t flags)
+static int loongson_device_init(struct drm_device *dev, uint32_t flags)
 {
 	struct loongson_device *ldev = dev->dev_private;
 	int ret;
@@ -325,14 +325,15 @@ static int loongson_device_init(struct drm_device *dev,
 		ldev->rmmio_size = pci_resource_len(ldev->dev->pdev, 0);
 		break;
 	case LS2K_GPU:
-		r = platform_get_resource(ldev->dev->platformdev, IORESOURCE_MEM, 0);
+		r = platform_get_resource(ldev->dev->platformdev,
+					  IORESOURCE_MEM, 0);
 		ldev->rmmio_base = r->start;
 		ldev->rmmio_size = r->end - r->start + 1;
 		break;
 	}
 
 	if (!devm_request_mem_region(ldev->dev->dev, ldev->rmmio_base,
-			ldev->rmmio_size, "loongsonfb_mmio")) {
+				     ldev->rmmio_size, "loongsonfb_mmio")) {
 		DRM_ERROR("can't reserve mmio registers\n");
 		return -ENOMEM;
 	}
@@ -357,7 +358,7 @@ static int loongson_device_init(struct drm_device *dev,
 	}
 
 	DRM_INFO("io: 0x%lx, mmio: 0x%llx, size: 0x%llx\n",
-		(unsigned long)ldev->io, ldev->rmmio_base,ldev->rmmio_size);
+		 (unsigned long)ldev->io, ldev->rmmio_base, ldev->rmmio_size);
 
 	ret = loongson_vram_init(ldev);
 	if (ret)
@@ -377,9 +378,8 @@ static int loongson_device_init(struct drm_device *dev,
  * RETURN
  *   the result of alloc gem object
  */
-int loongson_gem_create(struct drm_device *dev,
-		   u32 size, bool iskernel,
-		   struct drm_gem_object **obj)
+int loongson_gem_create(struct drm_device *dev, u32 size, bool iskernel,
+			struct drm_gem_object **obj)
 {
 	struct loongson_bo *astbo;
 	int ret;
@@ -405,8 +405,8 @@ int loongson_gem_create(struct drm_device *dev,
  *
  * @Returns  loongson_i2c pointer
  */
-struct loongson_i2c *
-loongson_i2c_bus_match(struct loongson_device *ldev, unsigned int i2c_id)
+struct loongson_i2c *loongson_i2c_bus_match(struct loongson_device *ldev,
+					    unsigned int i2c_id)
 {
 	unsigned int i;
 	struct loongson_i2c *match = NULL, *tables;
@@ -427,13 +427,13 @@ void loongson_i2c_create(struct loongson_i2c *ls_i2c, const char *name)
 {
 	struct i2c_adapter *i2c_adapter;
 	struct i2c_board_info i2c_info;
-	struct i2c_client * i2c_cli;
+	struct i2c_client *i2c_cli;
 
-	DRM_DEBUG("loongson gpu add i2c_id %d\n",ls_i2c->i2c_id);
+	DRM_DEBUG("loongson gpu add i2c_id %d\n", ls_i2c->i2c_id);
 	i2c_adapter = i2c_get_adapter(ls_i2c->i2c_id);
-	if (!i2c_adapter){
+	if (!i2c_adapter) {
 		dev_warn_once(ls_i2c->ldev->dev->dev,
-			"i2c-%d get adapter err \n", ls_i2c->i2c_id);
+				"i2c-%d get adapter err\n", ls_i2c->i2c_id);
 		return;
 	}
 
@@ -470,7 +470,7 @@ void loongson_i2c_add(struct loongson_device *ldev, const char *name)
 static void loongson_i2c_init(struct loongson_device *ldev)
 {
 	if (get_loongson_i2c(ldev))
-		loongson_i2c_add(ldev,DVO_I2C_NAME);
+		loongson_i2c_add(ldev, DVO_I2C_NAME);
 }
 
 /**
@@ -485,7 +485,7 @@ int loongson_modeset_init(struct loongson_device *ldev)
 {
 	struct loongson_encoder *ls_encoder;
 	struct loongson_connector *ls_connector;
-	struct loongson_crtc     *ls_crtc;
+	struct loongson_crtc *ls_crtc;
 	int ret, i;
 
 	ldev->dev->mode_config.max_width = LOONGSON_MAX_FB_WIDTH;
@@ -500,16 +500,16 @@ int loongson_modeset_init(struct loongson_device *ldev)
 		loongson_i2c_init(ldev);
 
 	for (i = 0; (i < ldev->num_crtc && i < LS_MAX_MODE_INFO); i++) {
-		ls_crtc =  loongson_crtc_init(ldev, i);
-		if (ls_crtc){
+		ls_crtc = loongson_crtc_init(ldev, i);
+		if (ls_crtc) {
 			ldev->mode_info[i].crtc = ls_crtc;
 			ls_encoder = loongson_encoder_init(ldev,
-					ls_crtc->encoder_id);
+							   ls_crtc->encoder_id);
 			if (ls_encoder == NULL)
 				continue;
 			ldev->mode_info[i].encoder = ls_encoder;
-			ls_connector = loongson_connector_init(ldev,
-					ls_encoder->connector_id);
+			ls_connector = loongson_connector_init(
+				ldev, ls_encoder->connector_id);
 			if (ls_connector == NULL)
 				continue;
 
@@ -517,12 +517,11 @@ int loongson_modeset_init(struct loongson_device *ldev)
 
 			if (ls_encoder && ls_connector) {
 				drm_mode_connector_attach_encoder(
-						&ls_connector->base,
-						&ls_encoder->base);
+					&ls_connector->base, &ls_encoder->base);
 			}
 			ldev->mode_info[i].mode_config_initialized = true;
 		} else {
-			DRM_WARN("loongson CRT-%d init failed\n",i);
+			DRM_WARN("loongson CRT-%d init failed\n", i);
 		}
 	}
 
@@ -561,7 +560,7 @@ void loongson_modeset_fini(struct loongson_device *ldev)
  * Returns 0 on success, -EINVAL on failure.
  */
 static int ioctl_get_fb_vram_base(struct drm_device *dev, void *data,
-		struct drm_file *file_priv)
+				  struct drm_file *file_priv)
 {
 	struct loongson_device *ldev = dev->dev_private;
 	struct drm_loongson_param *args = data;
@@ -582,7 +581,7 @@ static int ioctl_get_fb_vram_base(struct drm_device *dev, void *data,
  * Returns 0 on success, -EINVAL on failure.
  */
 static int ioctl_get_bo_vram_base(struct drm_device *dev, void *data,
-		struct drm_file *file_priv)
+				  struct drm_file *file_priv)
 {
 	struct loongson_device *ldev = dev->dev_private;
 	struct drm_loongson_param *args = data;
@@ -602,16 +601,17 @@ static int ioctl_get_bo_vram_base(struct drm_device *dev, void *data,
 	loongson_bo_unreserve(bo);
 	ldev->fb_vram_base = gpu_addr;
 	args->value = gpu_addr;
-	DRM_DEBUG("loongson_get_bo_vram_base bo=%p, fb_vram_base=%lx\n",
-			bo, gpu_addr);
+	DRM_DEBUG("loongson_get_bo_vram_base bo=%p, fb_vram_base=%lx\n", bo,
+		  gpu_addr);
 	return 0;
 }
 
-static struct drm_ioctl_desc loongson_ioctls_kms[DRM_COMMAND_END - DRM_COMMAND_BASE] = {
-	DRM_IOCTL_DEF_DRV(LOONGSON_GET_FB_VRAM_BASE,
-			ioctl_get_fb_vram_base, DRM_UNLOCKED|DRM_AUTH),
-	DRM_IOCTL_DEF_DRV(LOONGSON_GET_BO_VRAM_BASE,
-			ioctl_get_bo_vram_base, DRM_UNLOCKED|DRM_AUTH),
+static struct drm_ioctl_desc loongson_ioctls_kms[DRM_COMMAND_END -
+						 DRM_COMMAND_BASE] = {
+	DRM_IOCTL_DEF_DRV(LOONGSON_GET_FB_VRAM_BASE, ioctl_get_fb_vram_base,
+			  DRM_UNLOCKED | DRM_AUTH),
+	DRM_IOCTL_DEF_DRV(LOONGSON_GET_BO_VRAM_BASE, ioctl_get_bo_vram_base,
+			  DRM_UNLOCKED | DRM_AUTH),
 };
 #define DRM_LOONGSON_KMS_MAX_IOCTLS 2
 
@@ -628,10 +628,10 @@ static struct drm_ioctl_desc loongson_ioctls_kms[DRM_COMMAND_END - DRM_COMMAND_B
 static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 {
 	struct loongson_device *ldev;
-	int ret,r;
+	int ret, r;
 
-	ldev = devm_kzalloc(dev->dev,
-			sizeof(struct loongson_device), GFP_KERNEL);
+	ldev = devm_kzalloc(dev->dev, sizeof(struct loongson_device),
+			    GFP_KERNEL);
 	if (ldev == NULL)
 		return -ENOMEM;
 	dev->dev_private = (void *)ldev;
@@ -651,7 +651,7 @@ static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 	r = loongson_modeset_init(ldev);
 	if (r) {
 		dev_err(&dev->pdev->dev,
-				"Fatal error during modeset init: %d\n", r);
+			"Fatal error during modeset init: %d\n", r);
 	}
 
 	ldev->inited = true;
@@ -661,8 +661,8 @@ static int loongson_load_kms(struct drm_device *dev, unsigned long flags)
 
 	/* Make small buffers to store a hardware
 	 * cursor (double buffered icon updates) */
-	loongson_bo_create(dev, roundup(32*32*4, PAGE_SIZE), 0, 0,
-					  &ldev->cursor.pixels);
+	loongson_bo_create(dev, roundup(32 * 32 * 4, PAGE_SIZE), 0, 0,
+			   &ldev->cursor.pixels);
 	drm_kms_helper_poll_init(dev);
 	return 0;
 }
@@ -686,7 +686,7 @@ static int loongson_unload_kms(struct drm_device *dev)
 	loongson_fbdev_fini(ldev);
 	drm_mode_config_cleanup(dev);
 	loongson_ttm_fini(ldev);
-        dev->dev_private = NULL;
+	dev->dev_private = NULL;
 	ldev->inited = false;
 	return 0;
 }
@@ -701,9 +701,8 @@ static int loongson_unload_kms(struct drm_device *dev)
  * RETURN
  *  dum alloc result
  */
-int loongson_dumb_create(struct drm_file *file,
-		struct drm_device *dev,
-		struct drm_mode_create_dumb *args)
+int loongson_dumb_create(struct drm_file *file, struct drm_device *dev,
+			 struct drm_mode_create_dumb *args)
 {
 	int ret;
 	struct drm_gem_object *gobj;
@@ -797,11 +796,8 @@ static inline u64 loongson_bo_mmap_offset(struct loongson_bo *bo)
  * RETRUN
  *  return sainitized offset
  */
-int
-loongson_dumb_mmap_offset(struct drm_file *file,
-		struct drm_device *dev,
-		uint32_t handle,
-		uint64_t *offset)
+int loongson_dumb_mmap_offset(struct drm_file *file, struct drm_device *dev,
+			      uint32_t handle, uint64_t *offset)
 {
 	struct drm_gem_object *obj;
 	struct loongson_bo *bo;
@@ -817,9 +813,8 @@ loongson_dumb_mmap_offset(struct drm_file *file,
 	return 0;
 }
 
-int loongson_dumb_destroy(struct drm_file *file,
-			struct drm_device *dev,
-			uint32_t handle)
+int loongson_dumb_destroy(struct drm_file *file, struct drm_device *dev,
+			  uint32_t handle)
 {
 	struct drm_gem_object *obj;
 	struct loongson_bo *bo;
@@ -833,8 +828,8 @@ int loongson_dumb_destroy(struct drm_file *file,
 
 	if (bo->pin_count) {
 		ret = loongson_bo_reserve(bo, false);
-        	if (ret)
-                	return ret;
+		if (ret)
+			return ret;
 		ret = loongson_bo_unpin(bo);
 		loongson_bo_unreserve(bo);
 	}
@@ -952,8 +947,8 @@ static int loongson_platform_remove(struct platform_device *pdev)
  * kernel_ulong_t driver_data     Data private to the driver
  */
 static struct pci_device_id pciidlist[] = {
-	{PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_DC)},
-	{0, 0, 0, 0, 0, 0, 0}
+	{ PCI_DEVICE(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_DC) },
+	{ 0, 0, 0, 0, 0, 0, 0 }
 };
 
 /**
@@ -963,7 +958,7 @@ static struct pci_device_id pciidlist[] = {
  * @ent pci device id
  */
 static int loongson_pci_probe(struct pci_dev *pdev,
-			const struct pci_device_id *ent)
+			      const struct pci_device_id *ent)
 {
 	return drm_get_pci_dev(pdev, ent, &loongson_kms_driver);
 }
@@ -1042,7 +1037,7 @@ int loongson_drm_resume(struct drm_device *dev)
 	struct loongson_framebuffer *lfb;
 	struct loongson_device *ldev = dev->dev_private;
 
-        if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
+	if (dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
 
 	mutex_lock(&dev->mode_config.fb_lock);
@@ -1117,7 +1112,9 @@ static int loongson_pmops_freeze(struct device *dev)
 
 #ifdef CONFIG_OF
 static struct of_device_id ls_fb_id_table[] = {
-	{ .compatible = "loongson,ls-fb", },
+	{
+		.compatible = "loongson,ls-fb",
+	},
 	{},
 };
 #endif
@@ -1178,11 +1175,11 @@ static const struct dev_pm_ops loongson_pmops = {
  * .suspend: Device woken up
  */
 static struct pci_driver loongson_pci_driver = {
-	.name		= DRIVER_NAME,
-	.id_table	= pciidlist,
-	.probe		= loongson_pci_probe,
-	.remove		= loongson_pci_remove,
-	.driver.pm	= &loongson_pmops,
+	.name = DRIVER_NAME,
+	.id_table = pciidlist,
+	.probe = loongson_pci_probe,
+	.remove = loongson_pci_remove,
+	.driver.pm = &loongson_pmops,
 };
 
 enum loongson_gpu loongson_find_gpu(void)
@@ -1190,7 +1187,8 @@ enum loongson_gpu loongson_find_gpu(void)
 	struct pci_dev *pdev = NULL;
 	enum loongson_gpu gpu;
 
-	pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_DC, NULL);
+	pdev = pci_get_device(PCI_VENDOR_ID_LOONGSON, PCI_DEVICE_ID_LOONGSON_DC,
+			      NULL);
 	if (pdev)
 		gpu = LS7A_GPU;
 	else
@@ -1240,7 +1238,7 @@ static void __exit loongson_exit(void)
 	gpu = loongson_find_gpu();
 	switch (gpu) {
 	case LS7A_GPU:
-		pci_unregister_driver (&loongson_pci_driver);
+		pci_unregister_driver(&loongson_pci_driver);
 		break;
 	case LS2K_GPU:
 		platform_driver_unregister(&loongson_platform_driver);

@@ -12,9 +12,3 @@ config DRM_LOONGSON_VGA
 	help
 	  DRM display driver for loongson vga control.
 
-config DRM_LOONGSON_VGA_PLATFORM
-	bool "use platfrom device"
-	depends on DRM_LOONGSON_VGA && CPU_LOONGSON2K
-	help
-	  This option selects CONFIG_MMU_NOTIFIER if it isn't already
-	  selected to enabled full userptr support.
