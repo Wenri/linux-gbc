@@ -70,7 +70,7 @@ void loongson_irq_disable_vblank(struct drm_device *dev, unsigned int crtc_id)
 
 irqreturn_t loongson_irq_handler(int irq, void *arg)
 {
-	struct drm_device *dev = (struct drm_device *) arg;
+	struct drm_device *dev = (struct drm_device *)arg;
 	struct loongson_device *ldev = dev->dev_private;
 	struct loongson_crtc *loongson_crtc;
 	unsigned int reg_val;
@@ -81,14 +81,14 @@ irqreturn_t loongson_irq_handler(int irq, void *arg)
 
 	/* crtc1 */
 	if (reg_val & 0x1) {
-		loongson_pageflip_irq(ldev,1);
+		loongson_pageflip_irq(ldev, 1);
 		loongson_crtc = ldev->mode_info[1].crtc;
 		drm_crtc_handle_vblank(&loongson_crtc->base);
 		ldev->vsync1_count++;
 	}
 	/* crtc0 */
 	if (reg_val & 0x4) {
-		loongson_pageflip_irq(ldev,0);
+		loongson_pageflip_irq(ldev, 0);
 		loongson_crtc = ldev->mode_info[0].crtc;
 		drm_crtc_handle_vblank(&loongson_crtc->base);
 		ldev->vsync0_count++;
@@ -124,7 +124,7 @@ int loongson_pageflip_irq(struct loongson_device *ldev, unsigned int crtc_id)
 	loongson_crtc->pflip_works = NULL;
 
 	/* wakeup usersapce */
-	if(works->event)
+	if (works->event)
 		drm_crtc_send_vblank_event(&loongson_crtc->base, works->event);
 
 	spin_unlock_irqrestore(&ldev->dev->event_lock, flags);
@@ -220,10 +220,11 @@ void loongson_flip_work_func(struct work_struct *__work)
 {
 	struct delayed_work *delayed_work =
 		container_of(__work, struct delayed_work, work);
-	struct loongson_flip_work *work =
-		container_of(delayed_work, struct loongson_flip_work, flip_work);
+	struct loongson_flip_work *work = container_of(
+		delayed_work, struct loongson_flip_work, flip_work);
 	struct loongson_device *ldev = work->ldev;
-	struct loongson_crtc *loongson_crtc = ldev->mode_info[work->crtc_id].crtc;
+	struct loongson_crtc *loongson_crtc =
+		ldev->mode_info[work->crtc_id].crtc;
 	struct drm_crtc *crtc = &loongson_crtc->base;
 	unsigned long flags;
 	unsigned int crtc_address, pitch, y, x;
@@ -231,13 +232,14 @@ void loongson_flip_work_func(struct work_struct *__work)
 	y = crtc->y;
 	x = crtc->x;
 	pitch = crtc->primary->fb->pitches[0];
-	crtc_address = (u32)work->base + y * pitch + ALIGN(x,64) * 4;
+	crtc_address = (u32)work->base + y * pitch + ALIGN(x, 64) * 4;
 
 	/* We borrow the event spin lock for protecting flip_status */
 	spin_lock_irqsave(&crtc->dev->event_lock, flags);
 
 	if (loongson_crtc->pflip_status == LOONGSON_FLIP_NONE ||
-		ldev->pageflip_count != loongson_crtc_vblank_count(crtc->dev, work->crtc_id)) {
+	    ldev->pageflip_count !=
+		    loongson_crtc_vblank_count(crtc->dev, work->crtc_id)) {
 		loongson_set_start_address(crtc, (u32)crtc_address);
 		/* Set the flip status */
 		loongson_crtc->pflip_status = LOONGSON_FLIP_SUBMITTED;
@@ -250,4 +252,3 @@ void loongson_flip_work_func(struct work_struct *__work)
 		return;
 	}
 }
-

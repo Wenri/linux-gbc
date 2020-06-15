@@ -13,14 +13,14 @@
 #include <linux/fb.h>
 #include "loongson_drv.h"
 
-static void loongson_dirty_update(struct loongson_fbdev *lfbdev,
-			int x, int y, int width, int height)
+static void loongson_dirty_update(struct loongson_fbdev *lfbdev, int x, int y,
+				  int width, int height)
 {
 	int i;
 	struct drm_gem_object *obj;
 	struct loongson_bo *bo;
 	int src_offset, dst_offset;
-	int bpp = (lfbdev->lfb.base.bits_per_pixel + 7)/8;
+	int bpp = (lfbdev->lfb.base.bits_per_pixel + 7) / 8;
 	int ret = -EBUSY;
 	bool unmap = false;
 	bool store_for_later = false;
@@ -84,8 +84,7 @@ static void loongson_dirty_update(struct loongson_fbdev *lfbdev,
 		src_offset = i * lfbdev->lfb.base.pitches[0] + (x * bpp);
 		dst_offset = i * lfbdev->lfb.base.pitches[0] + (x * bpp);
 		memcpy_toio(bo->kmap.virtual + src_offset,
-			lfbdev->sysram + src_offset, (x2 - x + 1) * bpp);
-
+			    lfbdev->sysram + src_offset, (x2 - x + 1) * bpp);
 	}
 	if (unmap)
 		ttm_bo_kunmap(&bo->kmap);
@@ -103,12 +102,12 @@ static void loongson_dirty_update(struct loongson_fbdev *lfbdev,
  * Draw a rectangle
  */
 static void loongson_fillrect(struct fb_info *info,
-			 const struct fb_fillrect *rect)
+			      const struct fb_fillrect *rect)
 {
 	struct loongson_fbdev *lfbdev = info->par;
 	drm_fb_helper_sys_fillrect(info, rect);
-	loongson_dirty_update(lfbdev, rect->dx, rect->dy,
-			rect->width, rect->height);
+	loongson_dirty_update(lfbdev, rect->dx, rect->dy, rect->width,
+			      rect->height);
 }
 
 /**
@@ -120,12 +119,12 @@ static void loongson_fillrect(struct fb_info *info,
  * Copy data from area to another
  */
 static void loongson_copyarea(struct fb_info *info,
-			 const struct fb_copyarea *area)
+			      const struct fb_copyarea *area)
 {
 	struct loongson_fbdev *lfbdev = info->par;
 	drm_fb_helper_sys_copyarea(info, area);
-	loongson_dirty_update(lfbdev, area->dx, area->dy,
-			area->width, area->height);
+	loongson_dirty_update(lfbdev, area->dx, area->dy, area->width,
+			      area->height);
 }
 
 /**
@@ -137,12 +136,12 @@ static void loongson_copyarea(struct fb_info *info,
  * Draw a image to the display
  */
 static void loongson_imageblit(struct fb_info *info,
-			  const struct fb_image *image)
+			       const struct fb_image *image)
 {
 	struct loongson_fbdev *lfbdev = info->par;
 	drm_fb_helper_sys_imageblit(info, image);
-	loongson_dirty_update(lfbdev, image->dx, image->dy,
-			image->width, image->height);
+	loongson_dirty_update(lfbdev, image->dx, image->dy, image->width,
+			      image->height);
 }
 
 /**
@@ -181,8 +180,8 @@ static struct fb_ops loongsonfb_ops = {
  * Create frame buffer object
  */
 static int loongsonfb_create_object(struct loongson_fbdev *afbdev,
-			const struct drm_mode_fb_cmd2 *mode_cmd,
-			struct drm_gem_object **gobj_p)
+				    const struct drm_mode_fb_cmd2 *mode_cmd,
+				    struct drm_gem_object **gobj_p)
 {
 	struct drm_device *dev = afbdev->helper.dev;
 	u32 size;
@@ -208,7 +207,7 @@ static int loongsonfb_create_object(struct loongson_fbdev *afbdev,
  * needs to allocate the DRM framebuffer used to back the fbdev
  */
 static int loongsonfb_create(struct drm_fb_helper *helper,
-			struct drm_fb_helper_surface_size *sizes)
+			     struct drm_fb_helper_surface_size *sizes)
 {
 	struct loongson_fbdev *lfbdev =
 		container_of(helper, struct loongson_fbdev, helper);
@@ -226,10 +225,10 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 	mode_cmd.width = sizes->surface_width;
 	mode_cmd.height = sizes->surface_height;
 	mode_cmd.pitches[0] =
-		ALIGN(mode_cmd.width,64) * ((sizes->surface_bpp + 7) / 8);
+		ALIGN(mode_cmd.width, 64) * ((sizes->surface_bpp + 7) / 8);
 
 	mode_cmd.pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
-							sizes->surface_depth);
+							  sizes->surface_depth);
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 
 	ret = loongsonfb_create_object(lfbdev, &mode_cmd, &gobj);
@@ -273,7 +272,7 @@ static int loongsonfb_create(struct drm_fb_helper *helper,
 
 	drm_fb_helper_fill_fix(info, fb->pitches[0], fb->depth);
 	drm_fb_helper_fill_var(info, &lfbdev->helper, sizes->fb_width,
-			sizes->fb_height);
+			       sizes->fb_height);
 
 	info->screen_base = sysram;
 	info->screen_size = size;
@@ -306,7 +305,7 @@ err_sysram:
  * remove a framebuffer object and so on
  */
 static int loongson_fbdev_destroy(struct drm_device *dev,
-			struct loongson_fbdev *lfbdev)
+				  struct loongson_fbdev *lfbdev)
 {
 	struct loongson_framebuffer *lfb = &lfbdev->lfb;
 
@@ -348,8 +347,8 @@ int loongson_fbdev_init(struct loongson_device *ldev)
 	int bpp_sel = 32;
 
 	/* prefer 16bpp on low end gpus with limited VRAM */
-	lfbdev = devm_kzalloc(ldev->dev->dev,
-			sizeof(struct loongson_fbdev), GFP_KERNEL);
+	lfbdev = devm_kzalloc(ldev->dev->dev, sizeof(struct loongson_fbdev),
+			      GFP_KERNEL);
 	if (!lfbdev)
 		return -ENOMEM;
 
@@ -357,7 +356,7 @@ int loongson_fbdev_init(struct loongson_device *ldev)
 	spin_lock_init(&lfbdev->dirty_lock);
 
 	drm_fb_helper_prepare(ldev->dev, &lfbdev->helper,
-			&loongson_fb_helper_funcs);
+			      &loongson_fb_helper_funcs);
 
 	ret = drm_fb_helper_init(ldev->dev, &lfbdev->helper, ldev->num_crtc, 1);
 	if (ret)
@@ -423,7 +422,7 @@ void loongson_fbdev_set_suspend(struct loongson_device *ldev, int state)
  * check if
  * */
 bool loongson_fbdev_lobj_is_fb(struct loongson_device *ldev,
-			struct loongson_bo *lobj)
+			       struct loongson_bo *lobj)
 {
 	if (!ldev->lfbdev)
 		return false;
