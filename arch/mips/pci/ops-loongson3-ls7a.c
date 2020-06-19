@@ -17,6 +17,7 @@
 #else
 #define HT1LO_EXT_PCICFG_BASE  0xefe00000000UL
 #define HT1LO_EXT_PCICFG_BASE_TP1  0xefe10000000UL
+#define HT_CONFIG_REVISION	0xefdfe000108UL
 #endif
 
 #define PCI_byte_BAD 0
@@ -113,7 +114,8 @@ static int ls7a_pci_config_access(unsigned char access_type,
 		int where, u32 *data)
 {
 	unsigned char busnum = bus->number;
-	unsigned int val;
+	unsigned int ht_rev;
+	u32 cur_mrrs, real_mrrs, min_mrrs;
 	u_int64_t addr, type;
 	void *addrp;
 	int device = PCI_SLOT(devfn);
@@ -155,12 +157,21 @@ static int ls7a_pci_config_access(unsigned char access_type,
 
 		if (pos != 0 && (pos + PCI_EXP_DEVCTL) == reg)
 		{
-			/* need pmon/uefi configure mrrs to pcie solt max mrrs capability */
-			val = *(volatile unsigned int *)addrp;
-			if ((*data & PCI_EXP_DEVCTL_READRQ) > (val & PCI_EXP_DEVCTL_READRQ)) {
-				printk(KERN_ERR "MAX READ REQUEST SIZE shuould not greater than the slot max capability");
+			min_mrrs = cur_mrrs = *data & PCI_EXP_DEVCTL_READRQ;
+			real_mrrs = (*(volatile unsigned int *)addrp) & PCI_EXP_DEVCTL_READRQ;
+
+			if (cur_mrrs > real_mrrs) {
+				min_mrrs = real_mrrs;
 				*data = *data & ~PCI_EXP_DEVCTL_READRQ;
-				*data = *data | (val & PCI_EXP_DEVCTL_READRQ);
+				*data = *data | real_mrrs;
+			}
+
+			if (min_mrrs > (1 << 12)) {
+				ht_rev = *(volatile unsigned int *)TO_UNCAC(HT_CONFIG_REVISION) & 0xff;
+				if (ht_rev == 0) {
+					*data = *data & ~PCI_EXP_DEVCTL_READRQ;
+					*data = *data | (1 << 12);
+				}
 			}
 		}
 
