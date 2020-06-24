@@ -17,8 +17,8 @@
 #else
 #define HT1LO_EXT_PCICFG_BASE  0xefe00000000UL
 #define HT1LO_EXT_PCICFG_BASE_TP1  0xefe10000000UL
-#define HT_CONFIG_REVISION	0xefdfe000108UL
 #endif
+#define HT_CONFIG_REVISION	0xefdfe000108UL
 
 #define PCI_byte_BAD 0
 #define PCI_word_BAD (pos & 1)
