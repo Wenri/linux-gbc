@@ -22,7 +22,7 @@
 #define DRIVER_DESC "Loongson DRM Driver"
 #define DRIVER_DATE "20180328"
 #define DRIVER_MAJOR 0
-#define DRIVER_MINOR 2
+#define DRIVER_MINOR 3
 #define DRIVER_PATCHLEVEL 0
 
 u32 ls_mm_rreg(struct loongson_device *ldev, u32 offset)
