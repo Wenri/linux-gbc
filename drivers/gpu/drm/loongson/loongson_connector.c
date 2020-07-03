@@ -14,6 +14,7 @@
 #include <drm/drm_edid.h>
 #include <linux/gpio.h>
 #include <linux/pwm.h>
+#include <linux/delay.h>
 #include "loongson_drv.h"
 #include "loongson_vbios.h"
 
@@ -318,22 +319,37 @@ void loongson_connector_pwm_set(struct loongson_connector *ls_connector,
 }
 
 /**
- * @loongson_connector_pwm_enable
+ * @loongson_connector_bl_disable
  *
  * @Param ls_connector loongson drm connector
- * @Param enable  enable hw
+ * disable backlight
  */
 static void
-loongson_connector_pwm_enable(struct loongson_connector *ls_connector,
-			      bool enable)
+loongson_connector_bl_disable(struct loongson_connector *ls_connector)
 {
 	if (IS_ERR(ls_connector->bl.pwm))
 		return;
 
-	if (enable)
-		pwm_enable(ls_connector->bl.pwm);
-	else
-		pwm_disable(ls_connector->bl.pwm);
+	pwm_disable(ls_connector->bl.pwm);
+	if (ls_connector->bl.power)
+		ls_connector->bl.power(ls_connector, false);
+}
+
+/**
+ * @loongson_connector_bl_enable
+ *
+ * @Param ls_connector loongson drm connector
+ * enable backlight
+ */
+static void
+loongson_connector_bl_enable(struct loongson_connector *ls_connector)
+{
+	if (IS_ERR(ls_connector->bl.pwm))
+		return;
+
+	if (ls_connector->bl.power)
+		ls_connector->bl.power(ls_connector, true);
+	pwm_enable(ls_connector->bl.pwm);
 }
 
 /**
@@ -347,15 +363,10 @@ int loongson_connector_pwm_setup(struct loongson_connector *ls_connector)
 {
 	u16 period_ns = ls_connector->bl.pwm_period;
 
-	ls_connector->bl.hw_enabled = true;
-	ls_connector->bl.level = ls_connector->bl.get_brightness(ls_connector);
-
 	pwm_set_period(ls_connector->bl.pwm, period_ns);
 	pwm_set_polarity(ls_connector->bl.pwm, ls_connector->bl.pwm_polarity);
 
-	gpio_direction_output(LOONGSON_GPIO_LCD_EN, 1);
-	gpio_direction_output(LOONGSON_GPIO_LCD_VDD, 1);
-
+	ls_connector->bl.level = ls_connector->bl.get_brightness(ls_connector);
 	return 0;
 }
 
@@ -432,7 +443,24 @@ void loongson_connector_pwm_free_resource(
 void loongson_connector_lvds_power(struct loongson_connector *ls_connector,
 				   bool enable)
 {
-	gpio_set_value(LOONGSON_GPIO_LCD_EN, enable);
+	if (enable) {
+		DRM_DEBUG_KMS("%d enabled\n", ls_connector->id);
+		gpio_direction_output(LOONGSON_GPIO_LCD_VDD,1);
+		gpio_set_value(LOONGSON_GPIO_LCD_VDD, enable);
+		if (!ls_connector->bl.hw_enabled) {
+			msleep(500);
+			drm_mode_config_reset(ls_connector->ldev->dev);
+			msleep(10);
+		}
+		gpio_direction_output(LOONGSON_GPIO_LCD_EN, 1);
+		gpio_set_value(LOONGSON_GPIO_LCD_EN, enable);
+	} else {
+		DRM_DEBUG_KMS("%d disable\n", ls_connector->id);
+		gpio_set_value(LOONGSON_GPIO_LCD_EN, enable);
+		msleep(300);
+		gpio_set_value(LOONGSON_GPIO_LCD_VDD, enable);
+	}
+	ls_connector->bl.hw_enabled = enable;
 }
 
 /**
@@ -449,8 +477,9 @@ void backlight_pwm_register(struct loongson_connector *ls_connector)
 	ls_connector->bl.setup = loongson_connector_pwm_setup;
 	ls_connector->bl.get_brightness = loongson_connector_pwm_get;
 	ls_connector->bl.set_brightness = loongson_connector_pwm_set;
-	ls_connector->bl.enable = loongson_connector_pwm_enable;
-	ls_connector->bl.power_op = loongson_connector_lvds_power;
+	ls_connector->bl.enable         = loongson_connector_bl_enable;
+	ls_connector->bl.disable        = loongson_connector_bl_disable;
+	ls_connector->bl.power          = loongson_connector_lvds_power;
 }
 
 /**
@@ -462,27 +491,17 @@ static int loongson_connector_backlight_update(struct backlight_device *bd)
 {
 	bool enable;
 	struct loongson_connector *ls_connector = bl_get_data(bd);
-	struct drm_device *dev = ls_connector->base.dev;
 	struct loongson_backlight *backlight = &ls_connector->bl;
 
-	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
-
-	if (bd->props.brightness < backlight->min) {
-		bd->props.brightness = backlight->level;
-		drm_modeset_unlock(&dev->mode_config.connection_mutex);
-		return -EINVAL;
-	}
-
 	enable = bd->props.power == FB_BLANK_UNBLANK;
-	ls_connector->bl.enable(ls_connector, enable);
-	if (backlight->power_op)
-		backlight->power_op(ls_connector, enable);
-	backlight->hw_enabled = enable;
+	if (enable)
+		ls_connector->bl.enable(ls_connector);
+	else
+		ls_connector->bl.disable(ls_connector);
 
 	backlight->level = bd->props.brightness;
 	ls_connector->bl.set_brightness(ls_connector, backlight->level);
 
-	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 	return 0;
 }
 
@@ -750,6 +769,18 @@ struct loongson_connector *loongson_connector_init(struct loongson_device *ldev,
 	return ls_connector;
 }
 
+void
+loongson_connector_power_mode(struct loongson_connector *ls_connector, int mode)
+{
+	if (!ls_connector->bl.present)
+		return;
+
+	if (mode == DRM_MODE_DPMS_ON)
+		ls_connector->bl.enable(ls_connector);
+	else
+		ls_connector->bl.disable(ls_connector);
+}
+
 /**
  * loongson_connector_bl_resume
  *
@@ -760,14 +791,8 @@ void loongson_connector_bl_resume(struct loongson_connector *ls_connector)
 	struct loongson_backlight *backlight = &ls_connector->bl;
 
 	if (backlight->present == true) {
-		backlight->setup(ls_connector);
-		backlight->set_brightness(ls_connector,
-					  backlight->device->props.brightness);
-
-		backlight->enable(ls_connector, backlight->hw_enabled);
-		if (backlight->power_op)
-			backlight->power_op(ls_connector,
-					    backlight->hw_enabled);
+		if (backlight->hw_enabled)
+			backlight->enable(ls_connector);
 	}
 }
 
