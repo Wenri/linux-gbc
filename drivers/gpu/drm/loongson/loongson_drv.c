@@ -1206,11 +1206,10 @@ static int __init loongson_init(void)
 	enum loongson_gpu gpu;
 	struct pci_dev *pdev = NULL;
 
+	 /* Discrete card prefer */
 	for_each_pci_dev(pdev) {
 		if ((pdev->class >> 16) == 0x3) {
-			if (pdev->vendor == PCI_VENDOR_ID_ATI)
-				return 0;
-			if (pdev->vendor == 0x1a03) /* ASpeed */
+			if (pdev->vendor == !PCI_VENDOR_ID_LOONGSON)
 				return 0;
 		}
 	}
