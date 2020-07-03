@@ -400,10 +400,6 @@ static int loongson_crtc_mode_set_base(struct drm_crtc *crtc, int x, int y,
 	vss = mode.vsync_start;
 	pix_freq = mode.clock;
 
-	reg_val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
-	reg_val &= ~LS_FB_CFG_ENABLE;
-	ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, reg_val);
-
 	cal_freq(pix_freq, &pll_cfg);
 	config_pll(ldev, LS_PIX_PLL + crtc_offset, &pll_cfg);
 	loongson_crtc_do_set_base(crtc, old_fb, x, y, 0);
@@ -568,31 +564,54 @@ static void loongson_crtc_dpms(struct drm_crtc *crtc, int mode)
 	case DRM_MODE_DPMS_ON:
 		val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
 		val |= LS_FB_CFG_ENABLE;
-		if (ldev->clone_mode == true)
+		if (ldev->clone_mode && crtc_offset)
 			val |= LS_FB_CFG_SWITCH_PANEL;
 		ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, val);
+		msleep(3);
+
+		val = ls_mm_rreg(ldev, LS_FB_PANCFG_REG + crtc_offset);
+		val |= LS_FB_PANCFG_DE | LS_FB_PANCFG_CLKEN;
+		ls_mm_wreg(ldev, LS_FB_PANCFG_REG + crtc_offset, val);
+		msleep(3);
+
+		val = ls_mm_rreg(ldev, LS_FB_HSYNC_REG + crtc_offset);
+		val |= LS_FB_HSYNC_POLSE;
+		ls_mm_wreg(ldev, LS_FB_HSYNC_REG + crtc_offset, val);
+		val = ls_mm_rreg(ldev, LS_FB_VSYNC_REG + crtc_offset);
+		val |= LS_FB_VSYNC_POLSE;
+		ls_mm_wreg(ldev, LS_FB_VSYNC_REG + crtc_offset, val);
+
 		drm_crtc_vblank_on(crtc);
 		loongson_crtc->enabled = true;
 		break;
 	case DRM_MODE_DPMS_OFF:
+		if (ldev->clone_mode && crtc_offset) {
+			val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
+			val &= ~LS_FB_CFG_SWITCH_PANEL;
+			ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, val);
+			ldev->clone_mode = false;
+		}
 	case DRM_MODE_DPMS_STANDBY:
 	case DRM_MODE_DPMS_SUSPEND:
 		drm_crtc_vblank_off(crtc);
+
+		val = ls_mm_rreg(ldev, LS_FB_PANCFG_REG + crtc_offset);
+		val &= ~LS_FB_PANCFG_DE;
+		val &= ~LS_FB_PANCFG_CLKEN;
+		ls_mm_wreg(ldev, LS_FB_PANCFG_REG + crtc_offset, val);
+
 		val = ls_mm_rreg(ldev, LS_FB_CFG_REG + crtc_offset);
 		val &= ~LS_FB_CFG_ENABLE;
-		val &= ~LS_FB_CFG_SWITCH_PANEL;
 		ls_mm_wreg(ldev, LS_FB_CFG_REG + crtc_offset, val);
+
+		val = ls_mm_rreg(ldev, LS_FB_HSYNC_REG + crtc_offset);
+		val &= ~LS_FB_HSYNC_POLSE;
+		ls_mm_wreg(ldev, LS_FB_HSYNC_REG + crtc_offset, val);
+		val = ls_mm_rreg(ldev, LS_FB_VSYNC_REG + crtc_offset);
+		val &= ~LS_FB_VSYNC_POLSE;
+		ls_mm_wreg(ldev, LS_FB_VSYNC_REG + crtc_offset, val);
+
 		loongson_crtc->enabled = false;
-		/*Disable clone  timing*/
-		if (ldev->clone_mode) {
-			val = ls_mm_rreg(ldev, LS_FB_CFG_REG);
-			val &= ~LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_REG, val);
-			val = ls_mm_rreg(ldev, LS_FB_CFG_REG + REG_OFFSET);
-			val &= ~LS_FB_CFG_SWITCH_PANEL;
-			ls_mm_wreg(ldev, LS_FB_CFG_REG + REG_OFFSET, val);
-		}
-		ldev->clone_mode = false;
 		break;
 	}
 }
@@ -615,11 +634,7 @@ static void loongson_crtc_prepare(struct drm_crtc *crtc)
 	 */
 	DRM_DEBUG("loongson_crtc_prepare\n");
 	list_for_each_entry(crtci, &dev->mode_config.crtc_list, head)
-		if (crtci->enabled) {
-			loongson_crtc_dpms(crtci, DRM_MODE_DPMS_ON);
-		} else {
-			loongson_crtc_dpms(crtci, DRM_MODE_DPMS_OFF);
-		}
+		loongson_crtc_dpms(crtci, DRM_MODE_DPMS_OFF);
 }
 
 /**
