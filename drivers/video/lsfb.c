@@ -1465,10 +1465,13 @@ static int __init ls_fb_init (void)
 #ifndef MODULE
 	char *option = NULL;
 #endif
-	/*if PCIE Graphics card exist,use it as default*/
-	pdev = pci_get_device(PCI_VENDOR_ID_ATI, PCI_ANY_ID, NULL);
-	if(pdev)
-			return 0;
+	/* Discrete card prefer */
+	for_each_pci_dev(pdev) {
+		if ((pdev->class >> 16) == 0x3) {
+			if (pdev->vendor == !PCI_VENDOR_ID_LOONGSON)
+				return 0;
+		}
+	}
 #ifndef MODULE
 	if (fb_get_options("ls-fb", &option))
 		return -ENODEV;
