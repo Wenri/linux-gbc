@@ -444,12 +444,16 @@ void loongson_connector_lvds_power(struct loongson_connector *ls_connector,
 				   bool enable)
 {
 	if (enable) {
+		struct drm_encoder *encoder;
 		DRM_DEBUG_KMS("%d enabled\n", ls_connector->id);
 		gpio_direction_output(LOONGSON_GPIO_LCD_VDD,1);
 		gpio_set_value(LOONGSON_GPIO_LCD_VDD, enable);
-		if (!ls_connector->bl.hw_enabled) {
+
+		/*Only reset current encoder*/
+		encoder = ls_connector->base.encoder;
+		if (encoder) {
 			msleep(500);
-			drm_mode_config_reset(ls_connector->ldev->dev);
+			encoder->funcs->reset(encoder);
 			msleep(10);
 		}
 		gpio_direction_output(LOONGSON_GPIO_LCD_EN, 1);
@@ -494,9 +498,11 @@ static int loongson_connector_backlight_update(struct backlight_device *bd)
 	struct loongson_backlight *backlight = &ls_connector->bl;
 
 	enable = bd->props.power == FB_BLANK_UNBLANK;
-	if (enable)
-		ls_connector->bl.enable(ls_connector);
-	else
+	if (enable) {
+		/*Only enable hw once*/
+		if (!backlight->hw_enabled)
+			ls_connector->bl.enable(ls_connector);
+	} else
 		ls_connector->bl.disable(ls_connector);
 
 	backlight->level = bd->props.brightness;
