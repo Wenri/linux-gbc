@@ -156,8 +156,9 @@ struct loongson_backlight {
 	unsigned int (*get_brightness)(struct loongson_connector *ls_connector);
 	void (*set_brightness)(struct loongson_connector *ls_connector,
 			       unsigned int level);
-	void (*enable)(struct loongson_connector *ls_connector, bool enable);
-	void (*power_op)(struct loongson_connector *ls_connector, bool enable);
+	void (*enable)(struct loongson_connector *ls_connector);
+	void (*disable)(struct loongson_connector *ls_connector);
+	void (*power)(struct loongson_connector *ls_connector, bool enable);
 };
 
 struct loongson_bo {
@@ -262,6 +263,7 @@ struct loongson_encoder {
 	struct loongson_device *ldev;
 	struct loongson_i2c *i2c;
 	struct cfg_encoder *encoder_config;
+	struct drm_display_mode mode;
 	int last_dpms;
 	u32 cfg_num;
 	u32 i2c_id;
@@ -438,4 +440,7 @@ u32 ls7a_io_rreg(struct loongson_device *ldev, u32 offset);
 void ls7a_io_wreg(struct loongson_device *ldev, u32 offset, u32 val);
 u64 ls2k_io_rreg(struct loongson_device *ldev, u32 offset);
 void ls2k_io_wreg(struct loongson_device *ldev, u32 offset, u64 val);
+
+void loongson_connector_power_mode(struct loongson_connector *ls_connector,
+				   int mode);
 #endif

@@ -122,6 +122,7 @@ static void loongson_encoder_mode_set(struct drm_encoder *encoder,
 		return;
 
 	if (ls_encoder->config_type == encoder_os_config) {
+		ls_encoder->mode = *mode;
 		DRM_DEBUG_KMS(
 			"Do encoder-%d mode set hdis %d vdisp %d encoderid %d\n",
 			ls_encoder->encoder_id, mode->hdisplay, mode->vdisplay,
@@ -140,6 +141,19 @@ static void loongson_encoder_mode_set(struct drm_encoder *encoder,
  */
 static void loongson_encoder_dpms(struct drm_encoder *encoder, int state)
 {
+	int i;
+	struct loongson_connector *ls_connector;
+	struct loongson_encoder *ls_encoder = to_loongson_encoder(encoder);
+	struct loongson_device *ldev = ls_encoder->ldev;
+	struct loongson_mode_info *mode_info = ldev->mode_info;
+
+	for (i = 0 ; i < LS_MAX_MODE_INFO; i++) {
+		if (mode_info[i].encoder->encoder_id == ls_encoder->encoder_id)
+			break;
+	}
+
+	ls_connector = mode_info[i].connector;
+	loongson_connector_power_mode(ls_connector, state);
 }
 
 /**
@@ -179,6 +193,14 @@ static void loongson_encoder_destroy(struct drm_encoder *encoder)
 	kfree(loongson_encoder);
 }
 
+static void loongson_encoder_reset(struct drm_encoder *encoder)
+{
+	struct loongson_encoder *ls_encoder = to_loongson_encoder(encoder);
+	DRM_DEBUG_KMS("%d",ls_encoder->encoder_id);
+	loongson_encoder_mode_set(encoder, &ls_encoder->mode,
+				  &ls_encoder->mode);
+}
+
 /**
  * These provide the minimum set of functions required to handle a encoder
  *
@@ -197,6 +219,7 @@ static const struct drm_encoder_helper_funcs loongson_encoder_helper_funcs = {
  * Encoder controls,encoder sit between CRTCs and connectors
  */
 static const struct drm_encoder_funcs loongson_encoder_encoder_funcs = {
+	.reset   = loongson_encoder_reset,
 	.destroy = loongson_encoder_destroy,
 };
 
