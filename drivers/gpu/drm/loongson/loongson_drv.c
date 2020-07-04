@@ -1206,12 +1206,10 @@ static int __init loongson_init(void)
 	enum loongson_gpu gpu;
 	struct pci_dev *pdev = NULL;
 
-	 /* Discrete card prefer */
-	for_each_pci_dev(pdev) {
-		if ((pdev->class >> 16) == 0x3) {
-			if (pdev->vendor == !PCI_VENDOR_ID_LOONGSON)
-				return 0;
-		}
+	/* Discrete card prefer */
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON)
+			return 0;
 	}
 
 	gpu = loongson_find_gpu();

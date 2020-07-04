@@ -1466,11 +1466,9 @@ static int __init ls_fb_init (void)
 	char *option = NULL;
 #endif
 	/* Discrete card prefer */
-	for_each_pci_dev(pdev) {
-		if ((pdev->class >> 16) == 0x3) {
-			if (pdev->vendor == !PCI_VENDOR_ID_LOONGSON)
-				return 0;
-		}
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON)
+			return 0;
 	}
 #ifndef MODULE
 	if (fb_get_options("ls-fb", &option))

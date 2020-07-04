@@ -188,11 +188,9 @@ static int __init gpu_init(void)
 	struct pci_dev *pdev = NULL;
 
 	/* Discrete card prefer */
-	for_each_pci_dev(pdev) {
-		if ((pdev->class >> 16) == 0x3) {
-			if (pdev->vendor == !PCI_VENDOR_ID_LOONGSON)
-				return 0;
-		}
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON)
+			return 0;
 	}
 
 	ret = platform_driver_register(&gpu_driver);
