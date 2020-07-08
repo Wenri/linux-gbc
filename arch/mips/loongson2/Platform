@@ -1,0 +1,11 @@
+# Loongson 64 soc
+
+platform-$(CONFIG_MACH_LOONGSON2) += loongson2/
+cflags-$(CONFIG_MACH_LOONGSON2) += -I$(srctree)/arch/mips/include/asm/mach-loongson2 -mno-branch-likely -Wa,-mno-fix-loongson3-llsc
+
+cflags-y += -Wa$(comma)--trap
+ifeq ($(call cc-option-yn, -Wa$(comma)-mloongson-ext), y)
+cflags-y += -Wa$(comma)-mloongson-ext
+endif
+
+load-$(CONFIG_MACH_LOONGSON2) += 0xffffffff80200000

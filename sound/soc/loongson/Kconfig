@@ -1,0 +1,9 @@
+config SND_LS
+	tristate "SoC Audio for the LOONGSON chip"
+	depends on MACH_LOONGSON2
+	select SND_SOC_UDA1342
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the PXA2xx AC97, I2S or SSP interface. You will also need
+	  to select the audio interfaces to support below.
+

@@ -1,0 +1,4 @@
+# MIPS headers
+generic-y += mm-arch-hooks.h
+generic-y += trace_clock.h
+generic-y += user.h

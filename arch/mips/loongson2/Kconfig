@@ -1,0 +1,50 @@
+if MACH_LOONGSON2
+choice
+	prompt "Machine Type"
+
+config 2K1000_SBC
+	bool "Loongson 2K1000 Single Board Computer"
+	select GENERIC_ISA_DMA_SUPPORT_BROKEN
+	select BOOT_ELF32
+	select CSRC_R4K
+	select CEVT_R4K
+	select SYNC_R4K
+	select IRQ_CPU
+	select HW_HAS_PCI
+	select SYS_HAS_CPU_LOONGSON2K
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select SYS_SUPPORTS_64BIT_KERNEL
+	select SYS_SUPPORTS_SMP
+	select SYS_HAS_EARLY_PRINTK
+	#select DMA_COHERENT
+	select DMA_MAYBE_COHERENT
+	select ARCH_SUPPORTS_MSI
+	select USE_OF
+	select LIBFDT
+	select ZONE_DMA32 if SWIOTLB
+	help
+		Loongson 2K1000 SBC
+endchoice
+
+config IOMMU_HELPER
+	bool
+
+config NEED_SG_DMA_LENGTH
+	bool
+
+config SWIOTLB
+	bool "Support 32bit DMA on large memory system"
+	select NEED_SG_DMA_LENGTH
+	select IOMMU_HELPER
+	help
+		If your memory address beyond 4GB and has 32bit DMA device(like ohci),
+		select it;
+
+config LS2K_HPET
+	bool "LS2K HPET Timer"
+	depends on CPU_LOONGSON2K
+	select MIPS_EXTERNAL_TIMER
+	help
+		This option enables the hpet timer of LS2K.
+
+endif
