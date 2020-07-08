@@ -1665,8 +1665,8 @@ struct xhci_hcd {
 #define XHCI_SSIC_PORT_UNUSED	(1 << 22)
 #define XHCI_NO_64BIT_SUPPORT	(1 << 23)
 #define XHCI_MISSING_CAS	(1 << 24)
-#define XHCI_ZERO_64B_REGS	(1 << 24)
 #define XHCI_ETRON_HOST	(1 << 25)
+#define XHCI_ZERO_64B_REGS	(1 << 26)
 	unsigned int		num_active_eps;
 	unsigned int		limit_active_eps;
 	/* There are two roothubs to keep track of bus suspend info for */
