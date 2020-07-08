@@ -401,4 +401,6 @@ source "drivers/crypto/vmx/Kconfig"
 
 source "drivers/crypto/chelsio/Kconfig"
 
+source "drivers/crypto/sedriver/Kconfig"
+
 endif # CRYPTO_HW

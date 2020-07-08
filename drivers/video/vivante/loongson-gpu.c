@@ -186,14 +186,13 @@ static int __init gpu_init(void)
 {
 	int ret;
 	struct pci_dev *pdev = NULL;
-	/*if PCIE Graphics card exist,use it as default*/
-	pdev = pci_get_device(PCI_VENDOR_ID_ATI, PCI_ANY_ID, NULL);
-	if(pdev)
+
+	/* Discrete card prefer */
+	while ((pdev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, pdev))) {
+		if (pdev->vendor != PCI_VENDOR_ID_LOONGSON)
 			return 0;
-	/*if PCIE Graphics card of aspeed ast2400 exist, use it as default*/
-	pdev = pci_get_device(0x1a03, PCI_ANY_ID, NULL);
-	if(pdev)
-			return 0;
+	}
+
 	ret = platform_driver_register(&gpu_driver);
 	if(ret) return ret;
 	ret = pci_register_driver (&loongson_gpu_pci_driver);

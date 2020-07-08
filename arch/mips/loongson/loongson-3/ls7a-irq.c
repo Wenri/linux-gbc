@@ -588,7 +588,8 @@ static void loongson3_comp_iopic_resume(void)
 
 	for (i = 0; i < NR_IRQS; i++) {
 		desc = irq_to_desc(i);
-		if (desc->handle_irq != NULL && desc->handle_irq != handle_bad_irq) {
+		if (desc && desc->handle_irq != NULL &&
+			desc->handle_irq != handle_bad_irq) {
 			ext_set_irq_affinity(&desc->irq_data, desc->irq_data.affinity, 0);
 		}
 	}

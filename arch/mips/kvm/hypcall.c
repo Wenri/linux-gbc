@@ -190,12 +190,12 @@ static void kvm_flush_stlb_range(struct kvm_vcpu *vcpu, unsigned long gva_start,
 	if (start <= end) {
 		s_index = end;
 	} else {
-		s_index = STLB_WAY;
+		s_index = STLB_WAY - 1;
 	}
 
 	/* flush start to min(end, bottom) stlb items */
 	vatag = (gva_start >> STLB_VATAG_SHIFT) & 0xffffffff;
-	while (start < s_index) {
+	while (start <= s_index) {
 		ptlb = &vcpu->arch.stlb[start * STLB_SET];
 		for (i=0; i<STLB_SET; i++) {
 			if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {
@@ -212,7 +212,7 @@ static void kvm_flush_stlb_range(struct kvm_vcpu *vcpu, unsigned long gva_start,
 		start = 0;
 		s_index = end;
 		vatag = (gva_end >> STLB_VATAG_SHIFT) & 0xffffffff;
-		while (start < s_index) {
+		while (start <= s_index) {
 			ptlb = &vcpu->arch.stlb[start * STLB_SET];
 			for (i=0; i<STLB_SET; i++) {
 				if ((ptlb->asid == s_asid) && (ptlb->vatag == vatag)) {

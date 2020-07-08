@@ -139,7 +139,8 @@ void handle_rtas_event(const struct rtas_error_log *log)
 
 	if (log->type != RTAS_TYPE_HOTPLUG)
 		return;
-
+	
+	lock_device_hotplug();
 	hp = (struct rtas_event_log_hp *)(log->buffer);
 	printk("handle_rtas_event1 type %x action %d  index 0x%x count 0x%x\n",
 		hp->hotplug_type, hp->hotplug_action, hp->index, hp->count);
@@ -195,6 +196,7 @@ void handle_rtas_event(const struct rtas_error_log *log)
 		}
 
 	}
+	unlock_device_hotplug();
 }
 
 static void handle_rtas_reply(void)

@@ -286,17 +286,17 @@ int plat_set_irq_affinity(struct irq_data *d, const struct cpumask *affinity,
 	return IRQ_SET_MASK_OK_NOCOPY;
 }
 
-#define UNUSED_IPS_GUEST (CAUSEF_IP1 | CAUSEF_IP0)
+#define UNUSED_IPS_GUEST (CAUSEF_IP0)
 #ifdef CONFIG_LOONGSON_SUPPORT_IP5
-#define UNUSED_IPS (CAUSEF_IP4 | CAUSEF_IP1 | CAUSEF_IP0)
+#define UNUSED_IPS (CAUSEF_IP4 | CAUSEF_IP0)
 #define LOONGSON_INT_ROUTER_INTSR	LOONGSON3_REG32(LOONGSON3_REG_BASE, LOONGSON_INT_ROUTER_OFFSET + 0x20)
 
 void loongson_ip5_dispatch(void)
 {
 	int irq, irqs;
-	
+
 	irqs = LOONGSON_INT_ROUTER_INTSR & 0xff0000;
-	
+
 	while((irq = ffs(irqs)) != 0){
 		irq = irq - 1;
 		irqs &= ~(1 << irq);
@@ -305,7 +305,7 @@ void loongson_ip5_dispatch(void)
 }
 
 #else
-#define UNUSED_IPS (CAUSEF_IP5 | CAUSEF_IP4 | CAUSEF_IP1 | CAUSEF_IP0)
+#define UNUSED_IPS (CAUSEF_IP5 | CAUSEF_IP4 | CAUSEF_IP0)
 #endif
 static void mach_guest_irq_dispatch(unsigned int pending)
 {
@@ -316,7 +316,7 @@ static void mach_guest_irq_dispatch(unsigned int pending)
 		loongson3_ipi_interrupt(NULL);
 #endif
 	pending = read_c0_cause() & read_c0_status() & ST0_IM;
-	if (pending & CAUSEF_IP5){
+	if (pending & CAUSEF_IP1){
 		#ifdef CONFIG_GS464V_STABLE_COUNTER
 		if((current_cpu_type() == CPU_LOONGSON3_COMP) && stable_timer_enabled)
 			loongson_stablecounter_adjust();
@@ -601,7 +601,8 @@ void __init mach_init_irq(void)
 #endif
 
 	if(cpu_guestmode)
-		set_c0_status(STATUSF_IP2  | STATUSF_IP5 | STATUSF_IP6);
+		set_c0_status(STATUSF_IP1 | STATUSF_IP2 |
+					    STATUSF_IP5 | STATUSF_IP6);
 	else
 #ifdef CONFIG_LOONGSON_SUPPORT_IP5
 		set_c0_status(STATUSF_IP2 | STATUSF_IP5 | STATUSF_IP6);

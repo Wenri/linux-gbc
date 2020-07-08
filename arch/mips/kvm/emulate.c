@@ -2010,10 +2010,10 @@ enum emulation_result kvm_mips_emulate_load(union mips_instruction inst,
 	if((vcpu->arch.gprs[rs] + offset) == 0x900000001fe001d0) {
 		if(vcpu->kvm->arch.is_migrate){
 			struct kvm_mips_interrupt irq = {0};
-			irq.irq = -5;
+			irq.irq = -1;
 			kvm_mips_callbacks->dequeue_io_int(vcpu, &irq);
 		}
-	
+
 	#ifdef CONFIG_GS464V_STABLE_COUNTER
 		if((current_cpu_type() == CPU_LOONGSON3_COMP) && vcpu->kvm->arch.use_stable_timer)
 			vcpu->arch.gprs[rt] = calc_const_freq();

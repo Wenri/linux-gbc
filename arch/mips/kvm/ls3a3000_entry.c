@@ -879,7 +879,7 @@ void *kvm_mips_ls3a3000_build_tlb_refill_target(void *addr, void *handler)
 
 		UASM_i_MTC0(&p, A2, C0_ENTRYLO0);
 		UASM_i_MTC0(&p, A3, C0_ENTRYLO1);
-//		uasm_i_ori(&p, A0, ZERO, 0x7800);   // only small page supported
+//		uasm_i_ori(&p, A0, ZERO, PM_DEFAULT_MASK);   // only small page supported
 //		UASM_i_MTC0(&p, A0, C0_PAGEMASK);
 
 		//lo0, lo1 and entryhi ready
@@ -1597,7 +1597,7 @@ void *kvm_mips_ls3a3000_build_exit(void *addr)
 	uasm_l_inv2_ret(&l, p);
 	//#endif
 
-	uasm_i_ori(&p, K0, ZERO, 0x7800);
+	uasm_i_ori(&p, K0, ZERO, PM_DEFAULT_MASK);
 	UASM_i_MTC0(&p, K0, C0_PAGEMASK);
 	//write soft TLB
 	//

@@ -625,14 +625,16 @@ int kvm_vcpu_ioctl_interrupt(struct kvm_vcpu *vcpu,
 		dvcpu = vcpu->kvm->vcpus[irq->cpu];
 
 #ifdef CONFIG_CPU_LOONGSON3
-	if (intr == 2 || intr == 3 || intr == 4 || intr == 5 || intr == 6) {
+	if (intr == 2 || intr == 3 ||
+			intr == 4 || intr == 1 || intr == 6) {
 #else
 	if (intr == 2 || intr == 3 || intr == 4) {
 #endif
 		kvm_mips_callbacks->queue_io_int(dvcpu, irq);
 
 #ifdef CONFIG_CPU_LOONGSON3
-	} else if (intr == -2 || intr == -3 || intr == -4 || intr == -5 || intr == -6) {
+	} else if (intr == -2 || intr == -3 ||
+			intr == -4 || intr == -1 || intr == -6) {
 #else
 	} else if (intr == -2 || intr == -3 || intr == -4) {
 #endif
@@ -1310,7 +1312,7 @@ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
 		if(vcpu->kvm->arch.use_stable_timer){
 			if((vcpu_state.cpu_freq != vcpu->arch.stable_timer_hz) && (vcpu->vcpu_id == 0)){
 				struct kvm_mips_interrupt irq = {0};
-				irq.irq = 5;
+				irq.irq = 1;
 				kvm_info("==migrate between two different freq machine,src_freq 0x%x,dest_freq 0x%llx\n",
 					vcpu_state.cpu_freq,vcpu->arch.stable_timer_hz);
 				kvm_mips_callbacks->queue_io_int(vcpu, &irq);
@@ -1318,7 +1320,7 @@ long kvm_arch_vcpu_ioctl(struct file *filp, unsigned int ioctl,
 		} else {
 			if((vcpu_state.cpu_freq != vcpu->arch.count_hz) && (vcpu->vcpu_id == 0)){
 				struct kvm_mips_interrupt irq = {0};
-				irq.irq = 5;
+				irq.irq = 1;
 				kvm_info("==migrate between two different freq machine,src_freq 0x%x,dest_freq 0x%x\n",
 					vcpu_state.cpu_freq,vcpu->arch.count_hz);
 				kvm_mips_callbacks->queue_io_int(vcpu, &irq);
