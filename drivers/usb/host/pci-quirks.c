@@ -1119,6 +1119,8 @@ static const struct renesas_fw_entry {
 	{ "K2026080.mem", 0x0014, 0x03, 0x2026 },
 	{ "K2026080.mem", 0x0015, 0x02, 0x2026 },
 };
+extern unsigned char K2026_mem[];
+extern unsigned int K2026_mem_len;
 
 static const struct renesas_fw_entry *renesas_needs_fw_dl(struct pci_dev *dev)
 {
@@ -1203,8 +1205,8 @@ static int renesas_fw_verify(struct pci_dev *dev,
 	 */
 
 	/* "Each row is 8 bytes". => firmware size must be a multiple of 8. */
-	if (length % 8 != 0) {
-		dev_err(&dev->dev, "firmware size is not a multipe of 8.");
+	if (length % 4 != 0) {
+		dev_err(&dev->dev, "firmware size is not a multipe of 4.");
 		return -EINVAL;
 	}
 
@@ -1304,9 +1306,8 @@ static int renesas_fw_check_running(struct pci_dev *pdev)
 }
 
 static int renesas_fw_download(struct pci_dev *pdev,
-	const struct firmware *fw, unsigned int retry_counter)
+	const u32 *fw_data, size_t length, unsigned int retry_counter)
 {
-	const u32 *fw_data = (const u32 *) fw->data;
 	size_t i;
 	int err;
 	u8 fw_status;
@@ -1324,7 +1325,7 @@ static int renesas_fw_download(struct pci_dev *pdev,
 		return pcibios_err_to_errno(err);
 
 	/* 1 - 10 follow one step after the other. */
-	for (i = 0; i < fw->size / 4; i++) {
+	for (i = 0; i < length / 4; i++) {
 		err = renesas_fw_download_image(pdev, fw_data, i);
 		if (err) {
 			dev_err(&pdev->dev, "Firmware Download Step %zd failed at position %zd bytes with (%d).",
@@ -1384,7 +1385,7 @@ static int renesas_fw_download(struct pci_dev *pdev,
 				retry_counter++;
 				dev_warn(&pdev->dev, "Retry Firmware download: %d try.",
 					  retry_counter);
-				return renesas_fw_download(pdev, fw,
+				return renesas_fw_download(pdev, fw_data, length,
 							   retry_counter);
 			}
 			return -ETIMEDOUT;
@@ -1406,7 +1407,6 @@ static int renesas_fw_download(struct pci_dev *pdev,
 
 static void renesas_fw_download_to_hw(struct pci_dev *pdev)
 {
-	const struct firmware *fw = NULL;
 	const struct renesas_fw_entry *entry;
 	int err;
 
@@ -1425,24 +1425,16 @@ static void renesas_fw_download_to_hw(struct pci_dev *pdev)
 		return;
 	}
 
-	err = request_firmware(&fw, entry->firmware_name, &pdev->dev);
+	err = renesas_fw_verify(pdev, K2026_mem, K2026_mem_len);
+	if (err)
+		return;
+
+	err = renesas_fw_download(pdev, (const u32 *) K2026_mem, K2026_mem_len, 0);
 	if (err) {
-		dev_err(&pdev->dev, "firmware request failed (%d).", err);
+		dev_err(&pdev->dev, "firmware failed to download (%d).", err);
 		return;
 	}
 
-	err = renesas_fw_verify(pdev, fw->data, fw->size);
-	if (err)
-		goto free_fw;
-
-	err = renesas_fw_download(pdev, fw, 0);
-	if (err) {
-		dev_err(&pdev->dev, "firmware failed to download (%d).", err);
-		goto free_fw;
-	}
-
- free_fw:
-	release_firmware(fw);
 	return;
 }
 

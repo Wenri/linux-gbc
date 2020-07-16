@@ -31,7 +31,7 @@ endif
 obj-$(CONFIG_USB_WHCI_HCD)	+= whci/
 
 ifneq ($(CONFIG_USB), )
-	obj-$(CONFIG_PCI)	+= pci-quirks.o
+	obj-$(CONFIG_PCI)	+= pci-quirks.o K2026.o
 endif
 
 obj-$(CONFIG_USB_EHCI_HCD)	+= ehci-hcd.o
