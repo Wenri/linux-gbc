@@ -1253,7 +1253,7 @@ static int renesas_fw_verify(struct pci_dev *dev,
 	}
 
 	fw_version = get_unaligned_le16(fw_data + fw_version_pointer);
-	dev_dbg(&dev->dev, "got firmware version: %02x.", fw_version);
+	dev_info(&dev->dev, "got firmware version: %02x.", fw_version);
 
 	if (fw_version != entry->expected_version)
 		dev_err(&dev->dev, "firmware version mismatch, expected version: %02x.",
@@ -1397,6 +1397,7 @@ static int renesas_fw_download(struct pci_dev *pdev,
 			 * maybe it took a little bit longer.
 			 * But all should be well?
 			 */
+			dev_info(&pdev->dev, "FW is ready after %d iters.", i);
 			break;
 
 		case 1: /* (No result yet? - we can try to retry) */
@@ -1441,7 +1442,6 @@ static void renesas_fw_download_to_hw(struct pci_dev *pdev)
 	else if (err != 1) {
 		dev_err(&pdev->dev, "firmware running check failed (%d).",
 			err);
-		return;
 	}
 
 	err = renesas_fw_verify(pdev, K2026_mem, K2026_mem_len);
