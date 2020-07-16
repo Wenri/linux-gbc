@@ -1115,9 +1115,9 @@ static const struct renesas_fw_entry {
 	 *  - uPD720201 ES 2.1 sample & CS sample & Mass product, ID is 3.
 	 *  - uPD720202 ES 2.0 sample & CS sample & Mass product, ID is 2.
 	 */
-	{ "K2013080.mem", 0x0014, 0x02, 0x2013 },
-	{ "K2013080.mem", 0x0014, 0x03, 0x2013 },
-	{ "K2013080.mem", 0x0015, 0x02, 0x2013 },
+	{ "K2026080.mem", 0x0014, 0x02, 0x2026 },
+	{ "K2026080.mem", 0x0014, 0x03, 0x2026 },
+	{ "K2026080.mem", 0x0015, 0x02, 0x2026 },
 };
 
 static const struct renesas_fw_entry *renesas_needs_fw_dl(struct pci_dev *dev)
@@ -1234,11 +1234,9 @@ static int renesas_fw_verify(struct pci_dev *dev,
 	fw_version = get_unaligned_le16(fw_data + fw_version_pointer);
 	dev_dbg(&dev->dev, "got firmware version: %02x.", fw_version);
 
-	if (fw_version != entry->expected_version) {
+	if (fw_version != entry->expected_version)
 		dev_err(&dev->dev, "firmware version mismatch, expected version: %02x.",
 			 entry->expected_version);
-		return -EINVAL;
-	}
 
 	return 0;
 }
@@ -1420,9 +1418,8 @@ static void renesas_fw_download_to_hw(struct pci_dev *pdev)
 	err = renesas_fw_check_running(pdev);
 	/* Continue ahead, if the firmware is already running. */
 	if (err == 0)
-		return;
-
-	if (err != 1) {
+		dev_warn(&pdev->dev, "firmware is already running.");
+	else if (err != 1) {
 		dev_err(&pdev->dev, "firmware running check failed (%d).",
 			err);
 		return;
