@@ -1397,7 +1397,7 @@ static int renesas_fw_download(struct pci_dev *pdev,
 			 * maybe it took a little bit longer.
 			 * But all should be well?
 			 */
-			dev_info(&pdev->dev, "FW is ready after %d iters.", i);
+			dev_warn(&pdev->dev, "FW is not ready after %d iters.", i);
 			break;
 
 		case 1: /* (No result yet? - we can try to retry) */
@@ -1414,6 +1414,8 @@ static int renesas_fw_download(struct pci_dev *pdev,
 			return err;
 		}
 	}
+	
+	dev_info(&pdev->dev, "FW is ready after %d iters.", i);
 	/*
 	 * Optional last step: Engage Firmware Lock
 	 *
@@ -1437,9 +1439,12 @@ static void renesas_fw_download_to_hw(struct pci_dev *pdev)
 
 	err = renesas_fw_check_running(pdev);
 	/* Continue ahead, if the firmware is already running. */
-	if (err == 0)
+	if (err == 0) {
 		dev_warn(&pdev->dev, "firmware is already running.");
-	else if (err != 1) {
+		return;
+	} 
+	
+	if (err != 1) {
 		dev_err(&pdev->dev, "firmware running check failed (%d).",
 			err);
 	}
