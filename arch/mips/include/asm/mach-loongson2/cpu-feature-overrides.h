@@ -38,7 +38,11 @@
 #define cpu_has_perf_cntr_intr_bit	1
 #define cpu_has_ic_fills_f_dc	1
 #define cpu_has_dsp		0
-#define cpu_has_msa		IS_ENABLED(CONFIG_CPU_HAS_MSA)
+#if defined(CONFIG_CPU_HAS_MSA) && !defined(cpu_has_msa)
+# define cpu_has_msa		(cpu_data[0].ases & MIPS_ASE_MSA)
+#elif !defined(cpu_has_msa)
+# define cpu_has_msa		0
+#endif
 
 #define cpu_has_mips64r2	1
 #define cpu_has_mips64r1	1
