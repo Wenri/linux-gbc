@@ -5910,3 +5910,36 @@ DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1533, rom_bar_overlap_defect);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1536, rom_bar_overlap_defect);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1537, rom_bar_overlap_defect);
 DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, 0x1538, rom_bar_overlap_defect);
+
+
+static void pci_fixup_serialize_tgl_me_pm(struct pci_dev *pdev)
+{
+	struct pci_dev *rciep = NULL;
+
+	if (!pdev->bus)
+		return;
+
+	for_each_pci_dev(rciep) {
+		/* Most of TGL RCiEPs don't have type PCI_EXP_TYPE_RC_END,
+		 * check parent bridge instead. */
+		if (!rciep->bus)
+			continue;
+
+		if (rciep->bus->self != pdev->bus->self)
+			continue;
+
+		if (&rciep->dev == &pdev->dev)
+			continue;
+
+		if (device_link_add(&rciep->dev, &pdev->dev,
+				    DL_FLAG_STATELESS))
+			pci_info(rciep, "Suspend before and resume after %s\n",
+				 pci_name(pdev));
+	}
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x15fb, pci_fixup_serialize_tgl_me_pm);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x15fc, pci_fixup_serialize_tgl_me_pm);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x15f9, pci_fixup_serialize_tgl_me_pm);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x15fa, pci_fixup_serialize_tgl_me_pm);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x15f4, pci_fixup_serialize_tgl_me_pm);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x15f5, pci_fixup_serialize_tgl_me_pm);
