@@ -195,8 +195,8 @@ driver.
 
 There are two types of hardware implementations for ``amd-pstate``: one is
 `Full MSR Support <perf_cap_>`_ and another is `Shared Memory Support
-<perf_cap_>`_. It can use :c:macro:`X86_FEATURE_AMD_CPPC_EXT` feature flag
-(for details refer to Processor Programming Reference (PPR) for AMD Family
+<perf_cap_>`_. It can use :c:macro:`X86_FEATURE_AMD_CPPC` feature flag (for
+details refer to Processor Programming Reference (PPR) for AMD Family
 19h Model 21h, Revision B0 Processors [3]_) to indicate the different
 types. ``amd-pstate`` is to register different ``amd_pstate_perf_funcs``
 instances for different hardware implementations.
@@ -208,7 +208,7 @@ Full MSR Support
 -----------------
 
 Some new Zen3 processors such as Cezanne provide the MSR registers directly
-while the :c:macro:`X86_FEATURE_AMD_CPPC_EXT` CPU feature flag is set.
+while the :c:macro:`X86_FEATURE_AMD_CPPC` CPU feature flag is set.
 ``amd-pstate`` can handle the MSR register to implement the fast switch
 function in ``CPUFreq`` that can shrink latency of frequency control on the
 interrupt context.
@@ -216,10 +216,10 @@ interrupt context.
 Shared Memory Support
 ----------------------
 
-If :c:macro:`X86_FEATURE_AMD_CPPC_EXT` CPU feature flag is not set, that
-means the processor supports shared memory solution. In this case,
-``amd-pstate`` uses the ``cppc_acpi`` helper methods to implement the
-callback functions of ``amd_pstate_perf_funcs``.
+If :c:macro:`X86_FEATURE_AMD_CPPC` CPU feature flag is not set, that means
+the processor supports shared memory solution. In this case, ``amd-pstate``
+uses the ``cppc_acpi`` helper methods to implement the callback functions
+of ``amd_pstate_perf_funcs``.
 
 
 AMD P-States and ACPI hardware P-States always can be supported in one
@@ -244,14 +244,7 @@ control its functionality at the system level. They located in the
  /sys/devices/system/cpu/cpufreq/policy0/amd_pstate_min_freq
  /sys/devices/system/cpu/cpufreq/policy0/amd_pstate_nominal_freq
  /sys/devices/system/cpu/cpufreq/policy0/amd_pstate_nominal_perf
- /sys/devices/system/cpu/cpufreq/policy0/is_amd_pstate_enabled
 
-
-``is_amd_pstate_enabled``
-
-Query whether current kernel loads ``amd-pstate`` to enable the AMD
-P-States functionality.
-This attribute is read-only.
 
 ``amd_pstate_highest_perf / amd_pstate_max_freq``
 
@@ -275,9 +268,11 @@ allowed to set in percent of the maximum supported CPPC performance level
 Capability <perf_cap_>`_).
 This attribute is read-only.
 
-``amd_pstate_lowest_perf / amd_pstate_min_freq``
+``amd_pstate_lowest_perf``
 
-The lowest physical CPPC performance and CPU frequency.
+The lowest physical CPPC performance. The minimum CPU frequency can be read
+back from ``cpuinfo`` member of ``cpufreq_policy``, so we won't expose it
+here.
 This attribute is read-only.
 
 
@@ -351,12 +346,13 @@ configured to support event tracing). ::
  #                              ||| /     delay
  #           TASK-PID     CPU#  ||||   TIMESTAMP  FUNCTION
  #              | |         |   ||||      |         |
-           <idle>-0       [000] d.s. 244057.464842: amd_pstate_perf: amd_min_perf=39 amd_des_perf=39 amd_max_perf=166 cpu_id=0 prev=0x2727a6 value=0x2727a6
-           <idle>-0       [000] d.h. 244057.475436: amd_pstate_perf: amd_min_perf=39 amd_des_perf=39 amd_max_perf=166 cpu_id=0 prev=0x2727a6 value=0x2727a6
-           <idle>-0       [000] d.h. 244057.476629: amd_pstate_perf: amd_min_perf=39 amd_des_perf=39 amd_max_perf=166 cpu_id=0 prev=0x2727a6 value=0x2727a6
-           <idle>-0       [000] d.s. 244057.484847: amd_pstate_perf: amd_min_perf=39 amd_des_perf=39 amd_max_perf=166 cpu_id=0 prev=0x2727a6 value=0x2727a6
-           <idle>-0       [000] d.h. 244057.499821: amd_pstate_perf: amd_min_perf=39 amd_des_perf=39 amd_max_perf=166 cpu_id=0 prev=0x2727a6 value=0x2727a6
-     avahi-daemon-528     [000] d... 244057.513568: amd_pstate_perf: amd_min_perf=39 amd_des_perf=39 amd_max_perf=166 cpu_id=0 prev=0x2727a6 value=0x2727a6
+          <idle>-0       [015] dN...  4995.979886: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=15 changed=false fast_switch=true
+          <idle>-0       [007] d.h..  4995.979893: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=7 changed=false fast_switch=true
+             cat-2161    [000] d....  4995.980841: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=0 changed=false fast_switch=true
+            sshd-2125    [004] d.s..  4995.980968: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=4 changed=false fast_switch=true
+          <idle>-0       [007] d.s..  4995.980968: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=7 changed=false fast_switch=true
+          <idle>-0       [003] d.s..  4995.980971: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=3 changed=false fast_switch=true
+          <idle>-0       [011] d.s..  4995.980996: amd_pstate_perf: amd_min_perf=85 amd_des_perf=85 amd_max_perf=166 cpu_id=11 changed=false fast_switch=true
 
 The cpu_frequency trace event will be triggered either by the ``schedutil`` scaling
 governor (for the policies it is attached to), or by the ``CPUFreq`` core (for the

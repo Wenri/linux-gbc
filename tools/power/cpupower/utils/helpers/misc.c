@@ -3,9 +3,11 @@
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "helpers/helpers.h"
 #include "helpers/sysfs.h"
+#include "cpufreq.h"
 
 #if defined(__i386__) || defined(__x86_64__)
 
@@ -85,24 +87,20 @@ int cpupower_intel_set_perf_bias(unsigned int cpu, unsigned int val)
 	return 0;
 }
 
-unsigned long cpupower_amd_pstate_enabled(void)
+bool cpupower_amd_pstate_enabled(void)
 {
-	char linebuf[MAX_LINE_LEN];
-	char path[SYSFS_PATH_MAX];
-	unsigned long val;
-	char *endp;
+	char *driver = cpufreq_get_driver(0);
+	bool ret = false;
 
-	snprintf(path, sizeof(path),
-		 PATH_TO_CPU "cpu0/cpufreq/is_amd_pstate_enabled");
+	if (!driver)
+		return ret;
 
-	if (cpupower_read_sysfs(path, linebuf, MAX_LINE_LEN) == 0)
-		return 0;
+	if (!strcmp(driver, "amd-pstate"))
+		ret = true;
 
-	val = strtoul(linebuf, &endp, 0);
-	if (endp == linebuf || errno == ERANGE)
-		return 0;
+	cpufreq_put_driver(driver);
 
-	return val;
+	return ret;
 }
 
 #endif /* #if defined(__i386__) || defined(__x86_64__) */

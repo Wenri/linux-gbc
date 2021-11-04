@@ -11,6 +11,7 @@
 
 #include <libintl.h>
 #include <locale.h>
+#include <stdbool.h>
 
 #include "helpers/bitmask.h"
 #include <cpupower.h>
@@ -138,7 +139,7 @@ extern int cpufreq_has_boost_support(unsigned int cpu, int *support,
 				     int *active, int * states);
 
 /* AMD P-States stuff **************************/
-extern unsigned long cpupower_amd_pstate_enabled(void);
+extern bool cpupower_amd_pstate_enabled(void);
 extern void amd_pstate_boost_init(unsigned int cpu,
 				  int *support, int *active);
 extern void amd_pstate_show_perf_and_freq(unsigned int cpu,
@@ -178,8 +179,8 @@ static inline int cpufreq_has_boost_support(unsigned int cpu, int *support,
 					    int *active, int * states)
 { return -1; }
 
-static inline unsigned long cpupower_amd_pstate_enabled(void)
-{ return 0; }
+static inline bool cpupower_amd_pstate_enabled(void)
+{ return false; }
 static void amd_pstate_boost_init(unsigned int cpu,
 				  int *support, int *active)
 { return; }

@@ -160,7 +160,6 @@ enum amd_pstate_value {
 	AMD_PSTATE_MAX_FREQ,
 	AMD_PSTATE_NOMINAL_FREQ,
 	AMD_PSTATE_LOWEST_NONLINEAR_FREQ,
-	AMD_PSTATE_MIN_FREQ,
 	MAX_AMD_PSTATE_VALUE_READ_FILES
 };
 
@@ -172,7 +171,6 @@ static const char *amd_pstate_value_files[MAX_AMD_PSTATE_VALUE_READ_FILES] = {
 	[AMD_PSTATE_MAX_FREQ] = "amd_pstate_max_freq",
 	[AMD_PSTATE_NOMINAL_FREQ] = "amd_pstate_nominal_freq",
 	[AMD_PSTATE_LOWEST_NONLINEAR_FREQ] = "amd_pstate_lowest_nonlinear_freq",
-	[AMD_PSTATE_MIN_FREQ] = "amd_pstate_min_freq"
 };
 
 static unsigned long amd_pstate_get_data(unsigned int cpu,
@@ -204,8 +202,15 @@ void amd_pstate_boost_init(unsigned int cpu, int *support, int *active)
 
 void amd_pstate_show_perf_and_freq(unsigned int cpu, int no_rounding)
 {
+	unsigned long cpuinfo_max, cpuinfo_min;
+
+	cpufreq_get_hardware_limits(cpu, &cpuinfo_min, &cpuinfo_max);
+
 	printf(_("    AMD PSTATE Highest Performance: %lu. Maximum Frequency: "),
 	       amd_pstate_get_data(cpu, AMD_PSTATE_HIGHEST_PERF));
+	/* If boost isn't active, the cpuinfo_max doesn't indicate real max
+	 * frequency. So we read it back from amd-pstate sysfs entry.
+	 */
 	print_speed(amd_pstate_get_data(cpu, AMD_PSTATE_MAX_FREQ), no_rounding);
 	printf(".\n");
 
@@ -223,7 +228,7 @@ void amd_pstate_show_perf_and_freq(unsigned int cpu, int no_rounding)
 
 	printf(_("    AMD PSTATE Lowest Performance: %lu. Lowest Frequency: "),
 	       amd_pstate_get_data(cpu, AMD_PSTATE_LOWEST_PERF));
-	print_speed(amd_pstate_get_data(cpu, AMD_PSTATE_MIN_FREQ), no_rounding);
+	print_speed(cpuinfo_min, no_rounding);
 	printf(".\n");
 }
 
