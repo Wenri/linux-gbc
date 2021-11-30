@@ -412,6 +412,15 @@ static int xhci_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 			return retval;
 	}
 
+
+	/* For some HW implementation, a XHCI reset is just not enough... */
+	if (dev->vendor == PCI_VENDOR_ID_ASMEDIA &&
+	    dev->device == PCI_DEVICE_ID_ASMEDIA_1142_XHCI) {
+		dev_info(&dev->dev, "Resetting\n");
+		if (pci_reset_function_locked(dev))
+			dev_warn(&dev->dev, "Reset failed");
+	}
+
 	reset = devm_reset_control_get_optional_exclusive(&dev->dev, NULL);
 	if (IS_ERR(reset))
 		return PTR_ERR(reset);
