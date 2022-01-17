@@ -10872,13 +10872,15 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 				if (range->flags != 1)
 					continue;
 
+				bool need_offset = range->max_vfreq < (int)range->min_vfreq + 10;
+
 				amdgpu_dm_connector->min_vfreq = range->min_vfreq;
-				amdgpu_dm_connector->max_vfreq = range->max_vfreq;
+				amdgpu_dm_connector->max_vfreq = need_offset ? (int)range->max_vfreq + 255 : range->max_vfreq;
 				amdgpu_dm_connector->pixel_clock_mhz =
 					range->pixel_clock_mhz * 10;
 
 				connector->display_info.monitor_range.min_vfreq = range->min_vfreq;
-				connector->display_info.monitor_range.max_vfreq = range->max_vfreq;
+				connector->display_info.monitor_range.max_vfreq = need_offset ? 255 : range->max_vfreq;
 
 				break;
 			}
