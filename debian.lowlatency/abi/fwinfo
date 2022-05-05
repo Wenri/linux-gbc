@@ -610,8 +610,11 @@ firmware:       bnx2/bnx2-rv2p-06-6.0.15.fw
 firmware:       bnx2/bnx2-rv2p-09-6.0.17.fw
 firmware:       bnx2/bnx2-rv2p-09ax-6.0.17.fw
 firmware:       bnx2x/bnx2x-e1-7.13.15.0.fw
+firmware:       bnx2x/bnx2x-e1-7.13.21.0.fw
 firmware:       bnx2x/bnx2x-e1h-7.13.15.0.fw
+firmware:       bnx2x/bnx2x-e1h-7.13.21.0.fw
 firmware:       bnx2x/bnx2x-e2-7.13.15.0.fw
+firmware:       bnx2x/bnx2x-e2-7.13.21.0.fw
 firmware:       brcm/bcm43xx-0.fw
 firmware:       brcm/bcm43xx_hdr-0.fw
 firmware:       brcm/brcmfmac*-pcie.*.txt
@@ -839,7 +842,7 @@ firmware:       hfi1_dc8051.fw
 firmware:       hfi1_fabric.fw
 firmware:       hfi1_pcie.fw
 firmware:       hfi1_sbus.fw
-firmware:       i915/adlp_dmc_ver2_10.bin
+firmware:       i915/adlp_dmc_ver2_12.bin
 firmware:       i915/adlp_guc_62.0.3.bin
 firmware:       i915/adls_dmc_ver2_01.bin
 firmware:       i915/bxt_dmc_ver1_07.bin
@@ -866,12 +869,7 @@ firmware:       i915/skl_huc_2.0.0.bin
 firmware:       i915/tgl_dmc_ver2_12.bin
 firmware:       i915/tgl_guc_62.0.0.bin
 firmware:       i915/tgl_huc_7.9.3.bin
-firmware:       icom_asc.bin
-firmware:       icom_call_setup.bin
-firmware:       icom_res_dce.bin
 firmware:       idt82p33xxx.bin
-firmware:       imx/sdma/sdma-imx6q.bin
-firmware:       imx/sdma/sdma-imx7d.bin
 firmware:       intel/ibt-11-5.ddc
 firmware:       intel/ibt-11-5.sfi
 firmware:       intel/ibt-12-16.ddc
@@ -1005,7 +1003,9 @@ firmware:       liquidio/lio_23xx_nic.bin
 firmware:       liquidio/lio_410nv_nic.bin
 firmware:       me2600_firmware.bin
 firmware:       me4000_firmware.bin
+firmware:       mediatek/WIFI_MT7922_patch_mcu_1_1_hdr.bin
 firmware:       mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin
+firmware:       mediatek/WIFI_RAM_CODE_MT7922_1.bin
 firmware:       mediatek/WIFI_RAM_CODE_MT7961_1.bin
 firmware:       mediatek/mt7610e.bin
 firmware:       mediatek/mt7610u.bin
@@ -1320,7 +1320,6 @@ firmware:       nvidia/gv100/nvdec/scrubber.bin
 firmware:       nvidia/gv100/sec2/desc.bin
 firmware:       nvidia/gv100/sec2/image.bin
 firmware:       nvidia/gv100/sec2/sig.bin
-firmware:       nvidia/tegra124/vic03_ucode.bin
 firmware:       nvidia/tegra124/xusb.bin
 firmware:       nvidia/tegra186/vic04_ucode.bin
 firmware:       nvidia/tegra186/xusb.bin
@@ -1435,7 +1434,6 @@ firmware:       nvidia/tu117/sec2/image.bin
 firmware:       nvidia/tu117/sec2/sig.bin
 firmware:       orinoco_ezusb_fw
 firmware:       ositech/Xilinx7OD.bin
-firmware:       pca200e.bin
 firmware:       pca200e_ecd.bin2
 firmware:       pcxhr/dspb1222e.b56
 firmware:       pcxhr/dspb1222hr.b56
@@ -1905,7 +1903,6 @@ firmware:       v4l-pvrusb2-29xxx-01.fw
 firmware:       v4l-pvrusb2-73xxx-01.fw
 firmware:       vicam/firmware.fw
 firmware:       vntwusb.fw
-firmware:       vpdma-1b8.bin
 firmware:       vx/bd56002.boot
 firmware:       vx/bd563s3.boot
 firmware:       vx/bd563v2.boot
