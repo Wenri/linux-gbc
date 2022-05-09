@@ -194,6 +194,17 @@ endif
 		INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$(pkgdir)/ \
 		INSTALL_FW_PATH=$(pkgdir)/lib/firmware/$(abi_release)-$*
 
+	# Strip signatures from 'untrusted' staging modules.
+	# Use --strip-debug per comments in scripts/Makefile.modinst.
+	if [ -f "$(DROOT)"/signature-inclusion ] ; then \
+		find "$(pkgdir)" -path '*/drivers/staging/*.ko' | while IFS= read -r mod ; do \
+			if ! grep -qFx "$${mod##*/}" "$(DROOT)"/signature-inclusion ; then \
+				echo "UBUNTU: Strip $${mod}" ; \
+				$(CROSS_COMPILE)strip --strip-debug "$${mod}" ; \
+			fi ; \
+		done ; \
+	fi
+
 	#
 	# Build module blacklists:
 	#  - blacklist all watchdog drivers (LP:1432837)
