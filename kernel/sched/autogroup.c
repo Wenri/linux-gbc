@@ -37,6 +37,7 @@ void __init autogroup_init(struct task_struct *init_task)
 	kref_init(&autogroup_default.kref);
 	init_rwsem(&autogroup_default.lock);
 	init_task->signal->autogroup = &autogroup_default;
+	sched_autogroup_sysctl_init();
 }
 
 void autogroup_free(struct task_group *tg)
@@ -222,7 +223,6 @@ static int __init setup_autogroup(char *str)
 	unsigned long enabled;
 	if (!kstrtoul(str, 0, &enabled))
 		sysctl_sched_autogroup_enabled = enabled ? 1 : 0;
-	sched_autogroup_sysctl_init();
 
 	return 1;
 }
