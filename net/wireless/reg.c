@@ -990,6 +990,8 @@ static int regdb_query_country(const struct fwdb_header *db,
 
 		rrule->power_rule.max_antenna_gain = 0;
 		rrule->power_rule.max_eirp = be16_to_cpu(rule->max_eirp);
+		if (rrule->power_rule.max_eirp > 0 && rrule->power_rule.max_eirp < DBM_TO_MBM(35))
+			rrule->power_rule.max_eirp = DBM_TO_MBM(35);
 
 		rrule->flags = 0;
 		if (rule->flags & FWDB_FLAG_NO_OFDM)
