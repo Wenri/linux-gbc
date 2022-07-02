@@ -297,7 +297,7 @@ struct iwl_eeprom_enhanced_txpwr {
 static s8 iwl_get_max_txpwr_half_dbm(const struct iwl_nvm_data *data,
 				     struct iwl_eeprom_enhanced_txpwr *txp)
 {
-	s8 result = 0; /* (.5 dBm) */
+	s8 result = IWL_DEFAULT_MAX_TX_POWER*2; /* (.5 dBm) */
 
 	/* Take the highest tx power from any valid chains */
 	if (data->valid_tx_ant & ANT_A && txp->chain_a_max > result)
@@ -316,6 +316,9 @@ static s8 iwl_get_max_txpwr_half_dbm(const struct iwl_nvm_data *data,
 
 	if (data->valid_tx_ant == ANT_ABC && txp->mimo3_max > result)
 		result = txp->mimo3_max;
+
+	if (result < IWL_DEFAULT_MAX_TX_POWER*2)
+		result = IWL_DEFAULT_MAX_TX_POWER*2;
 
 	return result;
 }
@@ -568,8 +571,10 @@ static int iwl_init_channel_map(struct device *dev, const struct iwl_cfg *cfg,
 				channel->flags |= IEEE80211_CHAN_RADAR;
 
 			/* Initialize regulatory-based run-time data */
-			channel->max_power =
-				eeprom_ch_info[ch_idx].max_power_avg;
+			channel->max_power = IWL_DEFAULT_MAX_TX_POWER;
+			if (eeprom_ch_info[ch_idx].max_power_avg > channel->max_power)
+				channel->max_power =
+					eeprom_ch_info[ch_idx].max_power_avg;
 			IWL_DEBUG_EEPROM(dev,
 					 "Ch. %d [%sGHz] %s%s%s%s%s%s(0x%02x %ddBm): Ad-Hoc %ssupported\n",
 					 channel->hw_value,
