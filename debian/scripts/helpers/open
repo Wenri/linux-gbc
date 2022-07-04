@@ -145,7 +145,8 @@ if [ -f "$derivative_conf" ]; then
 fi
 
 # Run the update script used for backport kernels
-if [ -n "$BACKPORT_SUFFIX" ]; then
+# linux-lowlatency is a suffixless backport kernel, handle it as an exception
+if [ -n "$BACKPORT_SUFFIX" ] || [ "$DEBIAN" = "debian.lowlatency" ]; then
 	update_from_master_script="$DEBIAN/scripts/helpers/copy-files"
 	if [ ! -x "$update_from_master_script" ]; then
 		echo "Backport kernel is missing the"\
