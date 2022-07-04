@@ -1,4 +1,4 @@
-Name:    linux-unstable
+Name:    linux-lowlatency
 Version: 5.19.0
 Series:  22.10 (kinetic)
 Description:
