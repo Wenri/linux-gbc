@@ -254,6 +254,7 @@ config SERIAL_8250_ASPEED_VUART
 	depends on SERIAL_8250
 	depends on OF
 	depends on MFD_SYSCON
+	depends on ARCH_ASPEED || COMPILE_TEST
 	select REGMAP
 	help
 	  If you want to use the virtual UART (VUART) device on Aspeed
