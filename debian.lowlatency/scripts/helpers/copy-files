@@ -28,7 +28,7 @@ SKIP_RULES_D=${SKIP_RULES_D:-}
 #
 # Update configs from master
 #
-rsync -avc --exclude 'config.flavour.lowlatency' --exclude 'config.flavour.lowlatency-64k' --delete "${DEBIAN_MASTER}/config/" "${DEBIAN}/config"
+rsync -avc --exclude 'annotations' --exclude 'config.flavour.lowlatency' --exclude 'config.flavour.lowlatency-64k' --delete "${DEBIAN_MASTER}/config/" "${DEBIAN}/config"
 
 #
 # Update package and DTB settings from master.
