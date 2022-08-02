@@ -1,4 +1,8 @@
-include ../debian.master/config/annotations
+# Menu: HEADER
+# FORMAT: 3
+# ARCH: x86 arm arm64 s390 powerpc
+
+include ../../debian.master/config/annotations
 
 CONFIG_MESON_SECURE_PM_DOMAINS                  policy<{'arm64-generic': 'y', 'arm64-lowlatency': 'y'}>
 CONFIG_MESON_EFUSE                              policy<{'arm64-generic': 'm', 'arm64-lowlatency': 'm'}>
@@ -28,3 +32,7 @@ CONFIG_PREEMPT_VOLUNTARY                        policy<{'amd64-generic': 'y', 'a
 CONFIG_VMXNET3                                  policy<{'amd64': 'm', 'arm64-generic': 'm', 'arm64-lowlatency': 'm', 'armhf': 'm', 's390x': 'n'}>
 
 CONFIG_FORCE_MAX_ZONEORDER                      policy<{'arm64-generic': '13', 'arm64-generic-64k': '14', 'arm64-lowlatency': '13', 'arm64-lowlatency-64k': '14', 'armhf-generic': '12', 'armhf-generic-lpae': '11', 'ppc64el': '9'}>
+
+CONFIG_COMEDI_TESTS_EXAMPLE                     policy<{'amd64-generic': 'm', 'amd64-lowlatency': 'n', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
+CONFIG_COMEDI_TESTS_NI_ROUTES                   policy<{'amd64-generic': 'm', 'amd64-lowlatency': 'n', 'arm64': 'm', 'armhf': 'm', 'ppc64el': 'm', 'riscv64': 'm'}>
+CONFIG_TEST_DIV64                               policy<{'amd64': 'n', 'arm64': 'n', 'armhf': 'n', 'ppc64el': 'n', 'riscv64': 'n', 's390x': 'n'}>
