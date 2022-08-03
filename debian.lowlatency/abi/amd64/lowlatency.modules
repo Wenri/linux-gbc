@@ -360,7 +360,6 @@ amd76xrom
 amd8111e
 amd_freq_sensitivity
 amd_hsmp
-amd_pstate
 amd_sfh
 amdgpu
 amdtee
@@ -2223,7 +2222,6 @@ intel_bxtwc_tmu
 intel_chtdc_ti_pwrbtn
 intel_chtwc_int33fe
 intel_crystal_cove_charger
-intel_ifs
 intel_int0002_vgpio
 intel_ips
 intel_menlow
@@ -5461,7 +5459,6 @@ tehuti
 teranetics
 test_blackhole_dev
 test_bpf
-test_div64
 test_power
 tg3
 thermal-generic-adc
