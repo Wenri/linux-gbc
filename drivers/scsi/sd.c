@@ -3504,6 +3504,13 @@ static int sd_probe(struct device *dev)
 	sdkp->first_scan = 1;
 	sdkp->max_medium_access_timeouts = SD_MAX_MEDIUM_TIMEOUTS;
 
+	/*
+	* Some buggy USB bridges don't implement SYNCHRONIZE_CACHE
+	* but still claim to be write-back.  Override them.
+	*/
+	if (sdp->broken_synch_cache)
+		sdkp->cache_override = 1;
+
 	sd_revalidate_disk(gd);
 
 	if (sdp->removable) {

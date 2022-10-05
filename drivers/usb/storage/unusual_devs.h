@@ -406,6 +406,13 @@ UNUSUAL_DEV(  0x04b8, 0x0602, 0x0110, 0x0110,
 		"785EPX Storage",
 		USB_SC_SCSI, USB_PR_BULK, NULL, US_FL_SINGLE_LUN),
 
+/* Reported by Jun Itou <itou_...@infoseek.jp> */
+UNUSUAL_DEV(  0x04bb, 0x0109, 0x0100, 0x0100,
+		"I-O DATA DEVICE INC.",
+		"I-O DATA HDZ-UES",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_SYNCHRONIZE_CACHE),
+
 /*
  * Reported by James Buren <braewoods+lkml@braewoods.net>
  * Virtual ISOs cannot be remounted if ejected while the device is locked
@@ -441,6 +448,13 @@ UNUSUAL_DEV(  0x04ce, 0x0002, 0x026c, 0x026c,
 		"SL11R-IDE",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY),
+
+/* Reported by Markus Rathgeb <maggu2...@gmail.com> */
+UNUSUAL_DEV(  0x04cf, 0x8818, 0xb007, 0xb007,
+		"Myson Century, Inc.",
+		"USB Mass Storage Device",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_SYNCHRONIZE_CACHE),
 
 /*
  * Reported by Kriston Fincher <kriston@airmail.net>
@@ -1482,6 +1496,13 @@ UNUSUAL_DEV( 0x0bc2, 0x3332, 0x0000, 0x9999,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_NO_WP_DETECT ),
 
+/* Reported by matt <vick...@hotmail.com> */
+UNUSUAL_DEV(  0x0bc2, 0x3332, 0x0012, 0x0012,
+		"Seagate",
+		"External",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_SYNCHRONIZE_CACHE),
+
 UNUSUAL_DEV(  0x0d49, 0x7310, 0x0000, 0x9999,
 		"Maxtor",
 		"USB to SATA",
@@ -2130,11 +2151,11 @@ UNUSUAL_DEV(  0x152d, 0x0567, 0x0114, 0x0117,
 		US_FL_BROKEN_FUA ),
 
 /* Reported by David Kozub <zub@linux.fjfi.cvut.cz> */
-UNUSUAL_DEV(0x152d, 0x0578, 0x0000, 0x9999,
+UNUSUAL_DEV(  0x152d, 0x0578, 0x0000, 0x9999,
 		"JMicron",
 		"JMS567",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
-		US_FL_BROKEN_FUA),
+		US_FL_BROKEN_FUA | US_FL_NO_ATA_1X | US_FL_NO_SYNCHRONIZE_CACHE ),
 
 /*
  * Reported by Alexandre Oliva <oliva@lsd.ic.unicamp.br>

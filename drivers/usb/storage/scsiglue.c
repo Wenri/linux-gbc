@@ -295,6 +295,11 @@ static int slave_configure(struct scsi_device *sdev)
 			/* assume sync is needed */
 			sdev->wce_default_on = 1;
 		}
+
+		/* Likewise for SYNCHRONIZE CACHE */
+		if (us->fflags & US_FL_NO_SYNCHRONIZE_CACHE)
+			sdev->broken_synch_cache = 1;
+
 	} else {
 
 		/*
