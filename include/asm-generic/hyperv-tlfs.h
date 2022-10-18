@@ -126,7 +126,7 @@ struct ms_hyperv_tsc_page {
  *
  */
 
-#define HV_LINUX_VENDOR_ID              0x8100
+#define HV_LINUX_VENDOR_ID              0x80 /* Canonical */
 
 /*
  * Crash notification flags.
