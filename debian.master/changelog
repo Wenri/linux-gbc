@@ -1,6 +1,0 @@
-linux (6.0.0-76060000.202210022231) kinetic; urgency=low
-
-  [ Mainline Build ]
-  Mainline build at commit: v6.0
-
- -- Jeremy Soller <jeremy@system76.com>  Mon, 10 Oct 2022 09:28:12 -0600
