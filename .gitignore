@@ -90,6 +90,9 @@ modules.order
 #
 /tar-install/
 
+# Python cached bytecode
+__pycache__
+
 #
 # We don't want to ignore the following even if they are dot-files
 #
