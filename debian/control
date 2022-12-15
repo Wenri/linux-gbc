@@ -1,4 +1,4 @@
-Source: linux-unstable
+Source: linux
 Section: devel
 Priority: optional
 Maintainer: Ubuntu Kernel Team <kernel-team@lists.ubuntu.com>
@@ -86,7 +86,7 @@ Description: Linux kernel source for version 6.1.0 with Ubuntu patches
  you do not want this package. Install the appropriate linux-headers
  package instead.
 
-Package: linux-unstable-headers-6.1.0-763
+Package: linux-headers-6.1.0-763
 Build-Profiles: <!stage1>
 Architecture: all
 Multi-Arch: foreign
@@ -96,9 +96,9 @@ Depends: ${misc:Depends}, coreutils
 Description: Header files related to Linux kernel version 6.1.0
  This package provides kernel header files for version 6.1.0, for sites
  that want the latest kernel headers. Please read
- /usr/share/doc/linux-unstable-headers-6.1.0-763/debian.README.gz for details
+ /usr/share/doc/linux-headers-6.1.0-763/debian.README.gz for details
 
-Package: linux-unstable-tools-common
+Package: linux-tools-common
 Build-Profiles: <!stage1>
 Architecture: all
 Multi-Arch: foreign
@@ -110,7 +110,7 @@ Description: Linux kernel version specific tools for version 6.1.0
  version locked tools (such as perf and x86_energy_perf_policy) for
  version 6.1.0.
 
-Package: linux-unstable-tools-6.1.0-763
+Package: linux-tools-6.1.0-763
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 ppc64el s390x
 Section: devel
@@ -123,7 +123,7 @@ Description: Linux kernel version specific tools for version 6.1.0-763
  64 bit x86.
  You probably want to install linux-tools-6.1.0-763-<flavour>.
 
-Package: linux-unstable-cloud-tools-common
+Package: linux-cloud-tools-common
 Build-Profiles: <!stage1>
 Architecture: all
 Multi-Arch: foreign
@@ -134,7 +134,7 @@ Description: Linux kernel version specific cloud tools for version 6.1.0
  This package provides the architecture independent parts for kernel
  version locked tools for cloud tools for version 6.1.0.
 
-Package: linux-unstable-cloud-tools-6.1.0-763
+Package: linux-cloud-tools-6.1.0-763
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf
 Section: devel
@@ -146,7 +146,7 @@ Description: Linux kernel version specific cloud tools for version 6.1.0-763
  64 bit x86.
  You probably want to install linux-cloud-tools-6.1.0-763-<flavour>.
 
-Package: linux-unstable-tools-host
+Package: linux-tools-host
 Build-Profiles: <!stage1>
 Architecture: all
 Multi-Arch: foreign
@@ -158,7 +158,7 @@ Description: Linux kernel VM host tools
 
 # linux-meta {
 
-Package: linux-unstable-headers-generic
+Package: linux-headers-generic
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 powerpc ppc64el s390x
 Section: kernel
@@ -169,7 +169,7 @@ Description: Generic Linux kernel headers
  This package will always depend on the latest generic kernel headers
  available.
 
-Package: linux-unstable-image-generic
+Package: linux-image-generic
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 powerpc ppc64el s390x
 Section: kernel
@@ -184,7 +184,7 @@ Description: Generic Linux kernel image
  This package will always depend on the latest generic kernel image
  available.
 
-Package: linux-unstable-tools-generic
+Package: linux-tools-generic
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 powerpc ppc64el s390x
 Section: kernel
@@ -196,7 +196,7 @@ Description: Generic Linux kernel tools
  This package will always depend on the latest generic kernel tools
  available.
 
-Package: linux-unstable-cloud-tools-generic
+Package: linux-cloud-tools-generic
 Build-Profiles: <!stage1>
 Architecture: amd64
 Section: kernel
@@ -208,14 +208,14 @@ Description: Generic Linux kernel cloud tools
  This package will always depend on the latest generic kernel cloud tools
  available.
 
-Package: linux-unstable-generic
+Package: linux-generic
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 powerpc ppc64el s390x
 Section: kernel
 Depends:
  ${misc:Depends},
- linux-unstable-image-generic (= ${binary:Version}),
- linux-unstable-headers-generic (= ${binary:Version})
+ linux-image-generic (= ${binary:Version}),
+ linux-headers-generic (= ${binary:Version})
 Description: Complete Generic Linux kernel and headers
  This package will always depend on the latest complete generic Linux kernel
  and headers.
@@ -224,13 +224,13 @@ Description: Complete Generic Linux kernel and headers
 
 # linux-system76 {
 
-Package: linux-unstable-system76
+Package: linux-system76
 Build-Profiles: <!stage1>
 Architecture: amd64
 Section: kernel
 Depends:
  ${misc:Depends},
- linux-unstable-generic (= ${binary:Version})
+ linux-generic (= ${binary:Version})
 Description: System76 recommended Linux kernel
  This package depends upon the recommended kernel for System76 users.
 
@@ -247,7 +247,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.
 Recommends: kernelstub [amd64] | grub-pc [amd64] | grub-efi-amd64 [amd64] | grub-efi-ia32 [amd64] | grub [amd64] | lilo [amd64] | flash-kernel [armhf arm64] | grub-efi-arm64 [arm64] | grub-efi-arm [armhf] | grub-ieee1275 [ppc64el], initramfs-tools | linux-initramfs-tool
 Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
 Conflicts: linux-image-unsigned-6.1.0-763-generic
-Suggests: fdutils, linux-doc | linux-unstable-source-6.1.0, linux-unstable-tools, linux-headers-6.1.0-763-generic, linux-modules-extra-6.1.0-763-generic
+Suggests: fdutils, linux-doc | linux-source-6.1.0, linux-tools, linux-headers-6.1.0-763-generic, linux-modules-extra-6.1.0-763-generic
 Description: Linux kernel image for version 6.1.0 on 64 bit x86 SMP
  This package contains the Linux kernel image for version 6.1.0 on
  64 bit x86 SMP.
@@ -307,7 +307,7 @@ Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 ppc64el s390x
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-headers-6.1.0-763, ${shlibs:Depends}
+Depends: ${misc:Depends}, linux-headers-6.1.0-763, ${shlibs:Depends}
 Provides: linux-headers, linux-headers-3.0
 Description: Linux kernel headers for version 6.1.0 on 64 bit x86 SMP
  This package provides kernel header files for version 6.1.0 on
@@ -338,7 +338,7 @@ Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 ppc64el s390x
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-tools-6.1.0-763
+Depends: ${misc:Depends}, linux-tools-6.1.0-763
 Description: Linux kernel version specific tools for version 6.1.0-763
  This package provides the architecture dependant parts for kernel
  version locked tools (such as perf and x86_energy_perf_policy) for
@@ -350,7 +350,7 @@ Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 ppc64el s390x
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-cloud-tools-6.1.0-763
+Depends: ${misc:Depends}, linux-cloud-tools-6.1.0-763
 Description: Linux kernel version specific cloud tools for version 6.1.0-763
  This package provides the architecture dependant parts for kernel
  version locked tools for cloud for version 6.1.0-763 on
@@ -381,7 +381,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.
 Recommends: grub-efi-arm64 [arm64] | flash-kernel [arm64], initramfs-tools | linux-initramfs-tool
 Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
 Conflicts: linux-image-unsigned-6.1.0-763-generic-64k
-Suggests: fdutils, linux-doc | linux-unstable-source-6.1.0, linux-unstable-tools, linux-headers-6.1.0-763-generic-64k, linux-modules-extra-6.1.0-763-generic-64k
+Suggests: fdutils, linux-doc | linux-source-6.1.0, linux-tools, linux-headers-6.1.0-763-generic-64k, linux-modules-extra-6.1.0-763-generic-64k
 Description: Linux kernel image for version 6.1.0 on 64 bit x86 SMP
  This package contains the Linux kernel image for version 6.1.0 on
  64 bit x86 SMP.
@@ -441,7 +441,7 @@ Build-Profiles: <!stage1>
 Architecture: arm64
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-headers-6.1.0-763, ${shlibs:Depends}
+Depends: ${misc:Depends}, linux-headers-6.1.0-763, ${shlibs:Depends}
 Provides: linux-headers, linux-headers-3.0
 Description: Linux kernel headers for version 6.1.0 on 64 bit x86 SMP
  This package provides kernel header files for version 6.1.0 on
@@ -472,7 +472,7 @@ Build-Profiles: <!stage1>
 Architecture: arm64
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-tools-6.1.0-763
+Depends: ${misc:Depends}, linux-tools-6.1.0-763
 Description: Linux kernel version specific tools for version 6.1.0-763
  This package provides the architecture dependant parts for kernel
  version locked tools (such as perf and x86_energy_perf_policy) for
@@ -484,7 +484,7 @@ Build-Profiles: <!stage1>
 Architecture: arm64
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-cloud-tools-6.1.0-763
+Depends: ${misc:Depends}, linux-cloud-tools-6.1.0-763
 Description: Linux kernel version specific cloud tools for version 6.1.0-763
  This package provides the architecture dependant parts for kernel
  version locked tools for cloud for version 6.1.0-763 on
@@ -515,7 +515,7 @@ Depends: ${misc:Depends}, ${shlibs:Depends}, kmod, linux-base (>= 4.5ubuntu1~16.
 Recommends: flash-kernel [armhf] | grub-efi-arm [armhf], initramfs-tools | linux-initramfs-tool
 Breaks: flash-kernel (<< 3.90ubuntu2) [arm64 armhf], s390-tools (<< 2.3.0-0ubuntu3) [s390x]
 Conflicts: linux-image-unsigned-6.1.0-763-generic-lpae
-Suggests: fdutils, linux-doc | linux-unstable-source-6.1.0, linux-unstable-tools, linux-headers-6.1.0-763-generic-lpae, linux-modules-extra-6.1.0-763-generic-lpae
+Suggests: fdutils, linux-doc | linux-source-6.1.0, linux-tools, linux-headers-6.1.0-763-generic-lpae, linux-modules-extra-6.1.0-763-generic-lpae
 Description: Linux kernel image for version 6.1.0 on 64 bit x86 SMP
  This package contains the Linux kernel image for version 6.1.0 on
  64 bit x86 SMP.
@@ -575,7 +575,7 @@ Build-Profiles: <!stage1>
 Architecture: armhf
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-headers-6.1.0-763, ${shlibs:Depends}
+Depends: ${misc:Depends}, linux-headers-6.1.0-763, ${shlibs:Depends}
 Provides: linux-headers, linux-headers-3.0
 Description: Linux kernel headers for version 6.1.0 on 64 bit x86 SMP
  This package provides kernel header files for version 6.1.0 on
@@ -606,7 +606,7 @@ Build-Profiles: <!stage1>
 Architecture: armhf
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-tools-6.1.0-763
+Depends: ${misc:Depends}, linux-tools-6.1.0-763
 Description: Linux kernel version specific tools for version 6.1.0-763
  This package provides the architecture dependant parts for kernel
  version locked tools (such as perf and x86_energy_perf_policy) for
@@ -618,7 +618,7 @@ Build-Profiles: <!stage1>
 Architecture: armhf
 Section: devel
 Priority: optional
-Depends: ${misc:Depends}, linux-unstable-cloud-tools-6.1.0-763
+Depends: ${misc:Depends}, linux-cloud-tools-6.1.0-763
 Description: Linux kernel version specific cloud tools for version 6.1.0-763
  This package provides the architecture dependant parts for kernel
  version locked tools for cloud for version 6.1.0-763 on
