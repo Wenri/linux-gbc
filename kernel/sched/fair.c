@@ -19,6 +19,9 @@
  *
  *  Adaptive scheduling granularity, math enhancements by Peter Zijlstra
  *  Copyright (C) 2007 Red Hat, Inc., Peter Zijlstra
+ * 
+ *  Remove energy efficiency functions by Alexandre Frade
+ *  (C) 2021 Alexandre Frade <kernel@xanmod.org>
  */
 #include <linux/energy_model.h>
 #include <linux/mmap_lock.h>
