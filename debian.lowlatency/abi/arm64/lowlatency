@@ -18473,6 +18473,7 @@ EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x7cd0345f	nft_set_catchall_gc
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x7dddb0cf	nft_do_chain
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x807be6d7	nf_tables_deactivate_set
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x8386ae52	nft_unregister_flowtable_type
+EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x8896a03d	nf_tables_activate_set
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x8da31b96	nft_set_lookup_global
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x8e8be8af	nft_flowtable_lookup
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x967959be	nft_register_obj

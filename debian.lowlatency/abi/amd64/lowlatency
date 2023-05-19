@@ -18374,6 +18374,7 @@ EXPORT_SYMBOL_GPL	 net/netfilter/nf_synproxy_core 0xe07d36e2	nf_synproxy_ipv6_in
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_synproxy_core 0xe1c4f558	nf_synproxy_ipv4_fini
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x06c6ca47	nft_meta_policy
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x0ac0c86a	nft_set_catchall_gc
+EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x0b3760ca	nf_tables_activate_set
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x0e97886a	nft_expr_reduce_bitwise
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x1cdea201	nf_tables_bind_set
 EXPORT_SYMBOL_GPL	 net/netfilter/nf_tables 0x3251d762	nf_tables_trans_destroy_flush_work
