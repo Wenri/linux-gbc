@@ -465,6 +465,8 @@ static void md_submit_bio(struct bio *bio)
 	}
 
 	blk_queue_split(&bio);
+	if (!bio)
+		return;
 
 	if (mddev->ro == 1 && unlikely(rw == WRITE)) {
 		if (bio_sectors(bio) != 0)
