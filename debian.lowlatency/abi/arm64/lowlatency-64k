@@ -1,4 +1,21 @@
 ACPI EXPORT_SYMBOL_GPL 0xc331c3c7	acpi_table_parse_cedt	vmlinux
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x01cd2e25	otx2_cpt_read_af_reg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x085c6cc5	otx2_cptlf_shutdown	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x103aa135	otx2_cpt_write_af_reg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x275943b8	otx2_cpt_send_af_reg_requests	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x278da828	cn10k_cptvf_lmtst_init	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x2b340029	otx2_cpt_msix_offset_msg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x4f2553e7	otx2_cpt_sync_mbox_msg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x63718348	otx2_cptlf_register_interrupts	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x64f3e499	otx2_cptlf_set_irqs_affinity	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x6cd90503	otx2_cptlf_init	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x70c431c9	cn10k_cptpf_lmtst_init	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x9250660d	otx2_cptlf_free_irqs_affinity	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0x9fd51bde	otx2_cpt_add_write_af_reg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0xa4263c52	otx2_cptlf_unregister_interrupts	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0xb31b5d33	otx2_cpt_detach_rsrcs_msg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0xbcc8102a	otx2_cpt_send_mbox_msg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
+CRYPTO_DEV_OCTEONTX2_CPT EXPORT_SYMBOL_GPL 0xce3d834e	otx2_cpt_send_ready_msg	drivers/crypto/marvell/octeontx2/rvu_cptcommon
 CRYPTO_INTERNAL EXPORT_SYMBOL_GPL 0x3220618e	crypto_cipher_setkey	vmlinux
 CRYPTO_INTERNAL EXPORT_SYMBOL_GPL 0x92a7746b	crypto_cipher_encrypt_one	vmlinux
 CRYPTO_INTERNAL EXPORT_SYMBOL_GPL 0xbd0a5f49	crypto_cipher_decrypt_one	vmlinux
@@ -522,6 +539,7 @@ EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x31831b4d	drm_connector_unregister
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x31b8a5e3	__drm_set_edid_firmware_path
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x31f6746a	drm_gem_free_mmap_offset
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x32a0cc37	drm_print_bits
+EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x32fc82e6	devm_aperture_acquire_from_firmware
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x33f590e6	drm_master_get
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x3498ed4d	drm_property_create_object
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x34b65509	__drmm_add_action
@@ -598,12 +616,13 @@ EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5965dbfd	drm_gem_private_object_init
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x598570db	drm_atomic_check_only
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x59b31ca2	drm_crtc_arm_vblank_event
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5afae829	drm_connector_attach_encoder
-EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5b446aa9	drm_aperture_remove_conflicting_framebuffers
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5b6e0e53	drm_privacy_screen_unregister
+EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5b6e90e5	drm_aperture_remove_conflicting_pci_framebuffers
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5d52b466	drm_syncobj_find_fence
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5d5b79c7	drm_vblank_work_flush
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5d8347e2	drm_panel_get_modes
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5d99e9d9	drm_vblank_init
+EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5e96a599	drm_aperture_remove_conflicting_framebuffers
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5ecbdf85	drm_mode_create_scaling_mode_property
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5f600678	drm_privacy_screen_call_notifier_chain
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x5f7985a5	drm_mm_scan_remove_block
@@ -613,7 +632,6 @@ EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x61822f00	drm_gem_get_pages
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x6201dd1c	drm_invalid_op
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x62a29157	drm_property_replace_blob
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x63315671	drm_privacy_screen_register
-EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x63d98bf4	devm_aperture_acquire_from_firmware
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x64872572	drm_framebuffer_cleanup
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x64fdea57	drm_gem_dmabuf_mmap
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0x655eb175	drm_mode_create_aspect_ratio_property
@@ -793,7 +811,6 @@ EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xc7f2b129	drm_syncobj_replace_fence
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xc7f6f305	__devm_drm_dev_alloc
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xc82982eb	drm_get_format_info
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xc95c2057	drm_prime_gem_destroy
-EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xc9f9b4ae	drm_aperture_remove_conflicting_pci_framebuffers
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xca190085	drm_format_info_block_height
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xcac2685d	drm_mode_is_420_only
 EXPORT_SYMBOL	 drivers/gpu/drm/drm 0xccc59759	drm_format_info_block_width
@@ -3408,47 +3425,47 @@ EXPORT_SYMBOL	 drivers/net/wireless/ath/ath10k/ath10k_core 0xe9e39832	ath10k_mac
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath10k/ath10k_core 0xf72aabcd	ath10k_ce_enable_interrupt
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath10k/ath10k_core 0xf9889f66	ath10k_print_driver_info
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath10k/ath10k_core 0xfaaec105	__ath10k_ce_send_revert
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x03a13318	ath11k_ce_alloc_pipes
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x03da45fa	ath11k_pcic_stop
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x07f2111f	ath11k_pcic_get_msi_address
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x0cc9e63d	ath11k_core_init
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x0d3fa342	ath11k_core_free
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x124d2325	ath11k_ce_get_attr_flags
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x15da70a2	ath11k_hal_srng_deinit
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x1f279b13	ath11k_pcic_ce_irqs_enable
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x2b323f55	ath11k_pcic_ext_irq_disable
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x2e6b05e4	ath11k_pcic_get_ce_msi_idx
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x35334704	ath11k_pcic_free_irq
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x38f50f14	ath11k_ce_cleanup_pipes
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x3991bd01	ath11k_pcic_init_msi_config
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x3aad971b	ath11k_pcic_write32
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x3e7fc086	ath11k_pcic_config_irq
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x3ea00b70	ath11k_pcic_get_user_msi_assignment
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x3f797d29	ath11k_warn
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x408c6e03	ath11k_ce_free_pipes
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x4ade6128	ath11k_ce_get_shadow_config
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x6044e755	ath11k_core_deinit
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x02dc7311	ath11k_ce_per_engine_service
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x07c30214	ath11k_pcic_ext_irq_disable
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x1123090a	ath11k_pcic_get_msi_address
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x1abb0f59	ath11k_core_init
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x20333c20	ath11k_core_deinit
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x24593387	ath11k_ce_cleanup_pipes
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x32cbb9b9	ath11k_hal_srng_init
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x3e3b1f5e	ath11k_pcic_start
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x451a7d51	ath11k_core_suspend
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x4e614468	ath11k_core_resume
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x4ed5a730	ath11k_pcic_get_user_msi_assignment
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x51c3faa7	ath11k_pcic_stop
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x5cef3b91	ath11k_qmi_deinit_service
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x5f80939b	ath11k_ce_rx_post_buf
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x606a5b5a	__tracepoint_ath11k_log_dbg
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x695fd08b	ath11k_pcic_register_pci_ops
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x6c10ed14	ath11k_pcic_map_service_to_pipe
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x7626fb7d	ath11k_hal_srng_init
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x810c989d	ath11k_ce_per_engine_service
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x8ce75e03	ath11k_core_pre_init
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x925c5956	ath11k_pcic_ce_irq_disable_sync
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x95ea1808	ath11k_err
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x6373f0ef	ath11k_pcic_write32
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x6bf6abfb	ath11k_ce_get_shadow_config
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x7088d841	ath11k_debugfs_soc_destroy
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x7a943ae0	ath11k_pcic_register_pci_ops
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x7be9267c	ath11k_ce_get_attr_flags
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x7f31ab2e	ath11k_core_free
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x8090f549	ath11k_err
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x84cd5a6a	ath11k_pcic_config_irq
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x99c8a0ed	ath11k_hal_srng_deinit
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x9c51bcc4	ath11k_debug_mask
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x9f26ffad	ath11k_pcic_start
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xa628842d	ath11k_core_alloc
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xc0f12a98	ath11k_debugfs_soc_destroy
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xd4146485	ath11k_qmi_deinit_service
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xd63542f5	ath11k_pcic_ext_irq_enable
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xd871e601	ath11k_core_resume
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xe2440e70	ath11k_dp_service_srng
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x9ca1e6db	ath11k_pcic_ce_irq_disable_sync
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0x9fa33161	ath11k_pcic_init_msi_config
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xa8548507	ath11k_warn
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xac04ff59	ath11k_pcic_free_irq
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xb0d8bd70	ath11k_ce_free_pipes
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xb7052d7b	ath11k_pcic_get_ce_msi_idx
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xbf117139	ath11k_dp_service_srng
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xc57d6e14	ath11k_core_alloc
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xcd2c0cee	ath11k_info
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xcf240397	ath11k_pcic_ext_irq_enable
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xd2e5d310	ath11k_pcic_read32
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xebd79282	ath11k_pcic_ce_irqs_enable
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xee150386	ath11k_ce_alloc_pipes
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xf0197188	ath11k_cold_boot_cal
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xf592d408	ath11k_pcic_read32
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xf5c48770	ath11k_ce_rx_post_buf
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xf8459a28	ath11k_core_suspend
-EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xf9802551	ath11k_info
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xf3f33fd6	ath11k_pcic_map_service_to_pipe
+EXPORT_SYMBOL	 drivers/net/wireless/ath/ath11k/ath11k 0xfb9f5fc4	ath11k_core_pre_init
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath6kl/ath6kl_core 0x03875b91	ath6kl_cfg80211_resume
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath6kl/ath6kl_core 0x1354043d	ath6kl_warn
 EXPORT_SYMBOL	 drivers/net/wireless/ath/ath6kl/ath6kl_core 0x31b47199	ath6kl_core_cleanup
@@ -4277,18 +4294,18 @@ EXPORT_SYMBOL	 drivers/scsi/libsas/libsas 0xf3cd180f	sas_suspend_ha
 EXPORT_SYMBOL	 drivers/scsi/megaraid/megaraid_mm 0x90e2be68	mraid_mm_register_adp
 EXPORT_SYMBOL	 drivers/scsi/megaraid/megaraid_mm 0xa21fafb9	mraid_mm_adapter_app_handle
 EXPORT_SYMBOL	 drivers/scsi/megaraid/megaraid_mm 0xb2cf7c01	mraid_mm_unregister_adp
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x1e786ec4	qlt_stop_phase2
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x26fb68bc	qlt_abort_cmd
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x4b8afcad	qlt_rdy_to_xfer
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x4ef05454	qlt_lport_register
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x6750ffe9	qlt_stop_phase1
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xb58aa643	qlt_xmit_tm_rsp
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xb9392793	qlt_enable_vha
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xcafa9d80	qlt_unreg_sess
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xced6f451	qlt_free_cmd
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xe119155e	qlt_lport_deregister
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xe6157819	qlt_xmit_response
-EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xf1adbbe5	qlt_free_mcmd
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x287574f5	qlt_lport_deregister
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x2d16a343	qlt_lport_register
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x2f1c0c1a	qlt_rdy_to_xfer
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0x7231464e	qlt_stop_phase1
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xa764c23a	qlt_xmit_tm_rsp
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xc1056695	qlt_enable_vha
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xc8c97872	qlt_unreg_sess
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xd23bb5b8	qlt_xmit_response
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xd33a5bca	qlt_free_mcmd
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xd34351e8	qlt_abort_cmd
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xd73b910c	qlt_stop_phase2
+EXPORT_SYMBOL	 drivers/scsi/qla2xxx/qla2xxx 0xe3ac5574	qlt_free_cmd
 EXPORT_SYMBOL	 drivers/scsi/raid_class 0x0de8494b	raid_class_attach
 EXPORT_SYMBOL	 drivers/scsi/raid_class 0x9900cca8	raid_component_add
 EXPORT_SYMBOL	 drivers/scsi/raid_class 0xbcbb05b3	raid_class_release
@@ -9878,6 +9895,7 @@ EXPORT_SYMBOL	 vmlinux 0x9e584689	configfs_unregister_default_group
 EXPORT_SYMBOL	 vmlinux 0x9e5a6ef3	rtnl_unicast
 EXPORT_SYMBOL	 vmlinux 0x9e5e750d	node_to_cpumask_map
 EXPORT_SYMBOL	 vmlinux 0x9e61bb05	set_freezable
+EXPORT_SYMBOL	 vmlinux 0x9e67a2cc	mipi_dsi_dcs_set_display_brightness_large
 EXPORT_SYMBOL	 vmlinux 0x9e6ebd05	bdi_put
 EXPORT_SYMBOL	 vmlinux 0x9e7d6bd0	__udelay
 EXPORT_SYMBOL	 vmlinux 0x9e97ecbc	__xfrm_route_forward
@@ -9957,6 +9975,7 @@ EXPORT_SYMBOL	 vmlinux 0xa1308532	eth_platform_get_mac_address
 EXPORT_SYMBOL	 vmlinux 0xa160529b	of_cpu_node_to_id
 EXPORT_SYMBOL	 vmlinux 0xa16073c6	jbd2_journal_submit_inode_data_buffers
 EXPORT_SYMBOL	 vmlinux 0xa1624469	tcp_initialize_rcv_mss
+EXPORT_SYMBOL	 vmlinux 0xa1632dfb	sock_init_data_uid
 EXPORT_SYMBOL	 vmlinux 0xa16d7581	follow_down
 EXPORT_SYMBOL	 vmlinux 0xa17133fa	security_sb_mnt_opts_compat
 EXPORT_SYMBOL	 vmlinux 0xa1768c2b	regset_get_alloc
@@ -10583,7 +10602,6 @@ EXPORT_SYMBOL	 vmlinux 0xbc782c92	alloc_fddidev
 EXPORT_SYMBOL	 vmlinux 0xbc7a84b9	skb_flow_dissect_tunnel_info
 EXPORT_SYMBOL	 vmlinux 0xbc940e32	address_space_init_once
 EXPORT_SYMBOL	 vmlinux 0xbcab6ee6	sscanf
-EXPORT_SYMBOL	 vmlinux 0xbcb36fe4	hugetlb_optimize_vmemmap_key
 EXPORT_SYMBOL	 vmlinux 0xbcba6dd2	sock_rfree
 EXPORT_SYMBOL	 vmlinux 0xbcdf6480	nf_setsockopt
 EXPORT_SYMBOL	 vmlinux 0xbce43ab6	jbd2_fc_begin_commit
@@ -11939,6 +11957,7 @@ EXPORT_SYMBOL	 vmlinux 0xfbd01d49	ipv6_find_hdr
 EXPORT_SYMBOL	 vmlinux 0xfbe4b175	qman_create_cgr
 EXPORT_SYMBOL	 vmlinux 0xfbe8ee28	acpi_get_table_by_index
 EXPORT_SYMBOL	 vmlinux 0xfbfdf9f2	xsk_tx_peek_release_desc_batch
+EXPORT_SYMBOL	 vmlinux 0xfc128cc9	mipi_dsi_dcs_get_display_brightness_large
 EXPORT_SYMBOL	 vmlinux 0xfc1f955c	jbd2__journal_restart
 EXPORT_SYMBOL	 vmlinux 0xfc227a2d	device_match_acpi_dev
 EXPORT_SYMBOL	 vmlinux 0xfc336d2e	__wake_up_bit
@@ -12963,60 +12982,60 @@ EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xde272d59	gb_hd_put
 EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xeac79e1a	__SCK__tp_func_gb_hd_del
 EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xf107a122	__SCK__tp_func_gb_hd_release
 EXPORT_SYMBOL_GPL	 drivers/greybus/greybus 0xfa1cd8a0	greybus_register_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x022ef2d7	hid_open_report
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x05495392	hid_debug
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x07d4299c	hid_set_field
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x091cc1d3	hid_dump_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x07c977df	hid_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x07f01358	hidinput_count_leds
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x0ac7b1d1	hidinput_get_led_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x0cf6f628	hid_hw_open
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1930cec3	hid_input_report
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x19d52f1f	hid_quirks_exit
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1b61a0db	hid_connect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x227d2e19	hid_allocate_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2327e28f	hid_hw_close
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x28b165cf	hidraw_report_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x28cbcecd	hid_field_extract
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2a21e8a2	hid_dump_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2b2f8f41	hid_alloc_report_buf
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2b8e71cf	hid_driver_reset_resume
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3fe1ae6f	hidinput_count_leds
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x43725aff	hid_match_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x51884e10	hid_dump_input
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x53e08454	hidinput_get_led_field
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x5c350317	hid_unregister_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x60c36604	hid_driver_suspend
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x61911142	hid_driver_resume
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x627b98c9	hid_register_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x6a0fe73a	hid_ignore
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x7016ac13	hid_compare_device_paths
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x7a6ce4df	hid_hw_request
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x7f369185	hid_check_keys_pressed
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x7fad5454	hid_debug_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x84f94155	hid_add_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x85c1c91f	hidinput_report_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x1d030817	hid_debug_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x22cbf105	hid_match_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x22f7da82	hid_register_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x24c0ba3a	hid_driver_suspend
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x2ce5e503	__hid_request
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x320b4737	hid_dump_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x384fb1eb	hid_unregister_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x39a64599	hid_alloc_report_buf
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3a0af962	hid_dump_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3cd93eff	hidinput_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x3eb5335a	hid_setup_resolution_multiplier
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x45af4c41	hid_validate_values
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x48e51398	hidinput_calc_abs_res
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x4c9aa10c	hid_driver_reset_resume
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x58f03119	hid_dump_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x5c9b2fbf	hid_hw_output_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x64551ace	hidraw_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x74e73216	hid_check_keys_pressed
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x762663d1	hid_destroy_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x7c43614f	hidraw_report_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x822c2d2c	hidinput_connect
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x8b13a8b8	hid_snto32
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x962fc22c	hid_destroy_device
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x99bbd218	hid_hw_open
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x8c7bb40d	hid_lookup_quirk
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x9cadc523	hid_hw_request
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x9d1ab93f	hid_resolv_usage
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0x9f4f394e	hid_lookup_quirk
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xa25192df	hid_report_raw_event
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xaac65837	hid_hw_stop
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb6bc3434	__hid_register_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb7ed3b06	hid_hw_raw_request
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xba298605	hidraw_disconnect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xbb3e5692	hid_open_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xc28121ce	hidinput_disconnect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xc3d238b5	hidinput_calc_abs_res
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xca1c501e	hid_hw_output_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xccbd597b	__hid_request
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcea401cc	hid_hw_start
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcf8e89fd	hid_parse_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xd465e6bb	hid_output_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xd474e786	hid_setup_resolution_multiplier
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xd9332c75	hid_input_report
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xe0289ed0	hid_dump_field
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xe1fec8bc	hidinput_connect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xeec8c571	hid_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xa4c4ce0d	hid_output_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xa86e770e	hid_hw_close
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xaede928b	hid_dump_input
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb3b3667a	hid_hw_raw_request
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb475f6d2	hid_compare_device_paths
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xb96a3534	hidraw_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xbc2c8fd3	hid_set_field
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xcab6308d	hid_field_extract
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xd7f971a1	hidinput_report_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xda92aa1c	hid_hw_start
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xdce91d0b	hid_allocate_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xea89702c	hid_parse_report
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xec11a8c7	hid_disconnect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xf55f94e7	hid_add_device
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xf7b05689	hid_report_raw_event
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xf7b39b87	hid_hw_stop
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xf9675cd0	hid_driver_resume
 EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfa355613	hid_quirks_init
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfbc48982	hid_validate_values
-EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfe8a51f5	hidraw_connect
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x11636f86	roccat_connect
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfbc29d5c	__hid_register_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/hid 0xfe48cc7a	hid_ignore
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x01b9413d	roccat_connect
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x2f622ea1	roccat_disconnect
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat 0x3e4427c8	roccat_report_event
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x010cabe1	roccat_common2_device_init_struct
@@ -13025,28 +13044,28 @@ EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x283ab0a3	roccat_common2_sysfs
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x2a68bf74	roccat_common2_receive
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0x32e82271	roccat_common2_send_with_status
 EXPORT_SYMBOL_GPL	 drivers/hid/hid-roccat-common 0xc2eb1567	roccat_common2_sysfs_write
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x2a76e7d5	sensor_hub_get_feature
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x809b4318	sensor_hub_input_get_attribute_info
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x93516d2f	sensor_hub_input_attr_get_raw_value
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x964d8766	sensor_hub_register_callback
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x97c2daae	sensor_hub_set_feature
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x9a48e7da	sensor_hub_device_open
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xc915057f	sensor_hub_remove_callback
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xc9a64325	sensor_hub_device_close
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xfcbda14a	hid_sensor_get_usage_index
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-vivaldi-common 0x971087e2	vivaldi_feature_mapping
-EXPORT_SYMBOL_GPL	 drivers/hid/hid-vivaldi-common 0xa104b811	vivaldi_input_configured
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x01de14ed	sensor_hub_register_callback
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x1aec03d2	sensor_hub_device_open
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x29d32529	sensor_hub_remove_callback
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x47f91d3b	sensor_hub_device_close
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x59eddf46	sensor_hub_input_attr_get_raw_value
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x7dac5dda	sensor_hub_set_feature
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0x971c6b23	sensor_hub_get_feature
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xa0851304	hid_sensor_get_usage_index
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-sensor-hub 0xaeb9c4d5	sensor_hub_input_get_attribute_info
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-vivaldi-common 0x8d100227	vivaldi_feature_mapping
+EXPORT_SYMBOL_GPL	 drivers/hid/hid-vivaldi-common 0xc6f50307	vivaldi_input_configured
+EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0x06577e89	i2c_hid_ll_driver
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0x9902669f	i2c_hid_core_pm
-EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xa4c1313d	i2c_hid_ll_driver
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xa5e73271	i2c_hid_core_remove
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xab71a43f	i2c_hid_core_probe
 EXPORT_SYMBOL_GPL	 drivers/hid/i2c-hid/i2c-hid 0xbae14cf1	i2c_hid_core_shutdown
+EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x00103155	surface_hid_device_add
+EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x099c93fd	surface_hid_device_destroy
 EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0x7eab95d7	surface_hid_pm_ops
-EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0xaba38397	surface_hid_device_destroy
-EXPORT_SYMBOL_GPL	 drivers/hid/surface-hid/surface_hid_core 0xbadd8f7a	surface_hid_device_add
-EXPORT_SYMBOL_GPL	 drivers/hid/uhid 0x49049297	uhid_hid_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0x2fdd1d4c	usb_hid_driver
-EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0x636aa7f5	hiddev_hid_event
+EXPORT_SYMBOL_GPL	 drivers/hid/uhid 0xf7ae7f44	uhid_hid_driver
+EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0x1e2e4218	hiddev_hid_event
+EXPORT_SYMBOL_GPL	 drivers/hid/usbhid/usbhid 0xb81a83bf	usb_hid_driver
 EXPORT_SYMBOL_GPL	 drivers/hsi/hsi 0x330850c2	hsi_register_port_event
 EXPORT_SYMBOL_GPL	 drivers/hsi/hsi 0x387de199	hsi_port_unregister_clients
 EXPORT_SYMBOL_GPL	 drivers/hsi/hsi 0x5210a5bf	hsi_board_list
@@ -17965,7 +17984,7 @@ EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xa229e644	l2cap_chan_send
 EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xbede9dcc	l2cap_chan_create
 EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xdf071afd	l2cap_chan_set_defaults
 EXPORT_SYMBOL_GPL	 net/bluetooth/bluetooth 0xe8460a95	l2cap_chan_connect
-EXPORT_SYMBOL_GPL	 net/bluetooth/hidp/hidp 0xca43cf50	hidp_hid_driver
+EXPORT_SYMBOL_GPL	 net/bluetooth/hidp/hidp 0xbab1044d	hidp_hid_driver
 EXPORT_SYMBOL_GPL	 net/bridge/bridge 0x0e13bf64	br_dev_queue_push_xmit
 EXPORT_SYMBOL_GPL	 net/bridge/bridge 0x10d3be7b	br_vlan_get_info
 EXPORT_SYMBOL_GPL	 net/bridge/bridge 0x1e4f77ce	br_vlan_get_pvid_rcu
@@ -19187,163 +19206,163 @@ EXPORT_SYMBOL_GPL	 sound/i2c/other/snd-ak4113 0x5b27bcc9	snd_ak4113_build
 EXPORT_SYMBOL_GPL	 sound/i2c/other/snd-ak4113 0x77cb2dd0	snd_ak4113_check_rate_and_errors
 EXPORT_SYMBOL_GPL	 sound/i2c/other/snd-ak4113 0xba2bfce3	snd_ak4113_reinit
 EXPORT_SYMBOL_GPL	 sound/i2c/other/snd-ak4113 0xc2a42405	snd_ak4113_external_rate
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0189f645	azx_init_chip
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x02002e8f	snd_hda_add_verbs
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x02073934	query_amp_caps
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0300d32b	snd_hda_codec_get_pincfg
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x062f8b3c	__snd_hda_apply_fixup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0080aea4	snd_hda_check_amp_list_power
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x015b6030	snd_hda_multi_out_dig_cleanup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x02d41b56	snd_hda_spdif_ctls_unassign
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x04d7d29c	snd_hda_add_verbs
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0676f5ac	snd_hda_get_input_pin_attr
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x07ef699b	snd_hda_lock_devices
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0808e04d	snd_hda_codec_device_init
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x09000672	snd_hda_override_amp_caps
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x083300a6	snd_hda_jack_bind_keymap
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x095656a1	snd_hda_jack_add_kctl_mst
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0a09e0bf	snd_hda_load_patch
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0a8f935a	__hda_codec_driver_register
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0b4d1b36	snd_hda_multi_out_analog_open
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0b1fc921	is_jack_detectable
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0c99b17e	snd_hda_jack_set_gating_jack
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0d1904ef	snd_hda_enum_helper_info
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x119b4daf	snd_hda_multi_out_dig_close
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x12caf11a	snd_hda_correct_pin_ctl
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x0f4e4c82	snd_hda_add_nid
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1252e216	snd_hda_jack_set_dirty_all
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1294f803	snd_hda_jack_detect_enable
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1413de19	snd_hda_mixer_amp_switch_put_beep
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x162f2768	snd_hda_codec_amp_update
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1d8875a7	snd_hda_get_num_devices
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1f543ff9	snd_hda_spdif_ctls_assign
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1f5e9bab	snd_hda_jack_set_dirty_all
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x20ae1225	snd_hda_check_amp_caps
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x22113054	snd_hda_codec_register
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x2266cae8	snd_hda_codec_set_name
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x26713061	snd_hda_input_mux_put
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x28b6dbac	snd_hda_add_vmaster_hook
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x2a148e0b	snd_hda_jack_detect_enable
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x15803f26	snd_hda_create_dig_out_ctls
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x15988019	snd_hda_multi_out_analog_open
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x17464a23	snd_hda_get_conn_index
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x18789ec8	snd_hda_detach_beep_device
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x198b62a7	snd_hda_jack_pin_sense
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x19b50d3b	snd_hda_spdif_out_of_nid
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1a5ced01	snd_hda_codec_device_init
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x1bce5d32	snd_hda_apply_fixup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x206d0234	snd_hda_jack_report_sync
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x24d1af4b	snd_hda_codec_get_pin_target
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x2632b8b6	query_amp_caps
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x267e182d	snd_hda_codec_new
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x2b1d8bab	snd_hda_multi_out_dig_close
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x2cc6e438	snd_hda_mixer_amp_volume_get
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x322f1ef7	snd_hda_get_dev_select
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3541385a	snd_hda_mixer_amp_tlv
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x355edf3b	snd_hda_jack_detect_enable_callback_mst
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x37522543	snd_hda_codec_get_pin_target
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3665afc8	snd_hda_codec_set_name
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x38ce402b	azx_interrupt
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3ada53e7	snd_hda_codec_configure
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3d0f42e8	snd_hda_codec_cleanup
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3e402631	snd_hda_jack_pin_sense
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3e7abc84	__snd_hda_codec_cleanup_stream
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3eb99f43	snd_hda_sync_vmaster_hook
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3ec825b6	snd_hda_get_dev_select
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3f9185a0	snd_hda_jack_add_kctl_mst
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x421290af	azx_stop_all_streams
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x439ce336	azx_free_streams
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x43e480c1	snd_hda_codec_new
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x467c35a1	snd_hda_jack_detect_state_mst
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x48a97115	snd_hda_codec_set_pincfg
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x4e43ec55	snd_hda_attach_beep_device
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x4eba55e7	snd_hda_apply_verbs
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x4f0c89e2	snd_hda_codec_pcm_new
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3be1f399	__snd_hda_apply_fixup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x3eb2596e	snd_hda_jack_set_button_state
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x423eaf4d	snd_hda_correct_pin_ctl
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x43e3d6f6	snd_hda_jack_add_kctls
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x44849340	snd_hda_set_dev_select
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x46b05ff4	snd_hda_multi_out_analog_cleanup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x48147a00	snd_hda_codec_load_dsp_trigger
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x4814b9cf	azx_bus_init
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x49b3c7b9	snd_hda_codec_get_pincfg
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x4e3f7146	azx_probe_codecs
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x4fadbcbb	snd_hda_mixer_amp_switch_info
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x500fff10	snd_hda_codec_set_pin_target
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5100f89b	snd_hda_codec_load_dsp_trigger
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x53fb663b	__snd_hda_add_vmaster
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x553aab06	azx_codec_configure
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x55b9d412	snd_hda_multi_out_analog_prepare
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x563b197d	snd_hda_multi_out_dig_prepare
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5793d0e7	azx_stop_chip
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x59e2bc9d	snd_hda_multi_out_analog_cleanup
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5ab0a01a	snd_hda_create_dig_out_ctls
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5bcc551b	snd_hda_codec_amp_init_stereo
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5c136550	snd_hda_codec_parse_pcms
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x52098cc2	snd_hda_add_vmaster_hook
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5329ecf5	snd_hda_apply_pincfgs
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x543060c9	snd_hda_codec_parse_pcms
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x548242f8	__snd_hda_codec_cleanup_stream
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x55dfdbba	snd_hda_set_vmaster_tlv
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x56fe2ad3	snd_hda_codec_cleanup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x578bb710	snd_hda_ctl_add
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5c2dc353	snd_hda_codec_register
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5d0a42f5	snd_hda_mixer_amp_switch_put
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5d33bf8e	snd_hda_parse_pin_defcfg
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x60a32bc8	snd_hda_jack_set_button_state
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x61c6727c	snd_hda_get_connections
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x6a3b9f8a	snd_hda_multi_out_dig_cleanup
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x6de6cfea	azx_get_position
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x6fe87d3d	snd_hda_set_vmaster_tlv
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x71077f7a	snd_hda_apply_pincfgs
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x5ecb6767	snd_hda_jack_detect_enable_callback_mst
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x6639bbdf	snd_hda_get_conn_list
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x676a5a65	snd_hda_add_imux_item
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x698c7bdb	snd_hda_codec_load_dsp_cleanup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x69d4daba	snd_hda_jack_poll_all
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x6a1a2cc0	snd_hda_override_amp_caps
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x6f34600f	snd_hda_codec_load_dsp_prepare
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x701e18bb	snd_hda_get_default_vref
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x724f41d7	snd_hda_unlock_devices
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x741e13a6	azx_probe_codecs
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x74a619ef	snd_hda_create_spdif_share_sw
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x77530b48	snd_hda_get_hint
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x79a19392	snd_hda_detach_beep_device
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x79c3c05d	snd_hda_spdif_ctls_unassign
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x7b55c9d6	snd_hda_spdif_out_of_nid
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x810f3c56	snd_hda_multi_out_dig_open
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x81a0336a	snd_hda_jack_bind_keymap
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x82ee5ccc	snd_hda_codec_set_power_to_all
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x838a078e	snd_hda_jack_tbl_get_mst
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8ac006c4	azx_bus_init
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8be13e05	snd_hda_get_bool_hint
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x72ba5529	snd_hda_apply_verbs
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x75d7162a	snd_hda_codec_prepare
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x79c68cab	snd_hda_codec_amp_update
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x7c05259c	azx_free_streams
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x7e0894a0	snd_hda_codec_amp_stereo
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x7e3c99e1	snd_hda_shutup_pins
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x80b45cc2	snd_hda_pick_pin_fixup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x838e3491	azx_stop_chip
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x858844f1	azx_init_chip
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8b7fe625	snd_hda_input_mux_put
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8c02d491	snd_hda_set_power_save
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8cbd9269	snd_hda_shutup_pins
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8df55d43	snd_hda_get_int_hint
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8e793a0a	is_jack_detectable
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x8e4440c4	snd_hda_spdif_ctls_assign
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x90173dab	snd_hda_codec_amp_init_stereo
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9117e94f	hda_codec_driver_unregister
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x92b0d96f	snd_hda_jack_tbl_get_from_tag
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9370fe45	snd_hda_codec_prepare
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x94190479	snd_hda_codec_device_new
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x97a9a307	snd_hda_codec_setup_stream
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x98826c96	snd_hda_override_conn_list
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9a21887a	snd_hda_create_spdif_in_ctls
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9206f080	snd_hda_check_amp_caps
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9454f117	__snd_hda_add_vmaster
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x97394b98	snd_hda_override_conn_list
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x97afd7ec	snd_hda_jack_tbl_get_mst
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9814df75	snd_hda_codec_pcm_put
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9816994c	snd_hda_codec_pcm_new
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x985b6655	snd_hda_codec_set_pincfg
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x99645cff	snd_hda_codec_configure
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9a22bd4b	hda_get_autocfg_input_label
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9a5eacb5	_snd_hda_set_pin_ctl
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0x9c310bdd	snd_hda_codec_cleanup_for_unbind
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa0abdc8e	snd_hda_mixer_amp_switch_get
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa2fc4d9e	snd_hda_codec_cleanup_for_unbind
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa727ef14	snd_hda_pick_fixup
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa9a94f28	snd_hda_jack_add_kctls
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xad89f504	snd_hda_check_amp_list_power
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xadae86da	snd_hda_sequence_write
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xb0490bed	snd_hda_codec_unregister
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xb08dfc42	snd_hda_codec_load_dsp_cleanup
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xb105566b	hda_get_autocfg_input_label
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xb71d0831	snd_hda_codec_pcm_put
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xb7473fc6	snd_hda_get_conn_list
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xb96f8d67	snd_hda_codec_set_power_save
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa261b2ab	snd_hda_create_spdif_share_sw
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa3b3d87f	azx_init_streams
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa4fa4332	snd_hda_parse_pin_defcfg
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xa5977c91	snd_hda_find_mixer_ctl
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xbccb391a	snd_hda_jack_unsol_event
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xbd159bae	snd_hda_create_spdif_in_ctls
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xbe2631f7	snd_hda_mixer_amp_switch_get_beep
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc29c3fd8	snd_hda_apply_fixup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xbeed40a8	snd_hda_pick_fixup
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc0b5ff3f	snd_hda_codec_amp_init
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc3c0840d	snd_hda_mixer_amp_volume_info
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc436ff85	azx_init_streams
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xca6b3dc8	snd_hda_pick_pin_fixup
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xcc0900cf	azx_get_pos_lpib
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc3cf70fc	snd_hda_codec_set_power_to_all
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc42cd176	azx_get_pos_lpib
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc4cc2370	snd_hda_sync_vmaster_hook
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc5a51a8a	snd_hda_codec_unregister
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc6f82258	snd_hda_get_connections
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc772aa5e	snd_hda_get_hint
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc7d9ba01	snd_hda_get_bool_hint
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc83787ec	azx_get_position
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xc94b5dd9	snd_hda_codec_update_widgets
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xca7d5f0e	azx_codec_configure
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd152f358	snd_hda_codec_setup_stream
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd1677a43	snd_hda_mixer_amp_volume_put
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd53d953b	azx_get_pos_posbuf
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd6915bd0	snd_hda_get_pin_label
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd6ec1c87	snd_hda_get_default_vref
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd7671341	snd_hda_add_imux_item
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd7ebe02c	snd_hda_add_nid
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd7fa30ca	snd_hda_get_conn_index
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd81d1faf	snd_hda_codec_build_controls
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xdfaf2e88	snd_hda_jack_set_gating_jack
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd5d70ed8	snd_hda_multi_out_dig_open
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd6e4a78f	snd_hda_add_new_ctls
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd83c8cd6	snd_hda_codec_build_controls
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xd8f1de1c	snd_hda_codec_eapd_power_filter
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xded38058	snd_hda_enable_beep_device
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xdf00bad2	snd_hda_jack_detect_state_mst
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe118de5d	snd_pcm_2_1_chmaps
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe1f3df60	snd_hda_add_new_ctls
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe493003d	snd_hda_set_dev_select
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe89a8953	snd_hda_codec_amp_init
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xed660639	snd_hda_codec_amp_stereo
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xed933662	snd_hda_jack_report_sync
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe209d6a7	snd_hda_get_pin_label
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe29d8ef3	snd_hda_sequence_write
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe3fa50e7	snd_hda_jack_tbl_get_from_tag
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe4ff0d03	snd_hda_codec_set_power_save
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe6cd4be4	azx_get_pos_posbuf
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xe886c212	snd_hda_multi_out_dig_prepare
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xecd84e06	snd_hda_get_num_devices
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xeda3a721	snd_print_pcm_bits
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xee64aacd	snd_hda_jack_unsol_event
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf04935f3	snd_hda_codec_update_widgets
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf1350fe6	snd_hda_jack_poll_all
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf17a1f43	snd_hda_ctl_add
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf31249d1	_snd_hda_set_pin_ctl
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf38b474c	snd_hda_codec_load_dsp_prepare
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf79ab67c	snd_hda_find_mixer_ctl
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xee1be4d4	snd_hda_codec_device_new
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf26c3f59	snd_hda_codec_set_pin_target
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf664d2a8	azx_stop_all_streams
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf7ac9f31	snd_hda_multi_out_analog_prepare
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xf8dc35ac	snd_hda_input_mux_info
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xfa2a1214	snd_hda_codec_eapd_power_filter
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xfdcdcb15	snd_hda_enable_beep_device
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x120fbccb	snd_hda_gen_free
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x1e182870	snd_hda_gen_fix_pin_power
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x20a8e252	snd_hda_gen_spec_init
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x2784c933	snd_hda_gen_build_controls
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x369de2b2	snd_hda_get_path_from_idx
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x484918bf	snd_hda_gen_path_power_filter
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x48fda95c	snd_hda_gen_update_outputs
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x4bf6f6fd	snd_hda_gen_stream_pm
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x4fcee346	snd_hda_gen_add_micmute_led_cdev
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x5ab619d7	snd_hda_gen_check_power_status
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x63be4428	snd_hda_gen_build_pcms
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xfc4b3444	snd_hda_get_int_hint
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec 0xff468b96	snd_hda_attach_beep_device
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x140905bc	snd_hda_gen_parse_auto_config
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x18ad7ef1	snd_hda_gen_fix_pin_power
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x22512111	snd_hda_gen_mic_autoswitch
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x33d4f51b	snd_hda_get_path_idx
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x37908347	snd_hda_gen_stream_pm
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x4412a8ba	snd_hda_gen_build_pcms
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x49bc5a34	snd_hda_gen_update_outputs
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x5188e340	snd_hda_gen_hp_automute
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x5502366b	snd_hda_gen_line_automute
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x694b00e3	snd_hda_gen_check_power_status
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x7517b4ae	snd_hda_gen_free
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x76dc6871	hda_main_out_badness
 EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x871a6e44	hda_extra_out_badness
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x8e72d964	snd_hda_gen_add_mute_led_cdev
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xad139c70	snd_hda_gen_hp_automute
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xb75c35c0	snd_hda_gen_mic_autoswitch
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xd36077b2	snd_hda_gen_parse_auto_config
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xdd90a283	snd_hda_get_path_idx
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xe42dc3e5	snd_hda_gen_add_kctl
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xe46bc5f9	snd_hda_activate_path
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xe68fbef8	snd_hda_add_new_path
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xeef82ebc	snd_hda_gen_line_automute
-EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xf8f8e044	snd_hda_gen_init
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0x9b322b9c	snd_hda_get_path_from_idx
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xb67cbefe	snd_hda_activate_path
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xb964c901	snd_hda_gen_add_kctl
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xc185fe9b	snd_hda_gen_init
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xdf380caa	snd_hda_gen_build_controls
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xe4037ea8	snd_hda_gen_path_power_filter
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xe7807a47	snd_hda_add_new_path
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xeb47e6ea	snd_hda_gen_spec_init
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xf2fdccae	snd_hda_gen_add_micmute_led_cdev
+EXPORT_SYMBOL_GPL	 sound/pci/hda/snd-hda-codec-generic 0xfd60944d	snd_hda_gen_add_mute_led_cdev
 EXPORT_SYMBOL_GPL	 sound/soc/codecs/mt6359-accdet 0x443f0547	mt6359_accdet_enable_jack_detect
 EXPORT_SYMBOL_GPL	 sound/soc/codecs/snd-soc-adau-utils 0xae620be9	adau_calc_pll_cfg
 EXPORT_SYMBOL_GPL	 sound/soc/codecs/snd-soc-adau1372 0x6778092b	adau1372_regmap_config
@@ -20550,6 +20569,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0x15510a89	devlink_fmsg_binary_put
 EXPORT_SYMBOL_GPL	 vmlinux 0x1563dbdc	__inode_attach_wb
 EXPORT_SYMBOL_GPL	 vmlinux 0x157630de	pci_epf_bind
 EXPORT_SYMBOL_GPL	 vmlinux 0x157a2bca	devm_pm_opp_attach_genpd
+EXPORT_SYMBOL_GPL	 vmlinux 0x15832615	kobject_get_path
 EXPORT_SYMBOL_GPL	 vmlinux 0x15886f48	hte_disable_ts
 EXPORT_SYMBOL_GPL	 vmlinux 0x1591c085	tty_save_termios
 EXPORT_SYMBOL_GPL	 vmlinux 0x1591e9ac	timer_unstable_counter_workaround
@@ -25331,7 +25351,6 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xc3b25e80	meson_vid_pll_div_ro_ops
 EXPORT_SYMBOL_GPL	 vmlinux 0xc3b58f21	da9055_regmap_config
 EXPORT_SYMBOL_GPL	 vmlinux 0xc3b7ea31	gnttab_alloc_pages
 EXPORT_SYMBOL_GPL	 vmlinux 0xc3bab676	usb_store_new_id
-EXPORT_SYMBOL_GPL	 vmlinux 0xc3bca5aa	kobject_get_path
 EXPORT_SYMBOL_GPL	 vmlinux 0xc3c4c6cc	hash_algo_name
 EXPORT_SYMBOL_GPL	 vmlinux 0xc3ca5378	dev_pm_opp_of_get_opp_desc_node
 EXPORT_SYMBOL_GPL	 vmlinux 0xc3de65ff	ring_buffer_bytes_cpu
@@ -25646,6 +25665,7 @@ EXPORT_SYMBOL_GPL	 vmlinux 0xcf53b325	pinmux_generic_get_function
 EXPORT_SYMBOL_GPL	 vmlinux 0xcf6c372c	fib6_new_table
 EXPORT_SYMBOL_GPL	 vmlinux 0xcf6ebaa4	clk_hw_unregister_fixed_factor
 EXPORT_SYMBOL_GPL	 vmlinux 0xcf73a374	dev_pm_opp_register_set_opp_helper
+EXPORT_SYMBOL_GPL	 vmlinux 0xcf74d374	acpi_dev_get_memory_resources
 EXPORT_SYMBOL_GPL	 vmlinux 0xcf7f66f9	imx_dev_clk_hw_pll14xx
 EXPORT_SYMBOL_GPL	 vmlinux 0xcf95d8a2	__regmap_init_mmio_clk
 EXPORT_SYMBOL_GPL	 vmlinux 0xcfa1e5ef	xhci_shutdown
@@ -27019,23 +27039,23 @@ IIO_FXLS8962AF EXPORT_SYMBOL_GPL 0x608f8ed4	fxls8962af_spi_regmap_conf	drivers/i
 IIO_FXLS8962AF EXPORT_SYMBOL_GPL 0x934028f9	fxls8962af_core_probe	drivers/iio/accel/fxls8962af-core
 IIO_FXLS8962AF EXPORT_SYMBOL_GPL 0xa0b684bd	fxls8962af_pm_ops	drivers/iio/accel/fxls8962af-core
 IIO_FXLS8962AF EXPORT_SYMBOL_GPL 0xc2511a11	fxls8962af_i2c_regmap_conf	drivers/iio/accel/fxls8962af-core
-IIO_HID EXPORT_SYMBOL 0x69b2ad63	hid_sensor_read_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x575c1ded	hid_sensor_read_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x7196c25a	hid_sensor_write_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x76001429	hid_sensor_convert_timestamp	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x79a79000	hid_sensor_write_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
 IIO_HID EXPORT_SYMBOL 0x7f7621ec	hid_sensor_format_scale	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x88281ede	hid_sensor_read_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x91451b6e	hid_sensor_setup_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0x92547c41	hid_sensor_remove_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0x9391ec43	hid_sensor_parse_common_attributes	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0x9b794dee	hid_sensor_write_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0xae355582	hid_sensor_power_state	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0xae3cfa56	hid_sensor_write_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0xb573391a	hid_sensor_read_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0x8ef9a8df	hid_sensor_write_samp_freq_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xaa257960	hid_sensor_remove_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
 IIO_HID EXPORT_SYMBOL 0xb69c31c6	hid_sensor_pm_ops	drivers/iio/common/hid-sensors/hid-sensor-trigger
-IIO_HID EXPORT_SYMBOL 0xc0b756a2	hid_sensor_convert_timestamp	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID EXPORT_SYMBOL 0xc9231a8a	hid_sensor_write_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x0bf2ccee	hid_sensor_batch_mode_supported	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x10ad9818	hid_sensor_get_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xc8dcef25	hid_sensor_set_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
-IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xf8ec13b6	hid_sensor_read_poll_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xc720d843	hid_sensor_parse_common_attributes	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xc7412757	hid_sensor_power_state	drivers/iio/common/hid-sensors/hid-sensor-trigger
+IIO_HID EXPORT_SYMBOL 0xde0c04c8	hid_sensor_read_raw_hyst_rel_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID EXPORT_SYMBOL 0xe5e295e1	hid_sensor_setup_trigger	drivers/iio/common/hid-sensors/hid-sensor-trigger
+IIO_HID EXPORT_SYMBOL 0xef3c635b	hid_sensor_read_raw_hyst_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x3dd72fd4	hid_sensor_read_poll_value	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x95074844	hid_sensor_get_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0x9805add1	hid_sensor_set_report_latency	drivers/iio/common/hid-sensors/hid-sensor-iio-common
+IIO_HID_ATTRIBUTES EXPORT_SYMBOL 0xcc4a5562	hid_sensor_batch_mode_supported	drivers/iio/common/hid-sensors/hid-sensor-iio-common
 IIO_HMC5843 EXPORT_SYMBOL 0x2adb2783	hmc5843_common_probe	drivers/iio/magnetometer/hmc5843_core
 IIO_HMC5843 EXPORT_SYMBOL 0x41be4263	hmc5843_common_resume	drivers/iio/magnetometer/hmc5843_core
 IIO_HMC5843 EXPORT_SYMBOL 0x9929299e	hmc5843_common_suspend	drivers/iio/magnetometer/hmc5843_core
