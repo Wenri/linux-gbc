@@ -43,6 +43,7 @@ Build-Depends:
  rust-1.62-src [amd64],
  rustfmt-1.62 [amd64],
  bindgen-0.56 [amd64],
+ libstdc++-12-dev,
 Build-Depends-Indep:
  xmlto <!stage1>,
  docbook-utils <!stage1>,
@@ -177,6 +178,7 @@ Package: SRCPKGNAME-image-generic
 Build-Profiles: <!stage1>
 Architecture: amd64 armhf arm64 powerpc ppc64el s390x
 Section: kernel
+Provides: wireguard-modules (= 1.0.0)
 Depends:
  ${misc:Depends},
  linux-image-PKGVER-ABINUM-generic (= ${source:Version}),
