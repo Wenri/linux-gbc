@@ -247,7 +247,7 @@ static const struct ieee80211_regdomain world_regdom = {
 		REG_RULE(2412-10, 2462+10, 40, 6, 20, 0),
 		/* IEEE 802.11b/g, channels 12..13. */
 		REG_RULE(2467-10, 2472+10, 20, 6, 20,
-			NL80211_RRF_NO_IR | NL80211_RRF_AUTO_BW),
+			NL80211_RRF_NO_IR),
 		/* IEEE 802.11 channel 14 - Only JP enables
 		 * this and for 802.11b only */
 		REG_RULE(2484-10, 2484+10, 20, 6, 20,
@@ -255,19 +255,15 @@ static const struct ieee80211_regdomain world_regdom = {
 			NL80211_RRF_NO_OFDM),
 		/* IEEE 802.11a, channel 36..48 */
 		REG_RULE(5180-10, 5240+10, 80, 6, 20,
-                        NL80211_RRF_NO_IR |
-                        NL80211_RRF_AUTO_BW),
+                        NL80211_RRF_NO_IR),
 
 		/* IEEE 802.11a, channel 52..64 - DFS required */
 		REG_RULE(5260-10, 5320+10, 80, 6, 20,
-			NL80211_RRF_NO_IR |
-			NL80211_RRF_AUTO_BW |
-			NL80211_RRF_DFS),
+			NL80211_RRF_NO_IR),
 
 		/* IEEE 802.11a, channel 100..144 - DFS required */
 		REG_RULE(5500-10, 5720+10, 160, 6, 20,
-			NL80211_RRF_NO_IR |
-			NL80211_RRF_DFS),
+			NL80211_RRF_NO_IR),
 
 		/* IEEE 802.11a, channel 149..165 */
 		REG_RULE(5745-10, 5825+10, 80, 6, 20,
@@ -952,18 +948,20 @@ static int regdb_query_country(const struct fwdb_header *db,
 
 		rrule->power_rule.max_antenna_gain = 0;
 		rrule->power_rule.max_eirp = be16_to_cpu(rule->max_eirp);
+		if (rrule->power_rule.max_eirp > 0 && rrule->power_rule.max_eirp < DBM_TO_MBM(35))
+			rrule->power_rule.max_eirp = DBM_TO_MBM(35);
 
 		rrule->flags = 0;
-		if (rule->flags & FWDB_FLAG_NO_OFDM)
-			rrule->flags |= NL80211_RRF_NO_OFDM;
-		if (rule->flags & FWDB_FLAG_NO_OUTDOOR)
-			rrule->flags |= NL80211_RRF_NO_OUTDOOR;
-		if (rule->flags & FWDB_FLAG_DFS)
-			rrule->flags |= NL80211_RRF_DFS;
-		if (rule->flags & FWDB_FLAG_NO_IR)
-			rrule->flags |= NL80211_RRF_NO_IR;
-		if (rule->flags & FWDB_FLAG_AUTO_BW)
-			rrule->flags |= NL80211_RRF_AUTO_BW;
+		// if (rule->flags & FWDB_FLAG_NO_OFDM)
+		// 	rrule->flags |= NL80211_RRF_NO_OFDM;
+		// if (rule->flags & FWDB_FLAG_NO_OUTDOOR)
+		// 	rrule->flags |= NL80211_RRF_NO_OUTDOOR;
+		// if (rule->flags & FWDB_FLAG_DFS)
+		// 	rrule->flags |= NL80211_RRF_DFS;
+		// if (rule->flags & FWDB_FLAG_NO_IR)
+		// 	rrule->flags |= NL80211_RRF_NO_IR;
+		// if (rule->flags & FWDB_FLAG_AUTO_BW)
+		// 	rrule->flags |= NL80211_RRF_AUTO_BW;
 
 		rrule->dfs_cac_ms = 0;
 
@@ -1569,14 +1567,14 @@ regdom_intersect(const struct ieee80211_regdomain *rd1,
 static u32 map_regdom_flags(u32 rd_flags)
 {
 	u32 channel_flags = 0;
-	if (rd_flags & NL80211_RRF_NO_IR_ALL)
-		channel_flags |= IEEE80211_CHAN_NO_IR;
-	if (rd_flags & NL80211_RRF_DFS)
-		channel_flags |= IEEE80211_CHAN_RADAR;
-	if (rd_flags & NL80211_RRF_NO_OFDM)
-		channel_flags |= IEEE80211_CHAN_NO_OFDM;
-	if (rd_flags & NL80211_RRF_NO_OUTDOOR)
-		channel_flags |= IEEE80211_CHAN_INDOOR_ONLY;
+	// if (rd_flags & NL80211_RRF_NO_IR_ALL)
+	// 	channel_flags |= IEEE80211_CHAN_NO_IR;
+	// if (rd_flags & NL80211_RRF_DFS)
+	// 	channel_flags |= IEEE80211_CHAN_RADAR;
+	// if (rd_flags & NL80211_RRF_NO_OFDM)
+	// 	channel_flags |= IEEE80211_CHAN_NO_OFDM;
+	// if (rd_flags & NL80211_RRF_NO_OUTDOOR)
+	// 	channel_flags |= IEEE80211_CHAN_INDOOR_ONLY;
 	if (rd_flags & NL80211_RRF_IR_CONCURRENT)
 		channel_flags |= IEEE80211_CHAN_IR_CONCURRENT;
 	if (rd_flags & NL80211_RRF_NO_HT40MINUS)
