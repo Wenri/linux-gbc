@@ -1,6 +1,6 @@
-linux (6.4.9-76060409.202308081548) mantic; urgency=low
+linux (6.4.9-060409.202308081548) mantic; urgency=low
 
-  [ Mainline Build ]
   Mainline build at commit: v6.4.9
 
- -- Michael Aaron Murphy <michael@mmurphy.dev>  Wed, 09 Aug 2023 18:45:43 +0200
+ -- Mainline Build <kernel@gloin>  Tue, 08 Aug 2023 15:48:47 -0400
+
