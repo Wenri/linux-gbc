@@ -6145,3 +6145,63 @@ DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x9a2d, dpc_log_size);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x9a2f, dpc_log_size);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x9a31, dpc_log_size);
 #endif
+
+#if defined(CONFIG_X86_64) || defined(CONFIG_X86)
+
+#ifdef CONFIG_UML_X86
+#define is_vmd(bus)             false
+#endif /* CONFIG_UML_X86 */
+
+/*
+ * VMD-enabled root ports use Enhanced Configuration Access Mechanism (ECAM)
+ * access PCI Express configuration space, and offer VMD_CFGBAR as the
+ * base of PCI Express configuration space for the bridges behind it.
+ * The configuration space includes IO resources, but these IO
+ * resources are not actually used on X86, and it can result
+ * in BAR#13 assign IO resource failed. Therefor, clear IO resources
+ * by setting an IO base value greater than limit to these bridges here,
+ * so in this case, append kernel parameter "pci=hpiosize=0KB" can avoid
+ * the BAR#13 failed messages show up.
+ */
+static void quirk_vmd_no_iosize(struct pci_dev *bridge)
+{
+	u8 io_base_lo, io_limit_lo;
+	u16 io_low;
+	u32 io_upper16;
+	unsigned long io_mask,  base, limit;
+
+	io_mask = PCI_IO_RANGE_MASK;
+	if (bridge->io_window_1k)
+		io_mask = PCI_IO_1K_RANGE_MASK;
+
+	/* VMD Domain */
+	if (is_vmd(bridge->bus) && bridge->is_hotplug_bridge) {
+		pci_read_config_byte(bridge, PCI_IO_BASE, &io_base_lo);
+		pci_read_config_byte(bridge, PCI_IO_LIMIT, &io_limit_lo);
+		base = (io_base_lo & io_mask) << 8;
+		limit = (io_limit_lo & io_mask) << 8;
+		/* if there are defined io ports behind the bridge on x86,
+		 * we clear it, since there is only 64KB IO resource on it,
+		 * beyond that, hotplug io bridges don't needs IO port resource,
+		 * such as NVMes attach on it. So the corresponding range must be
+		 * turned off by writing base value greater than limit to the
+		 * bridge's base/limit registers.
+		 */
+		if (limit >= base) {
+			/* Clear upper 16 bits of I/O base/limit */
+			io_upper16 = 0;
+			/* set base value greater than limit */
+			io_low = 0x00f0;
+
+			/* Temporarily disable the I/O range before updating PCI_IO_BASE */
+			pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, 0x0000ffff);
+			/* Update lower 16 bits of I/O base/limit */
+			pci_write_config_word(bridge, PCI_IO_BASE, io_low);
+			/* Update upper 16 bits of I/O base/limit */
+			pci_write_config_dword(bridge, PCI_IO_BASE_UPPER16, io_upper16);
+		}
+	}
+}
+DECLARE_PCI_FIXUP_CLASS_HEADER(PCI_ANY_ID, PCI_ANY_ID,
+		PCI_CLASS_BRIDGE_PCI, 8, quirk_vmd_no_iosize);
+#endif
