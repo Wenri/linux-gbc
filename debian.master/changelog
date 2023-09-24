@@ -1,6 +1,0 @@
-linux (6.5.4-76060504.202309191142) mantic; urgency=low
-
-  [ Mainline Build ]
-  Mainline build at commit: v6.5.4
-
- -- Jeremy Soller <jeremy@system76.com>  Wed, 20 Sep 2023 13:11:29 -0600
