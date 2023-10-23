@@ -1,6 +1,0 @@
-linux (6.5.6-76060506.202310061235) mantic; urgency=low
-
-  [ Mainline Build ]
-  Mainline build at commit: v6.5.6
-
- -- Michael Murphy <michael@mmurphy.dev>  Fri, 13 Oct 2023 21:52:33 +0200
