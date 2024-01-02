@@ -25,6 +25,7 @@ ${NM} -n ${1} | sed >${2} -e "
 # N: debugging symbols
 # U: undefined global symbols
 # w: local weak symbols
+# W: weak symbols if they contain .c.
 / [aNUw] /d
 
 # ---------------------------------------------------------------------------
@@ -89,6 +90,9 @@ ${NM} -n ${1} | sed >${2} -e "
 
 # for LoongArch?
 / L0$/d
+
+# for weak symbols if they contain .c.
+/ W .*\.c\./d
 
 # ppc
 / _SDA_BASE_$/d

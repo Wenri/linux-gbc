@@ -48,7 +48,7 @@ EXPORT_SYMBOL(__kasan_check_write);
  * these, so that non-instrumented files can safely consider them as builtins.
  */
 #undef memset
-void *memset(void *addr, int c, size_t len)
+__used void *memset(void *addr, int c, size_t len)
 {
 	if (!kasan_check_range(addr, len, true, _RET_IP_))
 		return NULL;
@@ -58,7 +58,7 @@ void *memset(void *addr, int c, size_t len)
 
 #ifdef __HAVE_ARCH_MEMMOVE
 #undef memmove
-void *memmove(void *dest, const void *src, size_t len)
+__used void *memmove(void *dest, const void *src, size_t len)
 {
 	if (!kasan_check_range(src, len, false, _RET_IP_) ||
 	    !kasan_check_range(dest, len, true, _RET_IP_))
@@ -69,7 +69,7 @@ void *memmove(void *dest, const void *src, size_t len)
 #endif
 
 #undef memcpy
-void *memcpy(void *dest, const void *src, size_t len)
+__used void *memcpy(void *dest, const void *src, size_t len)
 {
 	if (!kasan_check_range(src, len, false, _RET_IP_) ||
 	    !kasan_check_range(dest, len, true, _RET_IP_))

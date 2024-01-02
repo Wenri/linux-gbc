@@ -3,6 +3,8 @@
 # Building vDSO images for x86.
 #
 
+KBUILD_CFLAGS +=		$(DISABLE_LTO_GCC)
+
 # Include the generic Makefile to check the built vdso.
 include $(srctree)/lib/vdso/Makefile
 
