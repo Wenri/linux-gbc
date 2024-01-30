@@ -29,9 +29,8 @@
 set -e
 
 LD="$1"
-LDFINAL="$2"
-KBUILD_LDFLAGS="$3"
-LDFLAGS_vmlinux="$4"
+KBUILD_LDFLAGS="$2"
+LDFLAGS_vmlinux="$3"
 
 is_enabled() {
 	grep -q "^$1=y" include/config/auto.conf
@@ -61,7 +60,7 @@ vmlinux_link()
 	# skip output file argument
 	shift
 
-	if is_enabled CONFIG_LTO || is_enabled CONFIG_X86_KERNEL_IBT; then
+	if is_enabled CONFIG_LTO_CLANG || is_enabled CONFIG_X86_KERNEL_IBT; then
 		# Use vmlinux.o instead of performing the slow LTO link again.
 		objs=vmlinux.o
 		libs=
@@ -83,7 +82,7 @@ vmlinux_link()
 		ldlibs="-lutil -lrt -lpthread"
 	else
 		wl=
-		ld="${LDFINAL}"
+		ld="${LD}"
 		ldflags="${KBUILD_LDFLAGS} ${LDFLAGS_vmlinux}"
 		ldlibs=
 	fi

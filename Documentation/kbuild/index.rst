@@ -22,8 +22,6 @@ Kernel Build System
     gcc-plugins
     llvm
 
-    lto-build
-
 .. only::  subproject and html
 
    Indices

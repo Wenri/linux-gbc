@@ -167,7 +167,7 @@ static void cleanup_symbol_name(char *s)
 {
 	char *res;
 
-	if (!IS_ENABLED(CONFIG_LTO))
+	if (!IS_ENABLED(CONFIG_LTO_CLANG))
 		return;
 
 	/*

@@ -1477,12 +1477,11 @@ extern struct paravirt_patch_site __start_parainstructions[],
  * convention such that we can 'call' it from assembly.
  */
 
-extern __visible void int3_magic(unsigned int *ptr); /* defined in asm */
+extern void int3_magic(unsigned int *ptr); /* defined in asm */
 
 asm (
 "	.pushsection	.init.text, \"ax\", @progbits\n"
 "	.type		int3_magic, @function\n"
-"	.globl		int3_magic\n"
 "int3_magic:\n"
 	ANNOTATE_NOENDBR
 "	movl	$1, (%" _ASM_ARG1 ")\n"
@@ -1491,7 +1490,7 @@ asm (
 "	.popsection\n"
 );
 
-extern __visible void int3_selftest_ip(void); /* defined in asm below */
+extern void int3_selftest_ip(void); /* defined in asm below */
 
 static int __init
 int3_exception_notify(struct notifier_block *self, unsigned long val, void *data)
