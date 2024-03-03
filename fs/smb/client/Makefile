@@ -3,6 +3,7 @@
 # Makefile for Linux CIFS/SMB2/SMB3 VFS client
 #
 ccflags-y += -I$(src)		# needed for trace events
+KBUILD_CFLAGS := $(filter-out $(CC_FLAGS_LTO),$(KBUILD_CFLAGS))
 obj-$(CONFIG_CIFS) += cifs.o
 
 cifs-y := trace.o cifsfs.o cifs_debug.o connect.o dir.o file.o \
