@@ -2547,22 +2547,11 @@ out:
 
 		/*
 		 * Hard protection of the working set.
+		 * Don't reclaim anon/file pages when the amount is
+		 * below the watermark of the same type.
 		 */
-		if (file) {
-			/*
-			 * Don't reclaim file pages when the amount of
-			 * clean file pages is below vm.clean_min_ratio.
-			 */
-			if (sc->clean_below_min)
-				scan = 0;
-		} else {
-			/*
-			 * Don't reclaim anonymous pages when their
-			 * amount is below vm.anon_min_ratio.
-			 */
-			if (sc->anon_below_min)
-				scan = 0;
-		}
+		if (file ? sc->clean_below_min : sc->anon_below_min)
+			scan = 0;
 
 		nr[lru] = scan;
 	}
@@ -6140,8 +6129,7 @@ again:
 	 */
 	if (reclaimable)
 		pgdat->kswapd_failures = 0;
-
-	if (sc->clean_below_min && pgdat->kswapd_failures && !sc->priority)
+	else if (sc->clean_below_min && !sc->priority)
 		invoke_oom(sc);
 }
 
