@@ -101,7 +101,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA988X_HW_2_0_VERSION,
@@ -142,7 +141,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA9887_HW_1_0_VERSION,
@@ -184,7 +182,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA6174_HW_3_2_VERSION,
@@ -221,7 +218,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA6174_HW_2_1_VERSION,
@@ -262,7 +258,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA6174_HW_2_1_VERSION,
@@ -303,7 +298,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA6174_HW_3_0_VERSION,
@@ -344,7 +338,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA6174_HW_3_2_VERSION,
@@ -389,7 +382,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = true,
 	},
 	{
 		.id = QCA99X0_HW_2_0_DEV_VERSION,
@@ -436,7 +428,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA9984_HW_1_0_DEV_VERSION,
@@ -490,7 +481,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA9888_HW_2_0_DEV_VERSION,
@@ -541,7 +531,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA9377_HW_1_0_DEV_VERSION,
@@ -582,7 +571,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA9377_HW_1_1_DEV_VERSION,
@@ -625,7 +613,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA9377_HW_1_1_DEV_VERSION,
@@ -659,7 +646,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = QCA4019_HW_1_0_DEV_VERSION,
@@ -707,7 +693,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = false,
 		.use_fw_tx_credits = true,
 		.delay_unmap_buffer = false,
-		.mcast_frame_registration = false,
 	},
 	{
 		.id = WCN3990_HW_1_0_DEV_VERSION,
@@ -741,7 +726,6 @@ static const struct ath10k_hw_params ath10k_hw_params_list[] = {
 		.hw_restart_disconnect = true,
 		.use_fw_tx_credits = false,
 		.delay_unmap_buffer = true,
-		.mcast_frame_registration = false,
 	},
 };
 
