@@ -86,7 +86,7 @@ CROSS_COMPILE ?= $(DEB_HOST_GNU_TYPE)-
 # If a given kernel wants to change this, they can do so via their own
 # $(DEBIAN)/rules.d/hooks.mk and $(DEBIAN)/rules.d/$(arch).mk files
 #
-export gcc?=gcc-13
+export gcc?=gcc-12
 GCC_BUILD_DEPENDS=\ $(gcc), $(gcc)-aarch64-linux-gnu [arm64] <cross>, $(gcc)-arm-linux-gnueabihf [armhf] <cross>, $(gcc)-powerpc64le-linux-gnu [ppc64el] <cross>, $(gcc)-riscv64-linux-gnu [riscv64] <cross>, $(gcc)-s390x-linux-gnu [s390x] <cross>, $(gcc)-x86-64-linux-gnu [amd64] <cross>,
 
 abidir		:= $(CURDIR)/$(DEBIAN)/__abi.current/$(arch)
@@ -197,7 +197,7 @@ kmake = make ARCH=$(build_arch) \
 	CROSS_COMPILE=$(CROSS_COMPILE) \
 	HOSTCC=$(HOSTCC) \
 	CC=$(CROSS_COMPILE)$(gcc) \
-	BINDGEN=bindgen-0.65 \
+	BINDGEN=bindgen \
 	KERNELRELEASE=$(abi_release)-$(target_flavour) \
 	CONFIG_DEBUG_SECTION_MISMATCH=y \
 	KBUILD_BUILD_VERSION="$(uploadnum)" \

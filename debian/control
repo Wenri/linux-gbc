@@ -6,7 +6,7 @@ XSC-Ubuntu-Compatible-Signing: ubuntu/4 pro/3
 Rules-Requires-Root: no
 Standards-Version: 3.9.4.0
 Build-Depends:
- gcc-13, gcc-13-aarch64-linux-gnu [arm64] <cross>, gcc-13-arm-linux-gnueabihf [armhf] <cross>, gcc-13-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-13-riscv64-linux-gnu [riscv64] <cross>, gcc-13-s390x-linux-gnu [s390x] <cross>, gcc-13-x86-64-linux-gnu [amd64] <cross>,
+ gcc-12, gcc-12-aarch64-linux-gnu [arm64] <cross>, gcc-12-arm-linux-gnueabihf [armhf] <cross>, gcc-12-powerpc64le-linux-gnu [ppc64el] <cross>, gcc-12-riscv64-linux-gnu [riscv64] <cross>, gcc-12-s390x-linux-gnu [s390x] <cross>, gcc-12-x86-64-linux-gnu [amd64] <cross>,
  debhelper-compat (= 10),
  cpio,
  kmod <!stage1>,
@@ -42,12 +42,11 @@ Build-Depends:
  curl <!stage1>,
  zstd <!stage1>,
  pahole [amd64 arm64 armhf ppc64el s390x riscv64] | dwarves (>= 1.21) [amd64 arm64 armhf ppc64el s390x riscv64] <!stage1>,
- clang-18 [amd64 arm64 armhf ppc64el riscv64 s390x],
+ clang-15 [amd64 arm64 armhf ppc64el riscv64 s390x],
  rustc [amd64 arm64 armhf ppc64el riscv64 s390x],
  rust-src [amd64 arm64 armhf ppc64el riscv64 s390x],
- rustfmt [amd64 arm64 armhf ppc64el riscv64 s390x],
- bindgen-0.65 [amd64 arm64 armhf ppc64el riscv64 s390x],
- libstdc++-dev,
+ bindgen [amd64 arm64 armhf ppc64el riscv64 s390x],
+ libstdc++-12-dev,
 Build-Depends-Indep:
  xmlto <!stage1>,
  bzip2 <!stage1>,
