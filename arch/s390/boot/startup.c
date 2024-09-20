@@ -333,7 +333,8 @@ static unsigned long setup_kernel_memory_layout(unsigned long kernel_size)
 	BUILD_BUG_ON(MAX_DCSS_ADDR > (1UL << MAX_PHYSMEM_BITS));
 	max_mappable = max(ident_map_size, MAX_DCSS_ADDR);
 	max_mappable = min(max_mappable, vmemmap_start);
-	__identity_base = round_down(vmemmap_start - max_mappable, rte_size);
+	if (IS_ENABLED(CONFIG_RANDOMIZE_IDENTITY_BASE))
+		__identity_base = round_down(vmemmap_start - max_mappable, rte_size);
 
 	return asce_limit;
 }
@@ -476,8 +477,12 @@ void startup_kernel(void)
 	 * before the kernel started. Therefore, in case the two sections
 	 * overlap there is no risk of corrupting any data.
 	 */
-	if (kaslr_enabled())
-		amode31_lma = randomize_within_range(vmlinux.amode31_size, PAGE_SIZE, 0, SZ_2G);
+	if (kaslr_enabled()) {
+		unsigned long amode31_min;
+
+		amode31_min = (unsigned long)_decompressor_end;
+		amode31_lma = randomize_within_range(vmlinux.amode31_size, PAGE_SIZE, amode31_min, SZ_2G);
+	}
 	if (!amode31_lma)
 		amode31_lma = text_lma - vmlinux.amode31_size;
 	physmem_reserve(RR_AMODE31, amode31_lma, vmlinux.amode31_size);
