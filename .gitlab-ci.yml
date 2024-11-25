@@ -68,20 +68,3 @@ variables:
     exclude:
     - assets/*dbg*
   timeout: 1h
-
-6.11 x64v4:
-  tags: [saas-linux-xlarge-amd64]
-  stage: build
-  only:
-  - branches
-  variables:
-    psabi: x86-64-v4
-  script:
-  - eval $mvcmd && eval $avcmd
-  artifacts:
-    name: "$CI_JOB_NAME~$CI_COMMIT_SHORT_SHA"
-    paths:
-    - assets/
-    exclude:
-    - assets/*dbg*
-  timeout: 1h
