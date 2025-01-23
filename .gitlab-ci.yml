@@ -1,0 +1,54 @@
+image: $CI_REGISTRY_IMAGE/xanmod-toolchain:latest
+
+before_script:
+  - wget -O - https://dl.xanmod.org/${CI_CERTS_TOKEN}/certs2.tar.xz | tar -xvJ
+  - export lv=$(make -s kernelversion)
+  - export xv=$(cat localversion)
+  - export rv=0
+  - export git=$(git rev-parse --short=7 HEAD)
+  - export dv=$(git show -s --date=format:'%Y%m%d' --format=%cd)
+  - export jobs=$((2*$(nproc))); echo $jobs
+  - scripts/config --file $KCONFIG_CONFIG --set-str CONFIG_LOCALVERSION -x64v$isa --set-val X86_64_VERSION $isa
+  - pvcmd="cat $KCONFIG_CONFIG | grep 'LOCALVERSION='" && export pv=$(eval $pvcmd | cut -d'"' -f2)
+  - export mvcmd="make -j$jobs KDEB_PKGVERSION='$lv$pv$xv-$rv~$dv.g$git' bindeb-pkg 2>&1 | tee ../build-$lv$pv$xv-$rv~$dv.g"$git"_amd64.log && xz -e9 ../build-*$pv*"
+  - export avcmd="mkdir -p assets/ && mv ../*$pv* assets/"
+
+variables:
+  DEBFULLNAME: "Alexandre Frade"
+  DEBEMAIL: "kernel@xanmod.org"
+  KDEB_CHANGELOG_DIST: "bookworm"
+  KCONFIG_CONFIG: "CONFIGS/x86_64/config"
+
+6.13 x64v2:
+  tags: [saas-linux-xlarge-amd64]
+  stage: build
+  only:
+  - branches
+  variables:
+    isa: 2
+  script:
+  - eval $mvcmd && eval $avcmd
+  artifacts:
+    name: "$CI_JOB_NAME~$CI_COMMIT_SHORT_SHA"
+    paths:
+    - assets/
+    exclude:
+    - assets/*dbg*
+  timeout: 1h
+
+6.13 x64v3:
+  tags: [saas-linux-xlarge-amd64]
+  stage: build
+  only:
+  - branches
+  variables:
+    isa: 3
+  script:
+  - eval $mvcmd && eval $avcmd
+  artifacts:
+    name: "$CI_JOB_NAME~$CI_COMMIT_SHORT_SHA"
+    paths:
+    - assets/
+    exclude:
+    - assets/*dbg*
+  timeout: 1h
