@@ -9,7 +9,7 @@ before_script:
   - export dv=$(git show -s --date=format:'%Y%m%d' --format=%cd)
   - export jobs=$((2*$(nproc))); echo $jobs
   - pvcmd="cat $KCONFIG_CONFIG | grep 'LOCALVERSION='" && export pv=$(eval $pvcmd | cut -d'"' -f2)
-  - export mvcmd="make -j$jobs CC='gcc-14' HOSTCC='gcc-14' KDEB_PKGVERSION='$lv$pv$xv-$rv~$dv.g$git' bindeb-pkg 2>&1 | tee ../build-$lv$pv$xv-$rv~$dv.g"$git"_amd64.log && xz -e9 ../build-*$pv*"
+  - export mvcmd="make -j$jobs KDEB_PKGVERSION='$lv$pv$xv-$rv~$dv.g$git' bindeb-pkg 2>&1 | tee ../build-$lv$pv$xv-$rv~$dv.g"$git"_amd64.log && xz -e9 ../build-*$pv*"
   - export avcmd="mkdir -p assets/ && mv ../*$pv* assets/"
 
 variables:
@@ -18,7 +18,24 @@ variables:
   KDEB_CHANGELOG_DIST: "bookworm"
   KCONFIG_CONFIG: "CONFIGS/xanmod/gcc/config_$psabi"
 
-6.11 x64v2:
+6.12 x64v1:
+  tags: [saas-linux-xlarge-amd64]
+  stage: build
+  only:
+  - branches
+  variables:
+    psabi: x86-64-v1
+  script:
+  - eval $mvcmd && eval $avcmd
+  artifacts:
+    name: "$CI_JOB_NAME~$CI_COMMIT_SHORT_SHA"
+    paths:
+    - assets/
+    exclude:
+    - assets/*dbg*
+  timeout: 1h
+
+6.12 x64v2:
   tags: [saas-linux-xlarge-amd64]
   stage: build
   only:
@@ -35,7 +52,7 @@ variables:
     - assets/*dbg*
   timeout: 1h
 
-6.11 x64v3:
+6.12 x64v3:
   tags: [saas-linux-xlarge-amd64]
   stage: build
   only:
