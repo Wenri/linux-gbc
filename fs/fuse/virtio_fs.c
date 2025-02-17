@@ -372,7 +372,7 @@ static int virtio_fs_add_queues_sysfs(struct virtio_fs *fs)
 
 		sprintf(buff, "%d", i);
 		fsvq->kobj = kobject_create_and_add(buff, fs->mqs_kobj);
-		if (!fs->mqs_kobj) {
+		if (!fsvq->kobj) {
 			ret = -ENOMEM;
 			goto out_del;
 		}
@@ -1662,6 +1662,9 @@ static int virtio_fs_get_tree(struct fs_context *fsc)
 	struct fuse_mount *fm;
 	unsigned int virtqueue_size;
 	int err = -EIO;
+
+	if (!fsc->source)
+		return invalf(fsc, "No source specified");
 
 	/* This gets a reference on virtio_fs object. This ptr gets installed
 	 * in fc->iq->priv. Once fuse_conn is going away, it calls ->put()

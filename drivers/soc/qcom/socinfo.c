@@ -789,7 +789,7 @@ static int qcom_socinfo_probe(struct platform_device *pdev)
 	if (!qs->attr.soc_id || !qs->attr.revision)
 		return -ENOMEM;
 
-	if (offsetof(struct socinfo, serial_num) <= item_size) {
+	if (offsetofend(struct socinfo, serial_num) <= item_size) {
 		qs->attr.serial_number = devm_kasprintf(&pdev->dev, GFP_KERNEL,
 							"%u",
 							le32_to_cpu(info->serial_num));
@@ -822,7 +822,7 @@ static void qcom_socinfo_remove(struct platform_device *pdev)
 
 static struct platform_driver qcom_socinfo_driver = {
 	.probe = qcom_socinfo_probe,
-	.remove_new = qcom_socinfo_remove,
+	.remove = qcom_socinfo_remove,
 	.driver  = {
 		.name = "qcom-socinfo",
 	},

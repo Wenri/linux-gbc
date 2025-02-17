@@ -2511,6 +2511,7 @@ static const struct llcc_slice_config x1e80100_data[] = {
 		.fixed_size = true,
 		.bonus_ways = 0xfff,
 		.cache_mode = 0,
+		.activate_on_init = true,
 	}, {
 		.usecase_id = LLCC_CAMEXP0,
 		.slice_id = 4,
@@ -3510,7 +3511,7 @@ static struct platform_driver qcom_llcc_driver = {
 		.of_match_table = qcom_llcc_of_match,
 	},
 	.probe = qcom_llcc_probe,
-	.remove_new = qcom_llcc_remove,
+	.remove = qcom_llcc_remove,
 };
 module_platform_driver(qcom_llcc_driver);
 
