@@ -4,6 +4,7 @@
 #
 
 obj-$(CONFIG_NFS_FS) += nfs.o
+KBUILD_CFLAGS := $(filter-out $(CC_FLAGS_LTO),$(KBUILD_CFLAGS))
 
 CFLAGS_nfstrace.o += -I$(src)
 nfs-y 			:= client.o dir.o file.o getroot.o inode.o super.o \
