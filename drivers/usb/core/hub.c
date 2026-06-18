@@ -1387,6 +1387,33 @@ enum hub_quiescing_type {
 	HUB_DISCONNECT, HUB_PRE_RESET, HUB_SUSPEND
 };
 
+/*
+ * rog-ory dock persist (out-of-tree livepatch):
+ * The HyperDrive Gen2 dock's VIA VL822 (2109:0822) 10 Gbps upstream link
+ * spontaneously drops to LTSSM SS.Inactive, whose only recovery is a warm
+ * port reset.  usb_reset_device() on the VL822 runs hub_pre_reset ->
+ * hub_quiesce(HUB_PRE_RESET), which disconnects every downstream child first,
+ * so the UAS drive + r8152 NIC behind the dock re-enumerate and lose their
+ * mounts / netdev.  For this hub -- and any hub downstream of it -- keep the
+ * subtree attached across the pre-reset quiesce (i.e. behave like HUB_SUSPEND),
+ * letting hub_activate(HUB_POST_RESET) + the hub_wq resuscitate path revive the
+ * children in place instead.  Gated by VID:PID via an ancestor walk so every
+ * other hub on the system takes the unchanged path.  (The livepatch matches on
+ * VID:PID because the dock is already enumerated; the upstream form would set a
+ * USB_QUIRK_WARM_RESET_PERSIST bit from the quirk table.)
+ */
+static bool hub_warm_reset_persist_eligible(struct usb_device *hdev)
+{
+	struct usb_device *d;
+
+	for (d = hdev; d; d = d->parent) {
+		if (le16_to_cpu(d->descriptor.idVendor) == 0x2109 &&
+		    le16_to_cpu(d->descriptor.idProduct) == 0x0822)
+			return true;
+	}
+	return false;
+}
+
 static void hub_quiesce(struct usb_hub *hub, enum hub_quiescing_type type)
 {
 	struct usb_device *hdev = hub->hdev;
@@ -1398,7 +1425,8 @@ static void hub_quiesce(struct usb_hub *hub, enum hub_quiescing_type type)
 	hub->quiescing = 1;
 	spin_unlock_irqrestore(&hub->irq_urb_lock, flags);
 
-	if (type != HUB_SUSPEND) {
+	if (type != HUB_SUSPEND &&
+	    !(type == HUB_PRE_RESET && hub_warm_reset_persist_eligible(hdev))) {
 		/* Disconnect all the children */
 		for (i = 0; i < hdev->maxchild; ++i) {
 			if (hub->ports[i]->child)
